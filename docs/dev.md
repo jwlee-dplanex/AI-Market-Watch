@@ -15,12 +15,14 @@
 | UI 상태 관리 | Alpine.js | 3.14 |
 | 벡터 검색 | pgvector | 0.3.6 |
 | 임베딩 모델 | paraphrase-multilingual-MiniLM-L12-v2 | — |
+| 차트 | Chart.js | 4.4 |
 
 ### 통신 방식
 
 - HTMX 요청 → Django view → HTML fragment 반환 (JSON 최소화)
 - fetch() / DRF 별도 API 레이어 없음
 - JSON 응답은 Alpine.js 연동이 필요한 예외 케이스에만 사용
+- Chart.js 차트 데이터는 Django template의 `json_script` 필터로 전달
 
 ### 패키지 목록 (requirements.txt)
 
@@ -34,6 +36,46 @@ anthropic==0.40.0
 sentence-transformers==3.3.1
 apscheduler==3.10.4
 gunicorn==23.0.0
+```
+
+Chart.js는 CDN으로 로드합니다 (Python 패키지 아님).
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4"></script>
+```
+
+### 대시보드 차트 (ALL-001)
+
+| 차트 | 종류 | 데이터 | 데이터 출처 |
+|------|------|--------|-------------|
+| 일별 수집 뉴스 수 추이 | Line | 최근 14일 날짜별 수집 건수 | CollectionLog |
+| 카테고리별 뉴스 비율 | Donut | 카테고리별 뉴스 수 | News |
+| 태그별 분포 | Bar | 기술 태그별 뉴스 수 | News.tags |
+
+차트 데이터는 Django view에서 `json_script` 필터로 템플릿에 전달합니다.
+
+```python
+# apps/dashboard/views.py
+def dashboard(request):
+    context = {
+        "chart_daily": list(daily_counts),      # [{date, count}, ...]
+        "chart_category": list(category_counts), # [{category, count}, ...]
+        "chart_tags": list(tag_counts),          # [{tag, count}, ...]
+    }
+    return render(request, "dashboard/index.html", context)
+```
+
+```html
+<!-- templates/dashboard/index.html -->
+{{ chart_daily|json_script:"chart-daily" }}
+{{ chart_category|json_script:"chart-category" }}
+{{ chart_tags|json_script:"chart-tags" }}
+
+<script>
+  const daily    = JSON.parse(document.getElementById('chart-daily').textContent)
+  const category = JSON.parse(document.getElementById('chart-category').textContent)
+  const tags     = JSON.parse(document.getElementById('chart-tags').textContent)
+</script>
 ```
 
 ---
@@ -405,15 +447,6 @@ if News.objects.filter(url_hash=url_hash).exists():
 ### 인사이트 생성
 
 이슈 그룹 내 뉴스 요약을 묶어 Claude Sonnet에게 전달합니다.
-
-인사이트 프롬프트에 DPLANEX 사업 맥락을 포함합니다.
-
-```
-DPLANEX 사업 맥락:
-- KANDLE: 금융권 AI 플랫폼
-- AI Studio: AI 개발·운영 환경
-- 관계사 AX 지원: 관계사 AI 전환 지원 사업
-```
 
 프롬프트 응답 형식:
 ```json
