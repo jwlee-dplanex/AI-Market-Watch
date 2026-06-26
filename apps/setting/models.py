@@ -1,3 +1,111 @@
 from django.db import models
+from apps.news.models import News
 
-# Create your models here.
+
+class DataSource(models.Model):
+    SOURCE_TYPE_CHOICES = [
+        ("api", "API"),
+        ("rss", "RSS"),
+        ("crawl", "크롤링"),
+    ]
+
+    name = models.CharField(max_length=100)
+    url = models.URLField(max_length=2000)
+    source_type = models.CharField(max_length=10, choices=SOURCE_TYPE_CHOICES)
+    schedule = models.CharField(max_length=100, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.name
+
+
+class Keyword(models.Model):
+    TYPE_COLLECT = "수집"
+    TYPE_EXCLUDE = "제외"
+    TYPE_CHOICES = [
+        (TYPE_COLLECT, "수집"),
+        (TYPE_EXCLUDE, "제외"),
+    ]
+
+    keyword = models.CharField(max_length=100)
+    keyword_type = models.CharField(max_length=10, choices=TYPE_CHOICES, default=TYPE_COLLECT)
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"[{self.keyword_type}] {self.keyword}"
+
+
+class Prompt(models.Model):
+    name = models.CharField(max_length=100)
+    purpose = models.CharField(max_length=200)
+    content = models.TextField()
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name
+
+
+class Schedule(models.Model):
+    TYPE_CHOICES = [
+        ("collect", "뉴스 수집"),
+        ("report", "보고서 생성"),
+    ]
+
+    schedule_type = models.CharField(max_length=20, choices=TYPE_CHOICES)
+    cron_expr = models.CharField(max_length=50)
+    is_active = models.BooleanField(default=True)
+    last_run_at = models.DateTimeField(null=True, blank=True)
+    next_run_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.get_schedule_type_display()} ({self.cron_expr})"
+
+
+class CollectionLog(models.Model):
+    STATUS_CHOICES = [
+        ("success", "성공"),
+        ("fail", "실패"),
+    ]
+
+    source = models.ForeignKey(DataSource, on_delete=models.SET_NULL, null=True, related_name="logs")
+    started_at = models.DateTimeField()
+    collected_count = models.IntegerField(default=0)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES)
+    error_message = models.TextField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-started_at"]
+
+    def __str__(self):
+        return f"{self.started_at:%Y-%m-%d %H:%M} — {self.status}"
+
+
+class LLMLog(models.Model):
+    STATUS_CHOICES = [
+        ("success", "성공"),
+        ("fail", "실패"),
+    ]
+
+    news = models.ForeignKey(News, on_delete=models.SET_NULL, null=True, blank=True, related_name="llm_logs")
+    prompt_name = models.CharField(max_length=100)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES)
+    input_tokens = models.IntegerField(default=0)
+    output_tokens = models.IntegerField(default=0)
+    error_message = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.prompt_name} — {self.status}"
+
+
+class SlackConfig(models.Model):
+    channel_name = models.CharField(max_length=100)
+    webhook_url = models.URLField(max_length=2000)
+    is_active = models.BooleanField(default=True)
+    last_sent_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return self.channel_name

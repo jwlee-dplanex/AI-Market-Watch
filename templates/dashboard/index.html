@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+
+{% block title %}대시보드 — AI Market Watch{% endblock %}
+{% block page_title %}전체 대시보드{% endblock %}
+
+{% block content %}
+
+<!-- 요약 지표 -->
+<div class="grid grid-cols-4 gap-4 mb-6">
+  {% for stat in stats %}
+  <div class="bg-white rounded-[10px] shadow-sm p-5 flex items-start gap-4">
+    <div class="w-10 h-10 rounded-[10px] flex items-center justify-center flex-shrink-0" style="background-color: {{ stat.color }}1A;">
+      <i data-lucide="{{ stat.icon }}" class="w-5 h-5" style="color: {{ stat.color }};"></i>
+    </div>
+    <div>
+      <p class="text-2xl font-bold text-gray-900">{{ stat.value }}</p>
+      <p class="text-sm text-gray-500 mt-0.5">{{ stat.label }}</p>
+    </div>
+  </div>
+  {% empty %}
+  <!-- 더미 지표 -->
+  <div class="bg-white rounded-[10px] shadow-sm p-5 flex items-start gap-4">
+    <div class="w-10 h-10 rounded-[10px] bg-purple-100 flex items-center justify-center flex-shrink-0">
+      <i data-lucide="newspaper" class="w-5 h-5 text-primary"></i>
+    </div>
+    <div>
+      <p class="text-2xl font-bold text-gray-900">0</p>
+      <p class="text-sm text-gray-500 mt-0.5">수집 뉴스</p>
+    </div>
+  </div>
+  <div class="bg-white rounded-[10px] shadow-sm p-5 flex items-start gap-4">
+    <div class="w-10 h-10 rounded-[10px] bg-teal-50 flex items-center justify-center flex-shrink-0">
+      <i data-lucide="layers" class="w-5 h-5 text-teal"></i>
+    </div>
+    <div>
+      <p class="text-2xl font-bold text-gray-900">0</p>
+      <p class="text-sm text-gray-500 mt-0.5">주요 이슈</p>
+    </div>
+  </div>
+  <div class="bg-white rounded-[10px] shadow-sm p-5 flex items-start gap-4">
+    <div class="w-10 h-10 rounded-[10px] bg-green-100 flex items-center justify-center flex-shrink-0">
+      <i data-lucide="lightbulb" class="w-5 h-5 text-accent"></i>
+    </div>
+    <div>
+      <p class="text-2xl font-bold text-gray-900">0</p>
+      <p class="text-sm text-gray-500 mt-0.5">인사이트</p>
+    </div>
+  </div>
+  <div class="bg-white rounded-[10px] shadow-sm p-5 flex items-start gap-4">
+    <div class="w-10 h-10 rounded-[10px] bg-orange-100 flex items-center justify-center flex-shrink-0">
+      <i data-lucide="clock" class="w-5 h-5 text-orange-500"></i>
+    </div>
+    <div>
+      <p class="text-2xl font-bold text-gray-900">—</p>
+      <p class="text-sm text-gray-500 mt-0.5">마지막 수집</p>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- 주요 이슈 + 최신 뉴스 -->
+<div class="grid grid-cols-3 gap-4 mb-6">
+
+  <!-- 주요 이슈 (2/3) -->
+  <div class="col-span-2">
+    <div class="bg-white rounded-[10px] shadow-sm p-5 h-full">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-sm font-semibold text-gray-900">주요 이슈</h2>
+        <a href="{% url 'news_list' %}" class="text-xs text-primary hover:underline">전체 보기</a>
+      </div>
+      <div class="space-y-3">
+        {% for issue in issue_groups %}
+        <div class="border border-gray-100 rounded-[10px] p-4 hover:border-primary/30 transition-colors">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold text-gray-900 truncate">{{ issue.title }}</p>
+              <p class="text-xs text-gray-500 mt-1 line-clamp-2">{{ issue.summary }}</p>
+            </div>
+            <span class="text-xs text-gray-400 whitespace-nowrap">관련 기사 {{ issue.news_count }}건</span>
+          </div>
+        </div>
+        {% empty %}
+        <div class="text-center py-12 text-gray-400">
+          <i data-lucide="inbox" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
+          <p class="text-sm">수집된 이슈가 없습니다.</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- 최신 뉴스 (1/3) -->
+  <div class="col-span-1">
+    <div class="bg-white rounded-[10px] shadow-sm p-5 h-full">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-sm font-semibold text-gray-900">최신 뉴스</h2>
+        <a href="{% url 'news_list' %}" class="text-xs text-primary hover:underline">전체 보기</a>
+      </div>
+      <div class="space-y-3">
+        {% for news in latest_news %}
+        <a href="{% url 'news_detail' news.pk %}" class="block">
+          <div class="py-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 -mx-2 px-2 rounded transition-colors">
+            <p class="text-xs font-medium text-gray-900 line-clamp-2">{{ news.title }}</p>
+            <p class="text-xs text-gray-400 mt-1">{{ news.source_type }} · {{ news.published_at|date:"m/d" }}</p>
+          </div>
+        </a>
+        {% empty %}
+        <div class="text-center py-12 text-gray-400">
+          <i data-lucide="rss" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
+          <p class="text-sm">수집된 뉴스가 없습니다.</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 차트 -->
+<div class="grid grid-cols-3 gap-4 mb-6">
+  <div class="col-span-2 bg-white rounded-[10px] shadow-sm p-5">
+    <h2 class="text-sm font-semibold text-gray-900 mb-4">일별 수집 뉴스 수 추이 (최근 14일)</h2>
+    <canvas id="chart-daily-canvas" height="80"></canvas>
+  </div>
+  <div class="bg-white rounded-[10px] shadow-sm p-5">
+    <h2 class="text-sm font-semibold text-gray-900 mb-4">카테고리별 비율</h2>
+    <canvas id="chart-category-canvas"></canvas>
+  </div>
+</div>
+<div class="bg-white rounded-[10px] shadow-sm p-5 mb-6">
+  <h2 class="text-sm font-semibold text-gray-900 mb-4">태그별 분포</h2>
+  <canvas id="chart-tags-canvas" height="60"></canvas>
+</div>
+
+{% endblock %}
+
+{% block extra_head %}
+{{ chart_daily|json_script:"chart-daily-data" }}
+{{ chart_category|json_script:"chart-category-data" }}
+{{ chart_tags|json_script:"chart-tags-data" }}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+  const daily    = JSON.parse(document.getElementById('chart-daily-data').textContent);
+  const category = JSON.parse(document.getElementById('chart-category-data').textContent);
+  const tags     = JSON.parse(document.getElementById('chart-tags-data').textContent);
+
+  const VIOLET = '#60269E';
+  const TEAL   = '#00AF9A';
+  const GREEN  = '#93D500';
+  const ORANGE = '#FF6C0E';
+  const GRAY   = '#54565A';
+  const BLUE   = '#1D4ED8';
+
+  // Line chart — 일별 수집 수
+  new Chart(document.getElementById('chart-daily-canvas'), {
+    type: 'line',
+    data: {
+      labels: daily.map(d => d.date),
+      datasets: [{
+        label: '수집 건수',
+        data: daily.map(d => d.count),
+        borderColor: VIOLET,
+        backgroundColor: VIOLET + '1A',
+        borderWidth: 2,
+        pointRadius: 3,
+        fill: true,
+        tension: 0.3,
+      }]
+    },
+    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+  });
+
+  // Donut chart — 카테고리별
+  new Chart(document.getElementById('chart-category-canvas'), {
+    type: 'doughnut',
+    data: {
+      labels: category.map(c => c.category),
+      datasets: [{
+        data: category.map(c => c.count),
+        backgroundColor: [VIOLET, TEAL, BLUE, ORANGE, GRAY],
+        borderWidth: 0,
+      }]
+    },
+    options: { plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } }, cutout: '65%' }
+  });
+
+  // Bar chart — 태그별
+  new Chart(document.getElementById('chart-tags-canvas'), {
+    type: 'bar',
+    data: {
+      labels: tags.map(t => t.tag),
+      datasets: [{
+        label: '뉴스 수',
+        data: tags.map(t => t.count),
+        backgroundColor: VIOLET + 'CC',
+        borderRadius: 4,
+      }]
+    },
+    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+  });
+})();
+</script>
+{% endblock %}

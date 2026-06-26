@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}뉴스 목록 — AI Market Watch{% endblock %}
+{% block page_title %}뉴스{% endblock %}
+
+{% block content %}
+
+<!-- 검색 & 필터 바 -->
+<div class="bg-white rounded-[10px] shadow-sm p-4 mb-4" x-data="{ categoryOpen: false, sourceOpen: false }">
+  <form method="get" class="flex items-center gap-3 flex-wrap">
+    <!-- 검색 -->
+    <div class="relative flex-1 min-w-60">
+      <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+      <input type="text" name="q" value="{{ request.GET.q }}" placeholder="뉴스 검색..."
+             class="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-[10px] focus:outline-none focus:border-primary">
+    </div>
+
+    <!-- 기간 -->
+    <input type="date" name="date_from" value="{{ request.GET.date_from }}"
+           class="text-sm border border-gray-200 rounded-[10px] px-3 py-2 focus:outline-none focus:border-primary">
+    <span class="text-gray-400 text-sm">~</span>
+    <input type="date" name="date_to" value="{{ request.GET.date_to }}"
+           class="text-sm border border-gray-200 rounded-[10px] px-3 py-2 focus:outline-none focus:border-primary">
+
+    <!-- 카테고리 필터 -->
+    <div class="relative" @click.outside="categoryOpen = false">
+      <button type="button" @click="categoryOpen = !categoryOpen"
+              class="flex items-center gap-2 text-sm border border-gray-200 rounded-[10px] px-3 py-2 hover:border-primary transition-colors">
+        카테고리 <i data-lucide="chevron-down" class="w-3 h-3"></i>
+      </button>
+      <div x-show="categoryOpen" x-transition
+           class="absolute top-full mt-1 left-0 bg-white border border-gray-200 rounded-[10px] shadow-lg z-10 py-1 min-w-36">
+        {% for value, label in categories %}
+        <label class="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-gray-50 cursor-pointer">
+          <input type="checkbox" name="category" value="{{ value }}"
+                 {% if value in selected_categories %}checked{% endif %}
+                 class="rounded text-primary">
+          {{ label }}
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- 출처 필터 -->
+    <select name="source" class="text-sm border border-gray-200 rounded-[10px] px-3 py-2 focus:outline-none focus:border-primary">
+      <option value="">전체 출처</option>
+      <option value="naver_news" {% if request.GET.source == "naver_news" %}selected{% endif %}>네이버 뉴스</option>
+      <option value="opendart" {% if request.GET.source == "opendart" %}selected{% endif %}>OpenDART</option>
+      <option value="rss" {% if request.GET.source == "rss" %}selected{% endif %}>RSS</option>
+    </select>
+
+    <button type="submit"
+            class="px-4 py-2 bg-primary text-white text-sm font-medium rounded-[10px] hover:bg-primary-hover transition-colors">
+      검색
+    </button>
+    <a href="{% url 'news_list' %}" class="text-sm text-gray-400 hover:text-gray-600">초기화</a>
+  </form>
+</div>
+
+<!-- 결과 수 & 정렬 -->
+<div class="flex items-center justify-between mb-3">
+  <p class="text-sm text-gray-500">총 <span class="font-semibold text-gray-900">{{ total_count|default:0 }}</span>건</p>
+  <select name="order" class="text-sm border border-gray-200 rounded-[10px] px-3 py-1.5 focus:outline-none focus:border-primary">
+    <option>최신순</option>
+    <option>오래된순</option>
+  </select>
+</div>
+
+<!-- 뉴스 목록 -->
+<div id="news-list" class="space-y-3">
+  {% include "news/_list.html" %}
+</div>
+
+{% endblock %}

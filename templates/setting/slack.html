@@ -1,0 +1,80 @@
+{% extends "setting/base_setting.html" %}
+
+{% block title %}Slack 설정 — AI Market Watch{% endblock %}
+
+{% block setting_content %}
+<div class="space-y-4">
+
+  <!-- 설정 카드 -->
+  <div class="bg-white rounded-[10px] shadow-sm p-5">
+    <h2 class="text-sm font-semibold text-gray-900 mb-4">Slack 전송 설정</h2>
+    <form method="post" class="space-y-4">
+      {% csrf_token %}
+
+      <div class="flex items-center justify-between py-2 border-b border-gray-100">
+        <div>
+          <p class="text-sm text-gray-700 font-medium">전송 활성화</p>
+          <p class="text-xs text-gray-400 mt-0.5">주간 보고서 생성 후 자동 전송</p>
+        </div>
+        <button type="button"
+                class="relative w-10 h-5 rounded-full transition-colors {% if config.is_active %}bg-primary{% else %}bg-gray-300{% endif %}">
+          <span class="absolute top-0.5 {% if config.is_active %}right-0.5{% else %}left-0.5{% endif %} w-4 h-4 bg-white rounded-full shadow-sm transition-all"></span>
+        </button>
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1">채널명</label>
+        <input type="text" name="channel_name" value="{{ config.channel_name|default:'' }}"
+               placeholder="#ai-market-watch"
+               class="w-full text-sm border border-gray-200 rounded-[10px] px-3 py-2 focus:outline-none focus:border-primary">
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1">Webhook URL</label>
+        <input type="url" name="webhook_url" value="{{ config.webhook_url|default:'' }}"
+               placeholder="https://hooks.slack.com/services/..."
+               class="w-full text-sm border border-gray-200 rounded-[10px] px-3 py-2 focus:outline-none focus:border-primary font-mono">
+      </div>
+
+      <div class="flex gap-3 pt-2">
+        <button type="button"
+                class="px-4 py-2 border border-gray-200 text-sm text-gray-600 rounded-[10px] hover:border-primary hover:text-primary transition-colors">
+          연결 테스트
+        </button>
+        <button type="submit"
+                class="px-4 py-2 bg-primary text-white text-sm font-medium rounded-[10px] hover:bg-primary-hover transition-colors">
+          저장
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- 전송 이력 -->
+  <div class="bg-white rounded-[10px] shadow-sm p-5">
+    <h2 class="text-sm font-semibold text-gray-900 mb-4">전송 이력</h2>
+    <table class="w-full text-xs">
+      <thead>
+        <tr class="border-b border-gray-100">
+          <th class="text-left font-semibold text-gray-500 pb-2 pr-4">전송 시각</th>
+          <th class="text-left font-semibold text-gray-500 pb-2 pr-4">보고서</th>
+          <th class="text-left font-semibold text-gray-500 pb-2">상태</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-50">
+        {% for report in sent_reports %}
+        <tr>
+          <td class="py-2.5 pr-4 text-gray-500">{{ report.slack_sent_at|date:"Y.m.d H:i" }}</td>
+          <td class="py-2.5 pr-4 text-gray-700">{{ report.title }}</td>
+          <td class="py-2.5">
+            <span class="px-2 py-0.5 rounded-full bg-green-100 text-green-700">전송 완료</span>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3" class="py-8 text-center text-gray-400">전송 이력이 없습니다.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+</div>
+{% endblock %}

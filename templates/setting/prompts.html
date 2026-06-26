@@ -1,0 +1,55 @@
+{% extends "setting/base_setting.html" %}
+
+{% block title %}프롬프트 관리 — AI Market Watch{% endblock %}
+
+{% block setting_content %}
+<div class="flex gap-4 items-start" x-data="{ selected: {{ prompts.0.id|default:'null' }} }">
+
+  <!-- 프롬프트 목록 (좌) -->
+  <div class="w-52 flex-shrink-0 bg-white rounded-[10px] shadow-sm p-2">
+    {% for prompt in prompts %}
+    <button @click="selected = {{ prompt.id }}"
+            class="w-full text-left flex items-center gap-2 px-3 py-2.5 rounded-[10px] text-sm transition-colors"
+            :class="selected === {{ prompt.id }} ? 'bg-primary/10 text-primary font-semibold' : 'text-gray-600 hover:bg-gray-50'">
+      <i data-lucide="file-text" class="w-4 h-4 flex-shrink-0"></i>
+      <span class="truncate">{{ prompt.name }}</span>
+    </button>
+    {% empty %}
+    <p class="text-xs text-gray-400 text-center py-6">프롬프트가 없습니다.</p>
+    {% endfor %}
+  </div>
+
+  <!-- 프롬프트 편집 (우) -->
+  <div class="flex-1 bg-white rounded-[10px] shadow-sm p-5">
+    {% for prompt in prompts %}
+    <div x-show="selected === {{ prompt.id }}" x-cloak>
+      <div class="flex items-start justify-between mb-4">
+        <div>
+          <h2 class="text-sm font-semibold text-gray-900">{{ prompt.name }}</h2>
+          <p class="text-xs text-gray-400 mt-0.5">{{ prompt.purpose }}</p>
+        </div>
+        <span class="text-xs text-gray-400">최종 수정: {{ prompt.updated_at|date:"Y.m.d H:i" }}</span>
+      </div>
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="prompt_id" value="{{ prompt.id }}">
+        <textarea name="content" rows="16"
+                  class="w-full text-xs font-mono border border-gray-200 rounded-[10px] p-4 focus:outline-none focus:border-primary resize-none leading-relaxed">{{ prompt.content }}</textarea>
+        <div class="flex justify-end mt-3">
+          <button type="submit"
+                  class="px-4 py-2 bg-primary text-white text-sm font-medium rounded-[10px] hover:bg-primary-hover transition-colors">
+            저장
+          </button>
+        </div>
+      </form>
+    </div>
+    {% empty %}
+    <div class="text-center py-16 text-gray-400">
+      <i data-lucide="file-text" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
+      <p class="text-sm">프롬프트를 선택하세요.</p>
+    </div>
+    {% endfor %}
+  </div>
+
+</div>
+{% endblock %}

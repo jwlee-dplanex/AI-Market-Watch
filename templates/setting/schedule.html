@@ -1,0 +1,48 @@
+{% extends "setting/base_setting.html" %}
+
+{% block title %}스케줄 관리 — AI Market Watch{% endblock %}
+
+{% block setting_content %}
+<div class="space-y-4">
+  {% for sched in schedules %}
+  <div class="bg-white rounded-[10px] shadow-sm p-5">
+    <div class="flex items-start justify-between">
+      <div class="flex-1">
+        <div class="flex items-center gap-3 mb-3">
+          <h2 class="text-sm font-semibold text-gray-900">{{ sched.get_schedule_type_display }}</h2>
+          <!-- 토글 -->
+          <button class="relative w-10 h-5 rounded-full transition-colors {% if sched.is_active %}bg-primary{% else %}bg-gray-300{% endif %}">
+            <span class="absolute top-0.5 {% if sched.is_active %}right-0.5{% else %}left-0.5{% endif %} w-4 h-4 bg-white rounded-full shadow-sm transition-all"></span>
+          </button>
+          <span class="text-xs {% if sched.is_active %}text-primary{% else %}text-gray-400{% endif %}">
+            {% if sched.is_active %}활성{% else %}비활성{% endif %}
+          </span>
+        </div>
+        <div class="grid grid-cols-4 gap-4 text-xs">
+          <div>
+            <p class="text-gray-400 mb-0.5">cron 표현식</p>
+            <p class="font-mono text-gray-700">{{ sched.cron_expr }}</p>
+          </div>
+          <div>
+            <p class="text-gray-400 mb-0.5">마지막 실행</p>
+            <p class="text-gray-700">{{ sched.last_run_at|date:"Y.m.d H:i"|default:"—" }}</p>
+          </div>
+          <div>
+            <p class="text-gray-400 mb-0.5">다음 실행</p>
+            <p class="text-gray-700">{{ sched.next_run_at|date:"Y.m.d H:i"|default:"—" }}</p>
+          </div>
+        </div>
+      </div>
+      <button class="ml-4 text-xs text-gray-400 hover:text-primary transition-colors flex items-center gap-1">
+        <i data-lucide="edit-2" class="w-3.5 h-3.5"></i> 수정
+      </button>
+    </div>
+  </div>
+  {% empty %}
+  <div class="bg-white rounded-[10px] shadow-sm p-12 text-center text-gray-400">
+    <i data-lucide="clock" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
+    <p class="text-sm">등록된 스케줄이 없습니다.</p>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

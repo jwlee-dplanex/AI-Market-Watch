@@ -1,0 +1,62 @@
+{% load tz %}
+{% for news in news_list %}
+<div class="bg-white rounded-[10px] shadow-sm p-5 hover:shadow-md transition-shadow">
+  <div class="flex items-start gap-4">
+    {% if news.image_url %}
+    <img src="{{ news.image_url }}" alt="" class="w-20 h-20 object-cover rounded-[10px] flex-shrink-0">
+    {% endif %}
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center gap-2 mb-1.5">
+        <span class="text-xs font-medium px-2 py-0.5 rounded-full
+          {% if news.category == '기술흐름' %}bg-purple-100 text-primary
+          {% elif news.category == '기업사례' %}bg-teal-100 text-teal
+          {% elif news.category == '금융권활용' %}bg-blue-100 text-blue-700
+          {% elif news.category == '규제·정책' %}bg-orange-100 text-orange-600
+          {% elif news.category == '경쟁사동향' %}bg-gray-100 text-[#54565A]
+          {% else %}bg-gray-100 text-gray-600{% endif %}">
+          {{ news.category|default:"미분류" }}
+        </span>
+        <span class="text-xs text-gray-400">{{ news.source_type }} · {{ news.published_at|date:"Y.m.d" }}</span>
+      </div>
+      <a href="{% url 'news_detail' news.pk %}"
+         class="text-sm font-semibold text-gray-900 hover:text-primary transition-colors line-clamp-1">
+        {{ news.title }}
+      </a>
+      <p class="text-xs text-gray-500 mt-1 line-clamp-2">{{ news.summary|default:news.body|truncatechars:120 }}</p>
+      {% if news.tags %}
+      <div class="flex flex-wrap gap-1 mt-2">
+        {% for tag in news.tags.기술 %}
+        <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{{ tag }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% empty %}
+<div class="bg-white rounded-[10px] shadow-sm p-12 text-center text-gray-400">
+  <i data-lucide="search-x" class="w-10 h-10 mx-auto mb-3 opacity-40"></i>
+  <p class="text-sm">검색 결과가 없습니다.</p>
+</div>
+{% endfor %}
+
+<!-- 페이지네이션 -->
+{% if is_paginated %}
+<div class="flex items-center justify-center gap-1 mt-6">
+  {% if page_obj.has_previous %}
+  <a href="?page={{ page_obj.previous_page_number }}"
+     class="px-3 py-1.5 text-sm text-gray-600 border border-gray-200 rounded-[10px] hover:border-primary transition-colors">이전</a>
+  {% endif %}
+  {% for num in page_obj.paginator.page_range %}
+  <a href="?page={{ num }}"
+     class="px-3 py-1.5 text-sm rounded-[10px] transition-colors
+            {% if num == page_obj.number %}bg-primary text-white{% else %}text-gray-600 border border-gray-200 hover:border-primary{% endif %}">
+    {{ num }}
+  </a>
+  {% endfor %}
+  {% if page_obj.has_next %}
+  <a href="?page={{ page_obj.next_page_number }}"
+     class="px-3 py-1.5 text-sm text-gray-600 border border-gray-200 rounded-[10px] hover:border-primary transition-colors">다음</a>
+  {% endif %}
+</div>
+{% endif %}

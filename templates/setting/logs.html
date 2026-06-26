@@ -1,0 +1,128 @@
+{% extends "setting/base_setting.html" %}
+
+{% block title %}로그 — AI Market Watch{% endblock %}
+
+{% block setting_content %}
+<div x-data="{ tab: 'collection' }">
+
+  <!-- 탭 -->
+  <div class="flex gap-1 mb-4 bg-white rounded-[10px] shadow-sm p-1 w-fit">
+    <button @click="tab = 'collection'"
+            class="px-4 py-2 text-xs font-medium rounded-[10px] transition-colors"
+            :class="tab === 'collection' ? 'bg-primary text-white' : 'text-gray-500 hover:bg-gray-50'">
+      수집 로그
+    </button>
+    <button @click="tab = 'llm'"
+            class="px-4 py-2 text-xs font-medium rounded-[10px] transition-colors"
+            :class="tab === 'llm' ? 'bg-primary text-white' : 'text-gray-500 hover:bg-gray-50'">
+      LLM 이력
+    </button>
+  </div>
+
+  <!-- 수집 로그 탭 -->
+  <div x-show="tab === 'collection'">
+    <div class="bg-white rounded-[10px] shadow-sm">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+        <h2 class="text-sm font-semibold text-gray-900">수집 로그</h2>
+        <div class="flex items-center gap-2">
+          <select class="text-xs border border-gray-200 rounded-[10px] px-3 py-1.5 focus:outline-none focus:border-primary">
+            <option>전체 소스</option>
+            <option>네이버 뉴스</option>
+            <option>OpenDART</option>
+            <option>RSS</option>
+          </select>
+          <select class="text-xs border border-gray-200 rounded-[10px] px-3 py-1.5 focus:outline-none focus:border-primary">
+            <option>전체 상태</option>
+            <option>성공</option>
+            <option>실패</option>
+            <option>실행 중</option>
+          </select>
+        </div>
+      </div>
+      <table class="w-full text-xs">
+        <thead>
+          <tr class="border-b border-gray-100">
+            <th class="text-left font-semibold text-gray-500 px-5 py-3 w-40">시작 시각</th>
+            <th class="text-left font-semibold text-gray-500 py-3 w-32">소스</th>
+            <th class="text-left font-semibold text-gray-500 py-3 w-24">수집 건수</th>
+            <th class="text-left font-semibold text-gray-500 py-3 w-20">상태</th>
+            <th class="text-left font-semibold text-gray-500 py-3">오류</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-50">
+          {% for log in collection_logs %}
+          <tr class="hover:bg-gray-50 transition-colors">
+            <td class="px-5 py-3 text-gray-500">{{ log.started_at|date:"m.d H:i" }}</td>
+            <td class="py-3 text-gray-700">{{ log.source.name|default:"—" }}</td>
+            <td class="py-3 text-gray-700">{{ log.collected_count }}건</td>
+            <td class="py-3">
+              <span class="px-2 py-0.5 rounded-full
+                {% if log.status == 'success' %}bg-green-100 text-green-700
+                {% elif log.status == 'failed' %}bg-red-100 text-red-600
+                {% else %}bg-yellow-100 text-yellow-700{% endif %}">
+                {{ log.get_status_display }}
+              </span>
+            </td>
+            <td class="py-3 text-red-500 truncate max-w-xs">{{ log.error_message|default:"—" }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="5" class="px-5 py-10 text-center text-gray-400">수집 로그가 없습니다.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- LLM 이력 탭 -->
+  <div x-show="tab === 'llm'">
+    <div class="bg-white rounded-[10px] shadow-sm">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+        <h2 class="text-sm font-semibold text-gray-900">LLM 이력</h2>
+        <div class="flex items-center gap-2">
+          <select class="text-xs border border-gray-200 rounded-[10px] px-3 py-1.5 focus:outline-none focus:border-primary">
+            <option>전체 상태</option>
+            <option>성공</option>
+            <option>실패</option>
+          </select>
+        </div>
+      </div>
+      <table class="w-full text-xs">
+        <thead>
+          <tr class="border-b border-gray-100">
+            <th class="text-left font-semibold text-gray-500 px-5 py-3 w-40">처리 시각</th>
+            <th class="text-left font-semibold text-gray-500 py-3 w-32">프롬프트</th>
+            <th class="text-left font-semibold text-gray-500 py-3 flex-1">뉴스 제목</th>
+            <th class="text-left font-semibold text-gray-500 py-3 w-20">입력 토큰</th>
+            <th class="text-left font-semibold text-gray-500 py-3 w-20">출력 토큰</th>
+            <th class="text-left font-semibold text-gray-500 py-3 w-20">상태</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-50">
+          {% for log in llm_logs %}
+          <tr class="hover:bg-gray-50 transition-colors">
+            <td class="px-5 py-3 text-gray-500">{{ log.created_at|date:"m.d H:i" }}</td>
+            <td class="py-3 text-gray-700">{{ log.prompt_name }}</td>
+            <td class="py-3 text-gray-500 truncate max-w-xs">
+              {% if log.news %}
+              <a href="{% url 'news_detail' log.news.pk %}" class="hover:text-primary transition-colors">{{ log.news.title }}</a>
+              {% else %}—{% endif %}
+            </td>
+            <td class="py-3 text-gray-500">{{ log.input_tokens|default:"—" }}</td>
+            <td class="py-3 text-gray-500">{{ log.output_tokens|default:"—" }}</td>
+            <td class="py-3">
+              <span class="px-2 py-0.5 rounded-full
+                {% if log.status == 'success' %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-600{% endif %}">
+                {{ log.get_status_display }}
+              </span>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" class="px-5 py-10 text-center text-gray-400">LLM 이력이 없습니다.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

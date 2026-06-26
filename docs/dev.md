@@ -311,7 +311,7 @@ ai_market_watch/
 │   │   ├── models.py        # Report, ReportNews
 │   │   ├── views.py
 │   │   └── urls.py
-│   └── administration/      # 설정 (SET-001 ~ SET-006)
+│   └── setting/             # 설정 (SET-001 ~ SET-006)
 │       ├── models.py        # DataSource, Keyword, Prompt, Schedule, SlackConfig, CollectionLog, LLMLog
 │       ├── views.py
 │       └── urls.py
@@ -330,7 +330,7 @@ ai_market_watch/
 │   │   ├── detail.html
 │   │   └── _list.html       # HTMX 파션
 │   ├── reports/
-│   └── administration/
+│   └── setting/
 │
 ├── static/
 │   ├── css/
@@ -351,12 +351,12 @@ ai_market_watch/
 | `/news/<id>/` | 뉴스 상세 (NEWS-002) |
 | `/reports/` | 보고서 목록 (REPORT-001) |
 | `/reports/<id>/` | 보고서 상세 (REPORT-002) |
-| `/administration/sources/` | 데이터 소스 (SET-001) |
-| `/administration/keywords/` | 키워드 (SET-002) |
-| `/administration/prompts/` | 프롬프트 (SET-003) |
-| `/administration/schedule/` | 스케줄 (SET-004) |
-| `/administration/slack/` | Slack (SET-005) |
-| `/administration/logs/` | 처리 이력 (SET-006) |
+| `/setting/sources/` | 데이터 소스 (SET-001) |
+| `/setting/keywords/` | 키워드 (SET-002) |
+| `/setting/prompts/` | 프롬프트 (SET-003) |
+| `/setting/schedule/` | 스케줄 (SET-004) |
+| `/setting/slack/` | Slack (SET-005) |
+| `/setting/logs/` | 처리 이력 (SET-006) |
 
 ---
 

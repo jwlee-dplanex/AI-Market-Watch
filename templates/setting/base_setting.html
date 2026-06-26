@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block page_title %}설정{% endblock %}
+
+{% block content %}
+<div class="flex gap-5 items-start">
+
+  <!-- 설정 사이드 메뉴 -->
+  <nav class="w-44 flex-shrink-0 bg-white rounded-[10px] shadow-sm p-2 sticky top-6">
+    {% for item in setting_menu %}
+    <a href="{{ item.url }}"
+       class="flex items-center gap-2 px-3 py-2 rounded-[10px] text-sm transition-colors
+              {% if item.active %}bg-primary/10 text-primary font-semibold{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
+      <i data-lucide="{{ item.icon }}" class="w-4 h-4"></i>
+      {{ item.label }}
+    </a>
+    {% endfor %}
+  </nav>
+
+  <!-- 설정 콘텐츠 -->
+  <div class="flex-1 min-w-0">
+    {% block setting_content %}{% endblock %}
+  </div>
+
+</div>
+{% endblock %}
