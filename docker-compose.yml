@@ -1,0 +1,15 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: ai_market_watch_db
+    environment:
+      POSTGRES_DB: ai_market_watch
+      POSTGRES_USER: jwlee
+      POSTGRES_PASSWORD: jwleedpx123!
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
