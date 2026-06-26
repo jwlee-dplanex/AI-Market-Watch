@@ -4,7 +4,6 @@
   <span class="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium
     {% if org.org_type == '금융사' %}bg-blue-100 text-blue-700
     {% elif org.org_type == '보험사' %}bg-teal-100 text-teal
-    {% elif org.org_type == 'IT' %}bg-gray-100 text-[#54565A]
     {% elif org.org_type == 'AI' %}bg-purple-100 text-primary
     {% endif %}">
     {{ org.name }}
@@ -42,7 +41,6 @@
       <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded
         {% if org.org_type == '금융사' %}bg-blue-100 text-blue-700
         {% elif org.org_type == '보험사' %}bg-teal-100 text-teal
-        {% elif org.org_type == 'IT' %}bg-gray-100 text-[#54565A]
         {% elif org.org_type == 'AI' %}bg-purple-100 text-primary
         {% endif %}">{{ org.org_type }}</span>
       {{ org.name }}

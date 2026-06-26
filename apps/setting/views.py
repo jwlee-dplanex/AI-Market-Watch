@@ -68,9 +68,14 @@ def logs(request):
 
 
 def organizations(request):
-    orgs = Organization.objects.all()
+    orgs = list(Organization.objects.all())
+    grouped = []
+    for value, label in Organization.ORG_TYPE_CHOICES:
+        group_orgs = [o for o in orgs if o.org_type == value]
+        grouped.append({"type": value, "label": label, "orgs": group_orgs, "count": len(group_orgs)})
     return render(request, "setting/organizations.html", {
         "setting_menu": _setting_menu("organizations"),
-        "organizations": orgs,
+        "grouped": grouped,
         "org_types": Organization.ORG_TYPE_CHOICES,
+        "total_count": len(orgs),
     })

@@ -115,7 +115,6 @@ class Organization(models.Model):
     ORG_TYPE_CHOICES = [
         ("금융사", "금융사"),
         ("보험사", "보험사"),
-        ("IT",    "IT"),
         ("AI",    "AI"),
     ]
 
