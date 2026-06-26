@@ -109,3 +109,23 @@ class SlackConfig(models.Model):
 
     def __str__(self):
         return self.channel_name
+
+
+class Organization(models.Model):
+    ORG_TYPE_CHOICES = [
+        ("금융사", "금융사"),
+        ("보험사", "보험사"),
+        ("IT",    "IT"),
+        ("AI",    "AI"),
+    ]
+
+    name      = models.CharField(max_length=100, unique=True)
+    org_type  = models.CharField(max_length=20, choices=ORG_TYPE_CHOICES)
+    aliases   = models.JSONField(default=list)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["org_type", "name"]
+
+    def __str__(self):
+        return f"[{self.org_type}] {self.name}"

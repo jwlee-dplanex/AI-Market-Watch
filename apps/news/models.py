@@ -28,6 +28,11 @@ class News(models.Model):
     is_processed = models.BooleanField(default=False)
     published_at = models.DateTimeField()
     collected_at = models.DateTimeField(auto_now_add=True)
+    organizations = models.ManyToManyField(
+        "setting.Organization",
+        blank=True,
+        related_name="news",
+    )
 
     class Meta:
         ordering = ["-published_at"]

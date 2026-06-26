@@ -1,16 +1,17 @@
 from django.shortcuts import render
 from django.urls import reverse
-from .models import DataSource, Keyword, Prompt, Schedule, CollectionLog, LLMLog, SlackConfig
+from .models import DataSource, Keyword, Prompt, Schedule, CollectionLog, LLMLog, SlackConfig, Organization
 
 
 def _setting_menu(active):
     items = [
-        {"label": "데이터 소스", "icon": "database", "name": "setting_sources", "key": "sources"},
-        {"label": "키워드", "icon": "tag", "name": "setting_keywords", "key": "keywords"},
-        {"label": "프롬프트", "icon": "file-text", "name": "setting_prompts", "key": "prompts"},
-        {"label": "스케줄", "icon": "clock", "name": "setting_schedule", "key": "schedule"},
-        {"label": "Slack", "icon": "slack", "name": "setting_slack", "key": "slack"},
-        {"label": "로그", "icon": "scroll-text", "name": "setting_logs", "key": "logs"},
+        {"label": "데이터 소스", "icon": "database",      "name": "setting_sources",       "key": "sources"},
+        {"label": "키워드",     "icon": "tag",            "name": "setting_keywords",      "key": "keywords"},
+        {"label": "기관",       "icon": "building-2",     "name": "setting_organizations", "key": "organizations"},
+        {"label": "프롬프트",   "icon": "file-text",      "name": "setting_prompts",       "key": "prompts"},
+        {"label": "스케줄",     "icon": "clock",          "name": "setting_schedule",      "key": "schedule"},
+        {"label": "Slack",      "icon": "slack",          "name": "setting_slack",         "key": "slack"},
+        {"label": "로그",       "icon": "scroll-text",    "name": "setting_logs",          "key": "logs"},
     ]
     for item in items:
         item["url"] = reverse(item["name"])
@@ -63,4 +64,13 @@ def logs(request):
         "setting_menu": _setting_menu("logs"),
         "collection_logs": CollectionLog.objects.select_related("source").order_by("-started_at")[:50],
         "llm_logs": LLMLog.objects.select_related("news").order_by("-created_at")[:50],
+    })
+
+
+def organizations(request):
+    orgs = Organization.objects.all()
+    return render(request, "setting/organizations.html", {
+        "setting_menu": _setting_menu("organizations"),
+        "organizations": orgs,
+        "org_types": Organization.ORG_TYPE_CHOICES,
     })

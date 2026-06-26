@@ -1,0 +1,56 @@
+<!-- 현재 연결된 기관 -->
+<div class="flex flex-wrap gap-1.5 mb-3" id="linked-orgs">
+  {% for org in linked_orgs %}
+  <span class="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium
+    {% if org.org_type == '금융사' %}bg-blue-100 text-blue-700
+    {% elif org.org_type == '보험사' %}bg-teal-100 text-teal
+    {% elif org.org_type == 'IT' %}bg-gray-100 text-[#54565A]
+    {% elif org.org_type == 'AI' %}bg-purple-100 text-primary
+    {% endif %}">
+    {{ org.name }}
+    <button type="button"
+            hx-post="{% url 'news_org_remove' news.pk org.pk %}"
+            hx-target="#org-panel"
+            hx-swap="innerHTML"
+            hx-include="[name=csrfmiddlewaretoken]"
+            class="hover:opacity-60 transition-opacity ml-0.5">
+      <i data-lucide="x" class="w-3 h-3"></i>
+    </button>
+  </span>
+  {% empty %}
+  <p class="text-xs text-gray-400">연결된 기관 없음 (기타로 분류)</p>
+  {% endfor %}
+</div>
+
+<!-- 기관 추가 -->
+<div x-data="{ open: false }" class="relative">
+  <button type="button" @click="open = !open"
+          class="text-xs text-primary hover:underline flex items-center gap-1">
+    <i data-lucide="plus" class="w-3 h-3"></i> 기관 추가
+  </button>
+  <div x-show="open" @click.outside="open = false" x-transition
+       class="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-[10px] shadow-lg z-20 py-1 w-44 max-h-52 overflow-y-auto">
+    {% for org in all_orgs %}
+    <button type="button"
+            hx-post="{% url 'news_org_add' news.pk %}"
+            hx-vals='{"org_pk": "{{ org.pk }}"}'
+            hx-target="#org-panel"
+            hx-swap="innerHTML"
+            hx-include="[name=csrfmiddlewaretoken]"
+            @click="open = false"
+            class="w-full text-left flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-gray-50 transition-colors">
+      <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded
+        {% if org.org_type == '금융사' %}bg-blue-100 text-blue-700
+        {% elif org.org_type == '보험사' %}bg-teal-100 text-teal
+        {% elif org.org_type == 'IT' %}bg-gray-100 text-[#54565A]
+        {% elif org.org_type == 'AI' %}bg-purple-100 text-primary
+        {% endif %}">{{ org.org_type }}</span>
+      {{ org.name }}
+    </button>
+    {% empty %}
+    <p class="px-3 py-2 text-xs text-gray-400">추가할 기관 없음</p>
+    {% endfor %}
+  </div>
+</div>
+
+<script>lucide.createIcons();</script>

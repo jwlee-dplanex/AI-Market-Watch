@@ -41,6 +41,15 @@
       </div>
     </div>
 
+    <!-- 기관 유형 필터 -->
+    <select name="org_type" class="text-sm border border-gray-200 rounded-[10px] px-3 py-2 focus:outline-none focus:border-primary
+                                   {% if org_type_filter %}border-primary text-primary font-medium{% endif %}">
+      <option value="">전체 기관</option>
+      {% for value, label in org_types %}
+      <option value="{{ value }}" {% if org_type_filter == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+
     <!-- 출처 필터 -->
     <select name="source" class="text-sm border border-gray-200 rounded-[10px] px-3 py-2 focus:outline-none focus:border-primary">
       <option value="">전체 출처</option>

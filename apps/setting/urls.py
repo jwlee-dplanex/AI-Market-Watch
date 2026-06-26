@@ -8,4 +8,5 @@ urlpatterns = [
     path("schedule/", views.schedule, name="setting_schedule"),
     path("slack/", views.slack, name="setting_slack"),
     path("logs/", views.logs, name="setting_logs"),
+    path("organizations/", views.organizations, name="setting_organizations"),
 ]
