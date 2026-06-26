@@ -1,6 +1,5 @@
 {% extends "setting/base_setting.html" %}
 
-{% block title %}프롬프트 관리 — AI Market Watch{% endblock %}
 
 {% block setting_content %}
 <div class="flex gap-4 items-start" x-data="{ selected: {{ prompts.0.id|default:'null' }} }">
@@ -10,7 +9,7 @@
     {% for prompt in prompts %}
     <button @click="selected = {{ prompt.id }}"
             class="w-full text-left flex items-center gap-2 px-3 py-2.5 rounded-[10px] text-sm transition-colors"
-            :class="selected === {{ prompt.id }} ? 'bg-primary/10 text-primary font-semibold' : 'text-gray-600 hover:bg-gray-50'">
+            :class="selected === {{ prompt.id }} ? 'bg-[#F3EAFB] border-l-2 border-primary text-primary font-semibold' : 'text-gray-600 hover:bg-gray-50'">
       <i data-lucide="file-text" class="w-4 h-4 flex-shrink-0"></i>
       <span class="truncate">{{ prompt.name }}</span>
     </button>

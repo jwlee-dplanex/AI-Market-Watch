@@ -1,6 +1,5 @@
 {% extends "setting/base_setting.html" %}
 
-{% block title %}Slack 설정 — AI Market Watch{% endblock %}
 
 {% block setting_content %}
 <div class="space-y-4">
@@ -11,15 +10,18 @@
     <form method="post" class="space-y-4">
       {% csrf_token %}
 
-      <div class="flex items-center justify-between py-2 border-b border-gray-100">
+      <div class="flex items-center justify-between py-2 border-b border-gray-100"
+           x-data="{ active: {{ config.is_active|yesno:'true,false' }} }">
         <div>
           <p class="text-sm text-gray-700 font-medium">전송 활성화</p>
           <p class="text-xs text-gray-400 mt-0.5">주간 보고서 생성 후 자동 전송</p>
         </div>
-        <button type="button"
-                class="relative w-10 h-5 rounded-full transition-colors {% if config.is_active %}bg-primary{% else %}bg-gray-300{% endif %}">
-          <span class="absolute top-0.5 {% if config.is_active %}right-0.5{% else %}left-0.5{% endif %} w-4 h-4 bg-white rounded-full shadow-sm transition-all"></span>
-        </button>
+        <label class="relative w-10 h-5 rounded-full cursor-pointer transition-colors"
+               :class="active ? 'bg-primary' : 'bg-gray-300'">
+          <input type="checkbox" name="is_active" value="1" x-model="active" class="sr-only">
+          <span class="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-all"
+                :class="active ? 'right-0.5' : 'left-0.5'"></span>
+        </label>
       </div>
 
       <div>
@@ -66,7 +68,7 @@
           <td class="py-2.5 pr-4 text-gray-500">{{ report.slack_sent_at|date:"Y.m.d H:i" }}</td>
           <td class="py-2.5 pr-4 text-gray-700">{{ report.title }}</td>
           <td class="py-2.5">
-            <span class="px-2 py-0.5 rounded-full bg-green-100 text-green-700">전송 완료</span>
+            <span class="px-2 py-0.5 rounded-full bg-[#E9F9EE] text-[#18A957]">전송 완료</span>
           </td>
         </tr>
         {% empty %}

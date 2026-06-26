@@ -1,9 +1,8 @@
 {% extends "setting/base_setting.html" %}
 
-{% block title %}기관 관리 — AI Market Watch{% endblock %}
 
 {% block setting_content %}
-<div x-data="{ activeTab: '전체' }">
+<div x-data="{ activeTab: '전체', modalOpen: false, editOrg: null }">
 
   <!-- 헤더 -->
   <div class="flex items-center justify-between mb-4">
@@ -22,76 +21,73 @@
       </button>
       {% endfor %}
     </div>
-    <button class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-primary rounded-[10px] hover:bg-primary-hover transition-colors">
+    <button @click="modalOpen=true; editOrg=null"
+            class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-primary rounded-[10px] hover:bg-primary-hover transition-colors">
       <i data-lucide="plus" class="w-3.5 h-3.5"></i> 기관 추가
     </button>
   </div>
 
-  <!-- 유형별 섹션 -->
-  {% for group in grouped %}
-  <div x-show="activeTab === '전체' || activeTab === '{{ group.type }}'" class="mb-6">
-
-    <!-- 섹션 헤더 -->
-    <div class="flex items-center gap-3 mb-2 px-1">
-      <span class="text-xs font-semibold px-2.5 py-1 rounded-full
-        {% if group.type == '금융사' %}bg-blue-100 text-blue-700
-        {% elif group.type == '보험사' %}bg-teal-100 text-teal
-        {% elif group.type == 'AI' %}bg-purple-100 text-primary
-        {% endif %}">
-        {{ group.label }}
-      </span>
-      <span class="text-xs text-gray-400">{{ group.count }}개</span>
-      <div class="flex-1 h-px bg-gray-100"></div>
+  <!-- 기관 추가/수정 Modal -->
+  <div x-show="modalOpen" x-transition
+       class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center"
+       @keydown.escape.window="modalOpen=false">
+    <div class="bg-white rounded-[10px] shadow-lg border border-[#E5E5E5] w-full max-w-md p-6"
+         @click.stop>
+      <div class="flex items-center justify-between mb-5">
+        <h3 class="text-sm font-semibold text-gray-900"
+            x-text="editOrg ? '기관 수정' : '기관 추가'"></h3>
+        <button type="button" @click="modalOpen=false"
+                class="text-gray-400 hover:text-gray-600 transition-colors">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+      <form hx-post="{% url 'setting_organization_save' %}"
+            hx-target="#org-table" hx-swap="innerHTML"
+            hx-include="[name=csrfmiddlewaretoken]"
+            @htmx:afterRequest.window="if(event.detail.successful){ modalOpen=false; $el.reset() }">
+        <input type="hidden" name="org_id" :value="editOrg ? editOrg.id : ''">
+        <div class="space-y-4">
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">기관명 <span class="text-[#D92D20]">*</span></label>
+            <input type="text" name="name"
+                   x-effect="$el.value = editOrg ? editOrg.name : ''"
+                   placeholder="예: KB국민은행" required
+                   class="w-full text-sm border border-[#E5E5E5] rounded-[10px] px-3 py-2 focus:outline-none focus:border-primary focus:ring-2 focus:ring-[rgba(96,38,158,0.14)]">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">유형 <span class="text-[#D92D20]">*</span></label>
+            <select name="org_type" required
+                    x-effect="$el.value = editOrg ? editOrg.org_type : ''"
+                    class="w-full text-sm border border-[#E5E5E5] rounded-[10px] px-3 py-2 focus:outline-none focus:border-primary focus:ring-2 focus:ring-[rgba(96,38,158,0.14)]">
+              <option value="">유형 선택</option>
+              {% for value, label in org_types %}
+              <option value="{{ value }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">별칭</label>
+            <input type="text" name="aliases"
+                   x-effect="$el.value = editOrg ? editOrg.aliases_str : ''"
+                   placeholder="예: 국민은행, KB (쉼표로 구분)"
+                   class="w-full text-sm border border-[#E5E5E5] rounded-[10px] px-3 py-2 focus:outline-none focus:border-primary focus:ring-2 focus:ring-[rgba(96,38,158,0.14)]">
+          </div>
+        </div>
+        <div class="flex gap-3 mt-6 justify-end">
+          <button type="button" @click="modalOpen=false"
+                  class="px-4 py-2 text-[#54565A] text-sm rounded-[10px] border border-[#E5E5E5] hover:border-primary hover:text-primary transition-colors">취소</button>
+          <button type="submit"
+                  class="px-4 py-2 bg-primary text-white text-sm font-medium rounded-[10px] hover:bg-primary-hover transition-colors">저장</button>
+        </div>
+      </form>
     </div>
-
-    <!-- 기관 테이블 -->
-    <div class="bg-white rounded-[10px] shadow-sm overflow-hidden">
-      {% if group.orgs %}
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="border-b border-gray-100">
-            <th class="text-left text-xs font-semibold text-gray-400 px-5 py-2.5">기관명</th>
-            <th class="text-left text-xs font-semibold text-gray-400 py-2.5">별칭</th>
-            <th class="text-left text-xs font-semibold text-gray-400 py-2.5 w-16">활성</th>
-            <th class="py-2.5 w-14"></th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-50">
-          {% for org in group.orgs %}
-          <tr class="hover:bg-gray-50 transition-colors">
-            <td class="px-5 py-3 text-xs font-medium text-gray-900">{{ org.name }}</td>
-            <td class="py-3 pr-4">
-              <div class="flex flex-wrap gap-1">
-                {% for alias in org.aliases %}
-                <span class="text-xs bg-gray-50 text-gray-500 border border-gray-200 px-1.5 py-0.5 rounded">{{ alias }}</span>
-                {% empty %}
-                <span class="text-xs text-gray-300">—</span>
-                {% endfor %}
-              </div>
-            </td>
-            <td class="py-3">
-              <span class="inline-flex w-8 h-4 rounded-full items-center cursor-pointer
-                           {% if org.is_active %}bg-primary{% else %}bg-gray-200{% endif %}">
-                <span class="w-3 h-3 rounded-full bg-white shadow-sm transition-all
-                             {% if org.is_active %}ml-4{% else %}ml-0.5{% endif %}"></span>
-              </span>
-            </td>
-            <td class="py-3 pr-4 text-right">
-              <button class="text-gray-300 hover:text-primary transition-colors">
-                <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
-              </button>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-      {% else %}
-      <p class="px-5 py-6 text-center text-xs text-gray-400">등록된 기관이 없습니다.</p>
-      {% endif %}
-    </div>
-
   </div>
-  {% endfor %}
+
+  <!-- 유형별 섹션 (HTMX target) -->
+  {% csrf_token %}
+  <div id="org-table">
+    {% include "setting/_organizations.html" %}
+  </div>
 
 </div>
 {% endblock %}
