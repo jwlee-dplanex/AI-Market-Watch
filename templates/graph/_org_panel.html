@@ -1,0 +1,31 @@
+<!-- 기관 정보 -->
+<div class="mb-4 pb-4 border-b border-gray-100">
+  <div class="flex items-center gap-2 mb-2">
+    <span class="text-xs font-semibold px-2 py-0.5 rounded-full
+      {% if org.org_type == '금융사' %}bg-blue-100 text-blue-700
+      {% elif org.org_type == '보험사' %}bg-[#E6F7F5] text-[#00AF9A]
+      {% elif org.org_type == 'AI' %}bg-[#F3EAFB] text-primary
+      {% endif %}">{{ org.org_type }}</span>
+    {% if not org.is_active %}
+    <span class="text-xs text-gray-400">(비활성)</span>
+    {% endif %}
+  </div>
+  <h3 class="text-sm font-bold text-gray-900">{{ org.name }}</h3>
+  {% if org.aliases %}
+  <p class="text-xs text-gray-400 mt-1">{{ org.aliases|join:", " }}</p>
+  {% endif %}
+</div>
+
+<!-- 관련 뉴스 -->
+<h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">관련 뉴스</h4>
+<div class="space-y-3">
+  {% for news in news_list %}
+  <a href="{% url 'news_detail' news.pk %}" class="block group">
+    <p class="text-xs font-medium text-gray-800 group-hover:text-primary transition-colors line-clamp-2 leading-relaxed">{{ news.title }}</p>
+    <p class="text-xs text-gray-400 mt-0.5">{{ news.source_type }} · {{ news.published_at|date:"m.d" }}</p>
+  </a>
+  {% empty %}
+  <p class="text-xs text-gray-400 text-center py-6">관련 뉴스가 없습니다.</p>
+  {% endfor %}
+</div>
+<script>lucide.createIcons();</script>

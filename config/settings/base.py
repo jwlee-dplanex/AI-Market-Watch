@@ -21,6 +21,7 @@ INSTALLED_APPS = [
     "apps.news",
     "apps.reports",
     "apps.setting",
+    "apps.graph",
 ]
 
 MIDDLEWARE = [

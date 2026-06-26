@@ -7,4 +7,5 @@ urlpatterns = [
     path("news/", include("apps.news.urls")),
     path("reports/", include("apps.reports.urls")),
     path("setting/", include("apps.setting.urls")),
+    path("graph/", include("apps.graph.urls")),
 ]
