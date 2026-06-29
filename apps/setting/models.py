@@ -22,9 +22,11 @@ class DataSource(models.Model):
 class Keyword(models.Model):
     TYPE_COLLECT = "수집"
     TYPE_EXCLUDE = "제외"
+    TYPE_CONTEXT = "컨텍스트"
     TYPE_CHOICES = [
         (TYPE_COLLECT, "수집"),
         (TYPE_EXCLUDE, "제외"),
+        (TYPE_CONTEXT, "컨텍스트"),
     ]
 
     keyword = models.CharField(max_length=100)

@@ -1,4 +1,4 @@
-<div class="grid grid-cols-2 gap-4">
+<div class="grid grid-cols-3 gap-4">
 
   <!-- 수집 키워드 -->
   <div class="bg-white rounded-[10px] shadow-sm p-5">
@@ -68,6 +68,43 @@
                class="flex-1 text-xs border border-[#E5E5E5] rounded-[10px] px-3 py-2 focus:outline-none focus:border-primary focus:ring-2 focus:ring-[rgba(96,38,158,0.14)]">
         <button type="submit"
                 class="px-3 py-2 bg-[#FF6C0E] text-white text-xs rounded-[10px] hover:bg-orange-600 transition-colors">추가</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- 컨텍스트 쿼리 -->
+  <div class="bg-white rounded-[10px] shadow-sm p-5">
+    <h2 class="text-sm font-semibold text-gray-900 mb-1 flex items-center gap-2">
+      <i data-lucide="search" class="w-4 h-4 text-[#00AF9A]"></i> 컨텍스트 쿼리
+    </h2>
+    <p class="text-xs text-gray-400 mb-4">기업명 없이 단독으로 검색되는 트렌드 쿼리</p>
+    <div class="flex flex-wrap gap-2 mb-4 min-h-16">
+      {% for kw in context_keywords %}
+      <span class="flex items-center gap-1 text-xs bg-[#E6F7F5] text-[#00AF9A] px-2.5 py-1 rounded-full">
+        {{ kw.keyword }}
+        <button type="button"
+                hx-post="{% url 'setting_keyword_delete' kw.pk %}"
+                hx-target="#keyword-panel" hx-swap="innerHTML"
+                hx-include="[name=csrfmiddlewaretoken]"
+                hx-confirm="'{{ kw.keyword }}' 쿼리를 삭제하시겠습니까?"
+                class="hover:text-[#D92D20] transition-colors ml-1">
+          <i data-lucide="x" class="w-3 h-3"></i>
+        </button>
+      </span>
+      {% empty %}
+      <p class="text-xs text-gray-400 w-full text-center py-4">컨텍스트 쿼리가 없습니다.</p>
+      {% endfor %}
+    </div>
+    <form hx-post="{% url 'setting_keyword_add' %}"
+          hx-target="#keyword-panel" hx-swap="innerHTML"
+          hx-include="[name=csrfmiddlewaretoken]"
+          x-data="{ v: '' }" @submit="$nextTick(() => v = '')">
+      <input type="hidden" name="keyword_type" value="{{ TYPE_CONTEXT }}">
+      <div class="flex gap-2">
+        <input type="text" name="keyword" x-model="v" placeholder="예) 금융권 AI 규제"
+               class="flex-1 text-xs border border-[#E5E5E5] rounded-[10px] px-3 py-2 focus:outline-none focus:border-[#00AF9A] focus:ring-2 focus:ring-[rgba(0,175,154,0.14)]">
+        <button type="submit"
+                class="px-3 py-2 bg-[#00AF9A] text-white text-xs rounded-[10px] hover:bg-teal-600 transition-colors">추가</button>
       </div>
     </form>
   </div>

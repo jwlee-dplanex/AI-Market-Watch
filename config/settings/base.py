@@ -81,6 +81,12 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+NAVER_CLIENT_ID         = env("NAVER_CLIENT_ID", default="")
+NAVER_CLIENT_SECRET     = env("NAVER_CLIENT_SECRET", default="")
+NAVER_DISPLAY_PER_QUERY = env.int("NAVER_DISPLAY_PER_QUERY", default=5)
+NAVER_MAX_PER_ORG       = env.int("NAVER_MAX_PER_ORG", default=8)
+NAVER_REQUEST_DELAY     = env.float("NAVER_REQUEST_DELAY", default=0.25)
+
 ANTHROPIC_MODEL_FAST = env("ANTHROPIC_MODEL_FAST", default="claude-haiku-4-5-20251001")
 ANTHROPIC_MODEL_SMART = env("ANTHROPIC_MODEL_SMART", default="claude-sonnet-4-6")
 EMBEDDING_MODEL = env("EMBEDDING_MODEL", default="paraphrase-multilingual-MiniLM-L12-v2")

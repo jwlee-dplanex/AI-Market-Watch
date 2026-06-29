@@ -29,10 +29,12 @@ def sources(request):
 
 def _keyword_context():
     return {
-        "collect_keywords": Keyword.objects.filter(keyword_type=Keyword.TYPE_COLLECT),
-        "exclude_keywords": Keyword.objects.filter(keyword_type=Keyword.TYPE_EXCLUDE),
+        "collect_keywords": Keyword.objects.filter(keyword_type=Keyword.TYPE_COLLECT, is_active=True),
+        "exclude_keywords": Keyword.objects.filter(keyword_type=Keyword.TYPE_EXCLUDE, is_active=True),
+        "context_keywords": Keyword.objects.filter(keyword_type=Keyword.TYPE_CONTEXT, is_active=True),
         "TYPE_COLLECT": Keyword.TYPE_COLLECT,
         "TYPE_EXCLUDE": Keyword.TYPE_EXCLUDE,
+        "TYPE_CONTEXT": Keyword.TYPE_CONTEXT,
     }
 
 
