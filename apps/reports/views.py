@@ -3,7 +3,7 @@ from .models import Report
 
 
 def report_list(request):
-    reports = Report.objects.order_by("-year", "-week")
+    reports = Report.objects.order_by("-date_from")
     return render(request, "reports/list.html", {"reports": reports})
 
 

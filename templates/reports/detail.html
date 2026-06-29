@@ -22,12 +22,12 @@
 <nav class="flex items-center gap-2 text-xs text-gray-400 mb-4">
   <a href="{% url 'report_list' %}" class="hover:text-primary">보고서</a>
   <i data-lucide="chevron-right" class="w-3 h-3"></i>
-  <span class="text-gray-600">{{ report.year }}년 {{ report.week }}주차</span>
+  <span class="text-gray-600">{{ report.get_period_type_display }} · {{ report.date_from|date:"Y.m.d" }}</span>
 </nav>
 
 <!-- 보고서 헤더 (Violet 그라디언트) -->
 <div class="rounded-[10px] p-6 mb-5 text-white" style="background: linear-gradient(135deg, #60269E 0%, #401771 100%);">
-  <p class="text-sm font-semibold text-white/70 mb-1">{{ report.year }}년 {{ report.week }}주차</p>
+  <p class="text-sm font-semibold text-white/70 mb-1">{{ report.get_period_type_display }}</p>
   <h1 class="text-xl font-bold font-serif mb-2">{{ report.title }}</h1>
   <p class="text-sm text-white/70">{{ report.date_from|date:"Y.m.d" }} ~ {{ report.date_to|date:"Y.m.d" }}</p>
 </div>
@@ -37,7 +37,7 @@
 <div class="bg-white rounded-[10px] shadow-sm p-6 mb-4">
   <h2 class="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
     <i data-lucide="trending-up" class="w-4 h-4 text-primary"></i>
-    이번 주 주요 동향
+    주요 동향
   </h2>
   <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{{ report.overview }}</div>
 </div>
