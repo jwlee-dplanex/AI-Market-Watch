@@ -12,19 +12,6 @@ def dashboard(request):
     today = timezone.localdate()
     two_weeks_ago = today - datetime.timedelta(days=13)
 
-    today_count = News.objects.filter(collected_at__date=today).count()
-    total_news = News.objects.count()
-    last_news = News.objects.order_by("-collected_at").first()
-    last_collected_str = last_news.collected_at.strftime("%m/%d %H:%M") if last_news else "—"
-    issue_count = IssueGroup.objects.count()
-
-    stats = [
-        {"label": "오늘 수집",   "value": today_count,       "icon": "newspaper", "color": "#60269E"},
-        {"label": "전체 뉴스",   "value": total_news,         "icon": "database",  "color": "#1D4ED8"},
-        {"label": "주요 이슈",   "value": issue_count,        "icon": "layers",    "color": "#00AF9A"},
-        {"label": "마지막 수집", "value": last_collected_str, "icon": "clock",     "color": "#FF6C0E"},
-    ]
-
     issue_groups = (
         IssueGroup.objects
         .annotate(news_count=Count("issuegroupnews"))
@@ -66,7 +53,6 @@ def dashboard(request):
     chart_tags = [{"tag": t, "count": c} for t, c in tag_counter.most_common(10)]
 
     return render(request, "dashboard/index.html", {
-        "stats": stats,
         "issue_groups": issue_groups,
         "latest_news": latest_news,
         "chart_daily": chart_daily,

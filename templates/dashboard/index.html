@@ -4,58 +4,6 @@
 
 {% block content %}
 
-<!-- 요약 지표 -->
-<div class="grid grid-cols-4 gap-4 mb-6">
-  {% for stat in stats %}
-  <div class="bg-white rounded-[10px] shadow-sm p-5 flex items-start gap-4">
-    <div class="w-10 h-10 rounded-[10px] flex items-center justify-center flex-shrink-0" style="background-color: {{ stat.color }}1A;">
-      <i data-lucide="{{ stat.icon }}" class="w-5 h-5" style="color: {{ stat.color }};"></i>
-    </div>
-    <div>
-      <p class="text-2xl font-bold text-gray-900">{{ stat.value }}</p>
-      <p class="text-sm text-gray-500 mt-0.5">{{ stat.label }}</p>
-    </div>
-  </div>
-  {% empty %}
-  <!-- 더미 지표 -->
-  <div class="bg-white rounded-[10px] shadow-sm p-5 flex items-start gap-4">
-    <div class="w-10 h-10 rounded-[10px] bg-purple-100 flex items-center justify-center flex-shrink-0">
-      <i data-lucide="newspaper" class="w-5 h-5 text-primary"></i>
-    </div>
-    <div>
-      <p class="text-2xl font-bold text-gray-900">0</p>
-      <p class="text-sm text-gray-500 mt-0.5">수집 뉴스</p>
-    </div>
-  </div>
-  <div class="bg-white rounded-[10px] shadow-sm p-5 flex items-start gap-4">
-    <div class="w-10 h-10 rounded-[10px] bg-teal-50 flex items-center justify-center flex-shrink-0">
-      <i data-lucide="layers" class="w-5 h-5 text-teal"></i>
-    </div>
-    <div>
-      <p class="text-2xl font-bold text-gray-900">0</p>
-      <p class="text-sm text-gray-500 mt-0.5">주요 이슈</p>
-    </div>
-  </div>
-  <div class="bg-white rounded-[10px] shadow-sm p-5 flex items-start gap-4">
-    <div class="w-10 h-10 rounded-[10px] bg-green-100 flex items-center justify-center flex-shrink-0">
-      <i data-lucide="lightbulb" class="w-5 h-5 text-accent"></i>
-    </div>
-    <div>
-      <p class="text-2xl font-bold text-gray-900">0</p>
-      <p class="text-sm text-gray-500 mt-0.5">인사이트</p>
-    </div>
-  </div>
-  <div class="bg-white rounded-[10px] shadow-sm p-5 flex items-start gap-4">
-    <div class="w-10 h-10 rounded-[10px] bg-orange-100 flex items-center justify-center flex-shrink-0">
-      <i data-lucide="clock" class="w-5 h-5 text-orange-500"></i>
-    </div>
-    <div>
-      <p class="text-2xl font-bold text-gray-900">—</p>
-      <p class="text-sm text-gray-500 mt-0.5">마지막 수집</p>
-    </div>
-  </div>
-  {% endfor %}
-</div>
 
 <!-- 주요 이슈 + 최신 뉴스 -->
 <div class="grid grid-cols-3 gap-4 mb-6">
