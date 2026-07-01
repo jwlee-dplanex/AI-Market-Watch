@@ -3,39 +3,45 @@
 {% block page_title %}지식그래프{% endblock %}
 
 {% block content %}
+<style>
+  #graph-svg { cursor: grab; user-select: none; }
+  #graph-svg:active { cursor: grabbing; }
+  .node-g text { font-family: "Malgun Gothic", "맑은 고딕", system-ui, sans-serif; }
+</style>
+
 <div class="flex gap-4" style="height: calc(100vh - 5.5rem);">
 
   <!-- 그래프 캔버스 -->
   <div class="flex-1 bg-white rounded-[10px] shadow-sm overflow-hidden relative">
 
-    <!-- 범례 -->
-    <div class="absolute top-4 left-4 z-10 flex items-center gap-4 bg-white/90 backdrop-blur-sm rounded-[10px] px-4 py-2 shadow-sm border border-[#E5E5E5]">
-      <span class="flex items-center gap-1.5 text-xs text-gray-600">
+    <!-- 범례 — 클릭으로 타입 토글 -->
+    <div class="absolute top-4 left-4 z-10 flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-[10px] px-3 py-2 shadow-sm border border-[#E5E5E5]">
+      <button onclick="toggleCategory(0, this)"
+              class="flex items-center gap-1.5 text-xs text-gray-600 px-2 py-1 rounded-full hover:bg-gray-50 transition-all select-none">
         <span class="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span>금융사
-      </span>
-      <span class="flex items-center gap-1.5 text-xs text-gray-600">
+      </button>
+      <button onclick="toggleCategory(1, this)"
+              class="flex items-center gap-1.5 text-xs text-gray-600 px-2 py-1 rounded-full hover:bg-gray-50 transition-all select-none">
         <span class="w-2.5 h-2.5 rounded-full bg-[#00AF9A] inline-block"></span>보험사
-      </span>
-      <span class="flex items-center gap-1.5 text-xs text-gray-600">
+      </button>
+      <button onclick="toggleCategory(2, this)"
+              class="flex items-center gap-1.5 text-xs text-gray-600 px-2 py-1 rounded-full hover:bg-gray-50 transition-all select-none">
         <span class="w-2.5 h-2.5 rounded-full bg-primary inline-block"></span>AI
-      </span>
+      </button>
     </div>
 
     <!-- 통계 -->
     <div class="absolute top-4 right-4 z-10 text-xs text-gray-400 bg-white/90 backdrop-blur-sm rounded-[10px] px-3 py-2 shadow-sm border border-[#E5E5E5]">
-      기관 {{ org_count }}개
-      {% if edge_count %} · 연결 {{ edge_count }}개{% endif %}
+      기관 {{ org_count }}개{% if edge_count %} · 연결 {{ edge_count }}개{% endif %}
     </div>
 
-    <!-- ECharts 캔버스 -->
-    <div id="graph-canvas" class="w-full h-full"></div>
-
-    <!-- 뉴스 없을 때 오버레이 -->
     {% if not edge_count %}
-    <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none" style="margin-top: 3rem;">
+    <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none" style="margin-top:3rem;">
       <p class="text-xs text-gray-300 mt-2">뉴스가 수집되면 기관 간 연결이 표시됩니다.</p>
     </div>
     {% endif %}
+
+    <svg id="graph-svg" class="w-full h-full"></svg>
   </div>
 
   <!-- 기관 패널 -->
@@ -53,73 +59,117 @@
 {{ nodes|json_script:"graph-nodes" }}
 {{ edges|json_script:"graph-edges" }}
 
-<!-- ECharts -->
-<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <script>
-const nodes = JSON.parse(document.getElementById('graph-nodes').textContent);
-const edges = JSON.parse(document.getElementById('graph-edges').textContent);
+const CAT_COLORS = ['#3B82F6', '#00AF9A', '#60269E'];
 
-const chart = echarts.init(document.getElementById('graph-canvas'));
+const rawNodes = JSON.parse(document.getElementById('graph-nodes').textContent);
+const rawEdges = JSON.parse(document.getElementById('graph-edges').textContent);
 
-chart.setOption({
-  backgroundColor: 'transparent',
-  series: [{
-    type: 'graph',
-    layout: 'force',
-    data: nodes,
-    links: edges,
-    categories: [
-      { name: '금융사', itemStyle: { color: '#3B82F6' } },
-      { name: '보험사', itemStyle: { color: '#00AF9A' } },
-      { name: 'AI',    itemStyle: { color: '#60269E' } },
-    ],
-    roam: true,
-    draggable: true,
-    label: {
-      show: true,
-      fontSize: 11,
-      color: '#54565A',
-      position: 'bottom',
-    },
-    lineStyle: {
-      color: '#D1D5DB',
-      curveness: 0.1,
-    },
-    emphasis: {
-      focus: 'adjacency',
-      itemStyle: { shadowBlur: 10, shadowColor: 'rgba(96,38,158,0.3)' },
-      lineStyle: { color: '#60269E', width: 2 },
-    },
-    force: {
-      repulsion: 350,
-      gravity: 0.05,
-      edgeLength: [80, 220],
-      layoutAnimation: true,
-    },
-    edgeSymbol: ['none', 'none'],
-  }]
+// 인접 맵 — D3가 edges를 변환하기 전에 string id 기준으로 구성
+const neigh = {};
+rawNodes.forEach(n => { neigh[n.id] = new Set(); });
+rawEdges.forEach(e => {
+  neigh[e.source]?.add(e.target);
+  neigh[e.target]?.add(e.source);
 });
 
-// 엣지 굵기 — 공통 뉴스 수에 비례
-chart.setOption({
-  series: [{
-    links: edges.map(e => ({
-      ...e,
-      lineStyle: { width: Math.min(1 + e.value, 6) }
-    }))
-  }]
+// D3가 원본을 변경하므로 복사본 사용
+const nodes = rawNodes.map(n => ({ ...n }));
+const edges = rawEdges.map(e => ({ ...e }));
+
+const svgEl = document.getElementById('graph-svg');
+let W = svgEl.clientWidth, H = svgEl.clientHeight;
+
+const svg = d3.select('#graph-svg');
+const g   = svg.append('g');
+
+svg.call(
+  d3.zoom().scaleExtent([0.2, 4]).on('zoom', e => g.attr('transform', e.transform))
+);
+
+// Force 시뮬레이션 — alpha가 자연 수렴하면 완전히 정지 (깜빡임 없음)
+const sim = d3.forceSimulation(nodes)
+  .force('link',    d3.forceLink(edges).id(d => d.id).distance(110).strength(0.5))
+  .force('charge',  d3.forceManyBody().strength(-420))
+  .force('center',  d3.forceCenter(W / 2, H / 2))
+  .force('collide', d3.forceCollide().radius(d => d.symbolSize / 2 + 16));
+
+// 엣지 — 공통 기사 수에 비례한 굵기
+const link = g.append('g')
+  .selectAll('line').data(edges).join('line')
+  .attr('stroke', '#D1D5DB')
+  .attr('stroke-opacity', 0.6)
+  .attr('stroke-width', d => Math.min(1 + d.value * 0.5, 5));
+
+// 노드 그룹
+const node = g.append('g')
+  .selectAll('g').data(nodes).join('g')
+  .attr('class', 'node-g')
+  .style('cursor', 'pointer')
+  .call(
+    d3.drag()
+      .on('start', (e, d) => { if (!e.active) sim.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+      .on('drag',  (e, d) => { d.fx = e.x; d.fy = e.y; })
+      .on('end',   (e, d) => { if (!e.active) sim.alphaTarget(0); d.fx = null; d.fy = null; })
+  )
+  .on('click', (e, d) => { e.stopPropagation(); selectNode(d); });
+
+node.append('circle')
+  .attr('r',            d => d.symbolSize / 2)
+  .attr('fill',         d => CAT_COLORS[d.category] ?? CAT_COLORS[0])
+  .attr('stroke',       '#fff')
+  .attr('stroke-width', 2);
+
+node.append('text')
+  .attr('dy',             d => d.symbolSize / 2 + 13)
+  .attr('text-anchor',    'middle')
+  .attr('font-size',      11)
+  .attr('fill',           '#54565A')
+  .attr('pointer-events', 'none')
+  .text(d => d.name);
+
+sim.on('tick', () => {
+  link
+    .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+    .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+  node.attr('transform', d => `translate(${d.x},${d.y})`);
 });
 
-// 노드 클릭 → HTMX 패널 로드
-chart.on('click', 'series', function(params) {
-  if (params.dataType === 'node') {
-    htmx.ajax('GET', `/graph/orgs/${params.data.id}/panel/`, {
-      target: '#org-panel',
-      swap: 'innerHTML'
-    });
-  }
+// 배경 클릭 → 하이라이트 초기화
+svg.on('click', () => {
+  node.style('opacity', 1);
+  link.attr('stroke', '#D1D5DB').attr('stroke-opacity', 0.6);
 });
 
-window.addEventListener('resize', () => chart.resize());
+function selectNode(d) {
+  const adj = neigh[d.id] || new Set();
+
+  // 비인접 노드 페이드
+  node.style('opacity', n => (n.id === d.id || adj.has(n.id)) ? 1 : 0.08);
+  link
+    .attr('stroke',         l => (l.source.id === d.id || l.target.id === d.id) ? '#60269E' : '#D1D5DB')
+    .attr('stroke-opacity', l => (l.source.id === d.id || l.target.id === d.id) ? 0.9 : 0.05);
+
+  htmx.ajax('GET', `/graph/orgs/${d.id}/panel/`, { target: '#org-panel', swap: 'innerHTML' });
+}
+
+// 범례 클릭 → 타입별 노드/엣지 토글
+const hiddenCats = new Set();
+function toggleCategory(cat, btn) {
+  if (hiddenCats.has(cat)) { hiddenCats.delete(cat); btn.style.opacity = '1'; }
+  else                      { hiddenCats.add(cat);    btn.style.opacity = '0.35'; }
+
+  node.style('display', d => hiddenCats.has(d.category) ? 'none' : null);
+  link.style('display', l =>
+    (hiddenCats.has(l.source.category) || hiddenCats.has(l.target.category)) ? 'none' : null
+  );
+}
+
+window.addEventListener('resize', () => {
+  W = svgEl.clientWidth;
+  H = svgEl.clientHeight;
+  sim.force('center', d3.forceCenter(W / 2, H / 2)).alpha(0.3).restart();
+});
 </script>
 {% endblock %}
