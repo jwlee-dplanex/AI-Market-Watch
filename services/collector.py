@@ -142,6 +142,7 @@ def collect_naver() -> dict:
                     stats["crawl_failed"] += 1
 
                 news.organizations.add(org)
+                _link_organizations(news, full_body or body, orgs)
                 accepted += 1
                 stats["collected"] += 1
 
