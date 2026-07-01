@@ -39,7 +39,7 @@
   </div>
 
   <!-- 기관 추가/수정 Modal -->
-  <div x-show="modalOpen" x-transition
+  <div x-show="modalOpen" x-cloak x-transition
        class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center"
        @keydown.escape.window="modalOpen=false">
     <div class="bg-white rounded-[10px] shadow-lg border border-[#E5E5E5] w-full max-w-md p-6"

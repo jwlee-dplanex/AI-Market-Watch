@@ -17,7 +17,7 @@
   <article class="flex-1 min-w-0 space-y-4">
 
     <!-- 헤더 -->
-    <div class="bg-white rounded-[10px] shadow-sm p-6">
+    <div class="bg-white rounded-[10px] shadow-sm p-6" x-data="{ delOpen: false }">
       <div class="flex items-center gap-2 mb-3">
         <span class="text-xs font-medium px-2.5 py-1 rounded-full
           {% if news.category == '기술흐름' %}bg-purple-100 text-primary
@@ -31,12 +31,39 @@
         <span class="text-xs text-gray-400">{{ news.source_type }}</span>
         <span class="text-xs text-gray-300">·</span>
         <span class="text-xs text-gray-400">{{ news.published_at|date:"Y년 m월 d일" }}</span>
-        <a href="{{ news.url }}" target="_blank" rel="noopener"
-           class="ml-auto flex items-center gap-1 text-xs text-primary hover:underline">
-          원문 보기 <i data-lucide="external-link" class="w-3 h-3"></i>
-        </a>
+        <div class="ml-auto flex items-center gap-3">
+          <a href="{{ news.url }}" target="_blank" rel="noopener"
+             class="flex items-center gap-1 text-xs text-primary hover:underline">
+            원문 보기 <i data-lucide="external-link" class="w-3 h-3"></i>
+          </a>
+          <button @click="delOpen = true"
+                  class="flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 transition-colors">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> 삭제
+          </button>
+        </div>
       </div>
       <h1 class="text-xl font-bold text-gray-900 font-serif leading-snug">{{ news.title }}</h1>
+
+      <!-- 삭제 확인 모달 -->
+      <div x-show="delOpen" x-cloak class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center"
+           @click="delOpen = false" @keydown.escape.window="delOpen = false">
+        <div class="bg-white rounded-[10px] p-6 shadow-xl w-[90%] max-w-sm" @click.stop>
+          <p class="text-sm font-semibold text-gray-900 mb-1">뉴스를 삭제하시겠습니까?</p>
+          <p class="text-xs text-gray-500 mb-5">삭제된 뉴스는 복구할 수 없습니다.</p>
+          <div class="flex gap-3 justify-end">
+            <button @click="delOpen = false"
+                    class="px-4 py-2 text-sm text-gray-500 border border-gray-200 rounded-[10px] hover:bg-gray-50 transition-colors">
+              취소
+            </button>
+            <button hx-post="{% url 'news_delete' news.uid %}"
+                    hx-include="[name=csrfmiddlewaretoken]"
+                    hx-vals='{"source": "detail"}'
+                    class="px-4 py-2 text-sm text-white bg-red-500 rounded-[10px] hover:bg-red-600 transition-colors">
+              삭제
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
     {% if news.image_url %}

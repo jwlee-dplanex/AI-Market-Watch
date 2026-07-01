@@ -1,6 +1,7 @@
 from django.shortcuts import render, get_object_or_404
 from django.core.paginator import Paginator
 from django.http import HttpResponse
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 from .models import News, IssueGroup
 
@@ -103,6 +104,17 @@ def news_detail(request, uid):
         "linked_orgs": linked_orgs,
         "all_orgs": all_orgs,
     })
+
+
+@require_POST
+def news_delete(request, uid):
+    news = get_object_or_404(News, uid=uid)
+    news.delete()
+    source = request.POST.get("source", "list")
+    response = HttpResponse()
+    if source == "detail":
+        response["HX-Redirect"] = reverse("news_list")
+    return response
 
 
 @require_POST

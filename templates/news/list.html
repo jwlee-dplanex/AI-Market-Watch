@@ -75,6 +75,7 @@
 </div>
 
 <!-- 뉴스 목록 -->
+{% csrf_token %}
 <div id="news-list" class="space-y-3">
   {% include "news/_list.html" %}
 </div>

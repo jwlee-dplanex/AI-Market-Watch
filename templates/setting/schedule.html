@@ -19,7 +19,7 @@
   </div>
 
   <!-- 추가/수정 모달 -->
-  <div x-show="modalOpen" x-transition
+  <div x-show="modalOpen" x-cloak x-transition
        class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center"
        @keydown.escape.window="modalOpen = false">
     <div class="bg-white rounded-[10px] shadow-lg w-full max-w-md p-6" @click.stop>

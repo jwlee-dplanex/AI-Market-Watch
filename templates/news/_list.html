@@ -1,6 +1,6 @@
 {% load tz %}
 {% for news in news_list %}
-<div class="bg-white rounded-[10px] shadow-sm p-5 hover:shadow-md transition-shadow">
+<div id="news-{{ news.uid }}" x-data="{ delOpen: false }" class="bg-white rounded-[10px] shadow-sm p-5 hover:shadow-md transition-shadow">
   <div class="flex items-start gap-4">
     {% if news.image_url %}
     <img src="{{ news.image_url }}" alt="" class="w-20 h-20 object-cover rounded-[10px] flex-shrink-0">
@@ -17,6 +17,10 @@
           {{ news.category|default:"미분류" }}
         </span>
         <span class="text-xs text-gray-400">{{ news.source_type }} · {{ news.published_at|date:"Y.m.d" }}</span>
+        <button @click="delOpen = true" type="button"
+                class="ml-auto flex-shrink-0 p-1 rounded-[6px] text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+        </button>
       </div>
       <a href="{% url 'news_detail' news.uid %}"
          class="text-sm font-semibold text-gray-900 hover:text-primary transition-colors line-clamp-1">
@@ -44,6 +48,28 @@
         {% endfor %}
       </div>
       {% endif %}
+    </div>
+  </div>
+
+  <!-- 삭제 확인 모달 -->
+  <div x-show="delOpen" x-cloak class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center"
+       @click="delOpen = false" @keydown.escape.window="delOpen = false">
+    <div class="bg-white rounded-[10px] p-6 shadow-xl w-[90%] max-w-sm" @click.stop>
+      <p class="text-sm font-semibold text-gray-900 mb-1">뉴스를 삭제하시겠습니까?</p>
+      <p class="text-xs text-gray-500 mb-5">삭제된 뉴스는 복구할 수 없습니다.</p>
+      <div class="flex gap-3 justify-end">
+        <button @click="delOpen = false" type="button"
+                class="px-4 py-2 text-sm text-gray-500 border border-gray-200 rounded-[10px] hover:bg-gray-50 transition-colors">
+          취소
+        </button>
+        <button hx-post="{% url 'news_delete' news.uid %}"
+                hx-target="#news-{{ news.uid }}"
+                hx-swap="outerHTML"
+                hx-include="[name=csrfmiddlewaretoken]"
+                class="px-4 py-2 text-sm text-white bg-red-500 rounded-[10px] hover:bg-red-600 transition-colors">
+          삭제
+        </button>
+      </div>
     </div>
   </div>
 </div>
