@@ -17,12 +17,15 @@ ORG_TYPES = [
     ("금융사", "금융사"),
     ("보험사", "보험사"),
     ("AI",    "AI"),
-    ("기타",  "기타"),
+    ("기타",  "기관 없음"),
 ]
 
 
 def news_list(request):
-    qs = News.objects.order_by("-published_at")
+    order = request.GET.get("order", "newest")
+    qs = News.objects.prefetch_related("organizations").order_by(
+        "published_at" if order == "oldest" else "-published_at"
+    )
 
     q = request.GET.get("q", "").strip()
     if q:
@@ -52,6 +55,10 @@ def news_list(request):
     paginator = Paginator(qs, 20)
     page_obj = paginator.get_page(request.GET.get("page", 1))
 
+    params = request.GET.copy()
+    params.pop("page", None)
+    base_query = params.urlencode()
+
     return render(request, "news/list.html", {
         "news_list": page_obj,
         "page_obj": page_obj,
@@ -61,6 +68,8 @@ def news_list(request):
         "selected_categories": categories,
         "org_types": ORG_TYPES,
         "org_type_filter": org_type,
+        "order": order,
+        "base_query": base_query,
     })
 
 

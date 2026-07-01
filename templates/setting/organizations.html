@@ -21,10 +21,21 @@
       </button>
       {% endfor %}
     </div>
-    <button @click="modalOpen=true; editOrg=null"
-            class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-primary rounded-[10px] hover:bg-primary-hover transition-colors">
-      <i data-lucide="plus" class="w-3.5 h-3.5"></i> 기관 추가
-    </button>
+    <div class="flex items-center gap-2">
+      <div id="remap-result">
+        <form hx-post="{% url 'setting_remap_now' %}" hx-target="#remap-result" hx-swap="innerHTML">
+          {% csrf_token %}
+          <button type="submit"
+                  class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-[#00AF9A] rounded-[10px] hover:bg-teal-600 transition-colors">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> 기관 재매핑
+          </button>
+        </form>
+      </div>
+      <button @click="modalOpen=true; editOrg=null"
+              class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-primary rounded-[10px] hover:bg-primary-hover transition-colors">
+        <i data-lucide="plus" class="w-3.5 h-3.5"></i> 기관 추가
+      </button>
+    </div>
   </div>
 
   <!-- 기관 추가/수정 Modal -->

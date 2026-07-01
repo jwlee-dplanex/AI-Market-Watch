@@ -149,3 +149,10 @@ def organization_toggle(request, pk):
     org.is_active = not org.is_active
     org.save()
     return render(request, "setting/_organizations.html", _org_context())
+
+
+@require_POST
+def remap_now(request):
+    from services.collector import remap_organizations
+    count = remap_organizations()
+    return render(request, "setting/_remap_result.html", {"remap_count": count})

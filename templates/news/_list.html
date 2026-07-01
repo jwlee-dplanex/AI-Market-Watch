@@ -22,6 +22,20 @@
          class="text-sm font-semibold text-gray-900 hover:text-primary transition-colors line-clamp-1">
         {{ news.title }}
       </a>
+      {% with orgs=news.organizations.all %}
+      {% if orgs %}
+      <div class="flex flex-wrap gap-1 mt-1.5">
+        {% for org in orgs %}
+        <span class="text-xs px-2 py-0.5 rounded-full
+          {% if org.org_type == '금융사' %}bg-blue-50 text-blue-600
+          {% elif org.org_type == '보험사' %}bg-green-50 text-green-600
+          {% else %}bg-purple-50 text-primary{% endif %}">
+          {{ org.name }}
+        </span>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% endwith %}
       <p class="text-xs text-gray-500 mt-1 line-clamp-2">{{ news.summary|default:news.body|truncatechars:120 }}</p>
       {% if news.tags %}
       <div class="flex flex-wrap gap-1 mt-2">
@@ -44,18 +58,18 @@
 {% if is_paginated %}
 <div class="flex items-center justify-center gap-1 mt-6">
   {% if page_obj.has_previous %}
-  <a href="?page={{ page_obj.previous_page_number }}"
+  <a href="?{% if base_query %}{{ base_query }}&{% endif %}page={{ page_obj.previous_page_number }}"
      class="px-3 py-1.5 text-sm text-gray-600 border border-gray-200 rounded-[10px] hover:border-primary transition-colors">이전</a>
   {% endif %}
   {% for num in page_obj.paginator.page_range %}
-  <a href="?page={{ num }}"
+  <a href="?{% if base_query %}{{ base_query }}&{% endif %}page={{ num }}"
      class="px-3 py-1.5 text-sm rounded-[10px] transition-colors
             {% if num == page_obj.number %}bg-primary text-white{% else %}text-gray-600 border border-gray-200 hover:border-primary{% endif %}">
     {{ num }}
   </a>
   {% endfor %}
   {% if page_obj.has_next %}
-  <a href="?page={{ page_obj.next_page_number }}"
+  <a href="?{% if base_query %}{{ base_query }}&{% endif %}page={{ page_obj.next_page_number }}"
      class="px-3 py-1.5 text-sm text-gray-600 border border-gray-200 rounded-[10px] hover:border-primary transition-colors">다음</a>
   {% endif %}
 </div>

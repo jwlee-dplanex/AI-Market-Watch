@@ -13,4 +13,5 @@ urlpatterns = [
     path("organizations/", views.organizations, name="setting_organizations"),
     path("organizations/save/", views.organization_save, name="setting_organization_save"),
     path("organizations/<int:pk>/toggle/", views.organization_toggle, name="setting_organization_toggle"),
+    path("remap/", views.remap_now, name="setting_remap_now"),
 ]

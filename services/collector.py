@@ -180,3 +180,15 @@ def collect_naver() -> dict:
             stats["collected"] += 1
 
     return stats
+
+
+def remap_organizations() -> int:
+    orgs = list(Organization.objects.filter(is_active=True))
+    count = 0
+    for news in News.objects.prefetch_related("organizations").all():
+        before = set(news.organizations.values_list("pk", flat=True))
+        _link_organizations(news, f"{news.title} {news.body}", orgs)
+        after = set(news.organizations.values_list("pk", flat=True))
+        if after != before:
+            count += 1
+    return count
