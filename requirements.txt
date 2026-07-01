@@ -1,4 +1,5 @@
 Django==5.2
+shortuuid
 django-environ
 psycopg2-binary
 pgvector
