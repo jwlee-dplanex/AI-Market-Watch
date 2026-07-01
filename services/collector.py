@@ -10,6 +10,7 @@ from django.conf import settings
 
 from apps.news.models import News
 from apps.setting.models import Keyword, Organization
+from services.crawler import fetch_article_body
 
 NAVER_ENDPOINT = "https://openapi.naver.com/v1/search/news.json"
 
@@ -51,7 +52,8 @@ def _link_organizations(news: News, text: str, orgs: list[Organization]) -> None
 
 def collect_naver() -> dict:
     if not settings.NAVER_CLIENT_ID or not settings.NAVER_CLIENT_SECRET:
-        return {"collected": 0, "skipped_dup": 0, "skipped_filter": 0, "errors": ["Naver API key not configured"]}
+        return {"collected": 0, "skipped_dup": 0, "skipped_filter": 0,
+                "crawled": 0, "crawl_failed": 0, "errors": ["Naver API key not configured"]}
 
     headers = {
         "X-Naver-Client-Id": settings.NAVER_CLIENT_ID,
@@ -67,7 +69,8 @@ def collect_naver() -> dict:
     exclude_keywords = [kw.keyword.lower() for kw in Keyword.objects.filter(keyword_type=Keyword.TYPE_EXCLUDE, is_active=True)]
     context_keywords = list(Keyword.objects.filter(keyword_type=Keyword.TYPE_CONTEXT, is_active=True))
 
-    stats = {"collected": 0, "skipped_dup": 0, "skipped_filter": 0, "errors": []}
+    stats = {"collected": 0, "skipped_dup": 0, "skipped_filter": 0,
+             "crawled": 0, "crawl_failed": 0, "errors": []}
 
     # Track A — 기업 × 수집키워드 조합 검색
     for org in orgs:
@@ -90,9 +93,11 @@ def collect_naver() -> dict:
             for item in items:
                 if accepted >= max_per_org:
                     break
-                title  = _strip_html(item.get("title", ""))
-                desc   = _strip_html(item.get("description", ""))
-                url    = item.get("originallink") or item.get("link") or ""
+                title        = _strip_html(item.get("title", ""))
+                desc         = _strip_html(item.get("description", ""))
+                original_url = item.get("originallink") or ""
+                naver_link   = item.get("link") or ""
+                url          = original_url or naver_link
                 if not url:
                     continue
 
@@ -127,6 +132,15 @@ def collect_naver() -> dict:
                     published_at=published_at,
                     is_processed=False,
                 )
+
+                full_body = fetch_article_body(original_url, naver_link)
+                if full_body:
+                    news.body = full_body
+                    news.save(update_fields=["body"])
+                    stats["crawled"] += 1
+                else:
+                    stats["crawl_failed"] += 1
+
                 news.organizations.add(org)
                 accepted += 1
                 stats["collected"] += 1
@@ -144,9 +158,11 @@ def collect_naver() -> dict:
                 time.sleep(delay)
 
         for item in items:
-            title  = _strip_html(item.get("title", ""))
-            desc   = _strip_html(item.get("description", ""))
-            url    = item.get("originallink") or item.get("link") or ""
+            title        = _strip_html(item.get("title", ""))
+            desc         = _strip_html(item.get("description", ""))
+            original_url = item.get("originallink") or ""
+            naver_link   = item.get("link") or ""
+            url          = original_url or naver_link
             if not url:
                 continue
 
@@ -176,6 +192,15 @@ def collect_naver() -> dict:
                 published_at=published_at,
                 is_processed=False,
             )
+
+            full_body = fetch_article_body(original_url, naver_link)
+            if full_body:
+                news.body = full_body
+                news.save(update_fields=["body"])
+                stats["crawled"] += 1
+            else:
+                stats["crawl_failed"] += 1
+
             _link_organizations(news, body, orgs)
             stats["collected"] += 1
 

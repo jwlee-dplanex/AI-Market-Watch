@@ -1,0 +1,9 @@
+Django==5.2
+django-environ
+psycopg2-binary
+pgvector
+anthropic
+APScheduler
+trafilatura
+requests
+beautifulsoup4
