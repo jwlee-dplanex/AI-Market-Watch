@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 from apps.news.models import News
 
@@ -14,6 +16,7 @@ class Report(models.Model):
         ("failed", "실패"),
     ]
 
+    uid = models.UUIDField(default=uuid.uuid4, unique=True, db_index=True)
     period_type = models.CharField(max_length=10, choices=PERIOD_CHOICES, default="weekly")
     date_from = models.DateField()
     date_to = models.DateField()

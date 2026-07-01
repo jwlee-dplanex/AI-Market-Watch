@@ -34,7 +34,7 @@
         <h2 class="text-sm font-semibold text-gray-900">{{ report.title }}</h2>
         <p class="text-xs text-gray-400 mt-1">생성일: {{ report.created_at|date:"Y.m.d H:i" }}</p>
       </div>
-      <a href="{% url 'report_detail' report.pk %}"
+      <a href="{% url 'report_detail' report.uid %}"
          class="flex-shrink-0 px-3 py-1.5 text-xs font-medium text-primary border border-primary rounded-[10px] hover:bg-primary hover:text-white transition-colors">
         상세 보기
       </a>

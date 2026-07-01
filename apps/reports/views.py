@@ -7,6 +7,6 @@ def report_list(request):
     return render(request, "reports/list.html", {"reports": reports})
 
 
-def report_detail(request, pk):
-    report = get_object_or_404(Report, pk=pk)
+def report_detail(request, uid):
+    report = get_object_or_404(Report, uid=uid)
     return render(request, "reports/detail.html", {"report": report})

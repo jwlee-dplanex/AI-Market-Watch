@@ -95,7 +95,7 @@
       {% for news in report.news.all %}
       <tr class="hover:bg-gray-50 transition-colors">
         <td class="py-2.5 pr-4">
-          <a href="{% url 'news_detail' news.pk %}" class="text-xs text-gray-800 hover:text-primary transition-colors line-clamp-1">
+          <a href="{% url 'news_detail' news.uid %}" class="text-xs text-gray-800 hover:text-primary transition-colors line-clamp-1">
             {{ news.title }}
           </a>
         </td>

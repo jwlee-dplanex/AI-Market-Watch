@@ -8,7 +8,7 @@
     {% endif %}">
     {{ org.name }}
     <button type="button"
-            hx-post="{% url 'news_org_remove' news.pk org.pk %}"
+            hx-post="{% url 'news_org_remove' news.uid org.pk %}"
             hx-target="#org-panel"
             hx-swap="innerHTML"
             hx-include="[name=csrfmiddlewaretoken]"
@@ -31,7 +31,7 @@
        class="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-[10px] shadow-lg z-20 py-1 w-44 max-h-52 overflow-y-auto">
     {% for org in all_orgs %}
     <button type="button"
-            hx-post="{% url 'news_org_add' news.pk %}"
+            hx-post="{% url 'news_org_add' news.uid %}"
             hx-vals='{"org_pk": "{{ org.pk }}"}'
             hx-target="#org-panel"
             hx-swap="innerHTML"

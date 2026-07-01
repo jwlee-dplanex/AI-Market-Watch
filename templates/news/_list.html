@@ -18,7 +18,7 @@
         </span>
         <span class="text-xs text-gray-400">{{ news.source_type }} · {{ news.published_at|date:"Y.m.d" }}</span>
       </div>
-      <a href="{% url 'news_detail' news.pk %}"
+      <a href="{% url 'news_detail' news.uid %}"
          class="text-sm font-semibold text-gray-900 hover:text-primary transition-colors line-clamp-1">
         {{ news.title }}
       </a>

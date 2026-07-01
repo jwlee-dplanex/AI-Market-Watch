@@ -103,7 +103,7 @@
             <td class="py-3 text-gray-700">{{ log.prompt_name }}</td>
             <td class="py-3 text-gray-500 truncate max-w-xs">
               {% if log.news %}
-              <a href="{% url 'news_detail' log.news.pk %}" class="hover:text-primary transition-colors">{{ log.news.title }}</a>
+              <a href="{% url 'news_detail' log.news.uid %}" class="hover:text-primary transition-colors">{{ log.news.title }}</a>
               {% else %}—{% endif %}
             </td>
             <td class="py-3 text-gray-500">{{ log.input_tokens|default:"—" }}</td>

@@ -20,7 +20,7 @@
 <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">관련 뉴스</h4>
 <div class="space-y-3">
   {% for news in news_list %}
-  <a href="{% url 'news_detail' news.pk %}" class="block group">
+  <a href="{% url 'news_detail' news.uid %}" class="block group">
     <p class="text-xs font-medium text-gray-800 group-hover:text-primary transition-colors line-clamp-2 leading-relaxed">{{ news.title }}</p>
     <p class="text-xs text-gray-400 mt-0.5">{{ news.source_type }} · {{ news.published_at|date:"m.d" }}</p>
   </a>

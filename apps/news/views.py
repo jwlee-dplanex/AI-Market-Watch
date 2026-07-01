@@ -73,9 +73,9 @@ def news_list(request):
     })
 
 
-def news_detail(request, pk):
+def news_detail(request, uid):
     from apps.setting.models import Organization
-    news = get_object_or_404(News, pk=pk)
+    news = get_object_or_404(News, uid=uid)
 
     insights = []
     issue_group = news.issuegroupnews_set.select_related("issue_group").first()
@@ -89,7 +89,7 @@ def news_detail(request, pk):
             News.objects
             .alias(dist=CosineDistance("embedding__vector", news.embedding.vector))
             .filter(dist__lte=0.18)
-            .exclude(pk=pk)
+            .exclude(pk=news.pk)
             .order_by("dist")[:5]
         )
 
@@ -106,8 +106,8 @@ def news_detail(request, pk):
 
 
 @require_POST
-def news_org_add(request, pk):
-    news = get_object_or_404(News, pk=pk)
+def news_org_add(request, uid):
+    news = get_object_or_404(News, uid=uid)
     from apps.setting.models import Organization
     org_pk = request.POST.get("org_pk")
     if org_pk:
@@ -122,8 +122,8 @@ def news_org_add(request, pk):
 
 
 @require_POST
-def news_org_remove(request, pk, org_pk):
-    news = get_object_or_404(News, pk=pk)
+def news_org_remove(request, uid, org_pk):
+    news = get_object_or_404(News, uid=uid)
     from apps.setting.models import Organization
     try:
         org = Organization.objects.get(pk=org_pk)
