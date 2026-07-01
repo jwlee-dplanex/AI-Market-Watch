@@ -151,6 +151,68 @@ def organization_toggle(request, pk):
     return render(request, "setting/_organizations.html", _org_context())
 
 
+def _schedule_context():
+    return {"schedules": Schedule.objects.all().order_by("schedule_type")}
+
+
+@require_POST
+def schedule_save(request):
+    from apscheduler.triggers.cron import CronTrigger
+    pk = request.POST.get("pk", "").strip()
+    stype = request.POST.get("schedule_type", "")
+    cron_expr = request.POST.get("cron_expr", "").strip()
+    is_active = request.POST.get("is_active") == "on"
+
+    try:
+        CronTrigger.from_crontab(cron_expr)
+    except Exception:
+        return render(request, "setting/_schedule_list.html",
+                      {**_schedule_context(), "error": f"잘못된 cron 표현식: {cron_expr}"})
+
+    if pk:
+        sched = get_object_or_404(Schedule, pk=pk)
+        sched.schedule_type = stype
+        sched.cron_expr = cron_expr
+        sched.is_active = is_active
+        sched.save()
+    else:
+        sched = Schedule.objects.create(
+            schedule_type=stype, cron_expr=cron_expr, is_active=is_active
+        )
+
+    from services import scheduler
+    if sched.is_active:
+        scheduler.register(sched)
+    else:
+        scheduler.unregister(sched.pk)
+
+    return render(request, "setting/_schedule_list.html", _schedule_context())
+
+
+@require_POST
+def schedule_toggle(request, pk):
+    sched = get_object_or_404(Schedule, pk=pk)
+    sched.is_active = not sched.is_active
+    sched.save()
+
+    from services import scheduler
+    if sched.is_active:
+        scheduler.register(sched)
+    else:
+        scheduler.unregister(sched.pk)
+
+    return render(request, "setting/_schedule_list.html", _schedule_context())
+
+
+@require_POST
+def schedule_delete(request, pk):
+    sched = get_object_or_404(Schedule, pk=pk)
+    from services import scheduler
+    scheduler.unregister(sched.pk)
+    sched.delete()
+    return render(request, "setting/_schedule_list.html", _schedule_context())
+
+
 @require_POST
 def remap_now(request):
     from services.collector import remap_organizations

@@ -14,4 +14,7 @@ urlpatterns = [
     path("organizations/save/", views.organization_save, name="setting_organization_save"),
     path("organizations/<int:pk>/toggle/", views.organization_toggle, name="setting_organization_toggle"),
     path("remap/", views.remap_now, name="setting_remap_now"),
+    path("schedule/save/", views.schedule_save, name="setting_schedule_save"),
+    path("schedule/<int:pk>/toggle/", views.schedule_toggle, name="setting_schedule_toggle"),
+    path("schedule/<int:pk>/delete/", views.schedule_delete, name="setting_schedule_delete"),
 ]
