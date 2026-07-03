@@ -22,16 +22,22 @@ class DataSource(models.Model):
 class Keyword(models.Model):
     TYPE_COLLECT = "수집"
     TYPE_EXCLUDE = "제외"
-    TYPE_CONTEXT = "컨텍스트"
     TYPE_CHOICES = [
         (TYPE_COLLECT, "수집"),
         (TYPE_EXCLUDE, "제외"),
-        (TYPE_CONTEXT, "컨텍스트"),
     ]
 
-    keyword = models.CharField(max_length=100)
+    SORT_DATE = "date"
+    SORT_SIM  = "sim"
+    SORT_CHOICES = [
+        (SORT_DATE, "최신순"),
+        (SORT_SIM,  "관련도순"),
+    ]
+
+    keyword      = models.CharField(max_length=100)
     keyword_type = models.CharField(max_length=10, choices=TYPE_CHOICES, default=TYPE_COLLECT)
-    is_active = models.BooleanField(default=True)
+    sort         = models.CharField(max_length=10, choices=SORT_CHOICES, default=SORT_DATE)
+    is_active    = models.BooleanField(default=True)
 
     def __str__(self):
         return f"[{self.keyword_type}] {self.keyword}"

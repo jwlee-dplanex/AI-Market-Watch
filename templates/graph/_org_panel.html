@@ -22,6 +22,20 @@
   {% for news in news_list %}
   <a href="{% url 'news_detail' news.uid %}" class="block group">
     <p class="text-xs font-medium text-gray-800 group-hover:text-primary transition-colors line-clamp-2 leading-relaxed">{{ news.title }}</p>
+    {% with orgs=news.organizations.all %}
+    {% if orgs %}
+    <div class="flex flex-wrap gap-1 mt-1">
+      {% for o in orgs %}
+      <span class="text-xs px-1.5 py-0.5 rounded-full
+        {% if o.org_type == '금융사' %}bg-blue-50 text-blue-600
+        {% elif o.org_type == '보험사' %}bg-green-50 text-green-600
+        {% else %}bg-purple-50 text-primary{% endif %}">
+        {{ o.name }}
+      </span>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
     <p class="text-xs text-gray-400 mt-0.5">{{ news.source_type }} · {{ news.published_at|date:"m.d" }}</p>
   </a>
   {% empty %}

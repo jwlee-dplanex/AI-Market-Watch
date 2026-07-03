@@ -59,7 +59,7 @@ def graph(request):
 
 def graph_org_panel(request, pk):
     org = get_object_or_404(Organization, pk=pk)
-    news_list = org.news.order_by("-published_at")[:10]
+    news_list = org.news.prefetch_related("organizations").order_by("-published_at")[:10]
     return render(request, "graph/_org_panel.html", {
         "org": org,
         "news_list": news_list,

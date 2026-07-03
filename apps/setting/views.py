@@ -20,21 +20,32 @@ def _setting_menu(active):
     return items
 
 
+def _source_context():
+    return {"sources": DataSource.objects.all()}
+
+
 def sources(request):
     return render(request, "setting/sources.html", {
         "setting_menu": _setting_menu("sources"),
-        "sources": DataSource.objects.all(),
+        **_source_context(),
     })
+
+
+@require_POST
+def source_toggle(request, pk):
+    source = get_object_or_404(DataSource, pk=pk)
+    source.is_active = not source.is_active
+    source.save()
+    return render(request, "setting/_sources.html", _source_context())
 
 
 def _keyword_context():
     return {
         "collect_keywords": Keyword.objects.filter(keyword_type=Keyword.TYPE_COLLECT, is_active=True),
         "exclude_keywords": Keyword.objects.filter(keyword_type=Keyword.TYPE_EXCLUDE, is_active=True),
-        "context_keywords": Keyword.objects.filter(keyword_type=Keyword.TYPE_CONTEXT, is_active=True),
         "TYPE_COLLECT": Keyword.TYPE_COLLECT,
         "TYPE_EXCLUDE": Keyword.TYPE_EXCLUDE,
-        "TYPE_CONTEXT": Keyword.TYPE_CONTEXT,
+        "SORT_CHOICES": Keyword.SORT_CHOICES,
     }
 
 
@@ -47,10 +58,15 @@ def keywords(request):
 
 @require_POST
 def keyword_add(request):
-    keyword = request.POST.get("keyword", "").strip()
+    keyword      = request.POST.get("keyword", "").strip()
     keyword_type = request.POST.get("keyword_type", Keyword.TYPE_COLLECT)
+    sort         = request.POST.get("sort", Keyword.SORT_DATE)
     if keyword:
-        Keyword.objects.get_or_create(keyword=keyword, keyword_type=keyword_type)
+        Keyword.objects.get_or_create(
+            keyword=keyword,
+            keyword_type=keyword_type,
+            defaults={"sort": sort},
+        )
     return render(request, "setting/_keywords.html", _keyword_context())
 
 
