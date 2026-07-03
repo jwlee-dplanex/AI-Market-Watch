@@ -64,6 +64,18 @@ def keywords(request):
 
 
 @require_POST
+def keyword_update(request, pk):
+    kw = get_object_or_404(Keyword, pk=pk)
+    keyword = request.POST.get("keyword", "").strip()
+    sort    = request.POST.get("sort", kw.sort)
+    if keyword:
+        kw.keyword = keyword
+        kw.sort    = sort
+        kw.save()
+    return render(request, "setting/_keywords.html", _keyword_context())
+
+
+@require_POST
 def keyword_add(request):
     keyword      = request.POST.get("keyword", "").strip()
     keyword_type = request.POST.get("keyword_type", Keyword.TYPE_COLLECT)

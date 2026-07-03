@@ -1,4 +1,5 @@
 import hashlib
+import html
 import json
 import re
 import time
@@ -16,7 +17,7 @@ NAVER_ENDPOINT = "https://openapi.naver.com/v1/search/news.json"
 
 
 def _strip_html(text: str) -> str:
-    return re.sub(r"<[^>]+>", "", text).strip()
+    return html.unescape(re.sub(r"<[^>]+>", "", text)).strip()
 
 
 def _make_url_hash(url: str) -> str:

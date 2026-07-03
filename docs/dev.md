@@ -218,6 +218,7 @@ tags 구조:
 | id | AutoField | PK |
 | keyword | CharField | 키워드 |
 | keyword_type | CharField | `수집` / `제외` |
+| sort | CharField | `date`(최신순) / `sim`(관련도순) — 수집 키워드 전용 |
 | is_active | BooleanField | 활성 여부 |
 
 ---
@@ -348,15 +349,23 @@ ai_market_watch/
 |-----|------|
 | `/` | 전체 대시보드 (ALL-001) |
 | `/news/` | 뉴스 목록 (NEWS-001) |
-| `/news/<id>/` | 뉴스 상세 (NEWS-002) |
+| `/news/<uid>/` | 뉴스 상세 (NEWS-002) |
+| `/news/<uid>/delete/` | 뉴스 삭제 (POST) |
 | `/reports/` | 보고서 목록 (REPORT-001) |
 | `/reports/<id>/` | 보고서 상세 (REPORT-002) |
 | `/setting/sources/` | 데이터 소스 (SET-001) |
+| `/setting/sources/<pk>/toggle/` | 데이터 소스 활성 토글 (POST) |
+| `/setting/sources/collect-now/` | 수동 수집 실행 (POST) |
 | `/setting/keywords/` | 키워드 (SET-002) |
+| `/setting/keywords/add/` | 키워드 추가 (POST) |
+| `/setting/keywords/<pk>/update/` | 키워드 수정 (POST) |
+| `/setting/keywords/<pk>/delete/` | 키워드 삭제 (POST) |
 | `/setting/prompts/` | 프롬프트 (SET-003) |
 | `/setting/schedule/` | 스케줄 (SET-004) |
 | `/setting/slack/` | Slack (SET-005) |
 | `/setting/logs/` | 처리 이력 (SET-006) |
+| `/setting/organizations/` | 기관 관리 |
+| `/setting/remap/` | 기관 재매핑 (POST) |
 
 ---
 
@@ -365,18 +374,20 @@ ai_market_watch/
 ### 흐름
 
 ```
-[Naver News API]     ┐
-[OpenDART API]       ├──→ 수집 → 정규화 → 중복 제거 → News 저장 → LLM 처리 대기
-[금융위원회 RSS]     ┘
+[DataSource: Naver News API (is_active 체크)]
+    ↓ 활성인 경우에만
+[수집 키워드 리스트] → 키워드별 Naver API 호출 (kw.sort 적용)
+    ↓
+수집 → 제외 키워드 필터 → 중복 제거 → News 저장 → _link_organizations() → LLM 처리 대기
 ```
 
 ### 소스별 수집 방식
 
 | 소스 | 방식 | 주요 수집 필드 |
 |------|------|----------------|
-| Naver News API | `GET openapi.naver.com/v1/search/news.json?query=키워드` | title, link, description, pubDate, thumbnail |
-| OpenDART API | `GET opendart.fss.or.kr/api/list.json` | corp_name, report_nm, rcept_dt, rcept_no |
-| 금융위원회 RSS | XML 파싱 | title, link, pubDate |
+| Naver News API | `GET openapi.naver.com/v1/search/news.json?query=키워드&sort=date|sim` | title, link, description, pubDate |
+
+> OpenDART API, 금융위원회 RSS는 계획에 포함되어 있으나 미구현 상태입니다.
 
 ### 정규화
 

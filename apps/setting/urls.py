@@ -7,6 +7,7 @@ urlpatterns = [
     path("sources/collect-now/", views.collect_now, name="setting_collect_now"),
     path("keywords/", views.keywords, name="setting_keywords"),
     path("keywords/add/", views.keyword_add, name="setting_keyword_add"),
+    path("keywords/<int:pk>/update/", views.keyword_update, name="setting_keyword_update"),
     path("keywords/<int:pk>/delete/", views.keyword_delete, name="setting_keyword_delete"),
     path("prompts/", views.prompts, name="setting_prompts"),
     path("schedule/", views.schedule, name="setting_schedule"),
