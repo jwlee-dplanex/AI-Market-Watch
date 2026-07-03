@@ -4,6 +4,7 @@ from . import views
 urlpatterns = [
     path("sources/", views.sources, name="setting_sources"),
     path("sources/<int:pk>/toggle/", views.source_toggle, name="setting_source_toggle"),
+    path("sources/collect-now/", views.collect_now, name="setting_collect_now"),
     path("keywords/", views.keywords, name="setting_keywords"),
     path("keywords/add/", views.keyword_add, name="setting_keyword_add"),
     path("keywords/<int:pk>/delete/", views.keyword_delete, name="setting_keyword_delete"),

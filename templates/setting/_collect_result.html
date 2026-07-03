@@ -1,0 +1,21 @@
+{% if stats.errors %}
+<div class="mx-5 mb-4 px-4 py-3 rounded-[10px] bg-red-50 border border-red-100">
+  <p class="text-xs font-semibold text-red-600 mb-1">수집 실패</p>
+  {% for err in stats.errors %}
+  <p class="text-xs text-red-500">{{ err }}</p>
+  {% endfor %}
+</div>
+{% else %}
+<div class="mx-5 mb-4 px-4 py-3 rounded-[10px] bg-[#F3EAFB] border border-[#E0D0F5]">
+  <p class="text-xs font-semibold text-primary mb-2">수집 완료</p>
+  <div class="flex gap-5 text-xs">
+    <span class="text-gray-700">신규 <strong class="text-primary">{{ stats.collected }}</strong>건</span>
+    <span class="text-gray-700">중복 <strong class="text-gray-400">{{ stats.skipped_dup }}</strong>건</span>
+    <span class="text-gray-700">필터 <strong class="text-gray-400">{{ stats.skipped_filter }}</strong>건</span>
+    <span class="text-gray-700">크롤 성공 <strong class="text-gray-600">{{ stats.crawled }}</strong>건</span>
+    {% if stats.crawl_failed %}
+    <span class="text-gray-700">크롤 실패 <strong class="text-orange-500">{{ stats.crawl_failed }}</strong>건</span>
+    {% endif %}
+  </div>
+</div>
+{% endif %}

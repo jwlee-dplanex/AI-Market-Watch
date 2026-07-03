@@ -32,6 +32,13 @@ def sources(request):
 
 
 @require_POST
+def collect_now(request):
+    from services.collector import collect_naver
+    stats = collect_naver()
+    return render(request, "setting/_collect_result.html", {"stats": stats})
+
+
+@require_POST
 def source_toggle(request, pk):
     source = get_object_or_404(DataSource, pk=pk)
     source.is_active = not source.is_active
