@@ -85,11 +85,13 @@ def news_detail(request, uid):
 
     similar_news = []
     if hasattr(news, "embedding"):
+        from django.conf import settings
         from pgvector.django import CosineDistance
+        threshold = 1 - settings.EMBEDDING_SIMILARITY_THRESHOLD
         similar_news = (
             News.objects
             .alias(dist=CosineDistance("embedding__vector", news.embedding.vector))
-            .filter(dist__lte=0.18)
+            .filter(dist__lte=threshold)
             .exclude(pk=news.pk)
             .order_by("dist")[:5]
         )

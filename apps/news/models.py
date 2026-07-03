@@ -46,7 +46,7 @@ class News(models.Model):
 
 class Embedding(models.Model):
     news = models.OneToOneField(News, on_delete=models.CASCADE, related_name="embedding")
-    vector = VectorField(dimensions=384)
+    vector = VectorField(dimensions=1024)
     model = models.CharField(max_length=100)
     created_at = models.DateTimeField(auto_now_add=True)
 

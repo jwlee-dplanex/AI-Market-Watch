@@ -4,6 +4,9 @@ django-environ
 psycopg2-binary
 pgvector
 anthropic
+voyageai
+langchain
+langchain-anthropic
 APScheduler
 trafilatura
 requests
