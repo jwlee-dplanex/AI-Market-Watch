@@ -36,7 +36,7 @@
     </div>
     {% endif %}
     {% endwith %}
-    <p class="text-xs text-gray-400 mt-0.5">{{ news.source_type }} · {{ news.published_at|date:"m.d" }}</p>
+    <p class="text-xs text-gray-400 mt-0.5">{{ news.published_at|date:"m.d" }}</p>
   </a>
   {% empty %}
   <p class="text-xs text-gray-400 text-center py-6">관련 뉴스가 없습니다.</p>

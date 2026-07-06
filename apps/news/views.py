@@ -96,19 +96,6 @@ def news_detail(request, uid):
     if issue_group:
         insights = issue_group.issue_group.insights.all()
 
-    similar_news = []
-    if hasattr(news, "embedding"):
-        from django.conf import settings
-        from pgvector.django import CosineDistance
-        threshold = 1 - settings.EMBEDDING_SIMILARITY_THRESHOLD
-        similar_news = (
-            News.objects
-            .alias(dist=CosineDistance("embedding__vector", news.embedding.vector))
-            .filter(dist__lte=threshold)
-            .exclude(pk=news.pk)
-            .order_by("dist")[:5]
-        )
-
     linked_orgs = news.organizations.all()
     all_orgs = Organization.objects.filter(is_active=True).exclude(pk__in=linked_orgs)
 
@@ -117,7 +104,6 @@ def news_detail(request, uid):
     return render(request, "news/detail.html", {
         "news": news,
         "insights": insights,
-        "similar_news": similar_news,
         "linked_orgs": linked_orgs,
         "all_orgs": all_orgs,
         "prev_news": prev_news,

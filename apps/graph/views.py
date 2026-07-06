@@ -9,6 +9,13 @@ from apps.news.models import News
 
 CATEGORY_INDEX = {"금융사": 0, "보험사": 1, "AI": 2}
 
+# 금융사·보험사는 AI 기업과의 연결만 허용 (금융사-금융사, 금융사-보험사, 보험사-보험사, AI-AI 연결 제외)
+ALLOWED_TYPE_PAIRS = {frozenset({"금융사", "AI"}), frozenset({"보험사", "AI"})}
+
+
+def _edge_allowed(type_a, type_b):
+    return frozenset({type_a, type_b}) in ALLOWED_TYPE_PAIRS
+
 
 def graph(request):
     orgs = list(
@@ -28,6 +35,7 @@ def graph(request):
     ]
 
     org_pk_set = {o.pk for o in orgs}
+    org_type_by_pk = {o.pk: o.org_type for o in orgs}
     edge_weights = defaultdict(int)
 
     for news in (
@@ -42,7 +50,8 @@ def graph(request):
         )
         if len(pks) >= 2:
             for a, b in combinations(pks, 2):
-                edge_weights[(a, b)] += 1
+                if _edge_allowed(org_type_by_pk[a], org_type_by_pk[b]):
+                    edge_weights[(a, b)] += 1
 
     edges = [
         {"source": str(a), "target": str(b), "value": w}

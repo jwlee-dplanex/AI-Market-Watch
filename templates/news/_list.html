@@ -16,7 +16,7 @@
       {% endif %}
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2 mb-1.5">
-          <span class="text-xs text-gray-400">{{ news.source_type }} · {{ news.published_at|date:"Y.m.d" }}</span>
+          <span class="text-xs text-gray-400">{{ news.published_at|date:"Y.m.d" }}</span>
           <button @click="delOpen = true" type="button"
                   class="ml-auto flex-shrink-0 p-1 rounded-[6px] text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors">
             <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
@@ -41,13 +41,6 @@
         {% endif %}
         {% endwith %}
         <p class="text-xs text-gray-500 mt-1 line-clamp-2">{{ news.summary|default:news.body|truncatechars:120 }}</p>
-        {% if news.tags %}
-        <div class="flex flex-wrap gap-1 mt-2">
-          {% for tag in news.tags.기술 %}
-          <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{{ tag }}</span>
-          {% endfor %}
-        </div>
-        {% endif %}
       </div>
     </div>
 

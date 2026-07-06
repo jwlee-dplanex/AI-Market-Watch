@@ -5,19 +5,13 @@ from pgvector.django import VectorField
 
 
 class News(models.Model):
-    SOURCE_CHOICES = [
-        ("naver_news", "네이버 뉴스"),
-        ("opendart", "OpenDART"),
-        ("rss", "RSS"),
-    ]
     uid = models.UUIDField(default=uuid.uuid4, unique=True, db_index=True)
     title = models.CharField(max_length=500)
     url = models.URLField(max_length=2000)
     url_hash = models.CharField(max_length=64, unique=True, db_index=True)
     body = models.TextField(blank=True)
     image_url = models.URLField(max_length=2000, null=True, blank=True)
-    source_type = models.CharField(max_length=20, choices=SOURCE_CHOICES)
-    tags = models.JSONField(default=dict)
+    source_type = models.CharField(max_length=20)
     summary = models.TextField(null=True, blank=True)
     is_processed = models.BooleanField(default=False)
     published_at = models.DateTimeField()

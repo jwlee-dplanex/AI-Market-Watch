@@ -1,5 +1,5 @@
 {% for group in grouped %}
-<div x-show="activeTab === '전체' || activeTab === '{{ group.type }}'" class="mb-6">
+<div x-show="activeTab === '전체' || activeTab === '{{ group.type }}'" x-cloak class="mb-6">
 
   <!-- 섹션 헤더 -->
   <div class="flex items-center gap-3 mb-2 px-1">

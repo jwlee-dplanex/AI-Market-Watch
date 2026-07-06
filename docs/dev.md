@@ -15,14 +15,12 @@
 | UI 상태 관리 | Alpine.js | 3.14 |
 | 벡터 검색 | pgvector | 0.3.6 |
 | 임베딩 모델 | Voyage AI voyage-multilingual-2 (1024차원) | — |
-| 차트 | Chart.js | 4.4 |
 
 ### 통신 방식
 
 - HTMX 요청 → Django view → HTML fragment 반환 (JSON 최소화)
 - fetch() / DRF 별도 API 레이어 없음
 - JSON 응답은 Alpine.js 연동이 필요한 예외 케이스에만 사용
-- Chart.js 차트 데이터는 Django template의 `json_script` 필터로 전달
 
 ### 패키지 목록 (requirements.txt)
 
@@ -40,42 +38,6 @@ APScheduler
 trafilatura
 requests
 beautifulsoup4
-```
-
-Chart.js는 CDN으로 로드합니다 (Python 패키지 아님).
-
-```html
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4"></script>
-```
-
-### 대시보드 차트 (ALL-001)
-
-| 차트 | 종류 | 데이터 | 데이터 출처 |
-|------|------|--------|-------------|
-| 일별 수집 뉴스 수 추이 | Line | 최근 14일 날짜별 수집 건수 | CollectionLog |
-| 태그별 분포 | Bar | 기술 태그별 뉴스 수 | News.tags |
-
-차트 데이터는 Django view에서 `json_script` 필터로 템플릿에 전달합니다.
-
-```python
-# apps/dashboard/views.py
-def dashboard(request):
-    context = {
-        "chart_daily": list(daily_counts), # [{date, count}, ...]
-        "chart_tags": list(tag_counts),    # [{tag, count}, ...]
-    }
-    return render(request, "dashboard/index.html", context)
-```
-
-```html
-<!-- templates/dashboard/index.html -->
-{{ chart_daily|json_script:"chart-daily" }}
-{{ chart_tags|json_script:"chart-tags" }}
-
-<script>
-  const daily = JSON.parse(document.getElementById('chart-daily').textContent)
-  const tags  = JSON.parse(document.getElementById('chart-tags').textContent)
-</script>
 ```
 
 ---
@@ -107,20 +69,10 @@ def dashboard(request):
 | body | TextField | 본문 |
 | image_url | URLField(null) | 썸네일 URL (없으면 null) |
 | source_type | CharField | `naver_news` / `opendart` / `rss` |
-| tags | JSONField | 키-값 구조 태그 |
 | summary | TextField(null) | LLM 생성 요약 |
 | is_processed | BooleanField | LLM 처리 완료 여부 |
 | published_at | DateTimeField | 발행일 |
 | collected_at | DateTimeField | 수집일 |
-
-tags 구조:
-```json
-{
-  "산업": ["금융", "보험"],
-  "기업": ["KB국민은행"],
-  "기술": ["AI Agent", "LLM"]
-}
-```
 
 ---
 
@@ -440,17 +392,12 @@ if News.objects.filter(url_hash=url_hash).exists():
 
 ### 뉴스 단건 처리
 
-1회 호출로 요약·태그를 JSON으로 받습니다.
+1회 호출로 요약을 JSON으로 받습니다.
 
 프롬프트 응답 형식:
 ```json
 {
-  "summary": "2-3문장 요약",
-  "tags": {
-    "산업": [],
-    "기업": [],
-    "기술": []
-  }
+  "summary": "2-3문장 요약"
 }
 ```
 
