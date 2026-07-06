@@ -14,7 +14,7 @@
 | 부분 업데이트 | HTMX | 2.0 |
 | UI 상태 관리 | Alpine.js | 3.14 |
 | 벡터 검색 | pgvector | 0.3.6 |
-| 임베딩 모델 | paraphrase-multilingual-MiniLM-L12-v2 | — |
+| 임베딩 모델 | Voyage AI voyage-multilingual-2 (1024차원) | — |
 | 차트 | Chart.js | 4.4 |
 
 ### 통신 방식
@@ -27,15 +27,19 @@
 ### 패키지 목록 (requirements.txt)
 
 ```
-django==5.2
-psycopg2==2.9.9
-pgvector==0.3.6
-django-pgvector==0.3.0
-django-environ==0.11.2
-anthropic==0.40.0
-sentence-transformers==3.3.1
-apscheduler==3.10.4
-gunicorn==23.0.0
+Django==5.2
+shortuuid
+django-environ
+psycopg2-binary
+pgvector
+anthropic
+voyageai
+langchain
+langchain-anthropic
+APScheduler
+trafilatura
+requests
+beautifulsoup4
 ```
 
 Chart.js는 CDN으로 로드합니다 (Python 패키지 아님).
@@ -49,7 +53,6 @@ Chart.js는 CDN으로 로드합니다 (Python 패키지 아님).
 | 차트 | 종류 | 데이터 | 데이터 출처 |
 |------|------|--------|-------------|
 | 일별 수집 뉴스 수 추이 | Line | 최근 14일 날짜별 수집 건수 | CollectionLog |
-| 카테고리별 뉴스 비율 | Donut | 카테고리별 뉴스 수 | News |
 | 태그별 분포 | Bar | 기술 태그별 뉴스 수 | News.tags |
 
 차트 데이터는 Django view에서 `json_script` 필터로 템플릿에 전달합니다.
@@ -58,9 +61,8 @@ Chart.js는 CDN으로 로드합니다 (Python 패키지 아님).
 # apps/dashboard/views.py
 def dashboard(request):
     context = {
-        "chart_daily": list(daily_counts),      # [{date, count}, ...]
-        "chart_category": list(category_counts), # [{category, count}, ...]
-        "chart_tags": list(tag_counts),          # [{tag, count}, ...]
+        "chart_daily": list(daily_counts), # [{date, count}, ...]
+        "chart_tags": list(tag_counts),    # [{tag, count}, ...]
     }
     return render(request, "dashboard/index.html", context)
 ```
@@ -68,13 +70,11 @@ def dashboard(request):
 ```html
 <!-- templates/dashboard/index.html -->
 {{ chart_daily|json_script:"chart-daily" }}
-{{ chart_category|json_script:"chart-category" }}
 {{ chart_tags|json_script:"chart-tags" }}
 
 <script>
-  const daily    = JSON.parse(document.getElementById('chart-daily').textContent)
-  const category = JSON.parse(document.getElementById('chart-category').textContent)
-  const tags     = JSON.parse(document.getElementById('chart-tags').textContent)
+  const daily = JSON.parse(document.getElementById('chart-daily').textContent)
+  const tags  = JSON.parse(document.getElementById('chart-tags').textContent)
 </script>
 ```
 
@@ -107,7 +107,6 @@ def dashboard(request):
 | body | TextField | 본문 |
 | image_url | URLField(null) | 썸네일 URL (없으면 null) |
 | source_type | CharField | `naver_news` / `opendart` / `rss` |
-| category | CharField | 기술흐름·기업사례·금융권활용·규제·정책·경쟁사동향 |
 | tags | JSONField | 키-값 구조 태그 |
 | summary | TextField(null) | LLM 생성 요약 |
 | is_processed | BooleanField | LLM 처리 완료 여부 |
@@ -131,7 +130,7 @@ tags 구조:
 |------|------|------|
 | id | AutoField | PK |
 | news | OneToOneField(News) | |
-| vector | VectorField(384) | pgvector 384차원 벡터 |
+| vector | VectorField(1024) | pgvector 1024차원 벡터 |
 | model | CharField | 사용 임베딩 모델명 |
 | created_at | DateTimeField | |
 
@@ -365,6 +364,9 @@ ai_market_watch/
 | `/setting/slack/` | Slack (SET-005) |
 | `/setting/logs/` | 처리 이력 (SET-006) |
 | `/setting/organizations/` | 기관 관리 |
+| `/setting/organizations/save/` | 기관 추가·수정 (POST) |
+| `/setting/organizations/<pk>/toggle/` | 기관 활성 토글 (POST) |
+| `/setting/organizations/<pk>/delete/` | 기관 삭제 (POST) |
 | `/setting/remap/` | 기관 재매핑 (POST) |
 
 ---
@@ -438,13 +440,12 @@ if News.objects.filter(url_hash=url_hash).exists():
 
 ### 뉴스 단건 처리
 
-1회 호출로 요약·카테고리·태그를 JSON으로 받습니다.
+1회 호출로 요약·태그를 JSON으로 받습니다.
 
 프롬프트 응답 형식:
 ```json
 {
   "summary": "2-3문장 요약",
-  "category": "기술흐름 | 기업사례 | 금융권활용 | 규제·정책 | 경쟁사동향",
   "tags": {
     "산업": [],
     "기업": [],
@@ -496,15 +497,15 @@ if News.objects.filter(url_hash=url_hash).exists():
 
 ### 임베딩 생성
 
-`title + summary + tags`를 합쳐 임베딩합니다.
+`title + body`를 합쳐 Voyage AI API로 임베딩합니다.
 
 ```python
-tags_flat = " ".join([v for values in news.tags.values() for v in values])
-text_to_embed = f"{news.title} {news.summary} {tags_flat}"
-vector = model.encode(text_to_embed).tolist()
+# services/embedder.py
+text = f"{news.title}\n{news.body}"
+result = client.embed([text], model=settings.EMBEDDING_MODEL)
 ```
 
-모델: `paraphrase-multilingual-MiniLM-L12-v2` (384차원, 로컬 실행, 무료)
+모델: `voyage-multilingual-2` (1024차원, Voyage AI API, 계정당 5천만 토큰 무료)
 
 ### 유사 기사 그룹핑
 
@@ -525,7 +526,7 @@ from pgvector.django import VectorField
 
 class Embedding(models.Model):
     news   = models.OneToOneField(News, on_delete=models.CASCADE)
-    vector = VectorField(dimensions=384)
+    vector = VectorField(dimensions=1024)
 ```
 
 ---
@@ -582,8 +583,9 @@ ANTHROPIC_MODEL_SMART=claude-sonnet-4-6
 # Slack
 SLACK_WEBHOOK_URL=
 
-# Embedding
-EMBEDDING_MODEL=paraphrase-multilingual-MiniLM-L12-v2
+# Voyage AI (임베딩)
+VOYAGE_API_KEY=
+EMBEDDING_MODEL=voyage-multilingual-2
 EMBEDDING_SIMILARITY_THRESHOLD=0.82
 ```
 

@@ -35,15 +35,6 @@ def dashboard(request):
         for i in range(14)
     ]
 
-    cat_qs = (
-        News.objects
-        .exclude(category="")
-        .values("category")
-        .annotate(count=Count("id"))
-        .order_by("-count")
-    )
-    chart_category = [{"category": r["category"], "count": r["count"]} for r in cat_qs]
-
     tag_counter = Counter()
     for tags in News.objects.exclude(tags={}).values_list("tags", flat=True):
         if isinstance(tags, dict):
@@ -56,6 +47,5 @@ def dashboard(request):
         "issue_groups": issue_groups,
         "latest_news": latest_news,
         "chart_daily": chart_daily,
-        "chart_category": chart_category,
         "chart_tags": chart_tags,
     })

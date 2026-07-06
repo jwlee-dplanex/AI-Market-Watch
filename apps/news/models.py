@@ -10,14 +10,6 @@ class News(models.Model):
         ("opendart", "OpenDART"),
         ("rss", "RSS"),
     ]
-    CATEGORY_CHOICES = [
-        ("기술흐름", "기술 흐름"),
-        ("기업사례", "기업 사례"),
-        ("금융권활용", "금융권 활용"),
-        ("규제·정책", "규제·정책"),
-        ("경쟁사동향", "경쟁사 동향"),
-    ]
-
     uid = models.UUIDField(default=uuid.uuid4, unique=True, db_index=True)
     title = models.CharField(max_length=500)
     url = models.URLField(max_length=2000)
@@ -25,7 +17,6 @@ class News(models.Model):
     body = models.TextField(blank=True)
     image_url = models.URLField(max_length=2000, null=True, blank=True)
     source_type = models.CharField(max_length=20, choices=SOURCE_CHOICES)
-    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, blank=True)
     tags = models.JSONField(default=dict)
     summary = models.TextField(null=True, blank=True)
     is_processed = models.BooleanField(default=False)

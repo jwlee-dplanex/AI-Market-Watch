@@ -64,42 +64,31 @@
 </div>
 
 <!-- 차트 -->
-<div class="grid grid-cols-3 gap-4 mb-6">
-  <div class="col-span-2 bg-white rounded-[10px] shadow-sm p-5">
+<div class="grid grid-cols-2 gap-4 mb-6">
+  <div class="bg-white rounded-[10px] shadow-sm p-5">
     <h2 class="text-sm font-semibold text-gray-900 mb-4">일별 수집 뉴스 수 추이 (최근 14일)</h2>
     <canvas id="chart-daily-canvas" height="80"></canvas>
   </div>
   <div class="bg-white rounded-[10px] shadow-sm p-5">
-    <h2 class="text-sm font-semibold text-gray-900 mb-4">카테고리별 비율</h2>
-    <canvas id="chart-category-canvas"></canvas>
+    <h2 class="text-sm font-semibold text-gray-900 mb-4">태그별 분포</h2>
+    <canvas id="chart-tags-canvas" height="80"></canvas>
   </div>
-</div>
-<div class="bg-white rounded-[10px] shadow-sm p-5 mb-6">
-  <h2 class="text-sm font-semibold text-gray-900 mb-4">태그별 분포</h2>
-  <canvas id="chart-tags-canvas" height="60"></canvas>
 </div>
 
 {% endblock %}
 
 {% block extra_head %}
 {{ chart_daily|json_script:"chart-daily-data" }}
-{{ chart_category|json_script:"chart-category-data" }}
 {{ chart_tags|json_script:"chart-tags-data" }}
 {% endblock %}
 
 {% block extra_js %}
 <script>
 (function() {
-  const daily    = JSON.parse(document.getElementById('chart-daily-data').textContent);
-  const category = JSON.parse(document.getElementById('chart-category-data').textContent);
-  const tags     = JSON.parse(document.getElementById('chart-tags-data').textContent);
+  const daily = JSON.parse(document.getElementById('chart-daily-data').textContent);
+  const tags  = JSON.parse(document.getElementById('chart-tags-data').textContent);
 
   const VIOLET = '#60269E';
-  const TEAL   = '#00AF9A';
-  const GREEN  = '#93D500';
-  const ORANGE = '#FF6C0E';
-  const GRAY   = '#54565A';
-  const BLUE   = '#1D4ED8';
 
   // Line chart — 일별 수집 수
   new Chart(document.getElementById('chart-daily-canvas'), {
@@ -118,20 +107,6 @@
       }]
     },
     options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
-  });
-
-  // Donut chart — 카테고리별
-  new Chart(document.getElementById('chart-category-canvas'), {
-    type: 'doughnut',
-    data: {
-      labels: category.map(c => c.category),
-      datasets: [{
-        data: category.map(c => c.count),
-        backgroundColor: [VIOLET, TEAL, BLUE, ORANGE, GRAY],
-        borderWidth: 0,
-      }]
-    },
-    options: { plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } }, cutout: '65%' }
   });
 
   // Bar chart — 태그별

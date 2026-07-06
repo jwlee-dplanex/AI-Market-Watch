@@ -6,14 +6,6 @@ from django.views.decorators.http import require_POST
 from .models import News, IssueGroup
 
 
-CATEGORIES = [
-    ("기술흐름", "기술흐름"),
-    ("기업사례", "기업사례"),
-    ("금융권활용", "금융권활용"),
-    ("규제·정책", "규제·정책"),
-    ("경쟁사동향", "경쟁사동향"),
-]
-
 ORG_TYPES = [
     ("금융사", "금융사"),
     ("보험사", "보험사"),
@@ -39,10 +31,6 @@ def news_list(request):
     if date_to:
         qs = qs.filter(published_at__date__lte=date_to)
 
-    categories = request.GET.getlist("category")
-    if categories:
-        qs = qs.filter(category__in=categories)
-
     source = request.GET.get("source", "")
     if source:
         qs = qs.filter(source_type=source)
@@ -65,8 +53,6 @@ def news_list(request):
         "page_obj": page_obj,
         "is_paginated": paginator.num_pages > 1,
         "total_count": paginator.count,
-        "categories": CATEGORIES,
-        "selected_categories": categories,
         "org_types": ORG_TYPES,
         "org_type_filter": org_type,
         "order": order,
