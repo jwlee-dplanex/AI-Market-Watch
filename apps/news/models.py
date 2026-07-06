@@ -29,10 +29,19 @@ class News(models.Model):
     )
 
     class Meta:
-        ordering = ["-published_at"]
+        ordering = ["-published_at", "-pk"]
 
     def __str__(self):
         return self.title
+
+
+class ExcludedURL(models.Model):
+    """사용자가 삭제한 뉴스의 URL 해시. 재수집 시 다시 추가되지 않도록 차단하는 용도."""
+    url_hash = models.CharField(max_length=64, unique=True, db_index=True)
+    deleted_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.url_hash
 
 
 class Embedding(models.Model):

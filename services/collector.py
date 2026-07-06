@@ -9,7 +9,7 @@ from email.utils import parsedate_to_datetime
 
 from django.conf import settings
 
-from apps.news.models import News
+from apps.news.models import ExcludedURL, News
 from apps.setting.models import DataSource, Keyword, Organization
 from services.crawler import fetch_article_body
 
@@ -53,7 +53,7 @@ def _link_organizations(news: News, text: str, orgs: list[Organization]) -> None
 
 def collect_naver() -> dict:
     if not settings.NAVER_CLIENT_ID or not settings.NAVER_CLIENT_SECRET:
-        return {"collected": 0, "skipped_dup": 0, "skipped_filter": 0,
+        return {"collected": 0, "skipped_dup": 0, "skipped_filter": 0, "skipped_excluded": 0,
                 "crawled": 0, "crawl_failed": 0, "errors": ["Naver API key not configured"]}
 
     headers = {
@@ -66,14 +66,14 @@ def collect_naver() -> dict:
 
     naver_source = DataSource.objects.filter(name="Naver News API", is_active=True).first()
     if not naver_source:
-        return {"collected": 0, "skipped_dup": 0, "skipped_filter": 0,
+        return {"collected": 0, "skipped_dup": 0, "skipped_filter": 0, "skipped_excluded": 0,
                 "crawled": 0, "crawl_failed": 0, "errors": ["Naver News API 비활성"]}
 
     orgs             = list(Organization.objects.filter(is_active=True))
     collect_keywords = list(Keyword.objects.filter(keyword_type=Keyword.TYPE_COLLECT, is_active=True))
     exclude_keywords = [kw.keyword.lower() for kw in Keyword.objects.filter(keyword_type=Keyword.TYPE_EXCLUDE, is_active=True)]
 
-    stats = {"collected": 0, "skipped_dup": 0, "skipped_filter": 0,
+    stats = {"collected": 0, "skipped_dup": 0, "skipped_filter": 0, "skipped_excluded": 0,
              "crawled": 0, "crawl_failed": 0, "errors": []}
 
     for kw in collect_keywords:
@@ -105,6 +105,10 @@ def collect_naver() -> dict:
             url_hash = _make_url_hash(url)
             if News.objects.filter(url_hash=url_hash).exists():
                 stats["skipped_dup"] += 1
+                continue
+
+            if ExcludedURL.objects.filter(url_hash=url_hash).exists():
+                stats["skipped_excluded"] += 1
                 continue
 
             published_at = _parse_pub_date(item.get("pubDate", ""))

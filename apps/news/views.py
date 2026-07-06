@@ -1,9 +1,10 @@
+from django.db.models import Q
 from django.shortcuts import render, get_object_or_404
 from django.core.paginator import Paginator
 from django.http import HttpResponse
 from django.urls import reverse
 from django.views.decorators.http import require_POST
-from .models import News, IssueGroup
+from .models import ExcludedURL, News, IssueGroup
 
 
 ORG_TYPES = [
@@ -16,9 +17,8 @@ ORG_TYPES = [
 
 def news_list(request):
     order = request.GET.get("order", "newest")
-    qs = News.objects.prefetch_related("organizations").order_by(
-        "published_at" if order == "oldest" else "-published_at"
-    )
+    order_fields = ("published_at", "pk") if order == "oldest" else ("-published_at", "-pk")
+    qs = News.objects.prefetch_related("organizations").order_by(*order_fields)
 
     q = request.GET.get("q", "").strip()
     if q:
@@ -60,6 +60,27 @@ def news_list(request):
     })
 
 
+def _adjacent_news(news):
+    """최신순(News.Meta.ordering) 기준 이전(더 최신)/다음(더 오래된) 뉴스"""
+    prev_news = (
+        News.objects
+        .filter(Q(published_at__gt=news.published_at) |
+                Q(published_at=news.published_at, pk__gt=news.pk))
+        .order_by("published_at", "pk")
+        .only("uid", "title")
+        .first()
+    )
+    next_news = (
+        News.objects
+        .filter(Q(published_at__lt=news.published_at) |
+                Q(published_at=news.published_at, pk__lt=news.pk))
+        .order_by("-published_at", "-pk")
+        .only("uid", "title")
+        .first()
+    )
+    return prev_news, next_news
+
+
 def news_detail(request, uid):
     from apps.setting.models import Organization
     news = get_object_or_404(News, uid=uid)
@@ -85,23 +106,32 @@ def news_detail(request, uid):
     linked_orgs = news.organizations.all()
     all_orgs = Organization.objects.filter(is_active=True).exclude(pk__in=linked_orgs)
 
+    prev_news, next_news = _adjacent_news(news)
+
     return render(request, "news/detail.html", {
         "news": news,
         "insights": insights,
         "similar_news": similar_news,
         "linked_orgs": linked_orgs,
         "all_orgs": all_orgs,
+        "prev_news": prev_news,
+        "next_news": next_news,
     })
 
 
 @require_POST
 def news_delete(request, uid):
     news = get_object_or_404(News, uid=uid)
-    news.delete()
     source = request.POST.get("source", "list")
+    next_news = _adjacent_news(news)[1] if source == "detail" else None
+
+    ExcludedURL.objects.get_or_create(url_hash=news.url_hash)
+    news.delete()
+
     response = HttpResponse()
     if source == "detail":
-        response["HX-Redirect"] = reverse("news_list")
+        target = reverse("news_detail", args=[next_news.uid]) if next_news else reverse("news_list")
+        response["HX-Redirect"] = target
     return response
 
 

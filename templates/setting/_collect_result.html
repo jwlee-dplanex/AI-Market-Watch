@@ -12,6 +12,7 @@
     <span class="text-gray-700">신규 <strong class="text-primary">{{ stats.collected }}</strong>건</span>
     <span class="text-gray-700">중복 <strong class="text-gray-400">{{ stats.skipped_dup }}</strong>건</span>
     <span class="text-gray-700">필터 <strong class="text-gray-400">{{ stats.skipped_filter }}</strong>건</span>
+    <span class="text-gray-700">삭제이력 <strong class="text-gray-400">{{ stats.skipped_excluded }}</strong>건</span>
     <span class="text-gray-700">크롤 성공 <strong class="text-gray-600">{{ stats.crawled }}</strong>건</span>
     {% if stats.crawl_failed %}
     <span class="text-gray-700">크롤 실패 <strong class="text-orange-500">{{ stats.crawl_failed }}</strong>건</span>
