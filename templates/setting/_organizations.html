@@ -51,11 +51,21 @@
             </button>
           </td>
           <td class="py-3 pr-4 text-right">
-            <button type="button"
-                    @click="modalOpen=true; editOrg={id:{{ org.pk }}, name:'{{ org.name|escapejs }}', org_type:'{{ org.org_type }}', aliases_str:'{{ org.aliases|join:', '|escapejs }}'}"
-                    class="text-gray-300 hover:text-primary transition-colors">
-              <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
-            </button>
+            <div class="flex items-center justify-end gap-2">
+              <button type="button"
+                      @click="modalOpen=true; editOrg={id:{{ org.pk }}, name:'{{ org.name|escapejs }}', org_type:'{{ org.org_type }}', aliases_str:'{{ org.aliases|join:', '|escapejs }}'}"
+                      class="text-gray-300 hover:text-primary transition-colors">
+                <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
+              </button>
+              <button type="button"
+                      hx-post="{% url 'setting_organization_delete' org.pk %}"
+                      hx-target="#org-table" hx-swap="innerHTML"
+                      hx-include="[name=csrfmiddlewaretoken]"
+                      hx-confirm="'{{ org.name }}' 기관을 삭제하시겠습니까? 뉴스와의 연결도 함께 해제됩니다."
+                      class="text-gray-300 hover:text-red-500 transition-colors">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
           </td>
         </tr>
         {% endfor %}

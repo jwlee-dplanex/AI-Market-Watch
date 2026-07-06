@@ -84,7 +84,7 @@ def keyword_add(request):
         Keyword.objects.get_or_create(
             keyword=keyword,
             keyword_type=keyword_type,
-            defaults={"sort": sort},
+            sort=sort,
         )
     return render(request, "setting/_keywords.html", _keyword_context())
 
@@ -183,6 +183,12 @@ def organization_toggle(request, pk):
     org = get_object_or_404(Organization, pk=pk)
     org.is_active = not org.is_active
     org.save()
+    return render(request, "setting/_organizations.html", _org_context())
+
+
+@require_POST
+def organization_delete(request, pk):
+    Organization.objects.filter(pk=pk).delete()
     return render(request, "setting/_organizations.html", _org_context())
 
 
