@@ -1,75 +1,87 @@
 {% load tz %}
-{% for news in news_list %}
-<div id="news-{{ news.uid }}" x-data="{ delOpen: false }" class="bg-white rounded-[10px] shadow-sm p-5 hover:shadow-md transition-shadow">
-  <div class="flex items-start gap-4">
-    {% if news.image_url %}
-    <img src="{{ news.image_url }}" alt="" class="w-20 h-20 object-cover rounded-[10px] flex-shrink-0">
-    {% endif %}
-    <div class="flex-1 min-w-0">
-      <div class="flex items-center gap-2 mb-1.5">
-        <span class="text-xs text-gray-400">{{ news.source_type }} · {{ news.published_at|date:"Y.m.d" }}</span>
-        <button @click="delOpen = true" type="button"
-                class="ml-auto flex-shrink-0 p-1 rounded-[6px] text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors">
-          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-        </button>
-      </div>
-      <a href="{% url 'news_detail' news.uid %}"
-         class="text-sm font-semibold text-gray-900 hover:text-primary transition-colors line-clamp-1">
-        {{ news.title }}
-      </a>
-      {% with orgs=news.organizations.all %}
-      {% if orgs %}
-      <div class="flex flex-wrap gap-1 mt-1.5">
-        {% for org in orgs %}
-        <span class="text-xs px-2 py-0.5 rounded-full
-          {% if org.org_type == '금융사' %}bg-blue-50 text-blue-600
-          {% elif org.org_type == '보험사' %}bg-green-50 text-green-600
-          {% else %}bg-purple-50 text-primary{% endif %}">
-          {{ org.name }}
-        </span>
-        {% endfor %}
-      </div>
-      {% endif %}
-      {% endwith %}
-      <p class="text-xs text-gray-500 mt-1 line-clamp-2">{{ news.summary|default:news.body|truncatechars:120 }}</p>
-      {% if news.tags %}
-      <div class="flex flex-wrap gap-1 mt-2">
-        {% for tag in news.tags.기술 %}
-        <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{{ tag }}</span>
-        {% endfor %}
-      </div>
-      {% endif %}
-    </div>
-  </div>
-
-  <!-- 삭제 확인 모달 -->
-  <div x-show="delOpen" x-cloak class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center"
-       @click="delOpen = false" @keydown.escape.window="delOpen = false">
-    <div class="bg-white rounded-[10px] p-6 shadow-xl w-[90%] max-w-sm" @click.stop>
-      <p class="text-sm font-semibold text-gray-900 mb-1">뉴스를 삭제하시겠습니까?</p>
-      <p class="text-xs text-gray-500 mb-5">삭제된 뉴스는 복구할 수 없습니다.</p>
-      <div class="flex gap-3 justify-end">
-        <button @click="delOpen = false" type="button"
-                class="px-4 py-2 text-sm text-gray-500 border border-gray-200 rounded-[10px] hover:bg-gray-50 transition-colors">
-          취소
-        </button>
-        <button hx-post="{% url 'news_delete' news.uid %}"
-                hx-target="#news-{{ news.uid }}"
-                hx-swap="outerHTML"
-                hx-include="[name=csrfmiddlewaretoken]"
-                class="px-4 py-2 text-sm text-white bg-red-500 rounded-[10px] hover:bg-red-600 transition-colors">
-          삭제
-        </button>
-      </div>
-    </div>
-  </div>
+{% if news_list %}
+{% regroup news_list by local_date as day_groups %}
+{% for group in day_groups %}
+<div class="flex items-center gap-2 mb-3 {% if not forloop.first %}mt-6{% endif %}">
+  <i data-lucide="calendar" class="w-4 h-4 text-primary"></i>
+  <h3 class="text-sm font-semibold text-gray-700">{{ group.grouper|date:"Y년 m월 d일" }}</h3>
+  <div class="flex-1 h-px bg-gray-200"></div>
 </div>
-{% empty %}
+<div class="space-y-3">
+  {% for news in group.list %}
+  <div id="news-{{ news.uid }}" x-data="{ delOpen: false }" class="bg-white rounded-[10px] shadow-sm p-5 hover:shadow-md transition-shadow">
+    <div class="flex items-start gap-4">
+      {% if news.image_url %}
+      <img src="{{ news.image_url }}" alt="" class="w-20 h-20 object-cover rounded-[10px] flex-shrink-0">
+      {% endif %}
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 mb-1.5">
+          <span class="text-xs text-gray-400">{{ news.source_type }} · {{ news.published_at|date:"Y.m.d" }}</span>
+          <button @click="delOpen = true" type="button"
+                  class="ml-auto flex-shrink-0 p-1 rounded-[6px] text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+        <a href="{% url 'news_detail' news.uid %}"
+           class="text-sm font-semibold text-gray-900 hover:text-primary transition-colors line-clamp-1">
+          {{ news.title }}
+        </a>
+        {% with orgs=news.organizations.all %}
+        {% if orgs %}
+        <div class="flex flex-wrap gap-1 mt-1.5">
+          {% for org in orgs %}
+          <span class="text-xs px-2 py-0.5 rounded-full
+            {% if org.org_type == '금융사' %}bg-blue-50 text-blue-600
+            {% elif org.org_type == '보험사' %}bg-green-50 text-green-600
+            {% else %}bg-purple-50 text-primary{% endif %}">
+            {{ org.name }}
+          </span>
+          {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+        <p class="text-xs text-gray-500 mt-1 line-clamp-2">{{ news.summary|default:news.body|truncatechars:120 }}</p>
+        {% if news.tags %}
+        <div class="flex flex-wrap gap-1 mt-2">
+          {% for tag in news.tags.기술 %}
+          <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{{ tag }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- 삭제 확인 모달 -->
+    <div x-show="delOpen" x-cloak class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center"
+         @click="delOpen = false" @keydown.escape.window="delOpen = false">
+      <div class="bg-white rounded-[10px] p-6 shadow-xl w-[90%] max-w-sm" @click.stop>
+        <p class="text-sm font-semibold text-gray-900 mb-1">뉴스를 삭제하시겠습니까?</p>
+        <p class="text-xs text-gray-500 mb-5">삭제된 뉴스는 복구할 수 없습니다.</p>
+        <div class="flex gap-3 justify-end">
+          <button @click="delOpen = false" type="button"
+                  class="px-4 py-2 text-sm text-gray-500 border border-gray-200 rounded-[10px] hover:bg-gray-50 transition-colors">
+            취소
+          </button>
+          <button hx-post="{% url 'news_delete' news.uid %}"
+                  hx-target="#news-{{ news.uid }}"
+                  hx-swap="outerHTML"
+                  hx-include="[name=csrfmiddlewaretoken]"
+                  class="px-4 py-2 text-sm text-white bg-red-500 rounded-[10px] hover:bg-red-600 transition-colors">
+            삭제
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endfor %}
+{% else %}
 <div class="bg-white rounded-[10px] shadow-sm p-12 text-center text-gray-400">
   <i data-lucide="search-x" class="w-10 h-10 mx-auto mb-3 opacity-40"></i>
   <p class="text-sm">검색 결과가 없습니다.</p>
 </div>
-{% endfor %}
+{% endif %}
 
 <!-- 페이지네이션 -->
 {% if is_paginated %}

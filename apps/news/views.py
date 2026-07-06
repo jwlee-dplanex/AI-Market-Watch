@@ -1,4 +1,5 @@
 from django.db.models import Q
+from django.db.models.functions import TruncDate
 from django.shortcuts import render, get_object_or_404
 from django.core.paginator import Paginator
 from django.http import HttpResponse
@@ -18,7 +19,12 @@ ORG_TYPES = [
 def news_list(request):
     order = request.GET.get("order", "newest")
     order_fields = ("published_at", "pk") if order == "oldest" else ("-published_at", "-pk")
-    qs = News.objects.prefetch_related("organizations").order_by(*order_fields)
+    qs = (
+        News.objects
+        .prefetch_related("organizations")
+        .annotate(local_date=TruncDate("published_at"))
+        .order_by(*order_fields)
+    )
 
     q = request.GET.get("q", "").strip()
     if q:
