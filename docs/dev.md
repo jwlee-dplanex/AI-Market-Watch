@@ -49,8 +49,8 @@ beautifulsoup4
 | Naver News API | 뉴스 수집 | X-Naver-Client-Id / X-Naver-Client-Secret |
 | OpenDART API | 공시 자료 수집 | API Key |
 | 금융위원회 RSS | 공식 보도자료 수집 | 없음 (공개) |
-| Claude Haiku (`claude-haiku-4-5-20251001`) | 뉴스 요약·분류·태깅 | Anthropic API Key |
-| Claude Sonnet (`claude-sonnet-4-6`) | 인사이트·보고서 생성 | Anthropic API Key |
+| Claude Haiku (`claude-haiku-4-5-20251001`) | 뉴스 요약·관련성 판단 | Anthropic API Key |
+| Claude Sonnet (`claude-sonnet-5`) | 인사이트·보고서 생성 (계획, 미구현) | Anthropic API Key |
 
 ---
 
@@ -68,11 +68,24 @@ beautifulsoup4
 | url_hash | CharField(64) | URL SHA-256 해시 (중복 제거) |
 | body | TextField | 본문 |
 | image_url | URLField(null) | 썸네일 URL (없으면 null) |
-| source_type | CharField | `naver_news` / `opendart` / `rss` |
+| source_type | CharField | 자유 텍스트 (choices 제약 없음, 현재는 `naver_news`만 사용) |
 | summary | TextField(null) | LLM 생성 요약 |
-| is_processed | BooleanField | LLM 처리 완료 여부 |
+| is_processed | BooleanField | LLM 처리(관련성 판단·요약) 완료 여부 |
+| is_relevant | BooleanField | LLM이 판단한 관련성 (기본값 True, 처리 후 false면 목록·대시보드에서 숨김) |
 | published_at | DateTimeField | 발행일 |
 | collected_at | DateTimeField | 수집일 |
+
+---
+
+**ExcludedURL** — 삭제된 뉴스의 URL 해시 (재수집 방지)
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| id | AutoField | PK |
+| url_hash | CharField(64, unique) | 삭제된 뉴스의 URL 해시 |
+| deleted_at | DateTimeField | 삭제 시각 |
+
+뉴스 삭제(`news_delete`) 시 `url_hash`를 여기에 기록. `collect_naver()`가 수집 시 이 테이블도 확인해서 한 번 삭제한 URL은 다시 저장하지 않음. 제목·URL 원문은 저장하지 않으므로 "언제 몇 건 삭제했는지"만 알 수 있고 무엇을 삭제했는지는 복원 불가.
 
 ---
 
@@ -307,6 +320,7 @@ ai_market_watch/
 | `/setting/sources/` | 데이터 소스 (SET-001) |
 | `/setting/sources/<pk>/toggle/` | 데이터 소스 활성 토글 (POST) |
 | `/setting/sources/collect-now/` | 수동 수집 실행 (POST) |
+| `/setting/sources/process-llm-now/` | AI 관련성 판단·요약 수동 실행 (POST) |
 | `/setting/keywords/` | 키워드 (SET-002) |
 | `/setting/keywords/add/` | 키워드 추가 (POST) |
 | `/setting/keywords/<pk>/update/` | 키워드 수정 (POST) |
@@ -332,7 +346,7 @@ ai_market_watch/
     ↓ 활성인 경우에만
 [수집 키워드 리스트] → 키워드별 Naver API 호출 (kw.sort 적용)
     ↓
-수집 → 제외 키워드 필터 → 중복 제거 → News 저장 → _link_organizations() → LLM 처리 대기
+수집 → 제외 키워드 필터 → 중복 제거(url_hash) → 삭제 이력 체크(ExcludedURL) → News 저장 → _link_organizations() → LLM 처리 대기
 ```
 
 ### 소스별 수집 방식
@@ -386,24 +400,31 @@ if News.objects.filter(url_hash=url_hash).exists():
 
 | 용도 | 모델 | 처리 단위 |
 |------|------|-----------|
-| 뉴스 요약·분류·태깅 | claude-haiku-4-5-20251001 | 뉴스 1건 → 1회 호출 |
-| 인사이트 생성 | claude-sonnet-4-6 | 이슈 그룹 단위 |
-| 주간 보고서 생성 | claude-sonnet-4-6 | 주차 단위 |
+| 뉴스 요약·관련성 판단 | claude-haiku-4-5-20251001 | 뉴스 1건 → 1회 호출 |
+| 인사이트 생성 (계획, 미구현) | claude-sonnet-5 | 이슈 그룹 단위 |
+| 주간 보고서 생성 (계획, 미구현) | claude-sonnet-5 | 주차 단위 |
 
-### 뉴스 단건 처리
+### 뉴스 단건 처리 — 관련성 판단 + 요약 (구현 완료)
 
-1회 호출로 요약을 JSON으로 받습니다.
+**트리거**: 설정 > 데이터 소스 페이지의 "AI 처리" 버튼 (수동). 자동 스케줄은 아직 없음.
+
+`services/llm.py`의 `process_unclassified()`가 `is_processed=False`인 뉴스를 순회하며 `classify_news()`를 1건씩 호출합니다.
+
+- 프롬프트는 하드코딩이 아니라 `Prompt` 모델(`name="뉴스 요약"`)에서 로드 → 설정 > 프롬프트 화면에서 코드 수정 없이 문구 조정 가능 (마이그레이션으로 기본값 시딩됨)
+- 본문은 토큰 비용 절약을 위해 앞 6,000자까지만 프롬프트에 포함
+- 응답이 ` ```json ` 코드펜스로 감싸져 오는 경우를 대비해 파싱 전에 방어적으로 제거
 
 프롬프트 응답 형식:
 ```json
 {
-  "summary": "2-3문장 요약"
+  "is_relevant": true,
+  "summary": "2-3문장 요약 (is_relevant가 false면 빈 문자열)"
 }
 ```
 
-처리 완료 후 `is_processed = True`로 업데이트합니다.
+처리 결과는 `News.is_relevant`, `News.summary`, `News.is_processed=True`에 저장됩니다. **`is_relevant=False`인 뉴스는 삭제되지 않고, 뉴스 목록·대시보드 조회 쿼리에서만 `filter(is_relevant=True)`로 제외**됩니다 (상세 페이지 URL 직접 접근은 가능).
 
-### 인사이트 생성
+### 인사이트 생성 (계획, 미구현)
 
 이슈 그룹 내 뉴스 요약을 묶어 Claude Sonnet에게 전달합니다.
 
@@ -415,7 +436,7 @@ if News.objects.filter(url_hash=url_hash).exists():
 }
 ```
 
-### 주간 보고서 생성
+### 주간 보고서 생성 (계획, 미구현)
 
 해당 주차 인사이트를 모아 보고서를 자동 생성합니다.
 
@@ -432,11 +453,10 @@ if News.objects.filter(url_hash=url_hash).exists():
 
 | 상황 | 처리 방식 |
 |------|-----------|
-| JSON 파싱 실패 | `is_processed=False` 유지, LLMLog에 error 기록 |
-| API 타임아웃 | 최대 3회 재시도 후 fail 기록 |
-| 처리 실패 | 다음 스케줄 실행 시 재처리 |
+| JSON 파싱 실패 / API 호출 예외 | `is_processed=False` 유지(재시도 대상으로 남음), `LLMLog`에 fail 기록, `stats["errors"]` 카운트 |
+| 처리 실패한 뉴스 | 자동 재시도 없음 — "AI 처리" 버튼을 다시 눌러 다음 배치 실행 시 재시도됨 |
 
-모든 호출은 LLMLog에 토큰 수, 성공/실패 여부를 기록합니다.
+모든 호출은 LLMLog에 프롬프트명·토큰 수·성공/실패 여부를 기록합니다 (설정 > 로그 화면에서 확인 가능).
 
 ---
 
@@ -482,19 +502,22 @@ class Embedding(models.Model):
 
 APScheduler를 사용합니다. Django 앱 시작 시 `apps.py`에서 자동 실행됩니다.
 
+**현재 실제로 자동화된 작업은 "뉴스 수집" 하나뿐입니다.** `services/scheduler.py`의 `_job_collect()`가 `collect_naver()`를 호출해 `CollectionLog`를 남기는 것까지만 구현돼 있고, `Schedule.schedule_type`에 `"report"` 타입이 모델상 정의는 돼 있지만 실제로 등록·실행되는 잡은 없습니다.
+
 ### 실행 스케줄
 
-| 작업 | 주기 | 시간 |
+| 작업 | 상태 | 주기(설정 시) |
 |------|------|------|
-| 뉴스 수집 | 매일 | 09:00 |
-| LLM 처리 (요약·분류·태깅) | 매일 | 09:30 |
-| 임베딩 & 이슈 그룹핑 | 매일 | 10:00 |
-| 주간 보고서 생성 | 매주 월요일 | 10:30 |
-| Slack 발송 | 매주 월요일 | 11:00 |
+| 뉴스 수집 | **구현 완료·자동 실행** | Schedule 모델(SET-004)에 등록한 cron 표현식대로 |
+| AI 관련성 판단·요약 | 수동 버튼만 구현 (설정 > 데이터 소스 "AI 처리") | 자동 스케줄 없음 |
+| 임베딩 생성 | 코드는 있으나(`services/embedder.py`) 트리거(버튼·스케줄) 없음 | — |
+| 이슈 그룹핑 | 미구현 | — |
+| 주간 보고서 생성 | 미구현 | — |
+| Slack 발송 | 미구현 | — |
 
 ### Schedule 모델 연동
 
-Schedule 모델의 `is_active` 값을 읽어 실행 여부를 제어합니다. SET-004 화면에서 켜고 끌 수 있습니다.
+`Schedule` 모델의 `is_active` 값을 읽어 실행 여부를 제어합니다. SET-004 화면에서 켜고 끌 수 있습니다. (현재는 `schedule_type="collect"`만 실제로 동작)
 
 ---
 
@@ -525,7 +548,7 @@ OPENDART_API_KEY=
 # Claude API
 ANTHROPIC_API_KEY=
 ANTHROPIC_MODEL_FAST=claude-haiku-4-5-20251001
-ANTHROPIC_MODEL_SMART=claude-sonnet-4-6
+ANTHROPIC_MODEL_SMART=claude-sonnet-5
 
 # Slack
 SLACK_WEBHOOK_URL=

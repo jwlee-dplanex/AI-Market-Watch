@@ -14,6 +14,7 @@ class News(models.Model):
     source_type = models.CharField(max_length=20)
     summary = models.TextField(null=True, blank=True)
     is_processed = models.BooleanField(default=False)
+    is_relevant = models.BooleanField(default=True)
     published_at = models.DateTimeField()
     collected_at = models.DateTimeField(auto_now_add=True)
     organizations = models.ManyToManyField(

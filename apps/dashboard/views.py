@@ -10,7 +10,7 @@ def dashboard(request):
         .annotate(news_count=Count("issuegroupnews"))
         .order_by("-created_at")[:5]
     )
-    latest_news = News.objects.order_by("-published_at")[:10]
+    latest_news = News.objects.filter(is_relevant=True).order_by("-published_at")[:10]
 
     return render(request, "dashboard/index.html", {
         "issue_groups": issue_groups,

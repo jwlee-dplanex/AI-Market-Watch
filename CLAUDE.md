@@ -37,8 +37,7 @@ venv\Scripts\python manage.py shell --settings=config.settings.local
 
 - **HTMX** — 부분 업데이트: Django view가 HTML fragment를 반환 (JSON 최소화)
 - **Alpine.js** — 클라이언트 UI 상태만 담당 (드롭다운, 토글 등)
-- **Chart.js** — CDN 로드, 차트 데이터는 Django `json_script` 필터로 전달
-- **pgvector** — 유사 기사 그룹핑에 코사인 유사도 사용 (임계값 0.82)
+- **pgvector** — 유사 기사 그룹핑에 코사인 유사도 사용 예정 (임계값 0.82, 그룹핑 로직 자체는 미구현)
 
 ## 프로젝트 구조
 
@@ -70,8 +69,8 @@ templates/      # 루트 레벨 템플릿 (base.html + 앱별 하위 디렉토�
 
 | 용도 | 모델 | 설정 키 |
 |------|------|---------|
-| 뉴스 요약·분류·태깅 | claude-haiku-4-5-20251001 | `ANTHROPIC_MODEL_FAST` |
-| 인사이트·보고서 생성 | claude-sonnet-4-6 | `ANTHROPIC_MODEL_SMART` |
+| 뉴스 요약·관련성 판단 | claude-haiku-4-5-20251001 | `ANTHROPIC_MODEL_FAST` |
+| 인사이트·보고서 생성 | claude-sonnet-5 | `ANTHROPIC_MODEL_SMART` |
 
 ## 화면 ID 규칙
 

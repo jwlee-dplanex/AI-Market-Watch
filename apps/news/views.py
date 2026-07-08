@@ -21,6 +21,7 @@ def news_list(request):
     order_fields = ("published_at", "pk") if order == "oldest" else ("-published_at", "-pk")
     qs = (
         News.objects
+        .filter(is_relevant=True)
         .prefetch_related("organizations")
         .annotate(local_date=TruncDate("published_at"))
         .order_by(*order_fields)

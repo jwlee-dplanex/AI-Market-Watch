@@ -88,8 +88,9 @@ NAVER_DISPLAY_PER_QUERY = env.int("NAVER_DISPLAY_PER_QUERY", default=5)
 NAVER_MAX_PER_ORG       = env.int("NAVER_MAX_PER_ORG", default=8)
 NAVER_REQUEST_DELAY     = env.float("NAVER_REQUEST_DELAY", default=0.25)
 
+ANTHROPIC_API_KEY = env("ANTHROPIC_API_KEY", default="")
 ANTHROPIC_MODEL_FAST = env("ANTHROPIC_MODEL_FAST", default="claude-haiku-4-5-20251001")
-ANTHROPIC_MODEL_SMART = env("ANTHROPIC_MODEL_SMART", default="claude-sonnet-4-6")
+ANTHROPIC_MODEL_SMART = env("ANTHROPIC_MODEL_SMART", default="claude-sonnet-5")
 
 VOYAGE_API_KEY = env("VOYAGE_API_KEY", default="")
 EMBEDDING_MODEL = env("EMBEDDING_MODEL", default="voyage-multilingual-2")
