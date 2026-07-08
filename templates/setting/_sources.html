@@ -61,13 +61,13 @@
             hx-swap="innerHTML"
             hx-include="[name=csrfmiddlewaretoken]"
             hx-indicator="#llm-spinner"
-            class="flex items-center gap-1.5 px-4 py-2 bg-[#00AF9A] text-white text-xs font-medium rounded-[10px] hover:bg-teal-600 transition-colors disabled:opacity-50">
+            class="flex items-center gap-1.5 px-4 py-2 bg-teal text-white text-xs font-medium rounded-[10px] hover:bg-teal-hover transition-colors disabled:opacity-50">
       <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
       AI 처리
     </button>
     <span id="llm-spinner"
           class="htmx-indicator text-xs text-gray-400 flex items-center gap-1.5">
-      <svg class="animate-spin w-3.5 h-3.5 text-[#00AF9A]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <svg class="animate-spin w-3.5 h-3.5 text-teal" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
       </svg>

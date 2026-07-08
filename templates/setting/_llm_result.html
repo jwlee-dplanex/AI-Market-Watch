@@ -1,8 +1,8 @@
 <div class="mx-5 mb-4 px-4 py-3 rounded-[10px] bg-[#E6F7F5] border border-[#B8E8E1]">
-  <p class="text-xs font-semibold text-[#00AF9A] mb-2">AI 처리 완료</p>
+  <p class="text-xs font-semibold text-teal mb-2">AI 처리 완료</p>
   <div class="flex gap-5 text-xs">
     <span class="text-gray-700">대상 <strong class="text-gray-600">{{ stats.total }}</strong>건</span>
-    <span class="text-gray-700">관련 <strong class="text-[#00AF9A]">{{ stats.relevant }}</strong>건</span>
+    <span class="text-gray-700">관련 <strong class="text-teal">{{ stats.relevant }}</strong>건</span>
     <span class="text-gray-700">비관련 <strong class="text-gray-400">{{ stats.irrelevant }}</strong>건</span>
     {% if stats.errors %}
     <span class="text-gray-700">실패 <strong class="text-red-500">{{ stats.errors }}</strong>건</span>
