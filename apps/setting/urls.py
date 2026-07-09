@@ -5,7 +5,6 @@ urlpatterns = [
     path("sources/", views.sources, name="setting_sources"),
     path("sources/<int:pk>/toggle/", views.source_toggle, name="setting_source_toggle"),
     path("sources/collect-now/", views.collect_now, name="setting_collect_now"),
-    path("sources/process-llm-now/", views.process_llm_now, name="setting_process_llm_now"),
     path("keywords/", views.keywords, name="setting_keywords"),
     path("keywords/add/", views.keyword_add, name="setting_keyword_add"),
     path("keywords/<int:pk>/update/", views.keyword_update, name="setting_keyword_update"),

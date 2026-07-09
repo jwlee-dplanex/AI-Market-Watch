@@ -12,9 +12,6 @@ class News(models.Model):
     body = models.TextField(blank=True)
     image_url = models.URLField(max_length=2000, null=True, blank=True)
     source_type = models.CharField(max_length=20)
-    summary = models.TextField(null=True, blank=True)
-    is_processed = models.BooleanField(default=False)
-    is_relevant = models.BooleanField(default=True)
     published_at = models.DateTimeField()
     collected_at = models.DateTimeField(auto_now_add=True)
     organizations = models.ManyToManyField(
@@ -49,29 +46,9 @@ class Embedding(models.Model):
         return f"Embedding({self.news_id})"
 
 
-class IssueGroup(models.Model):
-    title = models.CharField(max_length=500, null=True, blank=True)
-    summary = models.TextField(null=True, blank=True)
-    news = models.ManyToManyField(News, through="IssueGroupNews", related_name="issue_groups")
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["-created_at"]
-
-    def __str__(self):
-        return self.title or f"IssueGroup({self.pk})"
-
-
-class IssueGroupNews(models.Model):
-    issue_group = models.ForeignKey(IssueGroup, on_delete=models.CASCADE)
-    news = models.ForeignKey(News, on_delete=models.CASCADE)
-
-    class Meta:
-        unique_together = ("issue_group", "news")
-
-
 class Insight(models.Model):
-    issue_group = models.ForeignKey(IssueGroup, on_delete=models.CASCADE, related_name="insights")
+    title = models.CharField(max_length=500)
+    news = models.ManyToManyField(News, through="InsightNews", related_name="insights")
     content = models.TextField()
     implication = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
@@ -80,4 +57,12 @@ class Insight(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"Insight({self.issue_group_id})"
+        return self.title
+
+
+class InsightNews(models.Model):
+    insight = models.ForeignKey(Insight, on_delete=models.CASCADE)
+    news = models.ForeignKey(News, on_delete=models.CASCADE)
+
+    class Meta:
+        unique_together = ("insight", "news")

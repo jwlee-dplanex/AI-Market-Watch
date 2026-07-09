@@ -122,7 +122,6 @@ def collect_naver() -> dict:
                 body=body,
                 source_type="naver_news",
                 published_at=published_at,
-                is_processed=False,
             )
 
             full_body = fetch_article_body(original_url, naver_link)

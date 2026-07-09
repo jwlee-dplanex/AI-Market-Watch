@@ -16,14 +16,14 @@
         <a href="{% url 'news_list' %}" class="text-xs text-primary hover:underline">전체 보기</a>
       </div>
       <div class="space-y-3">
-        {% for issue in issue_groups %}
+        {% for insight in insights %}
         <div class="border border-gray-100 rounded-[10px] p-4 hover:border-primary/30 transition-colors">
           <div class="flex items-start justify-between gap-3">
             <div class="flex-1 min-w-0">
-              <p class="text-sm font-semibold text-gray-900 truncate">{{ issue.title }}</p>
-              <p class="text-xs text-gray-500 mt-1 line-clamp-2">{{ issue.summary }}</p>
+              <p class="text-sm font-semibold text-gray-900 truncate">{{ insight.title }}</p>
+              <p class="text-xs text-gray-500 mt-1 line-clamp-2">{{ insight.content }}</p>
             </div>
-            <span class="text-xs text-gray-400 whitespace-nowrap">관련 기사 {{ issue.news_count }}건</span>
+            <span class="text-xs text-gray-400 whitespace-nowrap">관련 기사 {{ insight.news_count }}건</span>
           </div>
         </div>
         {% empty %}

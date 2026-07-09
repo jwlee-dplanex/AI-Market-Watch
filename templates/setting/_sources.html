@@ -54,27 +54,7 @@
       </svg>
       수집 중...
     </span>
-
-    <button type="button"
-            hx-post="{% url 'setting_process_llm_now' %}"
-            hx-target="#llm-result"
-            hx-swap="innerHTML"
-            hx-include="[name=csrfmiddlewaretoken]"
-            hx-indicator="#llm-spinner"
-            class="flex items-center gap-1.5 px-4 py-2 bg-teal text-white text-xs font-medium rounded-[10px] hover:bg-teal-hover transition-colors disabled:opacity-50">
-      <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
-      AI 처리
-    </button>
-    <span id="llm-spinner"
-          class="htmx-indicator text-xs text-gray-400 flex items-center gap-1.5">
-      <svg class="animate-spin w-3.5 h-3.5 text-teal" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
-      </svg>
-      처리 중...
-    </span>
   </div>
 
   <div id="collect-result"></div>
-  <div id="llm-result"></div>
 </div>

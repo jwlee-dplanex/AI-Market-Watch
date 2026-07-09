@@ -37,7 +37,7 @@ venv\Scripts\python manage.py shell --settings=config.settings.local
 
 - **HTMX** — 부분 업데이트: Django view가 HTML fragment를 반환 (JSON 최소화)
 - **Alpine.js** — 클라이언트 UI 상태만 담당 (드롭다운, 토글 등)
-- **pgvector** — 유사 기사 그룹핑에 코사인 유사도 사용 예정 (임계값 0.82, 그룹핑 로직 자체는 미구현)
+- **pgvector** — `Embedding` 모델·코사인 유사도 인프라는 구축돼 있으나(임계값 0.82), 현재 관련 기사 판별은 research-analyst가 배치를 직접 읽어서 수행하며 pgvector는 사용하지 않는다. 수집량 증가로 병목이 되면 PE가 상시 자동 클러스터링으로 재구현하는 걸 검토한다.
 
 ## 프로젝트 구조
 
@@ -76,3 +76,21 @@ templates/      # 루트 레벨 템플릿 (base.html + 앱별 하위 디렉토�
 
 설계 문서(`docs/design.md`)와 코드에서 화면 ID를 기준으로 소통합니다.  
 `ALL-001` 대시보드 / `NEWS-001~002` 뉴스 / `REPORT-001~002` 보고서 / `SET-001~006` 설정
+
+## 서브에이전트 (PM/PD/PE/RA)
+
+`.claude/agents/`에 4개의 전담 에이전트가 정의돼 있습니다. 호출은 사용자가 "PM/PD/PE/RA 불러줘"처럼 명시적으로 요청할 때만 합니다 (자동 위임 안 함).
+
+- **product-manager (PM)** — 기능 우선순위·정책 정의. `docs/planning.md`만 직접 수정 가능.
+- **product-designer (PD)** — 화면·디자인시스템. `docs/design.md`, `templates/`만 직접 수정 가능.
+- **product-engineer (PE)** — 실제 구현 전체(모델·뷰·마이그레이션·서비스 코드). 도구 제한 없음.
+- **research-analyst (RA)** — 수집된 뉴스로 실제 리서치 산출물(시사점·주간보고서)을 만드는 온디맨드 운영 역할. PM/PD/PE가 "플랫폼을 만드는" 축이라면 RA는 "플랫폼을 쓰는" 축. 도구 제한 없음(단 `.py` 구현은 하지 않는 소프트 제약).
+
+| 작업 유형 | 순서 |
+|---|---|
+| 새 화면이 있는 신규 기능 | PM → Designer → Engineer (각 단계 사이 사용자 체크포인트) |
+| 화면 없는 백엔드/파이프라인 | PM → Engineer |
+| UI 톤 조정 등 우선순위 판단이 불필요한 개선 | Designer → Engineer |
+| 버그 수정 | Engineer만 |
+| 수집 이후 노이즈 판정·삭제·관련 기사 찾기·시사점·보고서 산출물 생성 | Research Analyst 단독 — 실제 데이터로 직접 판정·삭제·작성 수행 |
+| 관련 기사 찾기/인사이트/보고서를 상시 자동화하는 파이프라인 구현 | PM(우선순위 판단) → Engineer(구현, RA의 수동 작업 실례 참고) |

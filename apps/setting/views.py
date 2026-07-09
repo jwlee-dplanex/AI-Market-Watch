@@ -39,13 +39,6 @@ def collect_now(request):
 
 
 @require_POST
-def process_llm_now(request):
-    from services.llm import process_unclassified
-    stats = process_unclassified()
-    return render(request, "setting/_llm_result.html", {"stats": stats})
-
-
-@require_POST
 def source_toggle(request, pk):
     source = get_object_or_404(DataSource, pk=pk)
     source.is_active = not source.is_active

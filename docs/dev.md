@@ -49,8 +49,8 @@ beautifulsoup4
 | Naver News API | 뉴스 수집 | X-Naver-Client-Id / X-Naver-Client-Secret |
 | OpenDART API | 공시 자료 수집 | API Key |
 | 금융위원회 RSS | 공식 보도자료 수집 | 없음 (공개) |
-| Claude Haiku (`claude-haiku-4-5-20251001`) | 뉴스 요약·관련성 판단 | Anthropic API Key |
-| Claude Sonnet (`claude-sonnet-5`) | 인사이트·보고서 생성 (계획, 미구현) | Anthropic API Key |
+| Claude Haiku (`claude-haiku-4-5-20251001`) | (계획, 상시 자동화 파이프라인 구현 시 사용 예정. 현재는 research-analyst 에이전트가 온디맨드로 관련성 판정 수행) | Anthropic API Key |
+| Claude Sonnet (`claude-sonnet-5`) | 인사이트·보고서 생성 — research-analyst 에이전트가 온디맨드 세션에서 직접 작성 | Anthropic API Key |
 
 ---
 
@@ -69,9 +69,6 @@ beautifulsoup4
 | body | TextField | 본문 |
 | image_url | URLField(null) | 썸네일 URL (없으면 null) |
 | source_type | CharField | 자유 텍스트 (choices 제약 없음, 현재는 `naver_news`만 사용) |
-| summary | TextField(null) | LLM 생성 요약 |
-| is_processed | BooleanField | LLM 처리(관련성 판단·요약) 완료 여부 |
-| is_relevant | BooleanField | LLM이 판단한 관련성 (기본값 True, 처리 후 false면 목록·대시보드에서 숨김) |
 | published_at | DateTimeField | 발행일 |
 | collected_at | DateTimeField | 수집일 |
 
@@ -101,35 +98,25 @@ beautifulsoup4
 
 ---
 
-**IssueGroup** — 유사 뉴스 묶음
+**Insight** — research-analyst 에이전트가 온디맨드로 작성하는 인사이트. 별도 그룹 테이블 없이 `News`와 직접 M:N 연결됩니다.
 
 | 필드 | 타입 | 설명 |
 |------|------|------|
 | id | AutoField | PK |
-| title | CharField(null) | 이슈 제목 |
-| summary | TextField(null) | 이슈 요약 |
+| title | CharField(500) | 이슈를 대표하는 제목 |
+| news | ManyToManyField(News, through=InsightNews) | 근거로 삼은 News 전체 (출처 표기 역할 겸함) |
+| content | TextField | 주요 흐름 분석 |
+| implication | TextField | 시사점 (필드명이 `implication`이며 `dplanex_implication`이 아님) |
 | created_at | DateTimeField | |
 
 ---
 
-**IssueGroupNews** — IssueGroup ↔ News M:N
+**InsightNews** — Insight ↔ News M:N
 
 | 필드 | 타입 |
 |------|------|
-| issue_group | ForeignKey(IssueGroup) |
+| insight | ForeignKey(Insight) |
 | news | ForeignKey(News) |
-
----
-
-**Insight** — LLM 생성 인사이트
-
-| 필드 | 타입 | 설명 |
-|------|------|------|
-| id | AutoField | PK |
-| issue_group | ForeignKey(IssueGroup) | |
-| content | TextField | 주요 흐름 분석 |
-| dplanex_implication | TextField | DPLANEX 시사점 |
-| created_at | DateTimeField | |
 
 ---
 
@@ -269,7 +256,7 @@ ai_market_watch/
 │   │   ├── views.py
 │   │   └── urls.py
 │   ├── news/                # 뉴스 (NEWS-001, NEWS-002)
-│   │   ├── models.py        # News, Embedding, IssueGroup, Insight
+│   │   ├── models.py        # News, ExcludedURL, Embedding, Insight, InsightNews
 │   │   ├── views.py
 │   │   └── urls.py
 │   ├── reports/             # 보고서 (REPORT-001, REPORT-002)
@@ -320,7 +307,6 @@ ai_market_watch/
 | `/setting/sources/` | 데이터 소스 (SET-001) |
 | `/setting/sources/<pk>/toggle/` | 데이터 소스 활성 토글 (POST) |
 | `/setting/sources/collect-now/` | 수동 수집 실행 (POST) |
-| `/setting/sources/process-llm-now/` | AI 관련성 판단·요약 수동 실행 (POST) |
 | `/setting/keywords/` | 키워드 (SET-002) |
 | `/setting/keywords/add/` | 키워드 추가 (POST) |
 | `/setting/keywords/<pk>/update/` | 키워드 수정 (POST) |
@@ -346,7 +332,7 @@ ai_market_watch/
     ↓ 활성인 경우에만
 [수집 키워드 리스트] → 키워드별 Naver API 호출 (kw.sort 적용)
     ↓
-수집 → 제외 키워드 필터 → 중복 제거(url_hash) → 삭제 이력 체크(ExcludedURL) → News 저장 → _link_organizations() → LLM 처리 대기
+수집 → 제외 키워드 필터 → 중복 제거(url_hash) → 삭제 이력 체크(ExcludedURL) → News 저장 → _link_organizations() → research-analyst 에이전트의 온디맨드 처리 대기
 ```
 
 ### 소스별 수집 방식
@@ -396,67 +382,23 @@ if News.objects.filter(url_hash=url_hash).exists():
 
 ## 6. LLM 연동
 
+뉴스 수집 이후의 관련성 판정·삭제·관련 기사 묶기·인사이트 작성·보고서 편집은 전부 **research-analyst(RA) 에이전트가 사람이 Claude Code 세션을 열 때마다 온디맨드로 직접 수행**합니다. 예전에 있던 "AI 처리" 버튼(`services/llm.py`의 `classify_news()`/`process_unclassified()`, `News.is_relevant`/`is_processed`/`summary` 필드 기반 자동 분류)은 제거되었습니다 — 병행되는 자동 분류 파이프라인이 없습니다.
+
 ### 용도별 모델
 
 | 용도 | 모델 | 처리 단위 |
 |------|------|-----------|
-| 뉴스 요약·관련성 판단 | claude-haiku-4-5-20251001 | 뉴스 1건 → 1회 호출 |
-| 인사이트 생성 (계획, 미구현) | claude-sonnet-5 | 이슈 그룹 단위 |
-| 주간 보고서 생성 (계획, 미구현) | claude-sonnet-5 | 주차 단위 |
+| 관련성 판정·노이즈 삭제, 관련 기사 묶기, 인사이트 작성 (RA 온디맨드) | claude-sonnet-5 | RA 세션에서 배치 단위로 직접 판단 |
+| 주간 보고서 편집 (RA 온디맨드) | claude-sonnet-5 | 주차 단위 |
+| 상시 자동화 파이프라인 (계획, 미구현) | claude-haiku-4-5-20251001 (예정) | 수집량 증가로 병목이 될 시점에 PE가 재검토 |
 
-### 뉴스 단건 처리 — 관련성 판단 + 요약 (구현 완료)
+### RA의 온디맨드 처리 흐름
 
-**트리거**: 설정 > 데이터 소스 페이지의 "AI 처리" 버튼 (수동). 자동 스케줄은 아직 없음.
+1. **노이즈 판정 + 삭제** — 갓 수집된 뉴스 배치를 직접 읽고 PM이 정의한 관련성 기준으로 판단, `product-engineer`의 안전 삭제 패턴(`ExcludedURL.objects.get_or_create()` 선기록 후 `news.delete()`, 건별 개별 처리)을 그대로 따라 직접 삭제까지 실행합니다. 남은 `News`는 삭제되지 않았다는 사실 자체가 "관련 있음"을 의미하므로 별도 플래그(`is_relevant`)가 필요 없습니다.
+2. **관련 기사 찾기 + Insight 작성** — 남은 배치의 제목·본문을 직접 읽고(pgvector 쿼리 미사용) 같은 사건을 다루는 기사를 식별해 Django ORM으로 `Insight`(`title`/`content`/`implication`)를 작성하고 `insight.news.set([...])`로 근거 `News`를 연결합니다. 별도 그룹 테이블(과거 `IssueGroup`) 없이 `Insight` 자체가 "이 기사들 + 이 분석"의 단위입니다.
+3. **주간 보고서 편집** — `Report.title`/`overview`/`content`를 편집하고 `ReportNews`로 근거 `News`를 직접 연결합니다.
 
-`services/llm.py`의 `process_unclassified()`가 `is_processed=False`인 뉴스를 순회하며 `classify_news()`를 1건씩 호출합니다.
-
-- 프롬프트는 하드코딩이 아니라 `Prompt` 모델(`name="뉴스 요약"`)에서 로드 → 설정 > 프롬프트 화면에서 코드 수정 없이 문구 조정 가능 (마이그레이션으로 기본값 시딩됨)
-- 본문은 토큰 비용 절약을 위해 앞 6,000자까지만 프롬프트에 포함
-- 응답이 ` ```json ` 코드펜스로 감싸져 오는 경우를 대비해 파싱 전에 방어적으로 제거
-
-프롬프트 응답 형식:
-```json
-{
-  "is_relevant": true,
-  "summary": "2-3문장 요약 (is_relevant가 false면 빈 문자열)"
-}
-```
-
-처리 결과는 `News.is_relevant`, `News.summary`, `News.is_processed=True`에 저장됩니다. **`is_relevant=False`인 뉴스는 삭제되지 않고, 뉴스 목록·대시보드 조회 쿼리에서만 `filter(is_relevant=True)`로 제외**됩니다 (상세 페이지 URL 직접 접근은 가능).
-
-### 인사이트 생성 (계획, 미구현)
-
-이슈 그룹 내 뉴스 요약을 묶어 Claude Sonnet에게 전달합니다.
-
-프롬프트 응답 형식:
-```json
-{
-  "content": "주요 흐름 분석",
-  "dplanex_implication": "DPLANEX 시사점"
-}
-```
-
-### 주간 보고서 생성 (계획, 미구현)
-
-해당 주차 인사이트를 모아 보고서를 자동 생성합니다.
-
-프롬프트 응답 형식:
-```json
-{
-  "title": "보고서 제목",
-  "overview": "주요 동향 개요",
-  "content": "주요 이슈 + 시사점"
-}
-```
-
-### 에러 처리
-
-| 상황 | 처리 방식 |
-|------|-----------|
-| JSON 파싱 실패 / API 호출 예외 | `is_processed=False` 유지(재시도 대상으로 남음), `LLMLog`에 fail 기록, `stats["errors"]` 카운트 |
-| 처리 실패한 뉴스 | 자동 재시도 없음 — "AI 처리" 버튼을 다시 눌러 다음 배치 실행 시 재시도됨 |
-
-모든 호출은 LLMLog에 프롬프트명·토큰 수·성공/실패 여부를 기록합니다 (설정 > 로그 화면에서 확인 가능).
+모든 인사이트·보고서 문단은 실제로 연결된 `News`를 출처로 추적 가능해야 하며, 근거 없는 내용은 작성하지 않는 것이 원칙입니다 (RA 에이전트 정책).
 
 ---
 
@@ -479,11 +421,10 @@ result = client.embed([text], model=settings.EMBEDDING_MODEL)
 ```
 임베딩 생성
     → 기존 뉴스와 코사인 유사도 비교
-    → 유사도 ≥ 0.82 : 기존 IssueGroup에 추가
-    → 유사도  < 0.82 : 새 IssueGroup 생성
+    → 유사도 ≥ 0.82 : 관련 기사로 판단 (그룹핑 로직 자체는 미구현)
 ```
 
-임계값 0.82는 실제 데이터 기준으로 조정 가능합니다.
+임계값 0.82는 실제 데이터 기준으로 조정 가능합니다. 이 인프라는 현재 research-analyst 에이전트의 온디맨드 작업에는 쓰이지 않습니다(배치를 직접 읽고 판단) — 나중에 PE가 상시 자동 클러스터링 파이프라인을 만들 때 사용하기 위해 남겨둔 것입니다.
 
 ### pgvector 설정
 
@@ -509,10 +450,8 @@ APScheduler를 사용합니다. Django 앱 시작 시 `apps.py`에서 자동 실
 | 작업 | 상태 | 주기(설정 시) |
 |------|------|------|
 | 뉴스 수집 | **구현 완료·자동 실행** | Schedule 모델(SET-004)에 등록한 cron 표현식대로 |
-| AI 관련성 판단·요약 | 수동 버튼만 구현 (설정 > 데이터 소스 "AI 처리") | 자동 스케줄 없음 |
+| 관련성 판정·삭제, 인사이트 작성, 보고서 편집 | research-analyst 에이전트가 온디맨드 세션에서 수동 수행 (자동 분류 단계 없음) | 자동 스케줄 없음 |
 | 임베딩 생성 | 코드는 있으나(`services/embedder.py`) 트리거(버튼·스케줄) 없음 | — |
-| 이슈 그룹핑 | 미구현 | — |
-| 주간 보고서 생성 | 미구현 | — |
 | Slack 발송 | 미구현 | — |
 
 ### Schedule 모델 연동

@@ -5,7 +5,7 @@ from django.core.paginator import Paginator
 from django.http import HttpResponse
 from django.urls import reverse
 from django.views.decorators.http import require_POST
-from .models import ExcludedURL, News, IssueGroup
+from .models import ExcludedURL, News
 
 
 ORG_TYPES = [
@@ -21,7 +21,6 @@ def news_list(request):
     order_fields = ("published_at", "pk") if order == "oldest" else ("-published_at", "-pk")
     qs = (
         News.objects
-        .filter(is_relevant=True)
         .prefetch_related("organizations")
         .annotate(local_date=TruncDate("published_at"))
         .order_by(*order_fields)
@@ -92,10 +91,7 @@ def news_detail(request, uid):
     from apps.setting.models import Organization
     news = get_object_or_404(News, uid=uid)
 
-    insights = []
-    issue_group = news.issuegroupnews_set.select_related("issue_group").first()
-    if issue_group:
-        insights = issue_group.issue_group.insights.all()
+    insights = news.insights.all()
 
     linked_orgs = news.organizations.all()
     all_orgs = Organization.objects.filter(is_active=True).exclude(pk__in=linked_orgs)

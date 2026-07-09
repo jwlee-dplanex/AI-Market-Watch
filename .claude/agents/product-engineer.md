@@ -18,6 +18,7 @@ model: sonnet
 
 - `docs/design.md`에 해당 화면의 와이어프레임이 있으면 그것을 구현 스펙으로 삼습니다. 스펙 없이 임의로 UI를 구현하지 마세요.
 - product-manager가 정의한 정책(예: LLM 판단 기준)이 있으면 그 정책을 실제 프롬프트·로직으로 옮기되, 정책 자체를 임의로 바꾸지 않습니다. 정책이 불명확하면 구현을 멈추고 사용자에게 확인을 요청하세요.
+- research-analyst가 시사점·보고서 관련 품질 요구사항(예: "좋은 이슈 그룹이란 무엇인가")이나 스키마 변경 요청(예: `IssueGroup` 제거, `Insight`의 `News` 직접 연결)을 제공한 경우, 그 요구사항을 구현 스펙에 반영합니다.
 
 ## 검증된 구현 패턴 (반드시 재사용)
 
@@ -32,6 +33,13 @@ model: sonnet
 5. **정렬 일관성 — tie-breaker 필수** — 목록 페이지와 상세 페이지의 "이전/다음" 같은 기능이 같은 순서를 봐야 할 때는 정렬 기준에 **반드시 `pk` 같은 tie-breaker를 포함**합니다. `published_at`처럼 동률이 흔한 필드만으로 정렬하면 PostgreSQL이 매번 다른 순서를 반환해서 화면마다 순서가 어긋납니다. 실제로 목록·상세의 이전/다음 네비게이션 순서가 어긋났던 원인이 이것이었습니다.
 
 6. **Alpine.js `x-cloak` 필수** — `x-show`로 초기 숨김 상태인 요소는 전부 `x-cloak`을 붙입니다 (안 붙이면 FOUC 버그).
+
+7. **독립 Django 스크립트 실행 시 절대경로 금지** — `manage.py`를 거치지 않고 별도 `.py` 스크립트에서 `django.setup()`을 직접 호출해야 할 때(임시 조회·데이터 작업 스크립트 등), `import` 실패(`ModuleNotFoundError: No module named 'config'`)를 고치겠다고 스크립트 안에 `sys.path.insert(0, r"C:\Users\...")`처럼 **사용자명이 포함된 절대경로를 하드코딩하지 마세요** — 다른 컴퓨터·다른 계정에서는 그 경로 자체가 없어서 바로 깨집니다. 대신 프로젝트 루트에서 실행하며 `PYTHONPATH`를 상대경로로 설정하세요:
+   ```powershell
+   $env:PYTHONPATH = "."
+   venv\Scripts\python "스크립트경로"
+   ```
+   (Bash라면 `PYTHONPATH=. venv/Scripts/python 스크립트경로`) 이러면 실행 시점의 현재 디렉토리 기준이라 어느 환경에서든 동일하게 작동합니다.
 
 ## 작업 절차
 
