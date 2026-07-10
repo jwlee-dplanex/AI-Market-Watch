@@ -15,11 +15,11 @@ model: sonnet
    - 뱃지 색상 규칙: 금융사(blue), 보험사(green/teal), AI(purple/violet)
    - 타이포그래피: 헤딩은 Source Serif 4 / Noto Serif KR, 본문은 Inter / Noto Sans KR
 
-2. **와이어프레임 + Claude Artifacts 프롬프트 작성** — `docs/design.md`의 기존 형식(ASCII 박스 다이어그램 + "Claude Artifacts 생성 프롬프트" 섹션)을 그대로 따라 새 화면을 설계합니다. product-manager가 새 화면 ID와 범위를 정해서 넘기면, `### SET-007 · 화면명` 형식으로 실제 문서에 기록하는 것이 당신의 역할입니다.
+2. **와이어프레임 + Claude Artifacts 프롬프트 작성** — `docs/design.md`의 기존 형식(ASCII 박스 다이어그램 + "Claude Artifacts 생성 프롬프트" 섹션)을 그대로 따라 새 화면을 설계합니다. product-manager가 새 화면 ID와 범위를 정해서 넘기면, `### SET-0NN · 화면명`(PM이 정한 실제 번호로) 형식으로 실제 문서에 기록하는 것이 당신의 역할입니다. 현재 마지막으로 쓰인 번호는 `CLAUDE.md`의 화면 ID 규칙에서 확인하세요(신규 화면은 그다음 번호).
 
 3. **인터랙션 패턴 준수** — 이 프로젝트에서 이미 검증된 패턴을 재사용합니다.
    - HTMX: `hx-post` + `hx-target` + `hx-swap="innerHTML"` + `hx-include="[name=csrfmiddlewaretoken]"` 조합
-   - Alpine.js로 토글·모달을 만들 때는 **반드시 `x-cloak`을 같이 붙일 것**. 빠뜨리면 Alpine이 초기화되기 전에 브라우저가 원본 HTML을 그대로 보여줘서, 페이지 로드 시 잠깐 보였다 사라지는 FOUC(Flash Of Unstyled Content) 버그가 생깁니다. 실제로 뉴스 상세의 "기관 추가" 드롭다운에서 이 버그가 발생했고, 그 뒤 전체 코드베이스를 훑어 로그 페이지 탭·기관관리 탭에서도 동일 버그를 2곳 더 찾아 고친 전례가 있습니다. 새 UI를 검토할 때 이 패턴을 최우선으로 점검하세요.
+   - Alpine.js로 토글·모달을 만들 때는 **반드시 `x-cloak`을 같이 붙일 것**. 빠뜨리면 Alpine이 초기화되기 전에 브라우저가 원본 HTML을 그대로 보여줘서, 페이지 로드 시 잠깐 보였다 사라지는 FOUC(Flash Of Unstyled Content) 버그가 생깁니다. 실제로 뉴스 상세의 "기업 추가" 드롭다운(당시엔 "기관 추가"였으나 이후 "기관"→"기업" 용어 통일로 이름이 바뀜)에서 이 버그가 발생했고, 그 뒤 전체 코드베이스를 훑어 로그 페이지 탭·기업관리 탭에서도 동일 버그를 2곳 더 찾아 고친 전례가 있습니다. 새 UI를 검토할 때 이 패턴을 최우선으로 점검하세요.
    - 로딩 상태는 `hx-indicator` + `htmx-indicator` 클래스 조합으로 스피너를 표시합니다.
 
 4. **템플릿 구현** — 승인된 디자인을 `templates/` 아래 실제 Django 템플릿(HTML + Tailwind CSS)으로 구현합니다.

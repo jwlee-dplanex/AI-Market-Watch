@@ -38,6 +38,8 @@ APScheduler
 trafilatura
 requests
 beautifulsoup4
+Markdown
+bleach
 ```
 
 ---
@@ -63,6 +65,7 @@ beautifulsoup4
 | 필드 | 타입 | 설명 |
 |------|------|------|
 | id | AutoField | PK |
+| uid | UUIDField | shortuuid 기반 공개 식별자 (URL에 노출, unique·db_index) |
 | title | CharField(500) | 제목 |
 | url | URLField | 원문 URL |
 | url_hash | CharField(64) | URL SHA-256 해시 (중복 제거) |
@@ -71,6 +74,8 @@ beautifulsoup4
 | source_type | CharField | 자유 텍스트 (choices 제약 없음, 현재는 `naver_news`만 사용) |
 | published_at | DateTimeField | 발행일 |
 | collected_at | DateTimeField | 수집일 |
+| organizations | ManyToManyField(Organization) | 수집 시 별칭 매칭으로 자동 연결되는 기업 (related_name="news") |
+| tech_topics | ManyToManyField(TechTopic) | 수집 시 별칭 매칭으로 자동 연결되는 기술 주제 (related_name="news") |
 
 ---
 
@@ -239,6 +244,29 @@ beautifulsoup4
 
 ---
 
+**Organization** — 기업 마스터 (뉴스 자동 매핑용)
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| id | AutoField | PK |
+| name | CharField(100, unique) | 기업명 |
+| org_type | CharField(20) | `금융사` / `보험사` / `AI` |
+| aliases | JSONField(default=list) | 별칭 목록 (수집 시 본문 매칭에 사용) |
+| is_active | BooleanField | 활성 여부 |
+
+---
+
+**TechTopic** — 기술 주제 마스터 (Organization과 병존하는 두 번째 분류 축)
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| id | AutoField | PK |
+| name | CharField(100, unique) | 기술 주제명 |
+| aliases | JSONField(default=list) | 별칭 목록 |
+| is_active | BooleanField | 활성 여부 |
+
+---
+
 ## 4. 프로젝트 구조
 
 ```
@@ -263,8 +291,8 @@ ai_market_watch/
 │   │   ├── models.py        # Report, ReportNews
 │   │   ├── views.py
 │   │   └── urls.py
-│   └── setting/             # 설정 (SET-001 ~ SET-006)
-│       ├── models.py        # DataSource, Keyword, Prompt, Schedule, SlackConfig, CollectionLog, LLMLog
+│   └── setting/             # 설정 (SET-001 ~ SET-008)
+│       ├── models.py        # DataSource, Keyword, Prompt, Schedule, SlackConfig, CollectionLog, LLMLog, Organization, TechTopic
 │       ├── views.py
 │       └── urls.py
 │
@@ -313,13 +341,33 @@ ai_market_watch/
 | `/setting/keywords/<pk>/delete/` | 키워드 삭제 (POST) |
 | `/setting/prompts/` | 프롬프트 (SET-003) |
 | `/setting/schedule/` | 스케줄 (SET-004) |
+| `/setting/schedule/save/` | 스케줄 추가·수정 (POST) |
+| `/setting/schedule/<pk>/toggle/` | 스케줄 활성 토글 (POST) |
+| `/setting/schedule/<pk>/delete/` | 스케줄 삭제 (POST) |
 | `/setting/slack/` | Slack (SET-005) |
 | `/setting/logs/` | 처리 이력 (SET-006) |
-| `/setting/organizations/` | 기관 관리 |
-| `/setting/organizations/save/` | 기관 추가·수정 (POST) |
-| `/setting/organizations/<pk>/toggle/` | 기관 활성 토글 (POST) |
-| `/setting/organizations/<pk>/delete/` | 기관 삭제 (POST) |
-| `/setting/remap/` | 기관 재매핑 (POST) |
+| `/setting/organizations/` | 기업 관리 (SET-007) |
+| `/setting/organizations/save/` | 기업 추가·수정 (POST) |
+| `/setting/organizations/<pk>/toggle/` | 기업 활성 토글 (POST) |
+| `/setting/organizations/<pk>/delete/` | 기업 삭제 (POST) |
+| `/setting/remap/` | 기업 재매핑 (POST) |
+| `/setting/tech-topics/` | 기술 주제 관리 (SET-008) |
+| `/setting/tech-topics/save/` | 기술 주제 추가·수정 (POST) |
+| `/setting/tech-topics/<pk>/toggle/` | 기술 주제 활성 토글 (POST) |
+| `/setting/tech-topics/<pk>/delete/` | 기술 주제 삭제 (POST) |
+| `/setting/tech-topics/remap/` | 기술 주제 재매핑 (POST) |
+
+---
+
+## 대시보드 집계 (ALL-001)
+
+전체 대시보드 "핵심 지표" 3개 카드는 모두 **최근 7일**(오늘 포함 7일) 범위를 기준으로 `apps/dashboard/views.py`에서 집계합니다.
+
+- **일별 뉴스 건수 추이** (`_build_daily_counts`) — 최근 7일 각 날짜별 `News.published_at` 기준 수집 건수를 집계합니다. 데이터가 없는 날짜도 0건으로 채워 항상 7개 포인트를 반환합니다.
+- **기업별 건수 Top 10** (`_build_org_ranking`) — 활성(`is_active=True`) `Organization` 중 최근 7일간 연결된 `News` 건수가 1건 이상인 기업을 건수 내림차순으로 최대 10개까지 집계합니다. 기업별로 최근 뉴스 최대 5건을 함께 담아 호버 팝오버에 사용합니다.
+- **기술 주제별 언급 건수** (`_build_tech_topic_counts`) — 활성 `TechTopic` 중 최근 7일간 연결된 `News` 건수가 1건 이상인 주제를 건수 내림차순으로 집계합니다(0건 주제는 제외). 기업별 Top 10과 동일하게 최근 뉴스 최대 5건을 함께 담습니다.
+
+세 지표 모두 `News.organizations`/`News.tech_topics` M2M(수집 시 `services/collector.py`의 별칭 매칭으로 자동 연결)을 근거로 집계하며, 별도의 캐시·배치 집계 테이블 없이 매 요청마다 실시간으로 계산합니다.
 
 ---
 
@@ -332,8 +380,10 @@ ai_market_watch/
     ↓ 활성인 경우에만
 [수집 키워드 리스트] → 키워드별 Naver API 호출 (kw.sort 적용)
     ↓
-수집 → 제외 키워드 필터 → 중복 제거(url_hash) → 삭제 이력 체크(ExcludedURL) → News 저장 → _link_organizations() → research-analyst 에이전트의 온디맨드 처리 대기
+수집 → 제외 키워드 필터 → 중복 제거(url_hash) → 삭제 이력 체크(ExcludedURL) → News 저장 → _link_organizations() → _link_tech_topics() → research-analyst 에이전트의 온디맨드 처리 대기
 ```
+
+기업·기술 주제 마스터(별칭)를 SET-007/SET-008 화면에서 수정한 뒤에는 각 화면의 재매핑 버튼(`remap_organizations()`/`remap_tech_topics()`)으로 이미 수집된 News 전체의 매핑을 다시 계산할 수 있습니다.
 
 ### 소스별 수집 방식
 
@@ -399,6 +449,13 @@ if News.objects.filter(url_hash=url_hash).exists():
 3. **주간 보고서 편집** — `Report.title`/`overview`/`content`를 편집하고 `ReportNews`로 근거 `News`를 직접 연결합니다.
 
 모든 인사이트·보고서 문단은 실제로 연결된 `News`를 출처로 추적 가능해야 하며, 근거 없는 내용은 작성하지 않는 것이 원칙입니다 (RA 에이전트 정책).
+
+### 보고서 마크다운 렌더링
+
+RA가 `Report.overview`/`Report.content`에 작성하는 마크다운은 `apps/reports/templatetags/report_extras.py`의 `markdown` 커스텀 템플릿 필터로 HTML로 변환됩니다. `templates/reports/detail.html`에서 `{{ report.overview|markdown }}`/`{{ report.content|markdown }}`로 사용합니다.
+
+- **python-markdown**(`Markdown` 패키지)으로 마크다운을 HTML로 변환(`sane_lists` 확장 사용).
+- **bleach**로 변환된 HTML을 화이트리스트 방식으로 정제(`p`/`strong`/`em`/`ul`/`ol`/`li`/`a`/`h1~h6`/`blockquote`/`code`/`pre`/`hr` 등 허용 태그만 남기고 `script`, `on*` 이벤트 핸들러, `javascript:` 스킴 등은 제거). RA(사람)가 작성하는 콘텐츠지만 XSS 벡터를 원천 차단하기 위해 화이트리스트를 적용합니다.
 
 ---
 
