@@ -136,3 +136,18 @@ class Organization(models.Model):
 
     def __str__(self):
         return f"[{self.org_type}] {self.name}"
+
+
+class TechTopic(models.Model):
+    """기술 관점 태그. Organization(기관 축)과 병존하는 두 번째 분류 축.
+    org_type 같은 하위 유형 필드는 두지 않는 평면 큐레이션 어휘."""
+
+    name      = models.CharField(max_length=100, unique=True)
+    aliases   = models.JSONField(default=list)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name

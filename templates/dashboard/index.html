@@ -5,25 +5,321 @@
 {% block content %}
 
 
+<!-- 핵심 지표 (정량화 축: 기간별 추이 / 기관별 랭킹 / 기술주제별 랭킹) -->
+<div class="mb-6">
+  <div class="flex items-center gap-2 mb-3">
+    <h2 class="text-sm font-semibold text-gray-900">핵심 지표</h2>
+    <span class="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">최근 7일</span>
+  </div>
+
+  <div class="grid grid-cols-3 gap-4">
+
+    <!-- 일별 뉴스 건수 추이 (라인그래프, 인라인 SVG path — 부드러운 곡선 + 그라데이션 영역 채움 + 실제 x/y축 + 호버 툴팁) -->
+    <!-- 2026-07-10(4차) 사용자 피드백 반영: 카드가 옆 "기관별 건수 Top 10" 카드(리스트 10행)와 한 그리드 행에
+         묶이면서 그리드 기본 align-items: stretch로 인해 카드 높이는 늘어나는데, 안쪽 차트가 고정 h-28로
+         박혀 있어 카드 아래쪽에 빈 여백이 생기던 문제를 고쳤다. 카드를 flex flex-col h-full로 바꾸고
+         제목/부제는 shrink-0로 상단 고정, 차트 래퍼는 flex-1 min-h-0로 남은 세로 공간을 전부 채우도록
+         했다(SVG도 h-28 대신 h-full). min-h-0은 flex item 기본 min-height:auto가 내용 높이만큼 강제로
+         잡아 늘어나는 것을 막기 위해 필요하다. -->
+    <div class="bg-white rounded-[10px] shadow-sm p-5 flex flex-col h-full">
+      <div class="flex items-baseline gap-2 mb-4 shrink-0">
+        <h3 class="text-sm font-semibold text-gray-900">일별 뉴스 건수 추이</h3>
+      </div>
+      {% if has_daily_data %}
+      <!-- 2026-07-10(5차) 사용자 피드백 반영: viewBox="0 0 300 100"에 preserveAspectRatio="none"을 쓰면 카드의
+           실제 가로/세로 비율에 맞춰 SVG 좌표계를 비균등(가로와 세로 배율이 다름)하게 늘린다. 데이터포인트
+           원에서 이미 겪은 문제(4차, 아래 원 관련 주석 참고)와 완전히 같은 원인으로, SVG 안의 text 요소
+           (y축 눈금 3개 + x축 날짜 라벨 7개)도 이 비균등 스케일링을 그대로 받아 카드가 세로로 길어질수록
+           (옆 카드와 높이를 맞추는 flex-1 h-full 때문에) 글자가 세로로 늘어나 커 보이고 뭉개져 보였다
+           ("텍스트가 크게 보이고 해상도가 깨져 보인다"는 피드백). vector-effect는 선 굵기만 보호할 뿐 텍스트
+           글리프 왜곡은 막지 못한다. 해결책은 원과 동일하다 — 사람이 읽는 글자를 전부 SVG 밖 HTML/CSS
+           오버레이로 빼서 비균등 스케일링 영향권 밖에 둔다. 이제 SVG 안에는 순수 도형(그리드라인, 곡선,
+           영역 채움, 축선, 눈금선)만 남는다. y축 눈금 3개와 x축 날짜 라벨 7개는 아래 svg 태그가 끝난 뒤
+           HTML 오버레이로 옮겼다(각각 "y축 눈금 숫자"/"x축 날짜 라벨" 주석 참고) — widthratio 태그로 SVG
+           좌표를 퍼센트로 환산해 위치를 맞추는 기법은 기존 데이터포인트 원 오버레이와 동일하다.
+           2026-07-10(3차) 좌표계 설계 배경(여전히 유효): y축(0/중간값/최댓값 눈금 + 왼쪽 세로 축선)과
+           x축(데이터포인트 x좌표에 붙는 눈금선)을 데이터와 같은 SVG viewBox 좌표계로 통합해 픽셀 단위로
+           맞췄다. viewBox 0 0 300 100, 비대칭 패딩(PAD_LEFT/PAD_RIGHT/PAD_TOP/PAD_BOTTOM)은 그대로 유지.
+           daily_max_count 컨텍스트 변수, 곡선 기법(수평 탄젠트 큐빅 베지어), daily_counts가 항상 7개라는
+           전제는 이전 버전과 동일. -->
+      <div class="relative flex-1 min-h-0">
+        <svg viewBox="0 0 300 100" preserveAspectRatio="none" class="w-full h-full" aria-hidden="true">
+          <defs>
+            <linearGradient id="dailyCountsFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#60269E" stop-opacity="0.18" />
+              <stop offset="100%" stop-color="#60269E" stop-opacity="0" />
+            </linearGradient>
+          </defs>
+
+          <!-- y축 기준 그리드라인: 최댓값/중간값(점선) + 0(실선, x축 겸용) -->
+          <line x1="16" y1="8" x2="294" y2="8" stroke="#EDEDED" stroke-width="1" stroke-dasharray="2,3" vector-effect="non-scaling-stroke" />
+          <line x1="16" y1="45" x2="294" y2="45" stroke="#EDEDED" stroke-width="1" stroke-dasharray="2,3" vector-effect="non-scaling-stroke" />
+          <line x1="16" y1="82" x2="294" y2="82" stroke="#E5E5E5" stroke-width="1" vector-effect="non-scaling-stroke" />
+          <!-- y축 세로 축선: 위 0선(x축)과 만나 좌하단 L자 축 프레임 완성 -->
+          <line x1="16" y1="8" x2="16" y2="82" stroke="#E5E5E5" stroke-width="1" vector-effect="non-scaling-stroke" />
+
+          <!-- x축 눈금선: 각 데이터포인트 x좌표에서 0선 아래로 짧게 내려 날짜 라벨과 그리드를 시각적으로 연결 -->
+          {% for day in daily_counts %}
+          <line x1="{{ day.x }}" y1="82" x2="{{ day.x }}" y2="86" stroke="#E5E5E5" stroke-width="1" vector-effect="non-scaling-stroke" />
+          {% endfor %}
+
+          <!-- 라인 아래 영역 채움: 라인과 동일한 곡선 경로를 그린 뒤 바닥(y=82, PAD_TOP+CHART_H)까지 닫아 그라데이션 채움 -->
+          <path
+            d="M 16,{{ daily_counts.0.y }}
+               C 39,{{ daily_counts.0.y }} 39,{{ daily_counts.1.y }} 62,{{ daily_counts.1.y }}
+               C 85.5,{{ daily_counts.1.y }} 85.5,{{ daily_counts.2.y }} 109,{{ daily_counts.2.y }}
+               C 132,{{ daily_counts.2.y }} 132,{{ daily_counts.3.y }} 155,{{ daily_counts.3.y }}
+               C 178,{{ daily_counts.3.y }} 178,{{ daily_counts.4.y }} 201,{{ daily_counts.4.y }}
+               C 224.5,{{ daily_counts.4.y }} 224.5,{{ daily_counts.5.y }} 248,{{ daily_counts.5.y }}
+               C 271,{{ daily_counts.5.y }} 271,{{ daily_counts.6.y }} 294,{{ daily_counts.6.y }}
+               L 294,82 L 16,82 Z"
+            fill="url(#dailyCountsFill)" stroke="none" />
+
+          <!-- 라인: 위 영역과 동일한 곡선(닫기 구간 제외) -->
+          <path
+            d="M 16,{{ daily_counts.0.y }}
+               C 39,{{ daily_counts.0.y }} 39,{{ daily_counts.1.y }} 62,{{ daily_counts.1.y }}
+               C 85.5,{{ daily_counts.1.y }} 85.5,{{ daily_counts.2.y }} 109,{{ daily_counts.2.y }}
+               C 132,{{ daily_counts.2.y }} 132,{{ daily_counts.3.y }} 155,{{ daily_counts.3.y }}
+               C 178,{{ daily_counts.3.y }} 178,{{ daily_counts.4.y }} 201,{{ daily_counts.4.y }}
+               C 224.5,{{ daily_counts.4.y }} 224.5,{{ daily_counts.5.y }} 248,{{ daily_counts.5.y }}
+               C 271,{{ daily_counts.5.y }} 271,{{ daily_counts.6.y }} 294,{{ daily_counts.6.y }}"
+            fill="none" stroke="#60269E" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
+
+          <!-- 데이터포인트 원은 여기(SVG)에 그리지 않는다. viewBox(300x100, 3:1)를 preserveAspectRatio="none"으로
+               실제 카드 비율에 맞춰 가로/세로를 다른 배율로 늘리기 때문에, SVG 좌표계 안에서는 완벽한 원이라도
+               화면에는 눌린 타원으로 보인다. vector-effect="non-scaling-stroke"는 테두리 두께만 고정할 뿐 도형
+               자체의 비율 왜곡은 막지 못한다. 대신 아래 호버 오버레이(HTML/CSS 절대 위치 div)에서 원을 그린다. -->
+        </svg>
+
+        <!-- y축 눈금 숫자 (HTML 오버레이, 2026-07-10 5차 — SVG text 제거하고 이동): 최댓값 / 중간값(widthratio로
+             나눗셈) / 0. x=13(축선 x=16보다 왼쪽으로 3만큼 띄움), y=8/45/82는 위 그리드라인과 동일한 고정 SVG
+             viewBox 좌표라 daily_counts 루프 데이터와 무관한 정적 값 — widthratio의 두 번째 인자에 300/100을
+             그대로 넣어 그 정적 좌표를 %로 환산한다. -translate-x-full로 각 span의 오른쪽 끝이 그 x좌표에 오도록
+             맞췄고(기존 text-anchor="end"와 같은 효과), -translate-y-1/2로 세로 중앙 정렬했다(기존 텍스트
+             baseline y=11/48/85와 대략 같은 자리). pointer-events-none으로 아래 데이터포인트 호버를 가리지 않게
+             둔다(어차피 나중에 그려지는 원 오버레이가 더 위에 있어 실질적으로는 문제없지만 안전하게 명시). -->
+        <div class="absolute inset-0 pointer-events-none">
+          <span class="absolute -translate-x-full -translate-y-1/2 text-[9px] font-semibold text-gray-400 whitespace-nowrap"
+                style="left: {% widthratio 13 300 100 %}%; top: {% widthratio 8 100 100 %}%;">{{ daily_max_count }}</span>
+          <span class="absolute -translate-x-full -translate-y-1/2 text-[9px] text-gray-400 whitespace-nowrap"
+                style="left: {% widthratio 13 300 100 %}%; top: {% widthratio 45 100 100 %}%;">{% widthratio daily_max_count 2 1 %}</span>
+          <span class="absolute -translate-x-full -translate-y-1/2 text-[9px] text-gray-400 whitespace-nowrap"
+                style="left: {% widthratio 13 300 100 %}%; top: {% widthratio 82 100 100 %}%;">0</span>
+        </div>
+
+        <!-- x축 날짜 라벨 (HTML 오버레이, 2026-07-10 5차 — SVG text 제거하고 이동): 각 데이터포인트와 동일한
+             x좌표(day.x)에 배치해 위 눈금선 바로 아래에 딱 붙게 한다(기존 SVG text와 같은 위치 관계). 좌표 변환은
+             데이터포인트 원 오버레이와 동일한 widthratio 패턴을 그대로 재사용. y는 그리드 바닥(y=82)보다 살짝
+             아래인 고정값 94(SVG viewBox 기준, 기존 <text y="94">와 동일)를 쓴다. -translate-x-1/2로 가운데
+             정렬(기존 text-anchor="middle"과 같은 효과), -translate-y-1/2로 세로 중앙 정렬. 오늘 지점만 진한
+             보라 굵은 글씨, 나머지는 회색 — 기존 fill 삼항 분기를 Tailwind 클래스 삼항 분기로 그대로 옮김. -->
+        <div class="absolute inset-0 pointer-events-none">
+          {% for day in daily_counts %}
+          <span class="absolute -translate-x-1/2 -translate-y-1/2 text-[9px] whitespace-nowrap
+              {% if day.is_today %}font-bold text-primary{% else %}font-normal text-gray-400{% endif %}"
+              style="left: {% widthratio day.x 300 100 %}%; top: {% widthratio 94 100 100 %}%;">{{ day.label }}</span>
+          {% endfor %}
+        </div>
+
+        <!-- 데이터포인트 원 + 호버 툴팁: SVG 좌표(0~300 / 0~100)를 widthratio 태그로 %값으로 환산해 HTML 오버레이를
+             데이터포인트 위치에 겹친다. 시각적으로 보이는 원(span, rounded-full)과 호버 트리거를 하나의 요소로
+             합쳤다 — SVG circle은 preserveAspectRatio="none"의 비균등 스케일링에 걸려 타원으로 찌그러지지만,
+             HTML/CSS 원은 실제 픽셀 단위 정사각형(w/h 동일)이라 카드 가로/세로 비율과 무관하게 항상 정원으로
+             보인다. 기관별 Top 10과 동일한 Alpine 호버 팝오버 패턴(x-data tip, mouseenter/leave, x-show+x-cloak,
+             gap 0 배치) 재사용. -->
+        <div class="absolute inset-0">
+          {% for day in daily_counts %}
+          <div class="absolute -translate-x-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center cursor-default"
+               style="left: {% widthratio day.x 300 100 %}%; top: {% widthratio day.y 100 100 %}%;"
+               x-data="{ tip: false }" @mouseenter="tip = true" @mouseleave="tip = false">
+            <span class="block rounded-full border w-2.5 h-2.5
+              {% if day.is_today %}bg-primary border-primary{% else %}bg-white border-primary/35{% endif %}"></span>
+            <div x-show="tip" x-cloak
+                 class="absolute left-1/2 -translate-x-1/2 {% if day.pct >= 50 %}top-full{% else %}bottom-full{% endif %} z-20
+                        whitespace-nowrap bg-white border border-gray-200 rounded-[10px] shadow-lg px-2 py-1">
+              <p class="text-[11px] font-semibold text-gray-900">{{ day.label }}</p>
+              <p class="text-[11px] text-gray-500">{{ day.count }}건</p>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% else %}
+      <div class="flex-1 min-h-0 flex flex-col items-center justify-center text-gray-400">
+        <i data-lucide="trending-up" class="w-6 h-6 mx-auto mb-2 opacity-40"></i>
+        <p class="text-xs">집계할 뉴스가 없습니다.</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- 개별 기관별 건수 랭킹 Top 10 -->
+    <div class="bg-white rounded-[10px] shadow-sm p-5">
+      <h3 class="text-sm font-semibold text-gray-900 mb-4">기업별 건수 Top 10</h3>
+      {% if org_ranking %}
+      <!-- 색상 범례: 미니바 색이 기업 카테고리(org_type)를 뜻함을 안내 -->
+      <div class="flex items-center gap-3 mb-3">
+        <span class="flex items-center gap-1 text-[10px] text-gray-400">
+          <span class="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>금융사
+        </span>
+        <span class="flex items-center gap-1 text-[10px] text-gray-400">
+          <span class="w-1.5 h-1.5 rounded-full bg-teal flex-shrink-0"></span>보험사
+        </span>
+        <span class="flex items-center gap-1 text-[10px] text-gray-400">
+          <span class="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0"></span>AI
+        </span>
+      </div>
+      <div class="space-y-2">
+        {% for org in org_ranking %}
+        <div class="relative flex items-center gap-2 cursor-default"
+             x-data="{ tip: false }" @mouseenter="tip = true" @mouseleave="tip = false">
+          <span class="w-4 text-[11px] font-semibold text-gray-400 text-right flex-shrink-0">{{ org.rank }}</span>
+          <span class="text-xs text-gray-700 w-20 truncate flex-shrink-0">{{ org.name }}</span>
+          <div class="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div class="h-full rounded-full
+              {% if org.org_type == '금융사' %}bg-blue-500
+              {% elif org.org_type == '보험사' %}bg-teal
+              {% else %}bg-primary{% endif %}"
+              style="width: {{ org.pct }}%"></div>
+          </div>
+          <span class="text-[11px] text-gray-400 w-6 text-right flex-shrink-0">{{ org.count }}</span>
+
+          <!-- 기관별 관련 뉴스 팝오버: 마진 없이 딱 붙여서(top-full/bottom-full, gap 0) 배치 —
+               행과 팝오버 사이에 빈 픽셀 틈이 생기면 그 틈에서 mouseleave가 먼저 발동해
+               팝오버 진입 전에 닫혀버리는 표준적인 호버 데드존 버그가 생기므로 의도적으로 gap 0 유지 -->
+          <div x-show="tip" x-cloak
+               class="absolute inset-x-0 {% if org.rank <= 5 %}top-full{% else %}bottom-full{% endif %} z-20
+                      bg-white border border-gray-200 rounded-[10px] shadow-lg p-3">
+            <p class="text-[11px] font-semibold text-gray-900 mb-2 truncate">{{ org.name }} 관련 뉴스</p>
+            <div class="space-y-1">
+              {% for news in org.recent_news %}
+              <a href="{% url 'news_detail' news.uid %}"
+                 class="block text-xs text-gray-600 hover:text-primary hover:underline line-clamp-1">
+                {{ news.title }}
+              </a>
+              {% empty %}
+              <p class="text-xs text-gray-400">연결된 뉴스가 없습니다.</p>
+              {% endfor %}
+            </div>
+            {% if org.more_count %}
+            <p class="text-[11px] text-gray-400 mt-2 pt-2 border-t border-gray-100">외 {{ org.more_count }}건 더 보기</p>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="text-center py-10 text-gray-400">
+        <i data-lucide="list-ordered" class="w-6 h-6 mx-auto mb-2 opacity-40"></i>
+        <p class="text-xs">활성 기업 데이터가 없습니다.</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- 기술 주제별 언급 건수 (0건 주제는 제외 — 기관별 Top10과 동일하게 count__gt=0 기준) -->
+    <div class="bg-white rounded-[10px] shadow-sm p-5">
+      <h3 class="text-sm font-semibold text-gray-900 mb-4">기술 주제별 언급 건수</h3>
+      {% if tech_topic_counts %}
+      <div class="space-y-2">
+        {% for topic in tech_topic_counts %}
+        <div class="relative flex items-center gap-2 cursor-default"
+             x-data="{ tip: false }" @mouseenter="tip = true" @mouseleave="tip = false">
+          <span class="w-4 text-[11px] font-semibold text-gray-400 text-right flex-shrink-0">{{ topic.rank }}</span>
+          <span class="text-xs text-gray-700 w-20 truncate flex-shrink-0">{{ topic.name }}</span>
+          <div class="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div class="h-full rounded-full bg-accent" style="width: {{ topic.pct }}%"></div>
+          </div>
+          <span class="text-[11px] text-gray-400 w-6 text-right flex-shrink-0">{{ topic.count }}</span>
+
+          <!-- 기술 주제별 관련 뉴스 팝오버: 기관별 Top 10 팝오버와 완전히 동일한 패턴(gap 0, top-full/bottom-full 분기,
+               최대 5건 + "외 N건 더 보기") 재사용 -->
+          <div x-show="tip" x-cloak
+               class="absolute inset-x-0 {% if topic.rank <= 5 %}top-full{% else %}bottom-full{% endif %} z-20
+                      bg-white border border-gray-200 rounded-[10px] shadow-lg p-3">
+            <p class="text-[11px] font-semibold text-gray-900 mb-2 truncate">{{ topic.name }} 관련 뉴스</p>
+            <div class="space-y-1">
+              {% for news in topic.recent_news %}
+              <a href="{% url 'news_detail' news.uid %}"
+                 class="block text-xs text-gray-600 hover:text-primary hover:underline line-clamp-1">
+                {{ news.title }}
+              </a>
+              {% empty %}
+              <p class="text-xs text-gray-400">연결된 뉴스가 없습니다.</p>
+              {% endfor %}
+            </div>
+            {% if topic.more_count %}
+            <p class="text-[11px] text-gray-400 mt-2 pt-2 border-t border-gray-100">외 {{ topic.more_count }}건 더 보기</p>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="text-center py-10 text-gray-400">
+        <i data-lucide="tag" class="w-6 h-6 mx-auto mb-2 opacity-40"></i>
+        <p class="text-xs">태깅된 기술 주제가 없습니다.</p>
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+
 <!-- 주요 이슈 + 최신 뉴스 -->
 <div class="grid grid-cols-3 gap-4 mb-6">
 
   <!-- 주요 이슈 (2/3) -->
   <div class="col-span-2">
     <div class="bg-white rounded-[10px] shadow-sm p-5 h-full">
-      <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center mb-4">
         <h2 class="text-sm font-semibold text-gray-900">주요 이슈</h2>
-        <a href="{% url 'news_list' %}" class="text-xs text-primary hover:underline">전체 보기</a>
       </div>
       <div class="space-y-3">
         {% for insight in insights %}
-        <div class="border border-gray-100 rounded-[10px] p-4 hover:border-primary/30 transition-colors">
-          <div class="flex items-start justify-between gap-3">
+        <div class="border border-gray-100 rounded-[10px] p-4 hover:border-primary/30 transition-colors" x-data="{ open: false }">
+          <button type="button" @click="open = !open" class="flex items-start justify-between gap-3 w-full text-left">
             <div class="flex-1 min-w-0">
               <p class="text-sm font-semibold text-gray-900 truncate">{{ insight.title }}</p>
-              <p class="text-xs text-gray-500 mt-1 line-clamp-2">{{ insight.content }}</p>
+              <span x-show="open" x-cloak class="flex items-center gap-2 mt-2 mb-2">
+                <i data-lucide="trending-up" class="w-4 h-4 text-teal"></i>
+                <span class="text-sm font-semibold text-gray-900">분석</span>
+              </span>
+              <p class="mt-1" :class="open ? 'text-sm text-gray-700 leading-relaxed' : 'text-xs text-gray-500 line-clamp-2'">{{ insight.content }}</p>
             </div>
-            <span class="text-xs text-gray-400 whitespace-nowrap">관련 기사 {{ insight.news_count }}건</span>
+            <div class="flex items-center gap-2 flex-shrink-0">
+              <span class="text-xs text-gray-400 whitespace-nowrap">관련 기사 {{ insight.news_count }}건</span>
+              <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-gray-400 transition-transform" :class="open ? 'rotate-180' : ''"></i>
+            </div>
+          </button>
+
+          <div x-show="open" x-cloak class="mt-4 pt-4 border-t border-gray-100 space-y-4">
+
+            {% if insight.implication %}
+            <div>
+              <div class="flex items-center gap-2 mb-2">
+                <i data-lucide="lightbulb" class="w-4 h-4 text-accent"></i>
+                <span class="text-sm font-semibold text-gray-900">시사점</span>
+              </div>
+              <div class="bg-purple-50 border-l-4 border-primary rounded-r-[10px] p-3">
+                <p class="text-sm text-gray-700">{{ insight.implication }}</p>
+              </div>
+            </div>
+            {% endif %}
+
+            <div>
+              <span class="text-xs font-semibold text-gray-900">관련 기사</span>
+              <div class="mt-2 space-y-1">
+                {% for news in insight.news.all %}
+                <a href="{% url 'news_detail' news.uid %}" class="block text-xs text-gray-600 hover:text-primary hover:underline truncate">
+                  {{ news.title }}
+                </a>
+                {% empty %}
+                <p class="text-xs text-gray-400">연결된 관련 기사가 없습니다.</p>
+                {% endfor %}
+              </div>
+            </div>
+
           </div>
         </div>
         {% empty %}

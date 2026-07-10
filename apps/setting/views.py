@@ -1,14 +1,16 @@
+from django.db.models import Count
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from django.views.decorators.http import require_POST
-from .models import DataSource, Keyword, Prompt, Schedule, CollectionLog, LLMLog, SlackConfig, Organization
+from .models import DataSource, Keyword, Prompt, Schedule, CollectionLog, LLMLog, SlackConfig, Organization, TechTopic
 
 
 def _setting_menu(active):
     items = [
         {"label": "데이터 소스", "icon": "database",      "name": "setting_sources",       "key": "sources"},
         {"label": "키워드",     "icon": "tag",            "name": "setting_keywords",      "key": "keywords"},
-        {"label": "기관",       "icon": "building-2",     "name": "setting_organizations", "key": "organizations"},
+        {"label": "기업",       "icon": "building-2",     "name": "setting_organizations", "key": "organizations"},
+        {"label": "기술 주제",  "icon": "cpu",            "name": "setting_tech_topics",   "key": "tech_topics"},
         {"label": "프롬프트",   "icon": "file-text",      "name": "setting_prompts",       "key": "prompts"},
         {"label": "스케줄",     "icon": "clock",          "name": "setting_schedule",      "key": "schedule"},
         {"label": "Slack",      "icon": "slack",          "name": "setting_slack",         "key": "slack"},
@@ -192,6 +194,50 @@ def organization_delete(request, pk):
     return render(request, "setting/_organizations.html", _org_context())
 
 
+def _tech_topic_context():
+    topics = TechTopic.objects.annotate(news_count=Count("news", distinct=True)).all()
+    return {
+        "topics": topics,
+        "total_count": topics.count(),
+    }
+
+
+def tech_topics(request):
+    return render(request, "setting/tech_topics.html", {
+        "setting_menu": _setting_menu("tech_topics"),
+        **_tech_topic_context(),
+    })
+
+
+@require_POST
+def tech_topic_save(request):
+    topic_id = request.POST.get("topic_id", "").strip()
+    name = request.POST.get("name", "").strip()
+    aliases = [a.strip() for a in request.POST.get("aliases", "").split(",") if a.strip()]
+    if topic_id:
+        topic = get_object_or_404(TechTopic, pk=topic_id)
+        topic.name = name
+        topic.aliases = aliases
+        topic.save()
+    elif name:
+        TechTopic.objects.get_or_create(name=name, defaults={"aliases": aliases})
+    return render(request, "setting/_tech_topics.html", _tech_topic_context())
+
+
+@require_POST
+def tech_topic_toggle(request, pk):
+    topic = get_object_or_404(TechTopic, pk=pk)
+    topic.is_active = not topic.is_active
+    topic.save()
+    return render(request, "setting/_tech_topics.html", _tech_topic_context())
+
+
+@require_POST
+def tech_topic_delete(request, pk):
+    TechTopic.objects.filter(pk=pk).delete()
+    return render(request, "setting/_tech_topics.html", _tech_topic_context())
+
+
 def _schedule_context():
     return {"schedules": Schedule.objects.all().order_by("schedule_type")}
 
@@ -258,4 +304,11 @@ def schedule_delete(request, pk):
 def remap_now(request):
     from services.collector import remap_organizations
     count = remap_organizations()
-    return render(request, "setting/_remap_result.html", {"remap_count": count})
+    return render(request, "setting/_remap_result.html", {"remap_count": count, "entity_label": "기업"})
+
+
+@require_POST
+def remap_tech_topics_now(request):
+    from services.collector import remap_tech_topics
+    count = remap_tech_topics()
+    return render(request, "setting/_remap_result.html", {"remap_count": count, "entity_label": "기술 주제"})

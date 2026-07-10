@@ -20,7 +20,7 @@
     <table class="w-full text-sm">
       <thead>
         <tr class="border-b border-gray-100">
-          <th class="text-left text-xs font-semibold text-gray-400 px-5 py-2.5">기관명</th>
+          <th class="text-left text-xs font-semibold text-gray-400 px-5 py-2.5">기업명</th>
           <th class="text-left text-xs font-semibold text-gray-400 py-2.5">별칭</th>
           <th class="text-left text-xs font-semibold text-gray-400 py-2.5 w-16">활성</th>
           <th class="py-2.5 w-14"></th>
@@ -61,7 +61,7 @@
                       hx-post="{% url 'setting_organization_delete' org.pk %}"
                       hx-target="#org-table" hx-swap="innerHTML"
                       hx-include="[name=csrfmiddlewaretoken]"
-                      hx-confirm="'{{ org.name }}' 기관을 삭제하시겠습니까? 뉴스와의 연결도 함께 해제됩니다."
+                      hx-confirm="'{{ org.name }}' 기업을 삭제하시겠습니까? 뉴스와의 연결도 함께 해제됩니다."
                       class="text-gray-300 hover:text-red-500 transition-colors">
                 <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
               </button>
@@ -72,7 +72,7 @@
       </tbody>
     </table>
     {% else %}
-    <p class="px-5 py-6 text-center text-xs text-gray-400">등록된 기관이 없습니다.</p>
+    <p class="px-5 py-6 text-center text-xs text-gray-400">등록된 기업이 없습니다.</p>
     {% endif %}
   </div>
 

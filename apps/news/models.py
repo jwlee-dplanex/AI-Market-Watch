@@ -19,6 +19,11 @@ class News(models.Model):
         blank=True,
         related_name="news",
     )
+    tech_topics = models.ManyToManyField(
+        "setting.TechTopic",
+        blank=True,
+        related_name="news",
+    )
 
     class Meta:
         ordering = ["-published_at", "-pk"]

@@ -10,7 +10,7 @@ from email.utils import parsedate_to_datetime
 from django.conf import settings
 
 from apps.news.models import ExcludedURL, News
-from apps.setting.models import DataSource, Keyword, Organization
+from apps.setting.models import DataSource, Keyword, Organization, TechTopic
 from services.crawler import fetch_article_body
 
 NAVER_ENDPOINT = "https://openapi.naver.com/v1/search/news.json"
@@ -43,12 +43,65 @@ def _call_naver_api(query: str, display: int, headers: dict, sort: str = "date")
         return json.loads(res.read().decode("utf-8")).get("items", [])
 
 
-def _link_organizations(news: News, text: str, orgs: list[Organization]) -> None:
+def _is_word_char(ch: str) -> bool:
+    """영문자/숫자만 '경계를 깨는 문자'로 취급한다.
+
+    "RAG"가 "storage"/"average"/"fragment" 같은 영단어 안에 우연히 끼어 매칭되는 걸 막으려면
+    앞뒤 문자가 영숫자가 아닐 때만 매칭으로 인정해야 한다. 다만 한글은 "RAG는"/"RAG를"처럼
+    별칭 바로 뒤에 조사가 붙는 표현이 자연스럽고, 정규식 \\b는 한글에서 경계를 제대로 못 잡기
+    때문에 한글 문자는 애초에 "경계를 깨는 문자"로 취급하지 않는다(=한글 별칭은 기존처럼
+    부분 문자열 매칭만 적용).
+    """
+    return ch.isascii() and ch.isalnum()
+
+
+def _contains_alias(lower_text: str, alias: str) -> bool:
+    """lower_text 안에서 alias가 단어 경계를 지키며 등장하는지 확인한다.
+
+    lower_text는 이미 소문자로 변환된 상태여야 한다.
+    """
+    if not alias:
+        return False
+    needle = alias.lower()
+    if not needle:
+        return False
+    start = 0
+    text_len = len(lower_text)
+    needle_len = len(needle)
+    while True:
+        idx = lower_text.find(needle, start)
+        if idx == -1:
+            return False
+        before_ok = idx == 0 or not _is_word_char(lower_text[idx - 1])
+        after_idx = idx + needle_len
+        after_ok = after_idx == text_len or not _is_word_char(lower_text[after_idx])
+        if before_ok and after_ok:
+            return True
+        start = idx + 1
+
+
+def _find_matching_entities(text: str, entities: list) -> list:
+    """text에 별칭이 매칭되는 엔티티(Organization 또는 TechTopic) 목록을 반환한다.
+
+    두 모델 모두 name/aliases 속성 구조가 동일해서 매칭 로직을 공용화했다.
+    """
     lower_text = text.lower()
-    for org in orgs:
-        all_names = [org.name] + list(org.aliases or [])
-        if any(alias and alias.lower() in lower_text for alias in all_names):
-            news.organizations.add(org)
+    matched = []
+    for entity in entities:
+        all_names = [entity.name] + list(entity.aliases or [])
+        if any(_contains_alias(lower_text, alias) for alias in all_names):
+            matched.append(entity)
+    return matched
+
+
+def _link_organizations(news: News, text: str, orgs: list[Organization]) -> None:
+    # .set()을 써야 재매핑 시 더 이상 매칭되지 않는(별칭을 좁혀서 오탐이 고쳐진) 기존 태그가
+    # 함께 제거된다. 최초 수집 시점엔 M2M이 빈 상태라 .add()와 동작이 동일하다.
+    news.organizations.set(_find_matching_entities(text, orgs))
+
+
+def _link_tech_topics(news: News, text: str, topics: list[TechTopic]) -> None:
+    news.tech_topics.set(_find_matching_entities(text, topics))
 
 
 def collect_naver() -> dict:
@@ -70,6 +123,7 @@ def collect_naver() -> dict:
                 "crawled": 0, "crawl_failed": 0, "errors": ["Naver News API 비활성"]}
 
     orgs             = list(Organization.objects.filter(is_active=True))
+    topics           = list(TechTopic.objects.filter(is_active=True))
     collect_keywords = list(Keyword.objects.filter(keyword_type=Keyword.TYPE_COLLECT, is_active=True))
     exclude_keywords = [kw.keyword.lower() for kw in Keyword.objects.filter(keyword_type=Keyword.TYPE_EXCLUDE, is_active=True)]
 
@@ -133,6 +187,7 @@ def collect_naver() -> dict:
                 stats["crawl_failed"] += 1
 
             _link_organizations(news, full_body or body, orgs)
+            _link_tech_topics(news, full_body or body, topics)
             stats["collected"] += 1
 
     return stats
@@ -145,6 +200,18 @@ def remap_organizations() -> int:
         before = set(news.organizations.values_list("pk", flat=True))
         _link_organizations(news, f"{news.title} {news.body}", orgs)
         after = set(news.organizations.values_list("pk", flat=True))
+        if after != before:
+            count += 1
+    return count
+
+
+def remap_tech_topics() -> int:
+    topics = list(TechTopic.objects.filter(is_active=True))
+    count = 0
+    for news in News.objects.prefetch_related("tech_topics").all():
+        before = set(news.tech_topics.values_list("pk", flat=True))
+        _link_tech_topics(news, f"{news.title} {news.body}", topics)
+        after = set(news.tech_topics.values_list("pk", flat=True))
         if after != before:
             count += 1
     return count

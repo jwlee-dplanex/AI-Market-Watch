@@ -32,12 +32,12 @@
 
     <!-- 통계 -->
     <div class="absolute top-4 right-4 z-10 text-xs text-gray-400 bg-white/90 backdrop-blur-sm rounded-[10px] px-3 py-2 shadow-sm border border-[#E5E5E5]">
-      기관 {{ org_count }}개{% if edge_count %} · 연결 {{ edge_count }}개{% endif %}
+      기업 {{ org_count }}개{% if edge_count %} · 연결 {{ edge_count }}개{% endif %}
     </div>
 
     {% if not edge_count %}
     <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none" style="margin-top:3rem;">
-      <p class="text-xs text-gray-300 mt-2">뉴스가 수집되면 기관 간 연결이 표시됩니다.</p>
+      <p class="text-xs text-gray-300 mt-2">뉴스가 수집되면 기업 간 연결이 표시됩니다.</p>
     </div>
     {% endif %}
 
@@ -49,7 +49,7 @@
     <div id="org-panel" class="bg-white rounded-[10px] shadow-sm p-5 h-full">
       <div class="flex flex-col items-center justify-center h-full text-center text-gray-400 gap-3">
         <i data-lucide="mouse-pointer-click" class="w-8 h-8 opacity-30"></i>
-        <p class="text-sm leading-relaxed">기관 노드를 클릭하면<br>관련 뉴스를 볼 수 있습니다.</p>
+        <p class="text-sm leading-relaxed">기업 노드를 클릭하면<br>관련 뉴스를 볼 수 있습니다.</p>
       </div>
     </div>
   </div>

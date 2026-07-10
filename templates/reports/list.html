@@ -13,33 +13,27 @@
 
 <div class="space-y-3">
   {% for report in reports %}
-  <div class="bg-white rounded-[10px] shadow-sm p-5">
-    <div class="flex items-start justify-between gap-4">
-      <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-2 mb-1.5">
-          <span class="text-xs font-semibold text-primary">{{ report.get_period_type_display }}</span>
-          <span class="text-xs text-gray-400">{{ report.date_from|date:"Y.m.d" }} ~ {{ report.date_to|date:"Y.m.d" }}</span>
-          <span class="text-xs font-medium px-2 py-0.5 rounded-full
-            {% if report.status == 'done' %}bg-green-100 text-green-700
-            {% elif report.status == 'generating' %}bg-yellow-100 text-yellow-700
-            {% else %}bg-red-100 text-red-600{% endif %}">
-            {{ report.get_status_display }}
-          </span>
-          {% if report.slack_sent_at %}
-          <span class="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full flex items-center gap-1">
-            <i data-lucide="send" class="w-3 h-3"></i> Slack 전송 완료
-          </span>
-          {% endif %}
-        </div>
-        <h2 class="text-sm font-semibold text-gray-900">{{ report.title }}</h2>
-        <p class="text-xs text-gray-400 mt-1">생성일: {{ report.created_at|date:"Y.m.d H:i" }}</p>
+  <a href="{% url 'report_detail' report.uid %}" class="block group bg-white rounded-[10px] shadow-sm hover:shadow-md transition-shadow p-5">
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center gap-2 mb-1.5">
+        <span class="text-xs font-semibold text-primary">{{ report.get_period_type_display }}</span>
+        <span class="text-xs text-gray-400">{{ report.date_from|date:"Y.m.d" }} ~ {{ report.date_to|date:"Y.m.d" }}</span>
+        <span class="text-xs font-medium px-2 py-0.5 rounded-full
+          {% if report.status == 'done' %}bg-green-100 text-green-700
+          {% elif report.status == 'generating' %}bg-yellow-100 text-yellow-700
+          {% else %}bg-red-100 text-red-600{% endif %}">
+          {{ report.get_status_display }}
+        </span>
+        {% if report.slack_sent_at %}
+        <span class="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full flex items-center gap-1">
+          <i data-lucide="send" class="w-3 h-3"></i> Slack 전송 완료
+        </span>
+        {% endif %}
       </div>
-      <a href="{% url 'report_detail' report.uid %}"
-         class="flex-shrink-0 px-3 py-1.5 text-xs font-medium text-primary border border-primary rounded-[10px] hover:bg-primary hover:text-white transition-colors">
-        상세 보기
-      </a>
+      <h2 class="text-sm font-semibold text-gray-900 group-hover:text-primary transition-colors">{{ report.title }}</h2>
+      <p class="text-xs text-gray-400 mt-1">생성일: {{ report.created_at|date:"Y.m.d H:i" }}</p>
     </div>
-  </div>
+  </a>
   {% empty %}
   <div class="bg-white rounded-[10px] shadow-sm p-16 text-center text-gray-400">
     <i data-lucide="file-text" class="w-10 h-10 mx-auto mb-3 opacity-40"></i>

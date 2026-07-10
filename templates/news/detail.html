@@ -86,27 +86,25 @@
     </div>
     {% endif %}
 
+    <!-- 시사점 -->
+    {% for insight in insights %}
+    {% if insight.implication %}
+    <div class="bg-white rounded-[10px] shadow-sm p-5">
+      <div class="flex items-center gap-2 mb-3">
+        <i data-lucide="lightbulb" class="w-4 h-4 text-accent"></i>
+        <span class="text-sm font-semibold text-gray-900">시사점</span>
+      </div>
+      <div class="bg-purple-50 border-l-4 border-primary rounded-r-[10px] p-3">
+        <p class="text-sm text-gray-700">{{ insight.implication }}</p>
+      </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+
     <!-- 본문 -->
     <div class="bg-white rounded-[10px] shadow-sm p-6">
       <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{{ news.body }}</div>
     </div>
-
-    <!-- 인사이트 -->
-    {% for insight in insights %}
-    <div class="bg-white rounded-[10px] shadow-sm p-5">
-      <div class="flex items-center gap-2 mb-3">
-        <i data-lucide="lightbulb" class="w-4 h-4 text-accent"></i>
-        <span class="text-sm font-semibold text-gray-900">인사이트</span>
-      </div>
-      <p class="text-sm text-gray-700 leading-relaxed mb-3">{{ insight.content }}</p>
-      {% if insight.implication %}
-      <div class="bg-purple-50 border-l-4 border-primary rounded-r-[10px] p-3">
-        <p class="text-xs font-semibold text-primary mb-1">시사점</p>
-        <p class="text-sm text-gray-700">{{ insight.implication }}</p>
-      </div>
-      {% endif %}
-    </div>
-    {% endfor %}
 
   </article>
 
@@ -115,7 +113,7 @@
 
     <!-- 관련 기관 -->
     <div class="bg-white rounded-[10px] shadow-sm p-5">
-      <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">관련 기관</h3>
+      <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">관련 기업</h3>
       {% csrf_token %}
       <div id="org-panel">
         {% include "news/_orgs.html" %}

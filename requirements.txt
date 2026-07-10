@@ -11,3 +11,5 @@ APScheduler
 trafilatura
 requests
 beautifulsoup4
+Markdown
+bleach

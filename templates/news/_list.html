@@ -9,42 +9,44 @@
 </div>
 <div class="space-y-3">
   {% for news in group.list %}
-  <div id="news-{{ news.uid }}" x-data="{ delOpen: false }" class="bg-white rounded-[10px] shadow-sm p-5 hover:shadow-md transition-shadow">
-    <div class="flex items-start gap-4">
-      {% if news.image_url %}
-      <img src="{{ news.image_url }}" alt="" class="w-20 h-20 object-cover rounded-[10px] flex-shrink-0">
-      {% endif %}
-      <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-2 mb-1.5">
-          <span class="text-xs text-gray-400">{{ news.published_at|date:"Y.m.d" }}</span>
-          <button @click="delOpen = true" type="button"
-                  class="ml-auto flex-shrink-0 p-1 rounded-[6px] text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors">
-            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-          </button>
-        </div>
-        <a href="{% url 'news_detail' news.uid %}"
-           class="text-sm font-semibold text-gray-900 hover:text-primary transition-colors line-clamp-1">
-          {{ news.title }}
-        </a>
-        {% with orgs=news.organizations.all %}
-        {% if orgs %}
-        <div class="flex flex-wrap gap-1 mt-1.5">
-          {% for org in orgs %}
-          <span class="text-xs px-2 py-0.5 rounded-full
-            {% if org.org_type == '금융사' %}bg-blue-50 text-blue-600
-            {% elif org.org_type == '보험사' %}bg-green-50 text-green-600
-            {% else %}bg-purple-50 text-primary{% endif %}">
-            {{ org.name }}
-          </span>
-          {% endfor %}
-        </div>
+  <div id="news-{{ news.uid }}" x-data="{ delOpen: false }" class="relative group bg-white rounded-[10px] shadow-sm p-5 hover:shadow-md transition-shadow">
+    <a href="{% url 'news_detail' news.uid %}" class="absolute inset-0 z-0"></a>
+    <div class="relative z-10 pointer-events-none">
+      <div class="flex items-start gap-4">
+        {% if news.image_url %}
+        <img src="{{ news.image_url }}" alt="" class="w-20 h-20 object-cover rounded-[10px] flex-shrink-0">
         {% endif %}
-        {% endwith %}
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-1.5">
+            <span class="text-xs text-gray-400">{{ news.published_at|date:"Y.m.d" }}</span>
+            <button @click="delOpen = true" type="button"
+                    class="ml-auto flex-shrink-0 p-1 rounded-[6px] text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors pointer-events-auto relative z-20">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+          <p class="text-sm font-semibold text-gray-900 group-hover:text-primary transition-colors line-clamp-1">
+            {{ news.title }}
+          </p>
+          {% with orgs=news.organizations.all %}
+          {% if orgs %}
+          <div class="flex flex-wrap gap-1 mt-1.5">
+            {% for org in orgs %}
+            <span class="text-xs px-2 py-0.5 rounded-full
+              {% if org.org_type == '금융사' %}bg-blue-50 text-blue-600
+              {% elif org.org_type == '보험사' %}bg-green-50 text-green-600
+              {% else %}bg-purple-50 text-primary{% endif %}">
+              {{ org.name }}
+            </span>
+            {% endfor %}
+          </div>
+          {% endif %}
+          {% endwith %}
+        </div>
       </div>
     </div>
 
     <!-- 삭제 확인 모달 -->
-    <div x-show="delOpen" x-cloak class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center"
+    <div x-show="delOpen" x-cloak class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center pointer-events-auto"
          @click="delOpen = false" @keydown.escape.window="delOpen = false">
       <div class="bg-white rounded-[10px] p-6 shadow-xl w-[90%] max-w-sm" @click.stop>
         <p class="text-sm font-semibold text-gray-900 mb-1">뉴스를 삭제하시겠습니까?</p>

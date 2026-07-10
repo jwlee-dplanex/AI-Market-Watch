@@ -27,13 +27,13 @@
           {% csrf_token %}
           <button type="submit"
                   class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-teal rounded-[10px] hover:bg-teal-hover transition-colors">
-            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> 기관 재매핑
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> 기업 재매핑
           </button>
         </form>
       </div>
       <button @click="modalOpen=true; editOrg=null"
               class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-primary rounded-[10px] hover:bg-primary-hover transition-colors">
-        <i data-lucide="plus" class="w-3.5 h-3.5"></i> 기관 추가
+        <i data-lucide="plus" class="w-3.5 h-3.5"></i> 기업 추가
       </button>
     </div>
   </div>
@@ -46,7 +46,7 @@
          @click.stop>
       <div class="flex items-center justify-between mb-5">
         <h3 class="text-sm font-semibold text-gray-900"
-            x-text="editOrg ? '기관 수정' : '기관 추가'"></h3>
+            x-text="editOrg ? '기업 수정' : '기업 추가'"></h3>
         <button type="button" @click="modalOpen=false"
                 class="text-gray-400 hover:text-gray-600 transition-colors">
           <i data-lucide="x" class="w-4 h-4"></i>
@@ -59,7 +59,7 @@
         <input type="hidden" name="org_id" :value="editOrg ? editOrg.id : ''">
         <div class="space-y-4">
           <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">기관명 <span class="text-[#D92D20]">*</span></label>
+            <label class="block text-xs font-medium text-gray-700 mb-1">기업명 <span class="text-[#D92D20]">*</span></label>
             <input type="text" name="name"
                    x-effect="$el.value = editOrg ? editOrg.name : ''"
                    placeholder="예: KB국민은행" required

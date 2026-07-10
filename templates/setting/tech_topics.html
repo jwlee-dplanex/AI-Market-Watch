@@ -1,0 +1,82 @@
+{% extends "setting/base_setting.html" %}
+
+
+{% block setting_content %}
+<div x-data="{ modalOpen: false, editTopic: null }">
+
+  <!-- 헤더 -->
+  <div class="flex items-center justify-between mb-4">
+    <div class="flex items-center gap-2">
+      <h2 class="text-sm font-semibold text-gray-900">기술 주제 관리</h2>
+      <span class="text-xs text-gray-400 bg-white rounded-full px-2 py-0.5 shadow-sm">{{ total_count }}개</span>
+    </div>
+    <div class="flex items-center gap-2">
+      <div id="tech-topic-remap-result">
+        <form hx-post="{% url 'setting_remap_tech_topics_now' %}" hx-target="#tech-topic-remap-result" hx-swap="innerHTML">
+          {% csrf_token %}
+          <button type="submit"
+                  class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-teal rounded-[10px] hover:bg-teal-hover transition-colors">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> 기술 주제 재매핑
+          </button>
+        </form>
+      </div>
+      <button @click="modalOpen=true; editTopic=null"
+              class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-primary rounded-[10px] hover:bg-primary-hover transition-colors">
+        <i data-lucide="plus" class="w-3.5 h-3.5"></i> 주제 추가
+      </button>
+    </div>
+  </div>
+
+  <!-- 기술 주제 추가/수정 Modal -->
+  <div x-show="modalOpen" x-cloak x-transition
+       class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center"
+       @keydown.escape.window="modalOpen=false">
+    <div class="bg-white rounded-[10px] shadow-lg border border-[#E5E5E5] w-full max-w-md p-6"
+         @click.stop>
+      <div class="flex items-center justify-between mb-5">
+        <h3 class="text-sm font-semibold text-gray-900"
+            x-text="editTopic ? '기술 주제 수정' : '기술 주제 추가'"></h3>
+        <button type="button" @click="modalOpen=false"
+                class="text-gray-400 hover:text-gray-600 transition-colors">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+      <form hx-post="{% url 'setting_tech_topic_save' %}"
+            hx-target="#tech-topic-table" hx-swap="innerHTML"
+            hx-include="[name=csrfmiddlewaretoken]"
+            @htmx:afterRequest.window="if(event.detail.successful){ modalOpen=false; $el.reset() }">
+        <input type="hidden" name="topic_id" :value="editTopic ? editTopic.id : ''">
+        <div class="space-y-4">
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">주제명 <span class="text-[#D92D20]">*</span></label>
+            <input type="text" name="name"
+                   x-effect="$el.value = editTopic ? editTopic.name : ''"
+                   placeholder="예: RAG" required
+                   class="w-full text-sm border border-[#E5E5E5] rounded-[10px] px-3 py-2 focus:outline-none focus:border-primary focus:ring-2 focus:ring-[rgba(96,38,158,0.14)]">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">별칭</label>
+            <input type="text" name="aliases"
+                   x-effect="$el.value = editTopic ? editTopic.aliases_str : ''"
+                   placeholder="예: RAG, 검색증강생성 (쉼표로 구분)"
+                   class="w-full text-sm border border-[#E5E5E5] rounded-[10px] px-3 py-2 focus:outline-none focus:border-primary focus:ring-2 focus:ring-[rgba(96,38,158,0.14)]">
+          </div>
+        </div>
+        <div class="flex gap-3 mt-6 justify-end">
+          <button type="button" @click="modalOpen=false"
+                  class="px-4 py-2 text-[#54565A] text-sm rounded-[10px] border border-[#E5E5E5] hover:border-primary hover:text-primary transition-colors">취소</button>
+          <button type="submit"
+                  class="px-4 py-2 bg-primary text-white text-sm font-medium rounded-[10px] hover:bg-primary-hover transition-colors">저장</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 기술 주제 테이블 (HTMX target) -->
+  {% csrf_token %}
+  <div id="tech-topic-table">
+    {% include "setting/_tech_topics.html" %}
+  </div>
+
+</div>
+{% endblock %}
