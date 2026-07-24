@@ -1,6 +1,22 @@
 {% extends "base.html" %}
+{% load report_extras %}
 
 {% block page_title %}뉴스 상세{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* insight.implication 마크다운 렌더링 시 문단 간 여백만 최소로 부여.
+     dashboard/index.html의 .markdown-spacing과 동일한 규칙 — 이 페이지의
+     text-sm text-gray-700 지정을 유지하기 위해 폰트 크기/색상은 지정하지 않는다. */
+  .markdown-spacing p { margin-bottom: 0.75rem; }
+  .markdown-spacing p:last-child { margin-bottom: 0; }
+  .markdown-spacing ul, .markdown-spacing ol { margin: 0 0 0.75rem 1.25rem; }
+  .markdown-spacing ul:last-child, .markdown-spacing ol:last-child { margin-bottom: 0; }
+  .markdown-spacing ul { list-style: disc; }
+  .markdown-spacing ol { list-style: decimal; }
+  .markdown-spacing li { margin-bottom: 0.25rem; }
+</style>
+{% endblock %}
 
 {% block content %}
 
@@ -95,7 +111,7 @@
         <span class="text-sm font-semibold text-gray-900">시사점</span>
       </div>
       <div class="bg-purple-50 border-l-4 border-primary rounded-r-[10px] p-3">
-        <p class="text-sm text-gray-700">{{ insight.implication }}</p>
+        <div class="text-sm text-gray-700 markdown-spacing">{{ insight.implication|markdown }}</div>
       </div>
     </div>
     {% endif %}

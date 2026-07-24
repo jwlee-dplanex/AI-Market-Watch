@@ -1,6 +1,23 @@
 {% extends "base.html" %}
+{% load report_extras %}
 
 {% block page_title %}전체 대시보드{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* insight.content / insight.implication 마크다운 렌더링 시 문단 간 여백만 최소로 부여.
+     reports/detail.html의 .markdown-content와 달리 폰트 크기/색상은 지정하지 않는다 —
+     이 페이지들은 이미 text-sm/text-xs + text-gray-700 등으로 크기가 지정돼 있어서,
+     .markdown-content의 고정 font-size를 그대로 가져오면 기존 지정과 충돌한다. */
+  .markdown-spacing p { margin-bottom: 0.75rem; }
+  .markdown-spacing p:last-child { margin-bottom: 0; }
+  .markdown-spacing ul, .markdown-spacing ol { margin: 0 0 0.75rem 1.25rem; }
+  .markdown-spacing ul:last-child, .markdown-spacing ol:last-child { margin-bottom: 0; }
+  .markdown-spacing ul { list-style: disc; }
+  .markdown-spacing ol { list-style: decimal; }
+  .markdown-spacing li { margin-bottom: 0.25rem; }
+</style>
+{% endblock %}
 
 {% block content %}
 
@@ -275,17 +292,18 @@
       <div class="flex items-center mb-4">
         <h2 class="text-sm font-semibold text-gray-900">주요 이슈</h2>
       </div>
-      <div class="space-y-3">
+      <div class="space-y-4">
         {% for insight in insights %}
         <div class="border border-gray-100 rounded-[10px] p-4 hover:border-primary/30 transition-colors" x-data="{ open: false }">
           <button type="button" @click="open = !open" class="flex items-start justify-between gap-3 w-full text-left">
             <div class="flex-1 min-w-0">
               <p class="text-sm font-semibold text-gray-900 truncate">{{ insight.title }}</p>
-              <span x-show="open" x-cloak class="flex items-center gap-2 mt-2 mb-2">
+              <span x-show="open" x-cloak class="flex items-center gap-2 mt-3 mb-3">
                 <i data-lucide="trending-up" class="w-4 h-4 text-teal"></i>
                 <span class="text-sm font-semibold text-gray-900">분석</span>
               </span>
-              <p class="mt-1" :class="open ? 'text-sm text-gray-700 leading-relaxed' : 'text-xs text-gray-500 line-clamp-2'">{{ insight.content }}</p>
+              <p x-show="!open" class="mt-2 text-xs text-gray-500 line-clamp-2">{{ insight.content }}</p>
+              <div x-show="open" x-cloak class="mt-3 text-sm text-gray-700 leading-relaxed markdown-spacing">{{ insight.content|markdown }}</div>
             </div>
             <div class="flex items-center gap-2 flex-shrink-0">
               <span class="text-xs text-gray-400 whitespace-nowrap">관련 기사 {{ insight.news_count }}건</span>
@@ -297,19 +315,19 @@
 
             {% if insight.implication %}
             <div>
-              <div class="flex items-center gap-2 mb-2">
+              <div class="flex items-center gap-2 mb-3">
                 <i data-lucide="lightbulb" class="w-4 h-4 text-accent"></i>
                 <span class="text-sm font-semibold text-gray-900">시사점</span>
               </div>
               <div class="bg-purple-50 border-l-4 border-primary rounded-r-[10px] p-3">
-                <p class="text-sm text-gray-700">{{ insight.implication }}</p>
+                <div class="text-sm text-gray-700 markdown-spacing">{{ insight.implication|markdown }}</div>
               </div>
             </div>
             {% endif %}
 
-            <div>
+            <div{% if insight.implication %} class="pt-4 border-t border-gray-100"{% endif %}>
               <span class="text-xs font-semibold text-gray-900">관련 기사</span>
-              <div class="mt-2 space-y-1">
+              <div class="mt-3 space-y-1.5">
                 {% for news in insight.news.all %}
                 <a href="{% url 'news_detail' news.uid %}" class="block text-xs text-gray-600 hover:text-primary hover:underline truncate">
                   {{ news.title }}
@@ -341,11 +359,10 @@
       </div>
       <div class="space-y-3">
         {% for news in latest_news %}
-        <a href="{% url 'news_detail' news.uid %}" class="block">
-          <div class="py-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 -mx-2 px-2 rounded transition-colors">
-            <p class="text-xs font-medium text-gray-900 line-clamp-2">{{ news.title }}</p>
-            <p class="text-xs text-gray-400 mt-1">{{ news.published_at|date:"m/d" }}</p>
-          </div>
+        <a href="{% url 'news_detail' news.uid %}"
+           class="block border border-gray-100 rounded-[10px] p-3 hover:border-primary/30 hover:bg-gray-50 transition-colors">
+          <p class="text-xs font-medium text-gray-900 line-clamp-2">{{ news.title }}</p>
+          <p class="text-xs text-gray-400 mt-1.5">{{ news.published_at|date:"m/d" }}</p>
         </a>
         {% empty %}
         <div class="text-center py-12 text-gray-400">
