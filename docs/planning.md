@@ -240,6 +240,34 @@ Insight(이슈/시사점)는 RA가 온디맨드로 소량 생성하는 자산이
 - `created_at` / `updated_at` — 작성·갱신 시각(`Insight.created_at` 참고).
 - **작성자 필드는 초기엔 두지 않는다** — 현재 `Insight`에도 작성자 필드가 없고(운영 주체가 사실상 RA 단독), 인증 체계가 없다. 다중 작성자 추적 요구가 생기면 그때 `author` 추가. (정확한 스키마·필드 타입·라벨 어휘화 여부는 착수 시점 PE 결정.)
 
+**2단계 착수 스펙(PD·PE 인계용, 2026-07 확정) — 지금 PD→PE로 넘긴다**: 아래는 "무엇을/어떤 규칙으로"까지의 제품 정의다. 시각 배치·인터랙션 세부와 실제 구현(모델/뷰/템플릿 코드)은 PD·PE 몫이다. 착수 순서는 **PD(라벨 표시·입력 UI 설계) → PE(모델·마이그레이션·저장 뷰 구현)**. 실행 주체는 위에서 확정한 대로 RA 수동 라벨링이다.
+
+*라벨 입력 방식 정책(PM 확정)*: **자유 텍스트 입력**을 채택한다(단일 값). 단, 값 난립을 완화하려고 **예시 라벨을 힌트로 제시**한다 — "기술협업 / 투자 / 공급계약 / 인수합병 / 업무협약(MOU)"을 입력란 근처에 예시(플레이스홀더·datalist·칩 등, 정확한 형태는 PD)로 노출하되, RA가 이 목록 밖의 값도 자유롭게 적을 수 있어야 한다. 강제 select(고정 목록) 아님 — 관계 성격은 초기에 어떤 어휘가 실제로 필요한지 미확정이라, TechTopic처럼 어휘를 좁히는 건 값이 쌓여 난립이 확인된 뒤로 미룬다(과거 `News.tags` 자유 텍스트 실패 교훈은 "힌트 제공"으로 방지선을 둔다).
+
+*라벨 표시 위치 정책(PM 방향 제시, 시각 배치는 PD 재량)*: 라벨은 **엣지 클릭 시 뜨는 쌍 패널(`_edge_panel.html`) 안**에 표시하는 것을 기본으로 한다. 그래프 캔버스의 모든 엣지 선 위에 라벨 텍스트를 동시에 얹는 SVG 렌더링은 **기본 스코프에서 제외**한다 — 엣지가 많아지면 라벨이 서로 겹쳐 그래프가 시각적으로 복잡해지고, 라벨 없는(미분류) 엣지가 대부분인 초기 상태에서는 빈 라벨만 흩어져 노이즈가 된다. (선택 엣지 하나에만 hover/선택 시 라벨을 캔버스에 띄우는 절충은 PD가 원하면 검토 가능하나 필수 아님.)
+
+*미분류 엣지 표시 정책*: 아직 RA가 라벨을 붙이지 않은 엣지(대다수의 초기 상태)는 패널에 **"관계 미분류"** 같은 명시적 빈 상태로 보여준다 — 라벨 영역을 아예 숨기지 말 것. 그래야 RA가 "여기 라벨을 붙일 수 있다"는 어포던스를 인지하고, 조회 사용자도 "아직 분류 안 됨"과 "관계 없음"을 혼동하지 않는다.
+
+*PD 인계 항목(design.md 설계 대상)*:
+1. **패널 내 라벨 표시 영역** — 쌍 헤더("A × B 함께 언급된 뉴스 N건") 근처에 현재 라벨(또는 "관계 미분류")과 선택적 `description`을 보여주는 블록. 근거뉴스 목록과 시각적으로 구분되게.
+2. **RA 라벨 입력/수정 어포던스** — 같은 패널 안에서 라벨을 입력·수정하는 흐름(예: "편집" 버튼 → 인풋+예시힌트+저장, 또는 인라인 편집). Django admin이 아니라 **화면 내 폼**으로 간다(아래 PE 스펙의 저장 뷰가 이 폼의 제출 대상). 자유 텍스트 인풋 + 예시 라벨 힌트 + 선택적 `description` 인풋을 포함.
+3. **저장 후 피드백** — HTMX로 라벨 저장 시 패널이 갱신돼 새 라벨이 즉시 보이는 흐름(전체 페이지 리로드 없이). 정확한 리렌더 범위는 PD·PE 협의.
+4. **범위** — 새 화면 ID 없음(GRAPH-001 하위 프래그먼트, 1단계와 동일 관례). 캔버스 엣지 위 상시 라벨 렌더는 위 정책대로 제외.
+
+*PE 인계 항목(구현 대상)*:
+1. **`OrgRelation` 모델(확정 스키마)** — 위 초안을 다음 타입으로 확정한다. 배치는 `Organization`과 같은 `apps/setting/models.py` 권장(FK 대상이 거기 있음; 최종 위치는 PE 판단).
+   - `org_a = ForeignKey(Organization, on_delete=CASCADE, related_name="relations_as_a")`
+   - `org_b = ForeignKey(Organization, on_delete=CASCADE, related_name="relations_as_b")`
+   - `label = CharField(max_length=50)` — 단일 값(M2M 아님). 자유 텍스트. (관계 성격어는 짧으므로 50자로 충분; 참고로 `Insight.title`은 500자지만 이건 성격 라벨이라 짧게 제한.)
+   - `description = TextField(blank=True)` — 선택 서술(`Insight.content`에 대응, 단 선택이므로 `blank=True`).
+   - `news = ManyToManyField(News, related_name="org_relations")` — 근거뉴스. `Insight.news`처럼 through 모델을 둘지는 PE 판단(현재 `InsightNews`는 through를 쓰나 특별 필드가 없으므로 단순 M2M로도 무방).
+   - `created_at = DateTimeField(auto_now_add=True)`, `updated_at = DateTimeField(auto_now=True)`.
+   - `class Meta: unique_together = ("org_a", "org_b")`. **정규화 규칙**: 저장 시 항상 `org_a.pk < org_b.pk`가 되도록 강제(모델 `save()` 오버라이드 또는 저장 뷰에서 sort). 이는 `graph_edge_panel`이 이미 쓰는 `pk_a, pk_b = sorted((pk_a, pk_b))` 규칙과 정확히 일치한다.
+2. **저장/수정 뷰(신규, HTMX POST)** — 예: `graph_edge_label_save(request, pk_a, pk_b)`, 경로 `/graph/edges/<pk_a>/<pk_b>/label/`. 두 pk를 sorted 정규화 → `OrgRelation.objects.update_or_create(org_a=..., org_b=..., defaults={"label":..., "description":...})` → 근거뉴스 M2M은 현재 교집합 뉴스로 세팅(또는 RA가 선택). 응답은 갱신된 `_edge_panel.html`(또는 라벨 영역 조각)을 반환해 HTMX가 교체. `pk_a == pk_b` 가드는 기존 `graph_edge_panel`과 동일하게 Http404.
+3. **기존 `graph_edge_panel` 뷰에 라벨 노출** — 정규화된 `(pk_a, pk_b)`로 `OrgRelation`을 조회(`.filter(org_a=..., org_b=...).first()`, 없으면 `None`)해 컨텍스트에 `relation`으로 넘긴다. 템플릿은 `relation`이 있으면 라벨/`description`, 없으면 "관계 미분류" 빈 상태를 렌더(PD 설계).
+4. **`graph()` 뷰(엣지 목록)** — 초기 스코프에선 엣지 배열에 라벨을 실을 필요 없음(캔버스 상시 라벨 렌더를 안 하기로 했으므로). 나중에 "선택 엣지에 라벨 캔버스 표시"를 PD가 채택하면 그때 `edges`에 label을 조인해 넘기는 것으로 확장(현 단계 비범위).
+5. **RA 문서 갱신 연동** — 위 본문에서 지적한 대로, research-analyst 에이전트 문서에 "엣지 근거뉴스 열람 + 관계 라벨 입력/수정" 역할을 추가해야 한다(별도 작업 항목, PE 모델 완료 후 반영).
+
 **1단계 착수 스펙(PD 인계용) — 지금 PD→PE로 넘긴다**: 아래는 "무엇을/어떤 규칙으로" 정의까지다. 인터랙션·레이아웃 세부와 실제 구현은 PD·PE 몫이다.
 1. **엣지 클릭 가능화** — 현재 엣지(`<line>`)에는 클릭 핸들러가 없다(`templates/graph/index.html`의 `link` 셀렉션). 엣지를 클릭 대상으로 만들고, 클릭 시 그 엣지의 두 기업 pk를 서버에 전달한다. (얇은 선은 클릭 히트영역이 좁으므로 클릭 편의 처리는 PD가 판단 — 투명한 넓은 히트라인 등.)
 2. **쌍(pair) 근거뉴스 패널** — 노드 클릭용 `/graph/orgs/<pk>/panel/`과 별개로, **두 기업 교집합 뉴스**를 반환하는 경로/뷰가 필요하다(예: `/graph/edges/<pk_a>/<pk_b>/panel/`). 반환 내용은 `News.organizations`에 **두 기업이 모두** 연결된 뉴스 목록이다. 패널 상단에 "A × B 함께 언급된 뉴스 N건" 같은 맥락 헤더를 둔다(N은 실제 교집합 건수 = 엣지 `value`와 일치해야 함 — 검증 포인트).

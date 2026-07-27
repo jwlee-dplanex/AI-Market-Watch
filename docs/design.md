@@ -1360,6 +1360,8 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 기술 주제 관리 
 > 이미 `apps/graph/`(`templates/graph/index.html`, `_org_panel.html`)로 구현·배포 중인 화면이다. 별도 설계 없이 구현부터 됐고 사이드바에도 정식 메뉴로 떠 있었지만 화면 ID·문서가 전혀 없어 코드-문서 정합성이 깨져 있었다. PM이 `docs/planning.md`("지식그래프 화면 ID 부여" 절)에서 신규 독립 카테고리 `GRAPH-001`을 확정함에 따라, SET-007/008 소급 문서화와 동일한 방식으로 실제 구현 기준으로 기록한다. 이후 이 화면을 변경할 때는 템플릿이 아니라 이 문서를 최신 기준으로 갱신할 것.
 >
 > **(2026-07 갱신)** `docs/planning.md`의 "지식그래프 개선 로드맵" 1단계(엣지 근거뉴스)와 "대시보드·지식그래프 공통 기간 필터 정책"이 확정됨에 따라, 아래 내용에 (1) 엣지 클릭 → 기업 쌍(pair) 교집합 뉴스 패널, (2) 기간 필터(전체/최근 30일/최근 7일, 기본값 최근 7일 — 대시보드와 통일, 사용자 결정)를 반영했다. 템플릿(`templates/graph/index.html`, `_org_panel.html`, 신규 `_edge_panel.html`)은 PD가 직접 구현 완료했고, 백엔드(뷰·URL·쿼리)는 아래 "1단계 백엔드 스펙(PE 인계)"에 정리된 대로 PE가 구현해야 한다 — **이 문서 갱신 시점에는 뷰가 아직 이 스펙을 반영하지 않은 상태이므로, 템플릿은 더미 컨텍스트 변수(`selected_period`, `org_a`/`org_b`, `news_count` 등)를 가정하고 작성돼 있다.**
+>
+> **(2026-07 추가 갱신 — 2단계 관계 라벨링)** `docs/planning.md` "지식그래프 개선 로드맵" 2단계(RA 수동 관계 라벨링) 착수 스펙이 확정됨에 따라, `_edge_panel.html`에 "관계" 라벨 표시/입력 UI를 PD가 정적 마크업 수준으로 구현 완료했다(아래 "2단계 관계 라벨 UI 스펙" 절). `OrgRelation` 모델과 저장 뷰(`graph_edge_label_save` 가칭)는 **아직 PE가 구현하지 않았다** — 그 결과 이 문서 갱신 시점에는 `relation` 컨텍스트 변수가 항상 비어 있어 화면은 항상 "관계 미분류" 상태로만 보인다(정상 동작). PE가 모델·마이그레이션·저장 뷰·`graph_edge_panel`의 `relation` 컨텍스트 주입을 구현하면 그대로 동작한다.
 
 **목적**: 활성 기업(Organization) 간 "같은 뉴스에 함께 등장" 관계를 force-directed 그래프로 시각화해, 개별 기업·뉴스 단위로는 보이지 않는 업계 관계망(어떤 금융사·보험사가 어떤 AI 기업과 자주 엮이는지)을 한눈에 파악하는 분석 화면. 조회 전용이며 CRUD가 없다(SET 화면군과 성격이 다른 이유).
 
@@ -1369,6 +1371,7 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 기술 주제 관리 
 | `/graph/?period=all\|30d\|7d` | `apps.graph.views.graph` | 메인 화면. 전체 그래프(노드+엣지) 렌더. `period` 쿼리파라미터로 기간 필터(기본값 `7d`=최근 7일, 대시보드와 통일) — 선택은 `<a href="?period=...">` 전체 페이지 GET 재로드(아래 "왜 HTMX가 아닌 페이지 재로드인가" 참고) |
 | `/graph/orgs/<int:pk>/panel/?period=...` | `apps.graph.views.graph_org_panel` | 노드 클릭 시 HTMX로 로드되는 우측 패널 프래그먼트(독립 화면 아님 — `GRAPH-001`의 하위 프래그먼트, NEWS-001의 `_list.html`과 동일 관례). `period`는 메인 화면에서 선택된 값을 그대로 전달받아야 함(기간 정합성 계약) |
 | **(신규)** `/graph/edges/<int:pk_a>/<int:pk_b>/panel/?period=...` | `apps.graph.views.graph_edge_panel` (미구현 — PE) | 엣지(기업 쌍) 클릭 시 HTMX로 로드되는 교집합 근거뉴스 패널. `pk_a`/`pk_b`는 어느 순서로 와도 뷰 내부에서 정규화(작음/큼)해 처리. 독립 화면 아님, 위와 동일 관례. URL name에 `graph`가 들어가 `templates/base.html`의 사이드바 활성 판정(`'graph' in request.resolver_match.url_name`)이 별도 수정 없이 그대로 적용됨 |
+| **(신규, 2단계)** `/graph/edges/<int:pk_a>/<int:pk_b>/label/?period=...` (`POST`) | `apps.graph.views.graph_edge_label_save` (미구현 — PE, 이름은 가칭) | 쌍 패널의 "관계" 편집 폼이 제출하는 저장 엔드포인트. `_edge_panel.html`이 이 경로를 **하드코딩된 문자열**로 `hx-post`에 이미 심어뒀다(`{% url %}` 미사용 이유는 아래 "2단계 관계 라벨 UI 스펙" 5번 참고). `pk_a`/`pk_b` 정규화·`OrgRelation.objects.update_or_create`·응답으로 갱신된 `_edge_panel.html` 반환까지는 `docs/planning.md` "2단계 착수 스펙 > PE 인계 항목"에 상세 정의돼 있다 |
 
 **구성 요소**
 
@@ -1401,6 +1404,16 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 기술 주제 관리 
 │ 함께 언급된 뉴스 3건    │
 │ [금융사]KB국민은행      │
 │ [AI]Anthropic          │
+│──────────────────────  │
+│ 관계                   │  ← 2단계 신규 (보기 상태 예시)
+│ (관계 미분류)   [+라벨추가]  ※ 라벨 있으면: (outline pill)라벨명  [✎수정]
+│                            + 회색 설명 텍스트(선택)
+│──────────────────────  │
+│ (편집 상태 — "라벨 추가/수정" 클릭 시)
+│ [입력: 자유텍스트______]  ← list=datalist(5개 힌트)
+│ (기술협업)(투자)(공급계약)(인수합병)(업무협약(MOU))  ← 클릭 시 인풋 자동 채움
+│ [설명 textarea(선택)___]
+│               [취소] [저장]  ← 저장은 HTMX POST, #org-panel 통째 갱신
 │──────────────────────  │
 │ 근거 뉴스 (컷오프 없음, 전량 노출)
 │ · 기사 제목 1   MM.DD  │
@@ -1482,8 +1495,43 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 기술 주제 관리 
 
 - 노드 클릭 시 뜨는 위 기업 패널과 서로 다른 프래그먼트지만, 같은 `#org-panel` 컨테이너를 공유해 스왑된다(둘 다 GRAPH-001의 하위 프래그먼트, 독립 화면 아님).
 - 상단 헤더: "{{ org_a.name }} × {{ org_b.name }}" + 줄바꿈 + "함께 언급된 뉴스 {{ news_count }}건" — PM이 지정한 문구 형식을 그대로 따름. `news_count`는 반드시 해당 엣지의 `value`(공동등장 가중치)와 일치해야 하는 검증 포인트(위 백엔드 스펙 참고). 바로 아래에 두 기업의 유형 뱃지를 나란히 표시(각자 org_type에 맞는 색 토큰).
+- **관계 라벨 영역(2단계, 아래 "2단계 관계 라벨 UI 스펙" 참고)** — 쌍 헤더와 근거 뉴스 사이, 독립된 "관계" 블록으로 표시. 근거 뉴스 목록과는 `border-b border-gray-100`로 시각적으로 구분.
 - 근거 뉴스: **컷오프 없이 전량 노출**(교집합이라 표본이 작음을 전제, PM 명시 요구사항). 카드 레이아웃은 기업 패널의 List Card와 동일 패턴 재사용(제목 2줄 line-clamp + 뱃지 + 발행월일).
 - 빈 상태(이론상 도달하지 않아야 함 — 엣지가 존재하면 교집합도 최소 1건): "함께 언급된 뉴스가 없습니다."
+
+**2단계 관계 라벨 UI 스펙 (PD 설계 완료, 2026-07 — `docs/planning.md` "지식그래프 개선 로드맵" 2단계 착수 스펙을 화면 단위로 구체화, PE 인계)**
+
+`templates/graph/_edge_panel.html`에 "관계" 블록을 실제로 구현했다(정적 마크업 수준 — `OrgRelation` 모델·저장 뷰는 아직 없어 `relation` 컨텍스트 변수가 항상 비어 있고, 그 결과 현재는 항상 "관계 미분류" 상태로만 보인다. Django 템플릿은 미정의 변수를 조용히 falsy 처리하므로 에러 없이 정상 렌더된다). 아래는 PE가 그대로 구현할 수 있는 수준의 스펙이다.
+
+1. **레이아웃/위치** — 쌍 헤더(기업명 + 뱃지) 블록 바로 다음, "근거 뉴스" 목록 앞. 전체를 `mb-4 pb-4 border-b border-gray-100`로 감싸 근거 뉴스 목록과 구분한다. 헤더 라벨은 다른 섹션과 동일한 `text-xs font-semibold text-gray-500 uppercase tracking-wider` 토큰으로 "관계" 텍스트.
+
+2. **상태 전환 — Alpine.js `x-data` 토글(이 프로젝트 관례)** — 패널 최상위에 `x-data="{ editing: false, label: '...', description: '...' }"`. `label`/`description`은 `{{ relation.label|default:""|escapejs }}` 형태로 서버 값을 JS 문자열 리터럴에 안전하게 주입한다(`templates/setting/_tech_topics.html`의 `editTopic={...name:'{{ topic.name|escapejs }}'...}`와 동일하게 이미 이 코드베이스에서 검증된 패턴 — HTML 속성 안에 JS 문자열을 심을 때 `|escapejs`를 쓰는 것이 관례).
+   - 보기 상태: `x-show="!editing" x-cloak`
+   - 편집 상태(폼): `x-show="editing" x-cloak`
+   - **두 상태 모두 `x-cloak`을 반드시 붙인다.** 보기 상태는 기본값이 `true`라 이론상 FOUC 위험이 낮지만, 이 프로젝트에서 이미 뉴스 상세 "기업 추가" 드롭다운 등 3곳에서 `x-cloak` 누락 FOUC 버그가 발견·수정된 전례가 있어 "토글되는 요소는 예외 없이 `x-cloak`을 쌍으로 붙인다"는 규칙을 기계적으로 지켰다.
+
+3. **보기 상태 마크업**
+   - `relation`이 있을 때: 라벨을 `border border-primary text-primary` 아웃라인 필(pill)로 표시(`text-xs font-semibold px-2 py-0.5 rounded-full`). **의도적으로 기존 org_type 뱃지(금융사/보험사/AI, 모두 solid-fill 배경)와 다른 스타일(테두리만, 배경 없음)을 택했다** — 관계 라벨은 기업 유형 분류와 무관한 별개 축인데, 만약 solid-fill 보라색을 쓰면 AI 유형 뱃지(`bg-[#F3EAFB] text-primary`)와 시각적으로 혼동될 수 있다(대시보드 범례 미표기로 실제 혼동 이슈가 있었던 전례 — `docs/planning.md` "대시보드 색상 범례" 참고). 아웃라인 스타일로 "이건 유형이 아니라 관계 성격이다"를 시각적으로 구분했다. `description`이 있으면 라벨 아래 `text-xs text-gray-500` 텍스트로 노출. 우측에 "수정"(Lucide `pencil`) 버튼.
+   - `relation`이 없을 때(현재 항상 이 상태): `text-xs text-gray-400`으로 "관계 미분류" 고정 텍스트 + 우측에 "라벨 추가"(Lucide `plus`) 버튼. **라벨 영역 자체를 숨기지 않는다**(PM 확정 정책).
+
+4. **편집 상태 마크업 — 예시 힌트는 "datalist + 클릭 칩" 이중 구현**
+   - 라벨 `<input type="text" name="label" x-model="label">`에 `list="relation-label-hints"` 지정 + 같은 5개 값을 가진 `<datalist id="relation-label-hints">`를 둔다(네이티브 브라우저 자동완성 지원).
+   - **동시에** 같은 5개 값을 클릭 가능한 칩(`border border-[#E5E5E5] text-gray-500`, hover 시 `border-primary text-primary`)으로 인풋 아래 나열하고, 클릭 시 `@click="label = '기술협업'"`처럼 Alpine `x-model` 값을 직접 채운다.
+   - **판단 근거(둘 다 넣은 이유)**: `datalist`만 쓰면 입력란에 작은 드롭다운 화살표만 뜨는 정도라 발견성이 낮고(사용자가 힌트가 존재한다는 걸 인지하기 어려움), `placeholder`만 쓰면 힌트 5개를 한 줄에 다 못 보여주고 타이핑 시작하는 순간 사라진다. 반면 클릭 칩은 이 프로젝트에서 이미 뱃지/필 형태로 익숙한 시각 언어를 재사용하면서 "예시이자 즉시 채워 넣는 단축 입력"이라는 두 기능을 동시에 준다. `datalist`는 제거해도 무방하지만 키보드 위주 사용자를 위한 보조 수단으로 비용이 거의 없어 함께 남겼다. 어느 방식을 택해도 **목록 밖 자유 입력을 막지 않는다**(둘 다 `<select>`가 아니라 `<input>` 기반이므로 자동 충족).
+   - `maxlength="50"` — `OrgRelation.label = CharField(max_length=50)` 확정 스키마(`docs/planning.md`)와 동일하게 클라이언트에도 반영. `required`.
+   - `description`은 `<textarea name="description" x-model="description" rows="2" maxlength="300">`(선택 입력, `placeholder="관계 설명 (선택)"`). `maxlength`는 서버 `TextField`가 무제한이라 강제 제약이 아니라 UI 가이드용 소프트 값 — PE가 서버에도 동일 제약을 걸지는 판단에 맡긴다.
+   - 하단에 "취소"(보기 상태로 복귀 + 편집 중이던 값을 서버 값으로 되돌림 — `label`/`description`을 다시 `{{ relation... }}` 초기값으로 리셋)와 "저장"(`type="submit"`, `bg-primary`) 버튼.
+
+5. **HTMX 저장 흐름**
+   - `<form>`에 `hx-post="/graph/edges/{{ org_a.pk }}/{{ org_b.pk }}/label/?period={{ selected_period }}"`, `hx-target="#org-panel"`, `hx-swap="innerHTML"`, `hx-include="[name=csrfmiddlewaretoken]"`. 폼 안에 `{% csrf_token %}`을 직접 포함시켰다(패널 자체가 HTMX로 반복 스왑되는 프래그먼트라, 상위 페이지의 토큰에 의존하지 않고 프래그먼트 자기완결적으로 두는 편이 안전).
+   - **`{% url %}` 태그 대신 리터럴 경로 문자열을 썼다** — `graph_edge_label_save`라는 URL name이 아직 `apps/graph/urls.py`에 등록돼 있지 않은데(PE 구현 전), `{% url %}`은 등록되지 않은 name에 대해 즉시 `NoReverseMatch`를 던져 **현재 배포 중인 1단계 쌍 패널까지 함께 깨뜨린다**. 그래서 반드시 하드코딩된 경로 문자열(`/graph/edges/<pk_a>/<pk_b>/label/`)을 써야 한다. PE가 이 경로 그대로 `path("edges/<int:pk_a>/<int:pk_b>/label/", views.graph_edge_label_save, name="graph_edge_label_save")`를 등록하면 즉시 동작한다(등록 후에는 `{% url %}`로 바꿔도 무방하나 필수는 아님).
+   - `org_a.pk`/`org_b.pk`는 뷰가 받는 순서 그대로 URL에 넣는다(정규화는 `docs/planning.md`에 명시된 대로 뷰 내부 `sorted()`가 담당 — `graph_edge_panel`과 동일 관례).
+   - `?period={{ selected_period }}`를 유지해, 저장 후 재렌더되는 패널이 캔버스와 같은 기간 필터를 유지한다(기존 "기간 정합성 계약"의 자연스러운 확장).
+   - 응답은 **패널 전체(`_edge_panel.html`)를 다시 렌더**해 `#org-panel`을 통째로 교체하는 것을 전제로 설계했다(라벨 영역만 부분 스왑하지 않음) — `graph_edge_panel` 뷰가 하던 컨텍스트 구성(org_a/org_b/news_list/news_count/selected_period)에 `relation`만 추가해 그대로 재사용할 수 있어 PE 구현 비용이 가장 낮고, 저장 직후 근거 뉴스 목록까지 최신 상태로 다시 보이는 부수 이점도 있다.
+
+6. **컨텍스트 변수 제안(PE 인계)** — `graph_edge_panel` 뷰(및 신규 저장 뷰)가 템플릿에 넘겨야 할 변수: `relation`(`OrgRelation` 인스턴스 또는 없으면 `None`/컨텍스트에서 생략 — 템플릿은 둘 다 "관계 미분류"로 동일하게 처리하므로 무엇이든 무방하나 `None`을 명시적으로 넘기는 쪽을 권장, `docs/planning.md`의 "정규화된 `(pk_a, pk_b)`로 `OrgRelation`을 조회, 없으면 `None`" 지시와 일치). 그 외 기존 `org_a`, `org_b`, `news_list`, `news_count`, `selected_period`는 변경 없음.
+
+7. **비범위 확인** — 그래프 캔버스 엣지 선 위 상시 라벨 렌더(SVG)는 이번에 구현하지 않았다(PM 정책대로 스코프 제외). 새 화면 ID도 부여하지 않았다(GRAPH-001 하위 프래그먼트 관례 유지).
 
 **사이드바 메뉴 (`templates/base.html`)**
 
@@ -1526,7 +1574,7 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 지식그래프 화�
 - 우측: w-72 기업/쌍 패널(흰 카드, 하나의 슬롯을 두 종류 패널이 공유)
   - 미선택 시: 중앙 정렬 안내 아이콘 + "기업 노드 또는 연결선을 클릭하면 관련 뉴스를 볼 수 있습니다."
   - 노드 선택 시: 유형 뱃지(금융사 blue-100/blue-700, 보험사 #E6F7F5/#00AF9A, AI #F3EAFB/#60269E) + 기업명 + 별칭 + "관련 뉴스" 카드 리스트(최대 10건, 10건 초과 시 "전체 N건 중 10건" 표기 + 제목 2줄 + 기업 뱃지 + 발행월일)
-  - 엣지 선택 시: "기업A × 기업B" + "함께 언급된 뉴스 N건" 헤더 + 두 기업 유형 뱃지 + "근거 뉴스" 카드 리스트(컷오프 없이 전량, 카드 형식은 위와 동일)
+  - 엣지 선택 시: "기업A × 기업B" + "함께 언급된 뉴스 N건" 헤더 + 두 기업 유형 뱃지 + **"관계" 블록**(라벨 있으면 outline pill "border border-primary text-primary" + 선택적 설명 텍스트 + "수정" 버튼, 없으면 회색 "관계 미분류" + "라벨 추가" 버튼 — 편집 클릭 시 자유 텍스트 인풋 + 클릭 가능한 예시 칩 5개("기술협업"/"투자"/"공급계약"/"인수합병"/"업무협약(MOU)") + 선택적 설명 textarea + 취소/저장 버튼으로 전환) + "근거 뉴스" 카드 리스트(컷오프 없이 전량, 카드 형식은 위와 동일)
 
 [샘플 데이터]
 - 노드: KB국민은행(금융사, 9건), 삼성생명(보험사, 6건), Anthropic(AI, 5건), 신한은행(금융사, 4건), 교보생명(보험사, 3건), OpenAI(AI, 4건)

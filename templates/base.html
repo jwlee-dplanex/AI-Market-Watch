@@ -43,17 +43,31 @@
        아키텍처는 그대로(순수 <a href> GET 재로드) 두고 시각 효과만 얹는다(2026-07 PM 정책).
        1) 크로미움 계열(Chrome 126+)은 MPA View Transitions(@view-transition { navigation: auto })로
           자동 크로스페이드 — CSS 한 줄로 활성화, 미지원 브라우저는 그냥 무시(안전한 점진적 향상).
-       2) 미지원 브라우저(Firefox/Safari 등)는 @supports로 감지해서 body에 순수 CSS fade-in만 적용.
-          두 효과를 동시에 걸면 view transition 크로스페이드 위에 body 페이드가 겹쳐 이중 깜빡임처럼
+       2) 미지원 브라우저(Firefox/Safari 등)는 @supports로 감지해서 본문(main)에 순수 CSS fade-in만 적용.
+          두 효과를 동시에 걸면 view transition 크로스페이드 위에 페이드가 겹쳐 이중 깜빡임처럼
           보일 수 있어 @supports not (...)으로 상호 배타적으로 나눴다.
+       3) (2026-07 PM 정책 A) root 전환 그룹(전체 페이지 스냅샷)의 애니메이션은 끈다 — 그대로 두면
+          안 바뀌는 사이드바(<aside>)·헤더(<header>)까지 옛/새 페이지 전체가 통째로 크로스페이드되어
+          화면 전체가 깜빡이는 것처럼 보였다. 대신 본문(<main>)에만 별도 view-transition-name을 지정해
+          그 영역만 독립된 전환 그룹으로 분리하고 거기에만 크로스페이드를 건다.
        이 화면(대시보드·지식그래프)뿐 아니라 사이트 전체 페이지 이동에 적용해도 자연스럽다고 판단해
        base.html에 공통으로 넣었다(개별 템플릿에 중복 적용하지 않음). -->
   <style>
     @view-transition {
       navigation: auto;
     }
+    /* 전체(root) 크로스페이드는 끔 — 사이드바·헤더가 여기 휩쓸려 함께 깜빡이던 원인 */
     ::view-transition-old(root),
     ::view-transition-new(root) {
+      animation: none;
+      mix-blend-mode: normal;
+    }
+    /* 본문 콘텐츠(<main>)만 별도 전환 그룹으로 분리해서 부드럽게 */
+    main {
+      view-transition-name: main-content;
+    }
+    ::view-transition-old(main-content),
+    ::view-transition-new(main-content) {
       animation-duration: 180ms;
     }
     @supports not (view-transition-name: none) {
@@ -61,7 +75,7 @@
         from { opacity: 0; }
         to { opacity: 1; }
       }
-      body {
+      main {
         animation: page-fade-in 180ms ease-out;
       }
     }
