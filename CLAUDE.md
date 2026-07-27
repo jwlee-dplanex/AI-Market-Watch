@@ -47,6 +47,7 @@ apps/
   news/        # 뉴스 목록·상세 (NEWS-001, NEWS-002)
   reports/     # 보고서 목록·상세 (REPORT-001, REPORT-002)
   setting/     # 데이터소스·키워드·프롬프트·스케줄·Slack·로그·기업·기술 주제 (SET-001~008)
+  graph/       # 지식그래프 (GRAPH-001)
 services/
   collector.py  # 뉴스 수집 파이프라인
   llm.py        # Claude API 연동
@@ -75,7 +76,7 @@ templates/      # 루트 레벨 템플릿 (base.html + 앱별 하위 디렉토�
 ## 화면 ID 규칙
 
 설계 문서(`docs/design.md`)와 코드에서 화면 ID를 기준으로 소통합니다.  
-`ALL-001` 대시보드 / `NEWS-001~002` 뉴스 / `REPORT-001~002` 보고서 / `SET-001~008` 설정 (`SET-007` 기업 관리, `SET-008` 기술 주제 관리)
+`ALL-001` 대시보드 / `NEWS-001~002` 뉴스 / `REPORT-001~002` 보고서 / `SET-001~008` 설정 (`SET-007` 기업 관리, `SET-008` 기술 주제 관리) / `GRAPH-001` 지식그래프
 
 ## 서브에이전트 (PM/PD/PE/RA)
 

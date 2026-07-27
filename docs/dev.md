@@ -291,9 +291,12 @@ ai_market_watch/
 │   │   ├── models.py        # Report, ReportNews
 │   │   ├── views.py
 │   │   └── urls.py
-│   └── setting/             # 설정 (SET-001 ~ SET-008)
-│       ├── models.py        # DataSource, Keyword, Prompt, Schedule, SlackConfig, CollectionLog, LLMLog, Organization, TechTopic
-│       ├── views.py
+│   ├── setting/             # 설정 (SET-001 ~ SET-008)
+│   │   ├── models.py        # DataSource, Keyword, Prompt, Schedule, SlackConfig, CollectionLog, LLMLog, Organization, TechTopic
+│   │   ├── views.py
+│   │   └── urls.py
+│   └── graph/               # 지식그래프 (GRAPH-001)
+│       ├── views.py         # graph(관계도), graph_org_panel(HTMX 패널)
 │       └── urls.py
 │
 ├── services/
@@ -310,7 +313,10 @@ ai_market_watch/
 │   │   ├── detail.html
 │   │   └── _list.html       # HTMX 파션
 │   ├── reports/
-│   └── setting/
+│   ├── setting/
+│   └── graph/
+│       ├── index.html       # GRAPH-001 D3.js 관계도
+│       └── _org_panel.html  # 기업 노드 클릭 시 HTMX 패널
 │
 ├── static/
 │   ├── css/
@@ -356,6 +362,8 @@ ai_market_watch/
 | `/setting/tech-topics/<pk>/toggle/` | 기술 주제 활성 토글 (POST) |
 | `/setting/tech-topics/<pk>/delete/` | 기술 주제 삭제 (POST) |
 | `/setting/tech-topics/remap/` | 기술 주제 재매핑 (POST) |
+| `/graph/` | 지식그래프 (GRAPH-001) |
+| `/graph/orgs/<pk>/panel/` | 기업 노드 관련뉴스 패널 (HTMX 조각) |
 
 ---
 
@@ -368,6 +376,17 @@ ai_market_watch/
 - **기술 주제별 언급 건수** (`_build_tech_topic_counts`) — 활성 `TechTopic` 중 최근 7일간 연결된 `News` 건수가 1건 이상인 주제를 건수 내림차순으로 집계합니다(0건 주제는 제외). 기업별 Top 10과 동일하게 최근 뉴스 최대 5건을 함께 담습니다.
 
 세 지표 모두 `News.organizations`/`News.tech_topics` M2M(수집 시 `services/collector.py`의 별칭 매칭으로 자동 연결)을 근거로 집계하며, 별도의 캐시·배치 집계 테이블 없이 매 요청마다 실시간으로 계산합니다.
+
+---
+
+## 지식그래프 (GRAPH-001)
+
+`apps/graph/views.py`가 활성 기업(`Organization`) 간 공동 등장 관계를 D3.js force-directed 그래프로 시각화합니다.
+
+- **노드** — 활성(`is_active=True`) `Organization` 중 연결된 `News`가 1건 이상인 기업만 노드로 만듭니다. `symbolSize`는 `news_count`에 비례해 `max(14, min(40, 14 + news_count * 2))`로 14~40 범위로 계산합니다. `category`는 `org_type`(금융사/보험사/AI)을 인덱스(0/1/2)로 매핑해 색상 구분에 사용합니다.
+- **엣지** — 같은 `News`에 2개 이상 기업이 함께 등장할 때, 등장한 기업 쌍마다 공동등장 가중치(`value`)를 누적합니다. **단 `ALLOWED_TYPE_PAIRS`(`{금융사, AI}`, `{보험사, AI}`) 조합만 엣지로 허용**하며, 금융사-금융사·보험사-보험사·AI-AI·금융사-보험사 조합은 제외합니다.
+- **HTMX 패널** — 노드 클릭 시 `/graph/orgs/<pk>/panel/`(`graph_org_panel`)이 해당 기업에 연결된 최근 `News` 10건을 `graph/_org_panel.html` 조각으로 반환합니다.
+- **렌더링** — `templates/graph/index.html`에서 D3.js v7.8.5(CDN)로 force simulation을 구성합니다.
 
 ---
 
@@ -500,20 +519,22 @@ class Embedding(models.Model):
 
 APScheduler를 사용합니다. Django 앱 시작 시 `apps.py`에서 자동 실행됩니다.
 
-**현재 실제로 자동화된 작업은 "뉴스 수집" 하나뿐입니다.** `services/scheduler.py`의 `_job_collect()`가 `collect_naver()`를 호출해 `CollectionLog`를 남기는 것까지만 구현돼 있고, `Schedule.schedule_type`에 `"report"` 타입이 모델상 정의는 돼 있지만 실제로 등록·실행되는 잡은 없습니다.
+**현재 실제로 자동화된 작업은 "뉴스 수집" 하나뿐입니다.** `services/scheduler.py`의 `_job_collect()`가 `collect_naver()`를 호출해 `CollectionLog`를 남기는 것까지만 구현돼 있습니다. `register()`는 `schedule.schedule_type`을 보지 않고 항상 `_job_collect`를 등록하므로, `Schedule.schedule_type`에 `"report"` 타입으로 등록해도 실제로 실행되는 것은 수집 잡입니다 — `"report"` 전용 잡은 아직 구현돼 있지 않습니다.
+
+`start()`는 `runserver` 기동 시 `Schedule.objects.filter(is_active=True)`를 전부 조회해 각 레코드를 `register()`로 APScheduler 잡에 등록합니다. **현재 활성 수집 스케줄이 실제로 가동 중입니다**: `Schedule` pk=1, cron `0 9 * * 1-5`(평일 9시), `is_active=True`. 즉 "설정하면 된다"가 아니라 "설정돼서 돌고 있다" 상태이며, 스케줄러가 in-process(APScheduler, `runserver`와 함께 기동)라 서버가 꺼져 있으면 9시에 실행되지 않는다는 점에 유의해야 합니다.
 
 ### 실행 스케줄
 
 | 작업 | 상태 | 주기(설정 시) |
 |------|------|------|
-| 뉴스 수집 | **구현 완료·자동 실행** | Schedule 모델(SET-004)에 등록한 cron 표현식대로 |
+| 뉴스 수집 | **구현 완료·자동 실행** | 평일 9시(`0 9 * * 1-5`, 현재 활성 pk=1) 등 등록된 cron대로 |
 | 관련성 판정·삭제, 인사이트 작성, 보고서 편집 | research-analyst 에이전트가 온디맨드 세션에서 수동 수행 (자동 분류 단계 없음) | 자동 스케줄 없음 |
 | 임베딩 생성 | 코드는 있으나(`services/embedder.py`) 트리거(버튼·스케줄) 없음 | — |
 | Slack 발송 | 미구현 | — |
 
 ### Schedule 모델 연동
 
-`Schedule` 모델의 `is_active` 값을 읽어 실행 여부를 제어합니다. SET-004 화면에서 켜고 끌 수 있습니다. (현재는 `schedule_type="collect"`만 실제로 동작)
+`Schedule` 모델의 `is_active` 값을 읽어 실행 여부를 제어합니다. SET-004 화면에서 켜고 끌 수 있습니다. (현재는 `schedule_type` 값과 무관하게 등록된 모든 활성 스케줄이 수집 잡으로 동작)
 
 ---
 

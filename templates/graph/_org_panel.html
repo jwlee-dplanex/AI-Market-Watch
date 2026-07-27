@@ -28,7 +28,7 @@
       {% for o in orgs %}
       <span class="text-xs px-1.5 py-0.5 rounded-full
         {% if o.org_type == '금융사' %}bg-blue-50 text-blue-600
-        {% elif o.org_type == '보험사' %}bg-green-50 text-green-600
+        {% elif o.org_type == '보험사' %}bg-[#E6F7F5] text-[#00AF9A]
         {% else %}bg-purple-50 text-primary{% endif %}">
         {{ o.name }}
       </span>

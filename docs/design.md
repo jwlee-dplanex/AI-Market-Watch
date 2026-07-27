@@ -1305,3 +1305,109 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 기술 주제 관리 
 - 활성 토글: 활성 bg #60269E, 비활성 bg #E5E5E5
 - 모달: 배경 어둡게 오버레이 + 흰 카드 rounded-[10px], SET-007 모달과 동일 톤이되 유형 select 필드 없음
 ```
+
+---
+
+### GRAPH-001 · 지식그래프 (소급 문서화)
+
+> 이미 `apps/graph/`(`templates/graph/index.html`, `_org_panel.html`)로 구현·배포 중인 화면이다. 별도 설계 없이 구현부터 됐고 사이드바에도 정식 메뉴로 떠 있었지만 화면 ID·문서가 전혀 없어 코드-문서 정합성이 깨져 있었다. PM이 `docs/planning.md`("지식그래프 화면 ID 부여" 절)에서 신규 독립 카테고리 `GRAPH-001`을 확정함에 따라, SET-007/008 소급 문서화와 동일한 방식으로 실제 구현 기준으로 기록한다. 이후 이 화면을 변경할 때는 템플릿이 아니라 이 문서를 최신 기준으로 갱신할 것.
+
+**목적**: 활성 기업(Organization) 간 "같은 뉴스에 함께 등장" 관계를 force-directed 그래프로 시각화해, 개별 기업·뉴스 단위로는 보이지 않는 업계 관계망(어떤 금융사·보험사가 어떤 AI 기업과 자주 엮이는지)을 한눈에 파악하는 분석 화면. 조회 전용이며 CRUD가 없다(SET 화면군과 성격이 다른 이유).
+
+**라우트**
+| 경로 | 뷰 | 역할 |
+|---|---|---|
+| `/graph/` | `apps.graph.views.graph` | 메인 화면. 전체 그래프(노드+엣지) 렌더 |
+| `/graph/orgs/<int:pk>/panel/` | `apps.graph.views.graph_org_panel` | 노드 클릭 시 HTMX로 로드되는 우측 패널 프래그먼트(독립 화면 아님 — `GRAPH-001`의 하위 프래그먼트, NEWS-001의 `_list.html`과 동일 관례) |
+
+**구성 요소**
+
+```
+┌─ 그래프 캔버스 (flex-1, bg-white shadow-sm rounded-[10px]) ─────────┐┌─ 기업 패널 (w-72) ─┐
+│ ┌ 범례(좌상단, 클릭 토글) ┐        ┌ 통계(우상단) ┐                  ││┌─ bg-white shadow-sm ┐│
+│ │● 금융사 ● 보험사 ● AI  │        │기업 24개·연결│                  │││ [금융사] 뱃지        ││
+│ └────────────────────────┘        │  9개         │                  │││ KB국민은행           ││
+│                                    └──────────────┘                  │││ 국민은행, KB (별칭)  ││
+│              ●AI기업A                                                │││──────────────────── ││
+│             ╱│  ╲                                                    │││ 관련 뉴스            ││
+│      금융사●─┤   ●보험사X   (선 굵기 = 공동등장 가중치)              │││ · 기사 제목 1  MM.DD ││
+│             ╲│  ╱                                                    │││   [금융사][AI] 뱃지  ││
+│              ●AI기업B                                                │││ · 기사 제목 2 (최대  ││
+│  (드래그로 위치 이동, 줌/팬, 빈 공간 클릭 시 하이라이트 해제)         │││   10건)              ││
+│                                                                       ││└──────────────────── ││
+│  ※ 뉴스 0건이면 "뉴스가 수집되면 기업 간 연결이 표시됩니다." 안내    ││ (미선택 시: 마우스     ││
+│                                                                       ││  포인터 아이콘 +      ││
+│                                                                       ││  "기업 노드를 클릭하면 ││
+│                                                                       ││  관련 뉴스를 볼 수    ││
+│                                                                       ││  있습니다." 안내)      ││
+└───────────────────────────────────────────────────────────────────┘└──────────────────────┘
+```
+
+**데이터 모델 (`apps/graph/views.py`)**
+
+- **노드** — `Organization.objects.filter(is_active=True).annotate(news_count=Count("news")).filter(news_count__gt=0)`. 즉 활성 상태이면서 연결된 뉴스가 1건 이상인 기업만 노드로 표시(뉴스 0건인 활성 기업은 그래프에서 제외 — SET-008 "0건 주제 제외"와 동일한 관례). `symbolSize`는 `max(14, min(40, 14 + news_count * 2))`로 14~40px 범위에서 뉴스 건수에 비례.
+- **엣지** — 같은 `News`에 2개 이상의 기업이 함께 등장(`organizations__count >= 2`)할 때 모든 쌍(`itertools.combinations`)의 공동등장 횟수를 누적해 가중치(`value`)로 사용. 단 `ALLOWED_TYPE_PAIRS = {frozenset({"금융사","AI"}), frozenset({"보험사","AI"})}` 필터로 **금융사-AI, 보험사-AI 쌍만 허용**하고 금융사-금융사·보험사-보험사·AI-AI·금융사-보험사 조합은 제외한다(업계 관계망이라는 화면 목적상 "동종업계끼리의 단순 동반 언급"보다 "금융/보험이 AI를 어떻게 활용하는가"라는 교차 관계에 집중하기 위한 설계 판단으로 보임).
+- 카테고리 인덱스: `CATEGORY_INDEX = {"금융사": 0, "보험사": 1, "AI": 2}` — 노드 JSON의 `category` 필드로 D3 색상 배열 인덱싱에 쓰임.
+
+**시각화 구현 (`templates/graph/index.html`, D3.js v7.8.5 CDN)**
+
+- SVG + `d3.forceSimulation`(link/charge/x/y/collide 5개 force 조합)로 좌표 계산, alpha가 자연 수렴하면 정지(지속적 애니메이션 없음 — 깜빡임 방지).
+- 줌/팬: `d3.zoom().scaleExtent([0.2, 4])`.
+- 드래그: 노드를 잡아 고정(`fx`/`fy`), 놓으면 시뮬레이션에 복귀.
+- 노드 클릭: (1) 클릭한 노드와 인접 노드만 `opacity: 1`, 나머지는 `0.08`로 페이드 — 연결선도 `#60269E`(Primary)로 강조/`#D1D5DB`로 톤다운. (2) 동시에 `htmx.ajax('GET', '/graph/orgs/<pk>/panel/', {target:'#org-panel', swap:'innerHTML'})`로 우측 패널을 로드. 배경(빈 공간) 클릭 시 하이라이트 초기화.
+- 범례 클릭: 카테고리(금융사/보험사/AI)별로 노드·엣지를 `display:none` 토글, 비활성 상태 버튼은 `opacity:0.35`.
+- 리사이즈: `window.resize` 시 `forceCenter` 재계산.
+- 노드 라벨: SVG `<text>`로 기업명 표시, `font-family`를 시스템 한글 폰트("Malgun Gothic"/"맑은 고딕")로 별도 지정 — 프로젝트 기본 `font-sans`(Noto Sans KR)와 다른 지정이라 아래 "디자인 시스템 정합성 점검"에 기록.
+- HTMX 로딩 인디케이터(`hx-indicator`) 없음 — 패널 프래그먼트가 가볍고(최대 10건 카드) 지연이 체감되지 않는 규모라 별도 스피너를 넣지 않은 것으로 보인다. 데이터 규모가 커지면 재검토 필요.
+
+**기업 패널 (`templates/graph/_org_panel.html`)**
+
+- 상단: 유형 뱃지(금융사 `bg-blue-100 text-blue-700` / 보험사 `bg-[#E6F7F5] text-[#00AF9A]` / AI `bg-[#F3EAFB] text-primary` — SET-007 뱃지 규칙과 동일 토큰) + 비활성 기업이면 "(비활성)" 회색 텍스트 + 기업명(bold) + 별칭(있으면).
+- 관련 뉴스: 최대 10건, 최신 발행일순. 각 카드는 List Card 패턴(`<a class="block group">`)을 따르며 — 이 문서 "1.5 컴포넌트 정의 > List Card" 절이 실제로 이 파일(23행)을 참고 구현 예시로 이미 지목하고 있다. 카드 안에 뉴스에 연결된 기업들의 뱃지를 작게 다시 나열(제목 2줄 line-clamp + 발행월일).
+- 미선택 상태: 중앙 정렬 안내(Lucide `mouse-pointer-click` 아이콘 32px, opacity-30 + "기업 노드를 클릭하면 관련 뉴스를 볼 수 있습니다.") — 기존 empty state 패턴(회색 아이콘 + 안내문)과 톤 일치.
+
+**사이드바 메뉴 (`templates/base.html`)**
+
+`대시보드 → 보고서 → 지식그래프 → 뉴스 → 설정` 순으로 5번째 항목이 아니라 3번째(보고서 다음, 뉴스 앞)에 배치돼 있다. Lucide `network` 아이콘, 활성 판정은 다른 메뉴와 동일하게 `{% if 'graph' in request.resolver_match.url_name %}`로 `bg-white/20 text-white` 하이라이트(URL name이 `graph`/`graph_org_panel` 둘 다 문자열에 `graph`를 포함해 두 라우트 모두에서 활성 표시됨).
+
+```python
+# templates/base.html 62-95행 실제 순서 (참고용, 코드는 이미 존재하며 PD가 수정한 것 아님)
+1. 대시보드   (layout-dashboard)
+2. 보고서     (bar-chart-2)
+3. 지식그래프 (network)   ← GRAPH-001
+4. 뉴스       (newspaper)
+5. 설정       (settings)
+```
+
+**디자인 시스템 정합성 점검 (수정 지시 아님, 발견 사항만 기록)**
+
+1. **노드 채움 색이 배지 텍스트 색과 동일 hex를 그대로 fill로 씀** — `CAT_COLORS = ['#3B82F6', '#00AF9A', '#60269E']`(금융사/보험사/AI). 보험사(`#00AF9A` Blue Green)와 AI(`#60269E` Primary Violet)는 디자인 시스템 컬러 토큰과 정확히 일치한다. 금융사(`#3B82F6`, Tailwind `blue-500`)는 이 프로젝트에 "금융사 blue" 전용 커스텀 hex 토큰이 정의된 적이 없어(1.1 컬러 토큰 표에 "Blue" 계열 토큰 없음) 문제라기보다는 기존 관례(뱃지들도 `blue-100`/`blue-700`/`blue-600` 등 Tailwind 기본 blue 팔레트를 그대로 씀)를 그래프에도 일관되게 따른 것으로 보인다.
+2. **엣지 색상(`#D1D5DB` 기본 / `#60269E` 강조)** — `#D1D5DB`는 Tailwind `gray-300`으로, 디자인 시스템 1.1 표의 어느 그레이 토큰(`Dark Gray #54565A`, `Gray #898A8D`)과도 일치하지 않는 별도 값이다. 카드 보더 `#E5E5E5`보다도 진해 엣지 전용으로 새로 고른 값으로 보인다. 강조색 `#60269E`(Primary)는 토큰과 일치.
+3. ~~`_org_panel.html`의 "관련 뉴스" 카드 안 기업 뱃지가 보험사에 `bg-green-50 text-green-600`(Tailwind 기본 green)을 쓴다~~ — **발견 직후 수정 완료.** 프로젝트 전역에서 보험사는 예외 없이 `#00AF9A`(Blue Green) 토큰을 쓰는데 이 한 곳만 `green-600`으로 달랐던 걸 `bg-[#E6F7F5] text-[#00AF9A]`로 통일했다. 같은 감사 중 `templates/news/_list.html`(동일한 `green-50/600` 오기재)과 `templates/news/_orgs.html`(프로젝트에 정의되지 않은 `teal-100`/`teal-600` 셰이드를 참조해 배경색이 아예 안 나오던 문제, 2곳)도 함께 발견·수정했다.
+4. **그래프 캔버스의 노드 라벨(`text` 요소)이 `"Malgun Gothic", "맑은 고딕", system-ui, sans-serif`를 별도 지정** — 프로젝트 기본 본문 폰트(`font-sans` = Noto Sans KR/Inter)를 쓰지 않고 시스템 한글 글꼴을 직접 지정한 유일한 위치. SVG 텍스트 렌더링 특성상(웹폰트 로딩 지연 시 레이아웃 흔들림 방지) 의도적으로 시스템 폰트를 고정한 것일 수 있으나, 다른 화면과 폰트 패밀리가 달라 보일 여지가 있다.
+5. **이 화면에는 Alpine.js 토글·모달이 전혀 없다** — 범례 토글·노드 하이라이트는 순수 D3/vanilla JS 상태(`hiddenCats` Set)로 구현돼 있어, "SET-007/008 소급 문서화 때 발견한 `x-cloak` 누락 FOUC 버그" 패턴이 애초에 적용 대상이 아니다(Alpine을 쓰지 않으므로 해당 버그 클래스 자체가 존재하지 않음). 별도 조치 불필요.
+
+**Claude Artifacts 생성 프롬프트**
+
+```
+DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 지식그래프 화면을 HTML + Tailwind CSS + D3.js(v7)로 만들어줘.
+
+[디자인 시스템]
+- Primary: #60269E (Violet), Blue Green: #00AF9A, 금융사 blue-500(#3B82F6)
+- Font: Inter/Noto Sans KR (body), Source Serif 4/Noto Serif KR (heading)
+- Border radius: 10px, Border: 1px solid #E5E5E5, 카드는 bg-white shadow-sm
+
+[레이아웃]
+- 좌측: 그래프 캔버스(flex-1, 흰 카드, 화면 높이 꽉 채움)
+  - 좌상단: 범례 pill — "● 금융사(blue-500) ● 보험사(#00AF9A) ● AI(#60269E)", 클릭 시 opacity 0.35로 토글
+  - 우상단: "기업 N개 · 연결 N개" 통계 텍스트
+  - 중앙: force-directed 그래프. 노드=기업(카테고리별 색상 원, 크기는 뉴스 건수 비례 14~40px), 엣지=공동등장 가중치에 비례한 선 굵기(색 #D1D5DB, 최대 5px)
+  - 인터랙션: 줌/팬, 노드 드래그, 노드 클릭 시 연결된 노드만 강조(비연결 노드 opacity 0.08, 연결선 #60269E), 빈 공간 클릭 시 초기화
+- 우측: w-72 기업 패널(흰 카드)
+  - 미선택 시: 중앙 정렬 안내 아이콘 + "기업 노드를 클릭하면 관련 뉴스를 볼 수 있습니다."
+  - 선택 시: 유형 뱃지(금융사 blue-100/blue-700, 보험사 #E6F7F5/#00AF9A, AI #F3EAFB/#60269E) + 기업명 + 별칭 + "관련 뉴스" 카드 리스트(최대 10건, 제목 2줄 + 기업 뱃지 + 발행월일)
+
+[샘플 데이터]
+- 노드: KB국민은행(금융사, 9건), 삼성생명(보험사, 6건), Anthropic(AI, 5건), 신한은행(금융사, 4건), 교보생명(보험사, 3건), OpenAI(AI, 4건)
+- 엣지: KB국민은행–Anthropic(가중치 3), 삼성생명–OpenAI(가중치 2), 신한은행–OpenAI(가중치 1) — 동종업계(금융사-금융사, 보험사-보험사 등)끼리는 연결선 없음
+```

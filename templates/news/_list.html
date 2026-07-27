@@ -33,7 +33,7 @@
             {% for org in orgs %}
             <span class="text-xs px-2 py-0.5 rounded-full
               {% if org.org_type == '금융사' %}bg-blue-50 text-blue-600
-              {% elif org.org_type == '보험사' %}bg-green-50 text-green-600
+              {% elif org.org_type == '보험사' %}bg-[#E6F7F5] text-[#00AF9A]
               {% else %}bg-purple-50 text-primary{% endif %}">
               {{ org.name }}
             </span>
