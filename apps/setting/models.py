@@ -151,3 +151,39 @@ class TechTopic(models.Model):
 
     def __str__(self):
         return self.name
+
+
+def normalize_org_pair(pk_a, pk_b):
+    """기업 쌍(pk_a, pk_b)을 "작은 쪽 먼저"로 정규화하는 공유 규칙. OrgRelation.save()와
+    apps/graph/views.py의 _get_edge_orgs_or_404가 이 함수를 공유해서, 정규화 로직이 여러 곳에
+    독립 구현되며 어긋나는 것을 막는다(코드리뷰 지적 사항)."""
+    return (pk_a, pk_b) if pk_a <= pk_b else (pk_b, pk_a)
+
+
+class OrgRelation(models.Model):
+    """지식그래프(GRAPH-001) 2단계 — 기업 쌍(엣지)의 관계 성격을 RA가 수동으로 기록하는 라벨.
+    docs/planning.md "지식그래프 개선 로드맵" 2단계 확정 스키마 그대로. 엣지당 라벨은 정확히 1개
+    (자유 텍스트, M2M 아님). LLM 자동 분류가 아니라 RA가 근거뉴스를 읽고 직접 판단해 채운다."""
+
+    org_a = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="relations_as_a")
+    org_b = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="relations_as_b")
+    label = models.CharField(max_length=50)
+    description = models.TextField(blank=True)
+    news = models.ManyToManyField(News, blank=True, related_name="org_relations")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("org_a", "org_b")
+
+    def save(self, *args, **kwargs):
+        # 정규화 규칙(org_a.pk < org_b.pk)을 모델 레벨에서도 강제한다. 저장 뷰가 이미
+        # graph_edge_panel과 동일하게 normalize_org_pair()로 정규화해서 넘기지만, 다른 호출
+        # 경로(예: 셸/관리자 화면)에서 순서를 뒤집어 넘겨도 (A,B)/(B,A) 중복 레코드가 생기지
+        # 않도록 이중 방어한다.
+        if self.org_a_id and self.org_b_id:
+            self.org_a_id, self.org_b_id = normalize_org_pair(self.org_a_id, self.org_b_id)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.org_a} × {self.org_b}: {self.label}"

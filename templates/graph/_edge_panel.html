@@ -28,14 +28,12 @@
   </div>
 </div>
 
-<!-- 관계 라벨 (2단계, 2026-07 신규 — docs/planning.md "지식그래프 개선 로드맵" 2단계 확정 정책 반영).
-     엣지당 라벨은 정확히 1개(자유 텍스트, select 아님). relation 컨텍스트 변수가 없거나 None이면
-     "관계 미분류"를 명시적으로 보여준다(영역 자체를 숨기지 않음 — PM 정책). PE가 OrgRelation 모델·
-     저장 뷰(graph_edge_label_save, 가칭)를 아직 구현하지 않았으므로 relation은 현재 컨텍스트에
-     없다 — Django 템플릿은 정의되지 않은 변수를 조용히 falsy로 처리하므로 항상 "관계 미분류" 상태로
-     보인다(정상 동작, 에러 아님). hx-post 대상 URL은 아직 뷰가 없는 경로를 미리 박아둔 것 — PE가
-     동일 경로로 뷰/URL을 등록하면 그대로 동작한다. 상세 스펙: docs/design.md GRAPH-001 "2단계 관계
-     라벨 UI 스펙" 절 참고. -->
+<!-- 관계 라벨 (2단계, 2026-07 — docs/planning.md "지식그래프 개선 로드맵" 2단계 확정 정책 반영,
+     구현 완료). 엣지당 라벨은 정확히 1개(자유 텍스트, select 아님). relation 컨텍스트 변수가
+     None이면(아직 RA가 라벨을 붙이지 않은 엣지) "관계 미분류"를 명시적으로 보여준다(영역 자체를
+     숨기지 않음 — PM 정책). OrgRelation 모델·저장 뷰는 apps/graph/views.py의 graph_edge_label_save
+     (hx-post 대상, URL은 apps/graph/urls.py에 등록됨)에 구현돼 있다. 상세 스펙: docs/design.md
+     GRAPH-001 "2단계 관계 라벨 UI 스펙" 절 참고. -->
 <div class="mb-4 pb-4 border-b border-gray-100"
      x-data="{ editing: false,
                label: '{{ relation.label|default:""|escapejs }}',

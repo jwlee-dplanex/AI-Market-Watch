@@ -267,6 +267,23 @@ bleach
 
 ---
 
+**OrgRelation** — 지식그래프(GRAPH-001) 2단계, 기업 쌍(엣지)의 관계 라벨. research-analyst가 근거뉴스를 읽고 수동으로 채우며(LLM 자동 분류 아님), 엣지당 라벨은 정확히 1개(자유 텍스트, M2M 아님)입니다.
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| id | AutoField | PK |
+| org_a | ForeignKey(Organization, related_name="relations_as_a") | 정규화된 쌍의 낮은 pk 쪽 |
+| org_b | ForeignKey(Organization, related_name="relations_as_b") | 정규화된 쌍의 높은 pk 쪽 |
+| label | CharField(50) | 관계 성격 자유 텍스트(예: 기술협업, 투자, 공급계약) — 단일 값 |
+| description | TextField(blank) | 관계 서술(선택) |
+| news | ManyToManyField(News, related_name="org_relations") | 저장 시점 두 기업 교집합 뉴스(근거) |
+| created_at | DateTimeField | |
+| updated_at | DateTimeField | |
+
+`Meta.unique_together = ("org_a", "org_b")`. 저장 시 `org_a.pk < org_b.pk`가 항상 성립하도록 정규화합니다 — `graph_edge_panel`이 쓰는 `sorted((pk_a, pk_b))` 규칙과 동일 계약이며, 모델 `save()`에서도 이중으로 강제합니다(`apps/setting/models.py`). 작성자 필드는 두지 않습니다(운영 주체가 사실상 RA 단독).
+
+---
+
 ## 4. 프로젝트 구조
 
 ```
@@ -292,11 +309,11 @@ ai_market_watch/
 │   │   ├── views.py
 │   │   └── urls.py
 │   ├── setting/             # 설정 (SET-001 ~ SET-008)
-│   │   ├── models.py        # DataSource, Keyword, Prompt, Schedule, SlackConfig, CollectionLog, LLMLog, Organization, TechTopic
+│   │   ├── models.py        # DataSource, Keyword, Prompt, Schedule, SlackConfig, CollectionLog, LLMLog, Organization, TechTopic, OrgRelation
 │   │   ├── views.py
 │   │   └── urls.py
 │   └── graph/               # 지식그래프 (GRAPH-001)
-│       ├── views.py         # graph(관계도), graph_org_panel(HTMX 패널), graph_edge_panel(엣지 근거뉴스 패널)
+│       ├── views.py         # graph(관계도), graph_org_panel(HTMX 패널), graph_edge_panel(엣지 근거뉴스 패널), graph_edge_label_save(관계 라벨 저장)
 │       └── urls.py
 │
 ├── services/
@@ -367,6 +384,7 @@ ai_market_watch/
 | `/graph/?period=all\|30d\|7d` | 지식그래프 (GRAPH-001) — `period` 생략 시 `7d` |
 | `/graph/orgs/<pk>/panel/?period=...` | 기업 노드 관련뉴스 패널 (HTMX 조각) |
 | `/graph/edges/<pk_a>/<pk_b>/panel/?period=...` | 기업 쌍(엣지) 근거뉴스 패널 (HTMX 조각) — `pk_a == pk_b`면 404 |
+| `/graph/edges/<pk_a>/<pk_b>/label/?period=...` | 관계 라벨 저장 (POST 전용) — `OrgRelation` update_or_create 후 `_edge_panel.html` 재렌더 |
 
 ---
 
@@ -403,6 +421,7 @@ ai_market_watch/
 - **엣지** — 같은 `News`에 2개 이상 기업이 함께 등장할 때, 등장한 기업 쌍마다 공동등장 가중치(`value`)를 누적합니다. **단 `ALLOWED_TYPE_PAIRS`(`{금융사, AI}`, `{보험사, AI}`) 조합만 엣지로 허용**하며, 금융사-금융사·보험사-보험사·AI-AI·금융사-보험사 조합은 제외합니다.
 - **기업 노드 패널** — 노드 클릭 시 `/graph/orgs/<pk>/panel/`(`graph_org_panel`)이 해당 기업에 연결된 선택 기간 내 `News` 최대 10건을 `graph/_org_panel.html` 조각으로 반환합니다(`total_count`가 10건 초과면 "전체 N건 중 10건" 표기). `is_active` 필터 없이 조회하므로 비활성 기업도 URL 직접 접근으로 볼 수 있고, 이 경우 "(비활성)" 배지를 표시합니다.
 - **엣지(기업 쌍) 패널** — 엣지 클릭 시 `/graph/edges/<pk_a>/<pk_b>/panel/`(`graph_edge_panel`)이 두 기업 모두에 연결된 `News`(교집합, `.filter(organizations=a).filter(organizations=b)` 두 번 체이닝 + `distinct()`)를 `graph/_edge_panel.html` 조각으로 반환합니다. 쌍 교집합은 표본이 작다는 전제로 **컷오프 없이 전량 노출**합니다(노드 패널과 의도적으로 다른 정책). `pk_a`/`pk_b`는 `sorted()`로 정규화하고, `pk_a == pk_b`(자기 자신과의 엣지)면 `Http404`를 raise합니다. `org_a`/`org_b` 중 비활성 기업이 있으면 노드 패널과 동일하게 "(비활성)" 배지를 표시합니다.
+- **관계 라벨(2단계, 구현 완료)** — 엣지 패널 안 "관계" 블록에서 RA가 라벨(자유 텍스트, 필수, 최대 50자)과 설명(선택, 최대 300자)을 입력·수정합니다. 저장은 `/graph/edges/<pk_a>/<pk_b>/label/`(`graph_edge_label_save`, POST 전용)이 담당하며, `pk_a == pk_b`면 `graph_edge_panel`과 동일하게 `Http404`입니다. 정규화된 `(org_a, org_b)`로 `OrgRelation.objects.update_or_create(defaults={"label", "description"})`를 실행하고, `news` M2M은 저장 시점 기준 두 기업의 전체 교집합 뉴스(기간 필터 미적용 — 라벨은 특정 기간 뷰가 아니라 영구 기록)로 `.set()`합니다. `graph_edge_panel`과 `graph_edge_label_save`는 컨텍스트 조립 로직(`_build_edge_panel_context`)을 공유해, 저장 후 같은 `_edge_panel.html`을 재렌더링해 `#org-panel`을 교체합니다. `label`이 빈 문자열이면 저장하지 않고 현재 상태 그대로 재렌더링합니다(크래시 방지). `graph_edge_panel`은 GET 시에도 정규화된 `(org_a, org_b)`로 `OrgRelation`을 조회해 `relation` 컨텍스트로 넘기며, 없으면 `None`(템플릿은 "관계 미분류"로 표시).
 - **렌더링** — `templates/graph/index.html`에서 D3.js v7.8.5(CDN)로 force simulation을 구성합니다. 기간 선택은 대시보드와 동일하게 전체 페이지 GET 재로드 방식이며(D3 스크립트의 최상위 `const`/`let` 재선언 문제 회피), 노드·엣지 HTMX 호출 시 `?period=` 쿼리를 그대로 이어 붙여 캔버스와 패널이 같은 기간을 보게 합니다.
 
 ---
