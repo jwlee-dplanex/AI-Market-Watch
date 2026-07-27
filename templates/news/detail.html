@@ -119,7 +119,7 @@
 
     <!-- 본문 -->
     <div class="bg-white rounded-[10px] shadow-sm p-6">
-      <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{{ news.body }}</div>
+      <div class="text-sm text-gray-700 leading-relaxed markdown-spacing">{{ news.body|linebreaks }}</div>
     </div>
 
   </article>
