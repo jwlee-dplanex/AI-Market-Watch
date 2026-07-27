@@ -39,6 +39,34 @@
   <style>[x-cloak] { display: none !important; }</style>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
 
+  <!-- 페이지 전환(예: 대시보드/지식그래프 기간 필터의 ?period= 전체 재로드) 부드럽게: 흰 화면 깜빡임 완화.
+       아키텍처는 그대로(순수 <a href> GET 재로드) 두고 시각 효과만 얹는다(2026-07 PM 정책).
+       1) 크로미움 계열(Chrome 126+)은 MPA View Transitions(@view-transition { navigation: auto })로
+          자동 크로스페이드 — CSS 한 줄로 활성화, 미지원 브라우저는 그냥 무시(안전한 점진적 향상).
+       2) 미지원 브라우저(Firefox/Safari 등)는 @supports로 감지해서 body에 순수 CSS fade-in만 적용.
+          두 효과를 동시에 걸면 view transition 크로스페이드 위에 body 페이드가 겹쳐 이중 깜빡임처럼
+          보일 수 있어 @supports not (...)으로 상호 배타적으로 나눴다.
+       이 화면(대시보드·지식그래프)뿐 아니라 사이트 전체 페이지 이동에 적용해도 자연스럽다고 판단해
+       base.html에 공통으로 넣었다(개별 템플릿에 중복 적용하지 않음). -->
+  <style>
+    @view-transition {
+      navigation: auto;
+    }
+    ::view-transition-old(root),
+    ::view-transition-new(root) {
+      animation-duration: 180ms;
+    }
+    @supports not (view-transition-name: none) {
+      @keyframes page-fade-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      body {
+        animation: page-fade-in 180ms ease-out;
+      }
+    }
+  </style>
+
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 

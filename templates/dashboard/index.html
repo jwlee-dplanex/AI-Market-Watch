@@ -24,41 +24,66 @@
 
 <!-- 핵심 지표 (정량화 축: 기간별 추이 / 기관별 랭킹 / 기술주제별 랭킹) -->
 <div class="mb-6">
-  <div class="flex items-center gap-2 mb-3">
+  <div class="flex items-center gap-3 mb-3">
     <h2 class="text-sm font-semibold text-gray-900">핵심 지표</h2>
-    <span class="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">최근 7일</span>
+
+    <!-- 기간 선택 (2026-07 PM 정책 "대시보드·지식그래프 공통 기간 필터" — docs/planning.md 참고). 카드별
+         셀렉터가 아니라 "핵심 지표" 섹션 전체를 지배하는 셀렉터 하나 — 3개 카드가 모두 같은 period를 따른다.
+         기존 "최근 7일" 고정 pill 배지를 이 셀렉터로 교체했다. 순수 GET 링크(전체 페이지 리로드) 방식을 쓴 이유:
+         이 프로젝트에 아직 hx-get 기반 필터 갱신 패턴이 없고(기존 hx-*는 전부 hx-post 폼 조작, 예:
+         news/_orgs.html) 뉴스 목록(news/list.html)의 필터·페이지네이션도 동일하게 순수 GET 링크로 처리한다 —
+         기존 관례를 그대로 따르고, 데이터 규모가 작아 부분 스왑으로 얻는 이득보다 새 인터랙션 패턴을 도입하는
+         비용이 크다고 판단했다. 기본값은 최근 7일(period가 비어있거나 "7d")이며 뷰가 유효하지 않은 값은
+         "7d"로 취급해야 한다(PE 스펙 참고). -->
+    <div class="flex gap-1 bg-gray-100 rounded-full p-0.5">
+      <a href="?period=all"
+         class="px-2.5 py-1 text-xs font-medium rounded-full transition-colors
+                {% if period == 'all' %}bg-primary text-white{% else %}text-gray-500 hover:text-gray-700{% endif %}">
+        전체
+      </a>
+      <a href="?period=30d"
+         class="px-2.5 py-1 text-xs font-medium rounded-full transition-colors
+                {% if period == '30d' %}bg-primary text-white{% else %}text-gray-500 hover:text-gray-700{% endif %}">
+        최근 30일
+      </a>
+      <a href="?period=7d"
+         class="px-2.5 py-1 text-xs font-medium rounded-full transition-colors
+                {% if period == '7d' or not period %}bg-primary text-white{% else %}text-gray-500 hover:text-gray-700{% endif %}">
+        최근 7일
+      </a>
+    </div>
   </div>
 
   <div class="grid grid-cols-3 gap-4">
 
-    <!-- 일별 뉴스 건수 추이 (라인그래프, 인라인 SVG path — 부드러운 곡선 + 그라데이션 영역 채움 + 실제 x/y축 + 호버 툴팁) -->
-    <!-- 2026-07-10(4차) 사용자 피드백 반영: 카드가 옆 "기관별 건수 Top 10" 카드(리스트 10행)와 한 그리드 행에
-         묶이면서 그리드 기본 align-items: stretch로 인해 카드 높이는 늘어나는데, 안쪽 차트가 고정 h-28로
-         박혀 있어 카드 아래쪽에 빈 여백이 생기던 문제를 고쳤다. 카드를 flex flex-col h-full로 바꾸고
-         제목/부제는 shrink-0로 상단 고정, 차트 래퍼는 flex-1 min-h-0로 남은 세로 공간을 전부 채우도록
-         했다(SVG도 h-28 대신 h-full). min-h-0은 flex item 기본 min-height:auto가 내용 높이만큼 강제로
-         잡아 늘어나는 것을 막기 위해 필요하다. -->
+    <!-- 뉴스 건수 추이 (라인그래프, 인라인 SVG path — 부드러운 곡선 + 그라데이션 영역 채움 + 실제 x/y축 + 호버 툴팁) -->
+    <!-- 카드를 flex flex-col h-full로 두고 제목은 shrink-0, 차트 래퍼는 flex-1 min-h-0로 남은 세로 공간을 전부
+         채운다(옆 "기업별 Top 10" 카드와 그리드 stretch로 높이를 맞추기 위함 — 2026-07-10 4차 수정 유지). -->
     <div class="bg-white rounded-[10px] shadow-sm p-5 flex flex-col h-full">
       <div class="flex items-baseline gap-2 mb-4 shrink-0">
-        <h3 class="text-sm font-semibold text-gray-900">일별 뉴스 건수 추이</h3>
+        <!-- 카드 제목은 현재 버킷 단위(bucket_unit)에 맞춰 "일별/주별/월별"로 바뀐다 — 기간 선택이 곧 버킷
+             단위를 자동으로 결정하므로(아래 "PE 작업 스펙" 참고) 별도의 일/주 토글 컨트롤을 두지 않는다. -->
+        <h3 class="text-sm font-semibold text-gray-900">
+          {% if bucket_unit == 'week' %}주별{% elif bucket_unit == 'month' %}월별{% else %}일별{% endif %} 뉴스 건수 추이
+        </h3>
       </div>
-      {% if has_daily_data %}
-      <!-- 2026-07-10(5차) 사용자 피드백 반영: viewBox="0 0 300 100"에 preserveAspectRatio="none"을 쓰면 카드의
-           실제 가로/세로 비율에 맞춰 SVG 좌표계를 비균등(가로와 세로 배율이 다름)하게 늘린다. 데이터포인트
-           원에서 이미 겪은 문제(4차, 아래 원 관련 주석 참고)와 완전히 같은 원인으로, SVG 안의 text 요소
-           (y축 눈금 3개 + x축 날짜 라벨 7개)도 이 비균등 스케일링을 그대로 받아 카드가 세로로 길어질수록
-           (옆 카드와 높이를 맞추는 flex-1 h-full 때문에) 글자가 세로로 늘어나 커 보이고 뭉개져 보였다
-           ("텍스트가 크게 보이고 해상도가 깨져 보인다"는 피드백). vector-effect는 선 굵기만 보호할 뿐 텍스트
-           글리프 왜곡은 막지 못한다. 해결책은 원과 동일하다 — 사람이 읽는 글자를 전부 SVG 밖 HTML/CSS
-           오버레이로 빼서 비균등 스케일링 영향권 밖에 둔다. 이제 SVG 안에는 순수 도형(그리드라인, 곡선,
-           영역 채움, 축선, 눈금선)만 남는다. y축 눈금 3개와 x축 날짜 라벨 7개는 아래 svg 태그가 끝난 뒤
-           HTML 오버레이로 옮겼다(각각 "y축 눈금 숫자"/"x축 날짜 라벨" 주석 참고) — widthratio 태그로 SVG
-           좌표를 퍼센트로 환산해 위치를 맞추는 기법은 기존 데이터포인트 원 오버레이와 동일하다.
-           2026-07-10(3차) 좌표계 설계 배경(여전히 유효): y축(0/중간값/최댓값 눈금 + 왼쪽 세로 축선)과
-           x축(데이터포인트 x좌표에 붙는 눈금선)을 데이터와 같은 SVG viewBox 좌표계로 통합해 픽셀 단위로
-           맞췄다. viewBox 0 0 300 100, 비대칭 패딩(PAD_LEFT/PAD_RIGHT/PAD_TOP/PAD_BOTTOM)은 그대로 유지.
-           daily_max_count 컨텍스트 변수, 곡선 기법(수평 탄젠트 큐빅 베지어), daily_counts가 항상 7개라는
-           전제는 이전 버전과 동일. -->
+      {% if has_trend_data %}
+      <!-- 좌표계는 기존과 동일하게 viewBox="0 0 300 100" + 비대칭 패딩(PAD_LEFT=16/PAD_RIGHT=6/PAD_TOP=8/
+           PAD_BOTTOM=18)을 쓴다. preserveAspectRatio="none"이 카드의 실제 가로/세로 비율에 맞춰 SVG 좌표계를
+           비균등 배율로 늘리기 때문에, 사람이 읽는 글자(y축 눈금 숫자, x축 날짜 라벨)와 원(dot)은 여전히 SVG
+           text/circle이 아니라 HTML/CSS 오버레이로 그린다(widthratio 태그로 SVG 좌표를 %로 환산) — 이 원칙은
+           기간 필터 도입과 무관하게 그대로 유지한다.
+
+           ** 가변 개수 대응(이번 변경의 핵심) **: 기존엔 daily_counts가 항상 7개라는 전제로 베지어 제어점
+           x좌표(39/85.5/132/.../294)를 이 템플릿에 리터럴로 하드코딩했었다. 이제 period에 따라 포인트 개수가
+           7(최근 7일, 일 단위) / 30(최근 30일, 일 단위) / 가변(전체, 주 또는 월 단위)으로 달라지므로 그
+           방식은 성립하지 않는다. 대신 "수평 탄젠트" 베지어 기법(각 데이터포인트에서 접선이 수평이 되도록
+           제어점 x는 두 점 x의 중간값, 제어점 y는 각자의 끝점 y와 동일)을 임의 개수의 점에 대해 일반화한
+           경로 문자열을 뷰(apps/dashboard/views.py)가 미리 계산해 trend_line_path / trend_area_path 두
+           문자열로 넘긴다. "SVG 좌표는 템플릿이 아니라 뷰에서 계산한다"는 이 카드의 기존 원칙(x/y 좌표
+           계산)을 경로 문자열 자체까지 그대로 확장한 것 — 폴리라인(직선)으로 단순화하는 대안도 검토했으나,
+           좌표 계산이 이미 전부 뷰로 넘어간 구조에서는 곡선 경로 문자열을 만드는 것도 같은 복잡도라 시각
+           품질을 낮출 이유가 없다고 판단했다. -->
       <div class="relative flex-1 min-h-0">
         <svg viewBox="0 0 300 100" preserveAspectRatio="none" class="w-full h-full" aria-hidden="true">
           <defs>
@@ -75,89 +100,67 @@
           <!-- y축 세로 축선: 위 0선(x축)과 만나 좌하단 L자 축 프레임 완성 -->
           <line x1="16" y1="8" x2="16" y2="82" stroke="#E5E5E5" stroke-width="1" vector-effect="non-scaling-stroke" />
 
-          <!-- x축 눈금선: 각 데이터포인트 x좌표에서 0선 아래로 짧게 내려 날짜 라벨과 그리드를 시각적으로 연결 -->
-          {% for day in daily_counts %}
-          <line x1="{{ day.x }}" y1="82" x2="{{ day.x }}" y2="86" stroke="#E5E5E5" stroke-width="1" vector-effect="non-scaling-stroke" />
+          <!-- x축 눈금선: 라벨을 표시하는 포인트(point.show_label)에만 그린다. 포인트가 최대 30개까지
+               늘어날 수 있어(최근 30일) 모든 포인트에 눈금선을 그리면 촘촘한 빗살이 되므로, 아래 x축 날짜
+               라벨과 동일한 조건으로 솎아낸다 — 눈금선과 라벨이 항상 짝을 이루게 하기 위함. -->
+          {% for point in trend_points %}
+          {% if point.show_label %}
+          <line x1="{{ point.x }}" y1="82" x2="{{ point.x }}" y2="86" stroke="#E5E5E5" stroke-width="1" vector-effect="non-scaling-stroke" />
+          {% endif %}
           {% endfor %}
 
-          <!-- 라인 아래 영역 채움: 라인과 동일한 곡선 경로를 그린 뒤 바닥(y=82, PAD_TOP+CHART_H)까지 닫아 그라데이션 채움 -->
-          <path
-            d="M 16,{{ daily_counts.0.y }}
-               C 39,{{ daily_counts.0.y }} 39,{{ daily_counts.1.y }} 62,{{ daily_counts.1.y }}
-               C 85.5,{{ daily_counts.1.y }} 85.5,{{ daily_counts.2.y }} 109,{{ daily_counts.2.y }}
-               C 132,{{ daily_counts.2.y }} 132,{{ daily_counts.3.y }} 155,{{ daily_counts.3.y }}
-               C 178,{{ daily_counts.3.y }} 178,{{ daily_counts.4.y }} 201,{{ daily_counts.4.y }}
-               C 224.5,{{ daily_counts.4.y }} 224.5,{{ daily_counts.5.y }} 248,{{ daily_counts.5.y }}
-               C 271,{{ daily_counts.5.y }} 271,{{ daily_counts.6.y }} 294,{{ daily_counts.6.y }}
-               L 294,82 L 16,82 Z"
-            fill="url(#dailyCountsFill)" stroke="none" />
-
-          <!-- 라인: 위 영역과 동일한 곡선(닫기 구간 제외) -->
-          <path
-            d="M 16,{{ daily_counts.0.y }}
-               C 39,{{ daily_counts.0.y }} 39,{{ daily_counts.1.y }} 62,{{ daily_counts.1.y }}
-               C 85.5,{{ daily_counts.1.y }} 85.5,{{ daily_counts.2.y }} 109,{{ daily_counts.2.y }}
-               C 132,{{ daily_counts.2.y }} 132,{{ daily_counts.3.y }} 155,{{ daily_counts.3.y }}
-               C 178,{{ daily_counts.3.y }} 178,{{ daily_counts.4.y }} 201,{{ daily_counts.4.y }}
-               C 224.5,{{ daily_counts.4.y }} 224.5,{{ daily_counts.5.y }} 248,{{ daily_counts.5.y }}
-               C 271,{{ daily_counts.5.y }} 271,{{ daily_counts.6.y }} 294,{{ daily_counts.6.y }}"
-            fill="none" stroke="#60269E" stroke-width="2"
-            stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
-
-          <!-- 데이터포인트 원은 여기(SVG)에 그리지 않는다. viewBox(300x100, 3:1)를 preserveAspectRatio="none"으로
-               실제 카드 비율에 맞춰 가로/세로를 다른 배율로 늘리기 때문에, SVG 좌표계 안에서는 완벽한 원이라도
-               화면에는 눌린 타원으로 보인다. vector-effect="non-scaling-stroke"는 테두리 두께만 고정할 뿐 도형
-               자체의 비율 왜곡은 막지 못한다. 대신 아래 호버 오버레이(HTML/CSS 절대 위치 div)에서 원을 그린다. -->
+          <!-- 라인 아래 영역 채움 + 라인: 경로 문자열은 뷰가 계산해 넘긴 값을 그대로 출력한다(위 "가변 개수
+               대응" 주석 참고). 바닥 닫기 좌표(y=82 = PAD_TOP+CHART_H)는 이미 trend_area_path 문자열 안에
+               포함돼 있다. -->
+          <path d="{{ trend_area_path }}" fill="url(#dailyCountsFill)" stroke="none" />
+          <path d="{{ trend_line_path }}" fill="none" stroke="#60269E" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
         </svg>
 
-        <!-- y축 눈금 숫자 (HTML 오버레이, 2026-07-10 5차 — SVG text 제거하고 이동): 최댓값 / 중간값(widthratio로
-             나눗셈) / 0. x=13(축선 x=16보다 왼쪽으로 3만큼 띄움), y=8/45/82는 위 그리드라인과 동일한 고정 SVG
-             viewBox 좌표라 daily_counts 루프 데이터와 무관한 정적 값 — widthratio의 두 번째 인자에 300/100을
-             그대로 넣어 그 정적 좌표를 %로 환산한다. -translate-x-full로 각 span의 오른쪽 끝이 그 x좌표에 오도록
-             맞췄고(기존 text-anchor="end"와 같은 효과), -translate-y-1/2로 세로 중앙 정렬했다(기존 텍스트
-             baseline y=11/48/85와 대략 같은 자리). pointer-events-none으로 아래 데이터포인트 호버를 가리지 않게
-             둔다(어차피 나중에 그려지는 원 오버레이가 더 위에 있어 실질적으로는 문제없지만 안전하게 명시). -->
+        <!-- y축 눈금 숫자 (HTML 오버레이): 최댓값(trend_max_count) / 중간값(widthratio로 나눗셈) / 0.
+             x=13/y=8·45·82는 데이터와 무관한 고정 SVG viewBox 좌표라 리터럴로 그대로 widthratio에 넣는다. -->
         <div class="absolute inset-0 pointer-events-none">
           <span class="absolute -translate-x-full -translate-y-1/2 text-[9px] font-semibold text-gray-400 whitespace-nowrap"
-                style="left: {% widthratio 13 300 100 %}%; top: {% widthratio 8 100 100 %}%;">{{ daily_max_count }}</span>
+                style="left: {% widthratio 13 300 100 %}%; top: {% widthratio 8 100 100 %}%;">{{ trend_max_count }}</span>
           <span class="absolute -translate-x-full -translate-y-1/2 text-[9px] text-gray-400 whitespace-nowrap"
-                style="left: {% widthratio 13 300 100 %}%; top: {% widthratio 45 100 100 %}%;">{% widthratio daily_max_count 2 1 %}</span>
+                style="left: {% widthratio 13 300 100 %}%; top: {% widthratio 45 100 100 %}%;">{% widthratio trend_max_count 2 1 %}</span>
           <span class="absolute -translate-x-full -translate-y-1/2 text-[9px] text-gray-400 whitespace-nowrap"
                 style="left: {% widthratio 13 300 100 %}%; top: {% widthratio 82 100 100 %}%;">0</span>
         </div>
 
-        <!-- x축 날짜 라벨 (HTML 오버레이, 2026-07-10 5차 — SVG text 제거하고 이동): 각 데이터포인트와 동일한
-             x좌표(day.x)에 배치해 위 눈금선 바로 아래에 딱 붙게 한다(기존 SVG text와 같은 위치 관계). 좌표 변환은
-             데이터포인트 원 오버레이와 동일한 widthratio 패턴을 그대로 재사용. y는 그리드 바닥(y=82)보다 살짝
-             아래인 고정값 94(SVG viewBox 기준, 기존 <text y="94">와 동일)를 쓴다. -translate-x-1/2로 가운데
-             정렬(기존 text-anchor="middle"과 같은 효과), -translate-y-1/2로 세로 중앙 정렬. 오늘 지점만 진한
-             보라 굵은 글씨, 나머지는 회색 — 기존 fill 삼항 분기를 Tailwind 클래스 삼항 분기로 그대로 옮김. -->
+        <!-- x축 날짜 라벨 (HTML 오버레이): point.show_label인 포인트만 렌더한다. show_label은 뷰가
+             "target_label_count(≈6)"를 기준으로 계산한 간격(interval = round(N/6))마다 True가 되도록 미리
+             계산해 넘긴다(맨 처음/마지막 포인트는 항상 True) — 최근 7일(N=7)은 interval=1이라 기존과 동일하게
+             전부 표시되고, 최근 30일(N=30)은 대략 5일 간격으로만 표시돼 겹침을 피한다. -->
         <div class="absolute inset-0 pointer-events-none">
-          {% for day in daily_counts %}
+          {% for point in trend_points %}
+          {% if point.show_label %}
           <span class="absolute -translate-x-1/2 -translate-y-1/2 text-[9px] whitespace-nowrap
-              {% if day.is_today %}font-bold text-primary{% else %}font-normal text-gray-400{% endif %}"
-              style="left: {% widthratio day.x 300 100 %}%; top: {% widthratio 94 100 100 %}%;">{{ day.label }}</span>
+              {% if point.is_current %}font-bold text-primary{% else %}font-normal text-gray-400{% endif %}"
+              style="left: {% widthratio point.x 300 100 %}%; top: {% widthratio 94 100 100 %}%;">{{ point.label }}</span>
+          {% endif %}
           {% endfor %}
         </div>
 
-        <!-- 데이터포인트 원 + 호버 툴팁: SVG 좌표(0~300 / 0~100)를 widthratio 태그로 %값으로 환산해 HTML 오버레이를
-             데이터포인트 위치에 겹친다. 시각적으로 보이는 원(span, rounded-full)과 호버 트리거를 하나의 요소로
-             합쳤다 — SVG circle은 preserveAspectRatio="none"의 비균등 스케일링에 걸려 타원으로 찌그러지지만,
-             HTML/CSS 원은 실제 픽셀 단위 정사각형(w/h 동일)이라 카드 가로/세로 비율과 무관하게 항상 정원으로
-             보인다. 기관별 Top 10과 동일한 Alpine 호버 팝오버 패턴(x-data tip, mouseenter/leave, x-show+x-cloak,
-             gap 0 배치) 재사용. -->
+        <!-- 데이터포인트 dot + 호버 툴팁: 기업별 Top 10과 동일한 Alpine 호버 팝오버 패턴(x-data tip,
+             mouseenter/leave, x-show+x-cloak) 재사용. 포인트 개수가 많아질수록(최근 30일=30개) dot·호버
+             히트박스가 서로 겹치지 않도록 15개(DOT_DENSE_THRESHOLD) 초과 시 크기를 한 단계 줄인다 — 뷰
+             (apps/dashboard/views.py의 dashboard())가 trend_points 개수를 이미 세어 trend_dense
+             플래그로 계산해 넘긴다("SVG 좌표는 템플릿이 아니라 뷰에서 계산한다" 원칙을 그대로 따름,
+             show_label과 동일 컨벤션 — 코드리뷰 지적으로 템플릿 매직넘버 제거). -->
         <div class="absolute inset-0">
-          {% for day in daily_counts %}
-          <div class="absolute -translate-x-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center cursor-default"
-               style="left: {% widthratio day.x 300 100 %}%; top: {% widthratio day.y 100 100 %}%;"
+          {% for point in trend_points %}
+          <div class="absolute -translate-x-1/2 -translate-y-1/2 flex items-center justify-center cursor-default
+                      {% if trend_dense %}w-2.5 h-2.5{% else %}w-4 h-4{% endif %}"
+               style="left: {% widthratio point.x 300 100 %}%; top: {% widthratio point.y 100 100 %}%;"
                x-data="{ tip: false }" @mouseenter="tip = true" @mouseleave="tip = false">
-            <span class="block rounded-full border w-2.5 h-2.5
-              {% if day.is_today %}bg-primary border-primary{% else %}bg-white border-primary/35{% endif %}"></span>
+            <span class="block rounded-full border {% if trend_dense %}w-1.5 h-1.5{% else %}w-2.5 h-2.5{% endif %}
+              {% if point.is_current %}bg-primary border-primary{% else %}bg-white border-primary/35{% endif %}"></span>
             <div x-show="tip" x-cloak
-                 class="absolute left-1/2 -translate-x-1/2 {% if day.pct >= 50 %}top-full{% else %}bottom-full{% endif %} z-20
+                 class="absolute left-1/2 -translate-x-1/2 {% if point.pct >= 50 %}top-full{% else %}bottom-full{% endif %} z-20
                         whitespace-nowrap bg-white border border-gray-200 rounded-[10px] shadow-lg px-2 py-1">
-              <p class="text-[11px] font-semibold text-gray-900">{{ day.label }}</p>
-              <p class="text-[11px] text-gray-500">{{ day.count }}건</p>
+              <p class="text-[11px] font-semibold text-gray-900">{{ point.range_label }}</p>
+              <p class="text-[11px] text-gray-500">{{ point.count }}건</p>
             </div>
           </div>
           {% endfor %}

@@ -296,14 +296,15 @@ ai_market_watch/
 │   │   ├── views.py
 │   │   └── urls.py
 │   └── graph/               # 지식그래프 (GRAPH-001)
-│       ├── views.py         # graph(관계도), graph_org_panel(HTMX 패널)
+│       ├── views.py         # graph(관계도), graph_org_panel(HTMX 패널), graph_edge_panel(엣지 근거뉴스 패널)
 │       └── urls.py
 │
 ├── services/
 │   ├── collector.py         # 수집 파이프라인
 │   ├── llm.py               # Claude API 연동
 │   ├── embedder.py          # 임베딩 생성
-│   └── scheduler.py         # 스케줄 실행
+│   ├── scheduler.py         # 스케줄 실행
+│   └── periods.py           # 대시보드·지식그래프 공통 기간 필터 유틸
 │
 ├── templates/
 │   ├── base.html            # 공통 레이아웃 (헤더·사이드바·푸터)
@@ -316,7 +317,8 @@ ai_market_watch/
 │   ├── setting/
 │   └── graph/
 │       ├── index.html       # GRAPH-001 D3.js 관계도
-│       └── _org_panel.html  # 기업 노드 클릭 시 HTMX 패널
+│       ├── _org_panel.html  # 기업 노드 클릭 시 HTMX 패널
+│       └── _edge_panel.html # 엣지(기업 쌍) 클릭 시 근거뉴스 HTMX 패널
 │
 ├── static/
 │   ├── css/
@@ -362,31 +364,46 @@ ai_market_watch/
 | `/setting/tech-topics/<pk>/toggle/` | 기술 주제 활성 토글 (POST) |
 | `/setting/tech-topics/<pk>/delete/` | 기술 주제 삭제 (POST) |
 | `/setting/tech-topics/remap/` | 기술 주제 재매핑 (POST) |
-| `/graph/` | 지식그래프 (GRAPH-001) |
-| `/graph/orgs/<pk>/panel/` | 기업 노드 관련뉴스 패널 (HTMX 조각) |
+| `/graph/?period=all\|30d\|7d` | 지식그래프 (GRAPH-001) — `period` 생략 시 `7d` |
+| `/graph/orgs/<pk>/panel/?period=...` | 기업 노드 관련뉴스 패널 (HTMX 조각) |
+| `/graph/edges/<pk_a>/<pk_b>/panel/?period=...` | 기업 쌍(엣지) 근거뉴스 패널 (HTMX 조각) — `pk_a == pk_b`면 404 |
+
+---
+
+## 기간 필터 공통 유틸 (`services/periods.py`)
+
+대시보드(ALL-001)와 지식그래프(GRAPH-001)는 "전체 / 최근 30일 / 최근 7일" 3-옵션 기간 필터를 공유합니다(2026-07 코드리뷰로 두 앱의 중복 구현을 이 모듈로 통합). 기준 필드는 항상 `News.published_at`(발행일)이고 `collected_at`이 아닙니다.
+
+- `VALID_PERIODS = {"all", "30d", "7d"}`
+- `resolve_period(request)` — `request.GET["period"]`를 검증. 없거나 유효하지 않으면 `"7d"`로 폴백.
+- `period_bounds(period, today)` — `(start_date, today)`를 반환. `today`는 호출부(각 뷰)가 한 번만 계산해서 넘깁니다(뷰 안의 여러 헬퍼가 `timezone.localtime(timezone.now()).date()`를 중복 계산하지 않도록). `"7d"`→`(오늘−6일, 오늘)`, `"30d"`→`(오늘−29일, 오늘)`, `"all"`→`(None, 오늘)`.
+- **"전체"(`start_date=None`)는 하한·상한 어느 쪽도 걸지 않습니다** — 즉 필터를 아예 적용하지 않습니다. 대시보드·그래프 두 화면이 같은 데이터를 두고 항상 같은 숫자를 보여줘야 한다는 "기간 정합성 계약"이 이 정의로 성립합니다.
+
+두 앱의 `views.py`는 각각 이 세 함수를 import해서 쓰고, 앱별로 필요한 쿼리셋 적용 방식(대시보드는 `Q()` 조건부 필터, 그래프는 `.filter()` 얇은 래퍼)만 자체 헬퍼로 감쌉니다.
 
 ---
 
 ## 대시보드 집계 (ALL-001)
 
-전체 대시보드 "핵심 지표" 3개 카드는 모두 **최근 7일**(오늘 포함 7일) 범위를 기준으로 `apps/dashboard/views.py`에서 집계합니다.
+전체 대시보드 "핵심 지표" 3개 카드는 `apps/dashboard/views.py`의 `dashboard()`가 페이지 상단 기간 필터(전체/최근 30일/최근 7일, 기본값 최근 7일)에 맞춰 집계합니다. `period`는 `services.periods.resolve_period(request)`로, 날짜 경계는 `services.periods.period_bounds(period, today)`로 구합니다.
 
-- **일별 뉴스 건수 추이** (`_build_daily_counts`) — 최근 7일 각 날짜별 `News.published_at` 기준 수집 건수를 집계합니다. 데이터가 없는 날짜도 0건으로 채워 항상 7개 포인트를 반환합니다.
-- **기업별 건수 Top 10** (`_build_org_ranking`) — 활성(`is_active=True`) `Organization` 중 최근 7일간 연결된 `News` 건수가 1건 이상인 기업을 건수 내림차순으로 최대 10개까지 집계합니다. 기업별로 최근 뉴스 최대 5건을 함께 담아 호버 팝오버에 사용합니다.
-- **기술 주제별 언급 건수** (`_build_tech_topic_counts`) — 활성 `TechTopic` 중 최근 7일간 연결된 `News` 건수가 1건 이상인 주제를 건수 내림차순으로 집계합니다(0건 주제는 제외). 기업별 Top 10과 동일하게 최근 뉴스 최대 5건을 함께 담습니다.
+- **뉴스 건수 추이** (`_build_trend_points`) — 버킷 단위가 기간에 따라 가변입니다: `"7d"`/`"30d"`는 일 단위(`_build_day_buckets(today, start_date)`, 버킷 개수는 `(today - start_date).days + 1`로 유도), `"all"`은 데이터 전체 기간 길이에 따라 주 단위 또는 월 단위 롤링 윈도우(`_build_rolling_buckets`, `WEEK_BUCKET_MAX_DAYS=364`일 이하면 주 단위, 초과면 월 단위)로 그립니다. 각 포인트의 SVG 좌표(`x`/`y`)와 베지어 경로 문자열(`trend_line_path`/`trend_area_path`), x축 라벨 솎아내기(`show_label`)는 모두 뷰에서 계산해 템플릿에 넘깁니다. 점(dot) 크기 축소 여부(`trend_dense`, 포인트 15개 초과 시 축소)도 같은 원칙으로 뷰가 계산합니다 — 템플릿은 SVG 좌표·크기 판단을 하지 않습니다.
+- **기업별 건수 Top 10** (`_build_org_ranking`) — 활성(`is_active=True`) `Organization` 중 선택된 기간에 연결된 `News` 건수가 1건 이상인 기업을 건수 내림차순으로 최대 10개까지 집계합니다. 기업별로 최근 뉴스 최대 5건을 함께 담아 호버 팝오버에 사용합니다.
+- **기술 주제별 언급 건수** (`_build_tech_topic_counts`) — 활성 `TechTopic` 중 선택된 기간에 연결된 `News` 건수가 1건 이상인 주제를 건수 내림차순으로 집계합니다(0건 주제는 제외). 기업별 Top 10과 동일하게 최근 뉴스 최대 5건을 함께 담습니다.
 
-세 지표 모두 `News.organizations`/`News.tech_topics` M2M(수집 시 `services/collector.py`의 별칭 매칭으로 자동 연결)을 근거로 집계하며, 별도의 캐시·배치 집계 테이블 없이 매 요청마다 실시간으로 계산합니다.
+세 지표 모두 `News.organizations`/`News.tech_topics` M2M(수집 시 `services/collector.py`의 별칭 매칭으로 자동 연결)을 근거로 집계하며, 별도의 캐시·배치 집계 테이블 없이 매 요청마다 실시간으로 계산합니다. 기간 선택은 `<a href="?period=...">` 전체 페이지 GET 재로드 방식입니다(HTMX 부분 스왑 아님).
 
 ---
 
 ## 지식그래프 (GRAPH-001)
 
-`apps/graph/views.py`가 활성 기업(`Organization`) 간 공동 등장 관계를 D3.js force-directed 그래프로 시각화합니다.
+`apps/graph/views.py`가 활성 기업(`Organization`) 간 공동 등장 관계를 D3.js force-directed 그래프로 시각화합니다. 대시보드와 동일한 3-옵션 기간 필터(전체/최근 30일/최근 7일, 기본값 최근 7일)를 상단 세그먼트 pill로 제공하며, `graph`/`graph_org_panel`/`graph_edge_panel` 세 뷰 모두 `services.periods.resolve_period`/`period_bounds`로 같은 기간 정의를 공유합니다("기간 정합성 계약" — 세 뷰가 다른 필터 로직을 쓰면 캔버스·패널 숫자가 어긋날 수 있음).
 
-- **노드** — 활성(`is_active=True`) `Organization` 중 연결된 `News`가 1건 이상인 기업만 노드로 만듭니다. `symbolSize`는 `news_count`에 비례해 `max(14, min(40, 14 + news_count * 2))`로 14~40 범위로 계산합니다. `category`는 `org_type`(금융사/보험사/AI)을 인덱스(0/1/2)로 매핑해 색상 구분에 사용합니다.
+- **노드** — 활성(`is_active=True`) `Organization` 중 선택된 기간에 연결된 `News`가 1건 이상인 기업만 노드로 만듭니다. `symbolSize`는 `news_count`에 비례해 `max(14, min(40, 14 + news_count * 2))`로 14~40 범위로 계산합니다. `category`는 `org_type`(금융사/보험사/AI)을 인덱스(0/1/2)로 매핑해 색상 구분에 사용합니다.
 - **엣지** — 같은 `News`에 2개 이상 기업이 함께 등장할 때, 등장한 기업 쌍마다 공동등장 가중치(`value`)를 누적합니다. **단 `ALLOWED_TYPE_PAIRS`(`{금융사, AI}`, `{보험사, AI}`) 조합만 엣지로 허용**하며, 금융사-금융사·보험사-보험사·AI-AI·금융사-보험사 조합은 제외합니다.
-- **HTMX 패널** — 노드 클릭 시 `/graph/orgs/<pk>/panel/`(`graph_org_panel`)이 해당 기업에 연결된 최근 `News` 10건을 `graph/_org_panel.html` 조각으로 반환합니다.
-- **렌더링** — `templates/graph/index.html`에서 D3.js v7.8.5(CDN)로 force simulation을 구성합니다.
+- **기업 노드 패널** — 노드 클릭 시 `/graph/orgs/<pk>/panel/`(`graph_org_panel`)이 해당 기업에 연결된 선택 기간 내 `News` 최대 10건을 `graph/_org_panel.html` 조각으로 반환합니다(`total_count`가 10건 초과면 "전체 N건 중 10건" 표기). `is_active` 필터 없이 조회하므로 비활성 기업도 URL 직접 접근으로 볼 수 있고, 이 경우 "(비활성)" 배지를 표시합니다.
+- **엣지(기업 쌍) 패널** — 엣지 클릭 시 `/graph/edges/<pk_a>/<pk_b>/panel/`(`graph_edge_panel`)이 두 기업 모두에 연결된 `News`(교집합, `.filter(organizations=a).filter(organizations=b)` 두 번 체이닝 + `distinct()`)를 `graph/_edge_panel.html` 조각으로 반환합니다. 쌍 교집합은 표본이 작다는 전제로 **컷오프 없이 전량 노출**합니다(노드 패널과 의도적으로 다른 정책). `pk_a`/`pk_b`는 `sorted()`로 정규화하고, `pk_a == pk_b`(자기 자신과의 엣지)면 `Http404`를 raise합니다. `org_a`/`org_b` 중 비활성 기업이 있으면 노드 패널과 동일하게 "(비활성)" 배지를 표시합니다.
+- **렌더링** — `templates/graph/index.html`에서 D3.js v7.8.5(CDN)로 force simulation을 구성합니다. 기간 선택은 대시보드와 동일하게 전체 페이지 GET 재로드 방식이며(D3 스크립트의 최상위 `const`/`let` 재선언 문제 회피), 노드·엣지 HTMX 호출 시 `?period=` 쿼리를 그대로 이어 붙여 캔버스와 패널이 같은 기간을 보게 합니다.
 
 ---
 

@@ -9,7 +9,28 @@
   .node-g text { font-family: "Malgun Gothic", "맑은 고딕", system-ui, sans-serif; }
 </style>
 
-<div class="flex gap-4" style="height: calc(100vh - 5.5rem);">
+<!-- 기간 필터 — 대시보드·지식그래프 공통 정책(전체/최근 30일/최근 7일), 대시보드·지식그래프 둘 다 기본값은 최근 7일로 통일.
+     news/list.html의 검색·필터 바와 동일하게 <a href="?period=..."> 전체 페이지 GET 재로드 방식을 쓴다
+     (HTMX 부분 스왑 대신). 이 화면은 D3 초기화 스크립트가 최상위 const/let 선언을 쓰는데, HTMX로 이
+     <script>만 부분 재실행하면 브라우저가 같은 전역 스코프에 const를 두 번 선언하는 SyntaxError를
+     던진다(두 번째 기간 전환부터 발생). 전체 페이지 재로드면 매번 새 문서라 이 문제 자체가 없고,
+     기존 필터 패턴과도 톤이 맞는다. -->
+<div class="mb-4 flex items-center gap-2">
+  <span class="text-xs font-semibold text-gray-500">기간</span>
+  <div class="inline-flex items-center bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-1 gap-1">
+    <a href="?period=all"
+       class="px-3 py-1.5 text-xs font-medium rounded-[8px] transition-colors
+              {% if selected_period == 'all' %}bg-primary text-white{% else %}text-gray-600 hover:bg-gray-50{% endif %}">전체</a>
+    <a href="?period=30d"
+       class="px-3 py-1.5 text-xs font-medium rounded-[8px] transition-colors
+              {% if selected_period == '30d' %}bg-primary text-white{% else %}text-gray-600 hover:bg-gray-50{% endif %}">최근 30일</a>
+    <a href="?period=7d"
+       class="px-3 py-1.5 text-xs font-medium rounded-[8px] transition-colors
+              {% if selected_period == '7d' or not selected_period %}bg-primary text-white{% else %}text-gray-600 hover:bg-gray-50{% endif %}">최근 7일</a>
+  </div>
+</div>
+
+<div class="flex gap-4" style="height: calc(100vh - 9.5rem);">
 
   <!-- 그래프 캔버스 -->
   <div class="flex-1 bg-white rounded-[10px] shadow-sm overflow-hidden relative">
@@ -30,26 +51,38 @@
       </button>
     </div>
 
-    <!-- 통계 -->
+    <!-- 통계 — org_count/edge_count는 뷰에서 선택된 기간으로 이미 필터된 값(기간 정합성 계약) -->
     <div class="absolute top-4 right-4 z-10 text-xs text-gray-400 bg-white/90 backdrop-blur-sm rounded-[10px] px-3 py-2 shadow-sm border border-[#E5E5E5]">
       기업 {{ org_count }}개{% if edge_count %} · 연결 {{ edge_count }}개{% endif %}
     </div>
 
-    {% if not edge_count %}
-    <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none" style="margin-top:3rem;">
+    {% if not org_count %}
+    <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-10">
+      {% if selected_period == 'all' %}
+      <p class="text-xs text-gray-300">뉴스가 수집되면 기업 간 연결이 표시됩니다.</p>
+      {% else %}
+      <p class="text-xs text-gray-300 leading-relaxed">선택한 기간에는 뉴스가 있는 기업이 없습니다.<br>다른 기간을 선택해보세요.</p>
+      {% endif %}
+    </div>
+    {% elif not edge_count %}
+    <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-10" style="margin-top:3rem;">
+      {% if selected_period == 'all' %}
       <p class="text-xs text-gray-300 mt-2">뉴스가 수집되면 기업 간 연결이 표시됩니다.</p>
+      {% else %}
+      <p class="text-xs text-gray-300 mt-2 leading-relaxed">선택한 기간에는 기업 간 연결이 없습니다.<br>다른 기간을 선택해보세요.</p>
+      {% endif %}
     </div>
     {% endif %}
 
     <svg id="graph-svg" class="w-full h-full"></svg>
   </div>
 
-  <!-- 기관 패널 -->
+  <!-- 기업 패널 -->
   <div class="w-72 flex-shrink-0 overflow-y-auto">
     <div id="org-panel" class="bg-white rounded-[10px] shadow-sm p-5 h-full">
       <div class="flex flex-col items-center justify-center h-full text-center text-gray-400 gap-3">
         <i data-lucide="mouse-pointer-click" class="w-8 h-8 opacity-30"></i>
-        <p class="text-sm leading-relaxed">기업 노드를 클릭하면<br>관련 뉴스를 볼 수 있습니다.</p>
+        <p class="text-sm leading-relaxed">기업 노드 또는 연결선을 클릭하면<br>관련 뉴스를 볼 수 있습니다.</p>
       </div>
     </div>
   </div>
@@ -62,6 +95,10 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <script>
 const CAT_COLORS = ['#3B82F6', '#00AF9A', '#60269E'];
+
+// 현재 선택된 기간 — 노드/엣지 패널을 HTMX로 불러올 때 그대로 붙여서, 캔버스(기간 필터 적용된 노드·엣지)와
+// 패널(노드/쌍 근거뉴스) 건수가 항상 같은 기간을 반영하도록 한다(기간 정합성 계약).
+const CURRENT_PERIOD = "{{ selected_period }}";
 
 const rawNodes = JSON.parse(document.getElementById('graph-nodes').textContent);
 const rawEdges = JSON.parse(document.getElementById('graph-edges').textContent);
@@ -96,12 +133,24 @@ const sim = d3.forceSimulation(nodes)
   .force('y',       d3.forceY(H / 2).strength(0.05))
   .force('collide', d3.forceCollide().radius(d => d.symbolSize / 2 + 18));
 
-// 엣지 — 공통 기사 수에 비례한 굵기
+// 엣지 클릭 히트 영역 — 시각적으로 보이는 선(최대 5px)만으로는 클릭 타겟이 너무 좁아 사용성이 떨어지므로,
+// 같은 좌표에 겹치는 투명한 14px 넓이 선을 별도로 두어 클릭을 전담시킨다. stroke="transparent"는 fill/stroke가
+// 완전 투명해도 SVG 히트테스트 상 "칠해진" 영역으로 간주돼(pointer-events 기본값 visiblePainted 기준)
+// 클릭이 정상적으로 잡힌다. 시각 레이어(아래 link)는 pointer-events: none으로 클릭을 이 레이어에 위임한다.
+const linkHit = g.append('g')
+  .selectAll('line').data(edges).join('line')
+  .attr('stroke', 'transparent')
+  .attr('stroke-width', 14)
+  .style('cursor', 'pointer')
+  .on('click', (e, d) => { e.stopPropagation(); selectEdge(d); });
+
+// 엣지 — 공통 기사 수에 비례한 굵기 (클릭은 위 linkHit이 전담)
 const link = g.append('g')
   .selectAll('line').data(edges).join('line')
   .attr('stroke', '#D1D5DB')
   .attr('stroke-opacity', 0.6)
-  .attr('stroke-width', d => Math.min(1 + d.value * 0.5, 5));
+  .attr('stroke-width', d => Math.min(1 + d.value * 0.5, 5))
+  .style('pointer-events', 'none');
 
 // 노드 그룹
 const node = g.append('g')
@@ -131,6 +180,9 @@ node.append('text')
   .text(d => d.name);
 
 sim.on('tick', () => {
+  linkHit
+    .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+    .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
   link
     .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
     .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
@@ -152,7 +204,23 @@ function selectNode(d) {
     .attr('stroke',         l => (l.source.id === d.id || l.target.id === d.id) ? '#60269E' : '#D1D5DB')
     .attr('stroke-opacity', l => (l.source.id === d.id || l.target.id === d.id) ? 0.9 : 0.05);
 
-  htmx.ajax('GET', `/graph/orgs/${d.id}/panel/`, { target: '#org-panel', swap: 'innerHTML' });
+  htmx.ajax('GET', `/graph/orgs/${d.id}/panel/?period=${CURRENT_PERIOD}`, { target: '#org-panel', swap: 'innerHTML' });
+}
+
+function selectEdge(d) {
+  const aId = d.source.id, bId = d.target.id;
+
+  // 이 엣지의 두 endpoint 노드만 강조, 나머지는 페이드
+  node.style('opacity', n => (n.id === aId || n.id === bId) ? 1 : 0.08);
+  // 클릭한 엣지만 강조, 나머지 엣지는 톤다운(노드 클릭 때의 "인접 전체 강조"와 달리 이 엣지 하나만)
+  link
+    .attr('stroke',         l => (l === d) ? '#60269E' : '#D1D5DB')
+    .attr('stroke-opacity', l => (l === d) ? 0.9 : 0.05);
+
+  // pk_a < pk_b 정규화 — 2단계 OrgRelation 정규화 순서 규칙과 동일하게 맞춰둔다.
+  const pkA = Math.min(+aId, +bId);
+  const pkB = Math.max(+aId, +bId);
+  htmx.ajax('GET', `/graph/edges/${pkA}/${pkB}/panel/?period=${CURRENT_PERIOD}`, { target: '#org-panel', swap: 'innerHTML' });
 }
 
 // 범례 클릭 → 타입별 노드/엣지 토글
@@ -163,6 +231,10 @@ function toggleCategory(cat, btn) {
 
   node.style('display', d => hiddenCats.has(d.category) ? 'none' : null);
   link.style('display', l =>
+    (hiddenCats.has(l.source.category) || hiddenCats.has(l.target.category)) ? 'none' : null
+  );
+  // linkHit(클릭 히트 영역)도 함께 숨겨야 시각적으로 사라진 엣지가 클릭은 되는 불일치가 없다.
+  linkHit.style('display', l =>
     (hiddenCats.has(l.source.category) || hiddenCats.has(l.target.category)) ? 'none' : null
   );
 }

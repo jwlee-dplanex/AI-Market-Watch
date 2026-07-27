@@ -194,7 +194,7 @@ hover: bg #F9F9F7
 **구성 요소**
 
 ```
-┌─ 핵심 지표 (정량화 축, "최근 7일" pill 배지) ─────────────────────────────┐
+┌─ 핵심 지표 (기간 셀렉터: [전체] [최근 30일] [●최근 7일]) ───────────────┐
 │  ┌─ 일별 뉴스 건수 추이 ──┐ ┌─ 기업별 Top 10 ───┐ ┌─ 기술주제별 건수 ─┐ │
 │  │ 일별 뉴스 건수 추이     │ │ 1 KB국민은행 9건  │ │ 1 AI 에이전트 11건│ │
 │  │ 12┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄  │ │ 2 삼성생명   6건  │ │ 2 AI 거버넌스  2건│ │
@@ -208,6 +208,11 @@ hover: bg #F9F9F7
 │  │   전부 HTML 오버레이 —  │ │                    │ │                   │ │
 │  │   flex-1로 세로 꽉 채움)│ │                    │ │                   │ │
 │  └─────────────────────────┘ └────────────────────┘ └───────────────────┘ │
+│  ※ 3개 카드 모두 위 기간 셀렉터 하나를 공유(카드별 개별 셀렉터 없음).      │
+│    "최근 7일"=일별 7점, "최근 30일"=일별 30점(라벨은 ~5일 간격으로만),    │
+│    "전체"=주별(장기화 시 월별) 가변 개수 — 카드 A 제목도 일별/주별/월별│
+│    로 자동 전환된다. 자세한 스펙은 아래 "기간 필터 + 뉴스 건수 추이 차트  │
+│    가변화" 절 참고.                                                        │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ┌─ 주요 이슈 (2/3, 아코디언 확장형) ─┐  ┌─ 최신 뉴스 (1/3) ─────────┐
@@ -232,26 +237,13 @@ hover: bg #F9F9F7
 
 **"기업유형별 건수" 카드 제거 (2026-07-10, PM 확정)**: 기업 축의 "유형 집계"(금융사/보험사/AI 3분류 진행바)와 "개별 랭킹"(기업별 Top 10)이 정보 중복이라는 판단 하에 유형 집계 카드를 완전히 제거하고, 그 자리를 신규 "기술 주제별 언급 건수" 카드로 대체했다. `apps/dashboard/views.py`의 `_build_org_type_counts()`와 뷰의 `org_type_counts` 컨텍스트 변수는 더 이상 템플릿에서 참조하지 않으므로 PE가 정리(제거 또는 미사용 방치는 PE 판단) 가능.
 
-**"최근 7일" 표기 위치**: 카드마다 반복하지 않고, "핵심 지표" 섹션 제목 옆 pill 배지(`bg-gray-100 text-gray-400 rounded-full`) 하나로 통일 표기한다. 세 지표 모두 동일 기준 기간이므로 섹션 단위 표기가 중복을 줄인다.
+**"최근 7일" 표기 위치**: ~~카드마다 반복하지 않고, "핵심 지표" 섹션 제목 옆 pill 배지(`bg-gray-100 text-gray-400 rounded-full`) 하나로 통일 표기한다.~~ **(2026-07-27 대체됨)** 고정 pill 배지는 아래 "기간 필터 + 뉴스 건수 추이 차트 가변화" 절의 3-옵션 셀렉터로 교체됐다. 셀렉터도 "핵심 지표" 섹션 제목 옆에 위치한다는 배치 원칙(섹션 단위로 한 번만 표기)은 그대로 유지.
 
 **구현 참고 (`apps/dashboard/views.py`가 채울 컨텍스트 변수, PD는 더미 구조만 정의)**
 
-- `daily_counts`: 7개 dict 리스트. 키 — `date`(date), `label`(str, 예: `"07/09"`), `count`(int), `pct`(int, 0~100 — 7일 중 최댓값 대비 %, 최댓값 0이면 0, 기존과 동일), `is_today`(bool), `x`(int, SVG x좌표), `y`(int, SVG y좌표).
-  - SVG 좌표 계산은 **뷰에서 미리 계산**해서 넘긴다(템플릿에서 처리 안 함). 이유: Django 템플릿 태그는 곱셈/나눗셈을 기본 지원하지 않아(`widthratio` 태그로 우회 가능하지만 인덱스 기반 x좌표 계산엔 부적합), x/y 좌표처럼 다단계 산술이 필요한 값은 뷰(순수 파이썬)에서 계산하는 편이 명확하고 테스트하기 쉽다.
-  - **좌표계 스펙 (2026-07-10 3차 갱신 — 축/여백 재설계, 아래 "일별 추이 차트 축 개선(3차)" 절 근거)**: `viewBox="0 0 300 100"`은 유지하되, 패딩을 좌우/상하 대칭(`PAD_X`/`PAD_Y`)에서 **4방향 비대칭**(`PAD_LEFT`/`PAD_RIGHT`/`PAD_TOP`/`PAD_BOTTOM`)으로 변경한다. 좌측은 y축 눈금 숫자 공간, 하단은 x축 눈금선+날짜 라벨 공간을 각각 더 확보하고, 우측/상단은 점 반지름(r=4)만 안 잘리면 되므로 최소화했다.
-    ```python
-    PAD_LEFT, PAD_RIGHT, PAD_TOP, PAD_BOTTOM = 16, 6, 8, 18
-    VIEW_W, VIEW_H = 300, 100
-    CHART_W = VIEW_W - PAD_LEFT - PAD_RIGHT   # 278
-    CHART_H = VIEW_H - PAD_TOP - PAD_BOTTOM   # 74
-
-    x = round(PAD_LEFT + i * (CHART_W / 6))                 # i = 0~6 → 16,62,109,155,201,248,294
-    y = round(PAD_TOP + CHART_H - (pct / 100 * CHART_H))    # pct 100 → y=8(위), pct 0 → y=82(아래=x축)
-    ```
-  - **`daily_max_count`(int, 신규 컨텍스트 변수, `daily_counts`와 별도 키로 `dashboard()` 뷰의 최상위 컨텍스트에 추가)**: 7일 중 최댓값(`_build_daily_counts()` 내부에 이미 `max_count`로 존재하는 지역 변수를 함수 밖으로 반환하거나 별도로 계산해 컨텍스트에 넣으면 된다). y축 "최댓값" 눈금 라벨에 그대로 쓰고, "중간값" 눈금은 템플릿에서 `widthratio daily_max_count 2 1`(=`daily_max_count / 2`, 반올림)로 계산하므로 뷰에서 별도로 중간값을 계산해 넘길 필요는 없다. 데이터가 전혀 없어 `daily_max_count`가 0이거나 컨텍스트에 없어도(빈 문자열) 템플릿은 에러 없이 렌더링된다(`widthratio`의 두 번째 인자가 리터럴 `2`라 0으로 나누기 걱정 없음).
-  - 템플릿은 `viewBox`·패딩값을 고정 상수로 이미 마크업에 박아뒀으므로(`templates/dashboard/index.html`), 뷰의 상수(`PAD_LEFT=16`, `PAD_RIGHT=6`, `PAD_TOP=8`, `PAD_BOTTOM=18`, `VIEW_W=300`, `VIEW_H=100`)와 x축 눈금선 좌표(y1=82, y2=86)·베지어 제어점 리터럴(39/85.5/132/178/224.5/271)이 모두 이 패딩값을 전제로 계산돼 있다는 점을 반드시 일치시켜야 한다. 바꾸려면 PD와 동기화 필요.
-- `org_ranking`: 최대 10개 dict 리스트(건수 내림차순, 활성 기업만). 키 — `rank`(int, 1부터), `name`(str), `org_type`(str), `count`(int), `pct`(int, 0~100 — 1위 건수 대비 %, 1위가 0이면 0), `recent_news`(list, 최대 5개 dict — 각 `uid`(str), `title`(str). 최신 발행일 순, 같은 "최근 7일" range 기준), `more_count`(int, 0 이상 — `count - len(recent_news)`, 5건 이하면 0). *(기존과 동일, 변경 없음)*
-- `tech_topic_counts`: dict 리스트(건수 내림차순 → 동률 시 이름순, **0건 주제는 제외** — `count__gt=0`, `org_ranking`과 동일 필터링 관례를 따름). 상한 개수 없음(현재 활성 주제 10개 중 최대 10개까지 나올 수 있으나 카드 레이아웃은 세로로 자연스럽게 늘어나는 구조라 별도 slice 불필요, 필요시 PE 판단으로 상한 추가 가능). 키 — `rank`(int, 1부터), `name`(str, `TechTopic.name`), `count`(int, "최근 7일" range 기준 `News.tech_topics` 역참조 건수), `pct`(int, 0~100 — 1위 건수 대비 %, 1위가 0이면 0), **`recent_news`(list, 최대 5개 dict — 각 `uid`(str), `title`(str), 최신 발행일 순, 신규)**, **`more_count`(int, 0 이상 — `count - len(recent_news)`, 신규)**. `org_ranking`과 동일하게 `is_active=True`인 `TechTopic`만 대상, 날짜 range도 동일한 `start_date~today` 기준. `recent_news`/`more_count` 추가 배경은 아래 "기술 주제별 호버 팝오버" 절 참고.
+- `daily_counts` / `daily_max_count` — **(2026-07-27 대체됨)** 아래 "기간 필터 + 뉴스 건수 추이 차트 가변화" 절의 `trend_points` / `trend_max_count`로 이름과 구조가 바뀌었다. 이 문단의 7일 고정 좌표 공식(`x = PAD_LEFT + i * (CHART_W / 6)`)은 더 이상 유효하지 않다 — 새 스펙 참고.
+- `org_ranking`: 최대 10개 dict 리스트(건수 내림차순, 활성 기업만). 키 — `rank`(int, 1부터), `name`(str), `org_type`(str), `count`(int), `pct`(int, 0~100 — 1위 건수 대비 %, 1위가 0이면 0), `recent_news`(list, 최대 5개 dict — 각 `uid`(str), `title`(str). 최신 발행일 순, 선택된 기간과 동일한 range 기준), `more_count`(int, 0 이상 — `count - len(recent_news)`, 5건 이하면 0). 구조는 기존과 동일하되, **날짜 range가 고정 "최근 7일"이 아니라 선택된 `period`를 따른다** — `period == "all"`이면 날짜 하한 없이 전체 집계(아래 "기간 필터" 절의 `start_date`/`today` 정의 참고).
+- `tech_topic_counts`: dict 리스트(건수 내림차순 → 동률 시 이름순, **0건 주제는 제외** — `count__gt=0`, `org_ranking`과 동일 필터링 관례를 따름). 상한 개수 없음. 키 — `rank`(int, 1부터), `name`(str, `TechTopic.name`), `count`(int, 선택된 기간 range 기준 `News.tech_topics` 역참조 건수), `pct`(int, 0~100 — 1위 건수 대비 %, 1위가 0이면 0), `recent_news`(list, 최대 5개 dict — 각 `uid`(str), `title`(str), 최신 발행일 순), `more_count`(int, 0 이상 — `count - len(recent_news)`). `org_ranking`과 동일하게 `is_active=True`인 `TechTopic`만 대상, 날짜 range도 `org_ranking`과 동일하게 선택된 `period`를 따른다. `recent_news`/`more_count` 추가 배경은 아래 "기술 주제별 호버 팝오버" 절 참고.
   - PE 참고용 쿼리 스케치(`_build_org_ranking()`과 구조 완전히 동일, `Organization` → `TechTopic`으로만 치환):
     ```python
     def _build_tech_topic_counts(start_date, today):
@@ -282,7 +274,9 @@ hover: bg #F9F9F7
     ```
     (`TechTopic.news`는 `News.tech_topics`의 `related_name="news"`로, `Organization.news`와 동일한 역참조 이름이라 쿼리 패턴을 그대로 재사용 가능함을 `apps/news/models.py`에서 확인함.)
 
-템플릿(`templates/dashboard/index.html`)은 `daily_counts`/`org_ranking`/`tech_topic_counts`가 비어있거나 새 키(`x`/`y`)가 없어도 에러 없이 empty state로 degrade 되도록 이미 작성돼 있다(뷰가 아직 이 스펙대로 안 채워도 `{% if %}` 분기로 안전).
+    **(2026-07-27 추가)** 위 스케치는 `start_date`가 항상 값이 있다는 전제였다. `period == "all"`일 때는 `start_date`가 `None`이 되므로(날짜 하한 없음), `date_filter`를 조건부로 구성해야 한다 — 예: `Q(news__published_at__date__lte=today)`에서 시작해 `start_date`가 있을 때만 `& Q(news__published_at__date__gte=start_date)`를 덧붙인다. `org_ranking`도 동일하게 처리.
+
+템플릿(`templates/dashboard/index.html`)은 `trend_points`/`org_ranking`/`tech_topic_counts`가 비어있어도 에러 없이 empty state로 degrade 되도록 이미 작성돼 있다(뷰가 아직 이 스펙대로 안 채워도 `{% if %}` 분기로 안전).
 
 **기업별 Top 10 호버 팝오버 (2026-07-10, PD, PM 없이 순수 인터랙션 개선으로 처리)**
 
@@ -386,6 +380,58 @@ hover: bg #F9F9F7
    - **SVG에는 순수 도형만 남음** — 그리드라인·y축 세로 축선·x축 눈금선·곡선(`<path>`)·그라데이션 영역 채움만 남고, 사람이 읽는 글자는 전부 HTML이 된다. SVG가 더 이상 정보를 전달하지 않으므로 `aria-hidden="true"`를 다시 붙였다(3차에서 축 숫자·날짜 라벨을 SVG로 옮기며 뺐던 속성을 원복).
    - `apps/dashboard/views.py`의 좌표 계산(`day.x`/`day.y`, `daily_max_count`)은 변경하지 않았다 — 이번 수정은 이미 계산된 좌표값을 어디에(SVG `<text>` vs HTML `<span>`) 렌더링하느냐만 바꾼 것이라 뷰 변경이 필요 없다.
 
+**기간 필터 + 뉴스 건수 추이 차트 가변화 (2026-07-27, PD, PM 정책 기반 — `docs/planning.md` "대시보드·지식그래프 공통 기간 필터 정책" 절)**
+
+PM이 확정한 대시보드 공통 기간 필터(전체/최근 30일/최근 7일)를 "핵심 지표" 섹션에 도입했다. 이 필터가 "일별 뉴스 건수 추이" 카드의 데이터포인트 개수를 7개 고정에서 가변으로 바꾸기 때문에, 기존에 7개 포인트 전제로 템플릿에 하드코딩돼 있던 베지어 제어점 좌표(39/85.5/132/178/224.5/271 등)를 이번에 완전히 걷어냈다. `templates/dashboard/index.html`은 이미 새 스펙으로 재작성했고(변경 없이는 렌더링되지 않음 — 뷰가 아래 스펙대로 컨텍스트를 채워야 화면이 맞게 나온다), 이 절은 그 스펙을 PE에게 정확히 인계하기 위한 것이다.
+
+1. **기간 셀렉터 마크업** — 카드별이 아니라 "핵심 지표" 섹션 제목 옆에 하나만 둔다(기존 "최근 7일" pill 배지 위치를 대체). `전체`/`최근 30일`/`최근 7일` 3개 `<a href="?period=...">` 링크를 `bg-gray-100 rounded-full p-0.5` 캡슐 안에 pill 토글로 배치, 활성 옵션은 `bg-primary text-white`, 비활성은 `text-gray-500 hover:text-gray-700`. **순수 GET 링크 + 전체 페이지 리로드**로 구현했다 — 이 프로젝트에 아직 hx-get 기반 필터 갱신 패턴이 없고(기존 `hx-*`는 전부 `hx-post` 폼 조작, 예: `news/_orgs.html`의 기업 추가/삭제), 뉴스 목록(`news/list.html`)의 필터·페이지네이션(`news/_list.html`)도 동일하게 순수 GET 링크로 처리하는 게 이 프로젝트의 기존 관례다. 데이터 규모가 작아 부분 스왑으로 얻는 체감 이득보다 새 인터랙션 패턴(전용 HTMX partial 뷰 등)을 도입하는 비용이 크다고 판단해 기존 관례를 따랐다. 기본값은 최근 7일(PM 확정 — `docs/planning.md` "대시보드 핵심 지표 기본값 = 최근 7일" 근거: 현재 동작 유지 + 빈 구간 없이 채워지는 첫인상 보장).
+2. **`period` 파라미터·`start_date`/`today` 계산** — 뷰는 `request.GET.get("period", "7d")`를 읽고 `{"all", "30d", "7d"}` 외 값(빈 값·오타 포함)은 `"7d"`로 취급한다(폴백). 오늘(`today`)은 기존과 동일하게 `timezone.localtime(timezone.now()).date()`. 각 옵션의 `start_date`(`None`이면 하한 없음):
+   - `"7d"` → `start_date = today - timedelta(days=6)` (기존과 동일)
+   - `"30d"` → `start_date = today - timedelta(days=29)`
+   - `"all"` → `start_date = None` (`org_ranking`/`tech_topic_counts` 집계에는 날짜 하한 없이 전체 `News`를 그대로 쓴다 — 위 "구현 참고" 절의 2026-07-27 추가 메모 참고). 단 아래 3번 버킷 계산을 위해 `earliest_date = News.objects.aggregate(Min("published_at"))`로 전체 데이터의 최초 발행일을 별도로 구해야 한다(News가 하나도 없으면 `earliest_date = today`로 폴백).
+   - 기준 필드는 여전히 `News.published_at`(수집일 `created_at` 아님, 기존과 동일).
+3. **버킷 단위 결정 (`bucket_unit`)** — `"7d"`/`"30d"`는 **일 단위**(day), `"all"`은 **주 단위**(week) 또는 **월 단위**(month)다. `total_days = (today - earliest_date).days + 1`을 기준으로: `total_days <= 364`면 `bucket_unit = "week"`(버킷 크기 7일), 아니면 `bucket_unit = "month"`(버킷 크기 30일) — PM 정책의 "전체 → 주 단위(일 단위면 점이 무한정 늘어남); 기간이 아주 길어지면 월 단위까지 고려"를 그대로 구현한 것. 임계값 364일(=52주)은 "주 단위로 그렸을 때 포인트가 카드 폭에 감당 가능한 최대치" 기준으로 PD가 잡은 값이며, 실사용 데이터로 너무 빽빽하거나 헐겁다고 확인되면 조정 가능(PD 재량 사유 없이 PE가 임의로 바꾸지 말 것 — 바뀌면 디자인 검토 필요).
+   - **버킷 경계는 "오늘부터 거꾸로" 굴린다(캘린더 ISO 주가 아님)** — `bucket_size`(7 또는 30일) 단위로 오늘부터 과거로 롤링 윈도우를 만든다: `bucket[i].end = today - i*bucket_size`, `bucket[i].start = bucket[i].end - (bucket_size-1)`. `i=0,1,2...`로 늘리다가 `bucket[i].end < earliest_date`가 되면 멈춘다(그 버킷까지 포함). 이후 `list.reverse()`로 과거→오늘 순서로 뒤집는다. Django `TruncWeek`(월요일 기준 등 로케일에 따라 기준일이 달라질 수 있음) 대신 이 방식을 쓴 이유는 (a) 일 단위 버킷과 동일한 "오늘 기준 역산" 방법론을 유지해 두 코드 경로가 갈라지지 않고, (b) 데이터포인트의 마지막 값이 항상 "오늘을 포함한 가장 최근 구간"이 되는 것을 보장하기 위함(캘린더 주 경계를 쓰면 마지막 버킷이 오늘보다 며칠 전에 끝날 수 있음).
+   - 버킷별 건수는 **단일 쿼리로 얻은 일별 카운트 맵**(`TruncDate` group-by, 기존 `_build_daily_counts()`가 이미 하던 방식)을 버킷 범위만큼 합산해서 구한다 — 버킷 단위가 바뀌어도 DB 쿼리는 하나로 유지되고, 파이썬에서 날짜 range를 순회하며 합산만 하면 된다(추가 쿼리 없음).
+4. **`trend_points` 필드 스펙 (기존 `daily_counts` 대체, 이름 변경)** — dict 리스트, 개수(`N`)는 버킷 단위에 따라 7 / 30 / 가변(주 또는 월 버킷 수). 각 dict의 키:
+   - `label`(str) — x축 짧은 라벨. 일 버킷은 `"MM/DD"`(기존과 동일), 주/월 버킷은 **버킷 시작일**의 `"MM/DD"`("이 주/달이 언제부터 시작하는가"로 읽는다).
+   - `range_label`(str) — 호버 툴팁용 상세 라벨. 일 버킷은 `label`과 동일한 값. 주/월 버킷은 `"MM/DD~MM/DD"`(버킷 시작~끝).
+   - `count`(int), `pct`(int, 0~100, 버킷 내 최댓값 대비 — `_pct()` 재사용, 계산 로직 동일).
+   - `is_current`(bool) — **마지막 포인트(`i == N-1`)만 `True`**. 기존 `is_today`(날짜가 정확히 오늘인 포인트)를 대체한다 — 주/월 버킷에서는 "오늘"이 버킷 중간에 있을 뿐 버킷 경계 날짜와 일치하지 않으므로, "가장 최근 구간"이라는 의미로 일반화했다.
+   - `x`(int), `y`(int) — SVG 좌표. `x = round(PAD_LEFT + i * (CHART_W / (N-1)))`(`N > 1`일 때), `N == 1`이면 `x = round(PAD_LEFT + CHART_W / 2)`(중앙, 데이터가 1버킷뿐인 극단적 초기 상태 대비 — 예: 서비스 시작 직후 "전체"를 눌렀는데 데이터가 며칠치뿐인 경우). `y` 공식은 기존과 동일(`y = round(PAD_TOP + CHART_H - (pct / 100 * CHART_H))`), `PAD_LEFT=16`/`PAD_RIGHT=6`/`PAD_TOP=8`/`PAD_BOTTOM=18`/`VIEW_W=300`/`VIEW_H=100`/`CHART_W=278`/`CHART_H=74` 상수는 전부 기존 값 그대로 유지(변경 없음).
+   - `show_label`(bool) — x축 라벨(및 짝을 이루는 눈금선)을 이 포인트에 그릴지 여부. `interval = max(1, round(N / 6))`로 계산해 `(i % interval == 0) or (i == N-1)`이면 `True`. `N=7`(최근 7일)이면 `interval=1`이라 기존과 동일하게 전부 표시되고(하위 호환), `N=30`(최근 30일)이면 `interval=5`라 대략 5일 간격으로만 표시된다 — PM이 제시한 "5~7개 간격으로만 라벨" 예시와 부합.
+   - `has_trend_data`(bool, 리스트가 아니라 최상위 컨텍스트 변수) — 기존 `has_daily_data`를 대체. `trend_max_count > 0`일 때만 `True`(빈 상태 판정 로직은 기존과 동일, 이름만 변경).
+   - `trend_max_count`(int, 최상위 컨텍스트 변수) — 기존 `daily_max_count` 대체. 버킷 중 최댓값.
+   - `bucket_unit`(str: `"day"`/`"week"`/`"month"`, 최상위 컨텍스트 변수, 신규) — 카드 제목("일별"/"주별"/"월별" 뉴스 건수 추이)을 동적으로 바꾸는 데 쓰인다. PM 정책이 예약해 뒀던 "일/주 단위 토글"은 기간 선택이 버킷 단위를 자동으로 결정하므로 별도 토글 없이 이 방식으로 흡수한다.
+   - `period`(str: `"all"`/`"30d"`/`"7d"`, 최상위 컨텍스트 변수, 신규) — 셀렉터의 활성 옵션 표시(`{% if period == '...' %}`)에 쓰인다.
+5. **`trend_line_path` / `trend_area_path` (신규, 경로 문자열 자체를 뷰에서 계산)** — 기존엔 7개 고정 포인트를 전제로 베지어 제어점 좌표를 템플릿에 리터럴로 박아 넣었지만, 포인트 개수가 가변이 되면서 이 방식이 성립하지 않는다. "SVG 좌표는 템플릿이 아니라 뷰에서 계산한다"는 이 카드의 기존 원칙(위 "구현 참고" 절)을 경로 문자열 자체까지 확장해, 뷰가 완성된 SVG `<path>` `d` 속성값을 문자열로 만들어 넘긴다. 곡선 기법("수평 탄젠트" — 각 데이터포인트에서 접선이 수평이 되도록 제어점 y는 끝점 y와 동일, 제어점 x는 두 점 x의 중간값)은 기존과 동일하게 유지한다 — 폴리라인(직선)으로 단순화하는 대안도 검토했으나, 좌표 계산이 이미 전부 뷰로 넘어간 구조에서는 곡선 경로를 만드는 것도 같은 복잡도이므로 시각 품질을 낮출 이유가 없다고 판단했다. 임의 개수 `N`의 포인트에 대한 일반화 공식:
+   ```python
+   def _build_trend_line_path(points):
+       # "수평 탄젠트" 3차 베지어를 N개 포인트로 일반화. points는 x/y가 이미 채워진 딕셔너리 리스트.
+       d = f"M {points[0]['x']},{points[0]['y']}"
+       for i in range(1, len(points)):
+           x0, y0 = points[i - 1]["x"], points[i - 1]["y"]
+           x1, y1 = points[i]["x"], points[i]["y"]
+           cx = (x0 + x1) / 2
+           d += f" C {cx},{y0} {cx},{y1} {x1},{y1}"
+       return d
+
+   def _build_trend_area_path(points, line_path, baseline_y=82):
+       # baseline_y = PAD_TOP + CHART_H (기존 상수와 동일한 82, 뷰 상수 변경 시 함께 갱신)
+       first_x, last_x = points[0]["x"], points[-1]["x"]
+       return f"{line_path} L {last_x},{baseline_y} L {first_x},{baseline_y} Z"
+   ```
+   `N == 1`인 극단적 케이스(예: 전체 기간인데 데이터가 1버킷뿐)에는 `trend_line_path`가 `"M x,y"` 하나뿐이라 실제로 그려지는 선이 없고(점 하나), `trend_area_path`도 폭 0의 퇴화된 도형이 된다 — 에러는 나지 않으며, 시각적으로는 dot 하나만 보이는 정상적인 graceful degradation이다.
+6. **카드 제목 동적 전환** — "일별 뉴스 건수 추이" 고정 문구를 `bucket_unit`에 따라 "일별"/"주별"/"월별"로 자동 전환한다(템플릿 `{% if %}` 분기, 뷰 변경 불필요). 별도의 일/주 토글 UI는 두지 않는다(위 4번 `bucket_unit` 설명 참고).
+7. **dot/호버 히트박스 크기 축소 (템플릿 전용, 뷰 변경 없음)** — 포인트 개수가 15개를 넘으면(예: 최근 30일=30개) dot과 호버 트리거 박스가 서로 겹치지 않도록 한 단계 작게 그린다(`w-2.5 h-2.5`/`w-1.5 h-1.5` vs 기존 `w-4 h-4`/`w-2.5 h-2.5`). `trend_points|length` 템플릿 필터만으로 판단 가능해 뷰의 새 컨텍스트 변수는 필요 없다.
+8. **카드2/3(기업별 Top10, 기술주제별) 영향** — 구조 변경 없음. 두 카드는 시계열이 아닌 기간 누적 집계라, 집계 쿼리의 날짜 하한을 `start_date`(위 2번)로 바꾸기만 하면 된다(위 "구현 참고" 절의 2026-07-27 추가 메모 — `period == "all"`이면 하한 없이 전체 집계). PE 작업량이 카드1(뉴스 건수 추이)에 비해 훨씬 작다.
+9. **PE 작업 스펙 요약 (필수)**
+   - `dashboard()` 뷰: `request.GET.get("period", "7d")` 읽고 검증(위 2번), `start_date`/`today`/`bucket_unit`/`earliest_date`(all일 때만) 계산.
+   - `_build_daily_counts()`를 `_build_trend_points(start_date, today, bucket_unit)`로 대체(또는 이름을 유지하고 내부 로직만 교체 — PE 판단). 반환값: `trend_points`(리스트), `trend_max_count`(int). 내부적으로 (a) 단일 쿼리로 일별 카운트 맵을 구하고, (b) `bucket_unit`에 따라 버킷 경계를 구성(위 3번), (c) 버킷별 합산, (d) `x`/`y`/`show_label`/`is_current`/`label`/`range_label` 계산(위 4번), (e) `trend_line_path`/`trend_area_path` 생성(위 5번).
+   - `_build_org_ranking()`/`_build_tech_topic_counts()`: `start_date`가 `None`일 수 있으므로 `date_filter` Q 구성을 조건부로 변경(위 "구현 참고" 절 2026-07-27 메모).
+   - `dashboard()` 뷰 최상위 컨텍스트에 `period`/`bucket_unit`/`trend_points`/`trend_max_count`/`has_trend_data` 추가, 기존 `daily_counts`/`daily_max_count`/`has_daily_data`는 제거(템플릿이 더 이상 참조하지 않음).
+   - 템플릿(`templates/dashboard/index.html`)은 이미 새 변수명·구조로 작성 완료됐다 — 위 컨텍스트가 채워지지 않으면 `{{ }}` 출력이 비거나 `{% if %}` 분기가 empty state로 빠질 뿐 500 에러는 나지 않는다(기존 관례와 동일하게 안전한 degrade).
+
 **변경 이력 (2026-07-10, PD)**
 
 - PM이 `docs/planning.md`에 확정한 정량화 축 Phase A 3개 지표(일별 추이/기업유형별/기업별 Top10)를 "핵심 지표" 로우로 추가. 기존 "주요 이슈 + 최신 뉴스" 로우 위에 배치.
@@ -399,6 +445,7 @@ hover: bg #F9F9F7
 - **(배치 7, 사용자 피드백 — "문단마다 구분을 해줘, 다 붙어있으니까 가독성이 너무 떨어진다")** "주요 이슈"와 "최신 뉴스" 두 리스트의 항목 간·문단 간 시각적 구분을 보강했다. `views.py` 변경 없이 템플릿만 수정.
   - **최신 뉴스**: 기존엔 `border-b border-gray-100 last:border-0` 얇은 밑줄 하나로만 항목을 구분해, 같은 화면의 "주요 이슈" 박스형 카드에 비해 구분감이 약했다. 새 패턴을 만들지 않고, 같은 파일 "주요 이슈" 카드에 이미 쓰이던 `border border-gray-100 rounded-[10px] p-3 hover:border-primary/30 transition-colors` 박스 패턴을 그대로 재사용해 각 뉴스 항목을 독립된 카드로 바꿨다(`space-y-3`는 유지). 이제 리스트 항목 하나하나가 테두리로 명확히 나뉜다.
   - **주요 이슈 아코디언**: (1) 이슈 카드 사이 간격을 `space-y-3`(12px)→`space-y-4`(16px)로 넓힘. (2) 펼침 상태에서 제목→"분석" 라벨→분석 본문 순서의 간격이 `mt-2`/`mt-1`(8px/4px)로 좁아 붙어 보이던 것을 `mt-3`/`mt-2`(12px/8px)로 넓힘. (3) 시사점 블록과 관련 기사 블록 사이에 구분선이 없어 이어져 보이던 것을, 상단 헤더-펼침영역 경계에 이미 쓰인 `border-t border-gray-100 pt-4` 패턴을 그대로 가져와 시사점이 있을 때만(`{% if insight.implication %}`) 관련 기사 블록 앞에 추가했다(시사점이 없으면 불필요한 빈 구분선이 생기지 않도록 조건부 처리). (4) 관련 기사 링크 목록 줄 간격을 `space-y-1`→`space-y-1.5`로 살짝 넓힘.
+- **(배치 8, 2026-07-27, PM 정책 — "대시보드·지식그래프 공통 기간 필터 정책") 기간 셀렉터(전체/최근 30일/최근 7일) 도입 + "일별 뉴스 건수 추이" 카드를 가변 데이터포인트 구조로 재설계.** 기존 "최근 7일" 고정 pill 배지를 3-옵션 GET 링크 토글로 교체(3개 카드 공통, 기본값 최근 7일). 차트 카드는 7개 고정 전제로 하드코딩돼 있던 베지어 제어점 좌표 리터럴을 전부 제거하고, 좌표뿐 아니라 SVG 경로 문자열 자체(`trend_line_path`/`trend_area_path`)를 뷰가 임의 개수의 포인트에 대해 일반화된 "수평 탄젠트" 공식으로 계산해 넘기는 구조로 바꿨다(폴리라인 단순화 대신 곡선 유지 — 자세한 판단 근거는 위 "기간 필터 + 뉴스 건수 추이 차트 가변화" 절 5번). 카드 제목은 버킷 단위(`bucket_unit`)에 따라 "일별/주별/월별"로 자동 전환해 PM이 예약해 둔 "일/주 토글"을 별도 UI 없이 흡수했다. x축 라벨은 `show_label` 플래그(간격 = `round(N/6)`)로 솎아내고, dot/호버 히트박스는 포인트 15개 초과 시 크기를 줄여 겹침을 방지했다. 카드2/3(기업별 Top10, 기술주제별)은 구조 변경 없이 집계 쿼리 날짜 하한만 `period`를 따르도록 바뀐다. `views.py`는 이번에도 PD가 직접 수정하지 않았고 PE 작업 스펙을 위 절에 상세히 남김 — 적용 전까지는 `trend_points` 등 신규 컨텍스트 변수가 비어 empty state로 보이는 임시 상태(에러는 없음, 기존 관례와 동일).
 
 ```
 DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 전체 대시보드 화면을 HTML + Tailwind CSS로 만들어줘.
@@ -417,8 +464,8 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 전체 대시보드 �
 - 사이드바 메뉴: 전체(활성), 뉴스, 보고서, 설정
 
 [콘텐츠 구성]
-1. "핵심 지표" 섹션 (제목 옆 회색 pill "최근 7일" 배지), 3-column grid
-   - 카드 A "일별 뉴스 건수 추이": 인라인 SVG 라인그래프(라이브러리 없음, `<path>` 부드러운 곡선 + 점 7개), 실제 x/y축 포함 — 왼쪽에 y축 세로선 + 0/중간값/최댓값 눈금 숫자, 아래에 x축(0선) + 데이터포인트마다 눈금선 + MM/DD 날짜 라벨(축과 픽셀 단위로 붙어 보이게), 라인 아래 보라 그라데이션 영역 채움, 오늘 지점만 진한 보라 채움 dot + 굵은 글씨로 강조, 나머지는 흰 채움 + 연한 보라 테두리 dot, 점에 마우스 올리면 "MM/DD · N건" 툴팁 노출, 좌우 여백 최소화해 카드 폭을 꽉 채움
+1. "핵심 지표" 섹션 (제목 옆 [전체]/[최근 30일]/[●최근 7일] 3-옵션 pill 토글 셀렉터, 활성 옵션만 보라 채움), 3-column grid — 셀렉터 하나가 아래 3개 카드를 모두 지배
+   - 카드 A "일별 뉴스 건수 추이"(선택된 기간에 따라 "주별"/"월별"로 제목 전환 가능): 인라인 SVG 라인그래프(라이브러리 없음, `<path>` 부드러운 곡선, 최근 7일 기준 점 7개), 실제 x/y축 포함 — 왼쪽에 y축 세로선 + 0/중간값/최댓값 눈금 숫자, 아래에 x축(0선) + 데이터포인트마다 눈금선 + MM/DD 날짜 라벨(축과 픽셀 단위로 붙어 보이게, 포인트가 많아지면 5~7개 간격으로만 라벨 표시), 라인 아래 보라 그라데이션 영역 채움, 가장 최근 지점만 진한 보라 채움 dot + 굵은 글씨로 강조, 나머지는 흰 채움 + 연한 보라 테두리 dot, 점에 마우스 올리면 "MM/DD · N건"(또는 "MM/DD~MM/DD · N건") 툴팁 노출, 좌우 여백 최소화해 카드 폭을 꽉 채움
    - 카드 B "기업별 건수 Top 10": 순위 1~10, 기업명, 가로 미니바(금융사 파랑/보험사 청록/AI 보라), 건수 — 1 KB국민은행 9건, 2 삼성생명 6건, 3 Anthropic 5건 ... 10위까지. 기업명에 마우스 올리면 관련 뉴스 팝오버 노출
    - 카드 C "기술 주제별 언급 건수": 순위 1~4, 주제명, 가로 미니바(Accent Green), 건수 — 1 AI 에이전트 11건, 2 AI 거버넌스 2건, 3 온톨로지 1건, 4 AI Ready Data 1건 (0건 주제는 표시 안 함). 주제명에 마우스 올리면 카드 B와 동일한 관련 뉴스 팝오버 노출
 
@@ -1311,37 +1358,59 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 기술 주제 관리 
 ### GRAPH-001 · 지식그래프 (소급 문서화)
 
 > 이미 `apps/graph/`(`templates/graph/index.html`, `_org_panel.html`)로 구현·배포 중인 화면이다. 별도 설계 없이 구현부터 됐고 사이드바에도 정식 메뉴로 떠 있었지만 화면 ID·문서가 전혀 없어 코드-문서 정합성이 깨져 있었다. PM이 `docs/planning.md`("지식그래프 화면 ID 부여" 절)에서 신규 독립 카테고리 `GRAPH-001`을 확정함에 따라, SET-007/008 소급 문서화와 동일한 방식으로 실제 구현 기준으로 기록한다. 이후 이 화면을 변경할 때는 템플릿이 아니라 이 문서를 최신 기준으로 갱신할 것.
+>
+> **(2026-07 갱신)** `docs/planning.md`의 "지식그래프 개선 로드맵" 1단계(엣지 근거뉴스)와 "대시보드·지식그래프 공통 기간 필터 정책"이 확정됨에 따라, 아래 내용에 (1) 엣지 클릭 → 기업 쌍(pair) 교집합 뉴스 패널, (2) 기간 필터(전체/최근 30일/최근 7일, 기본값 최근 7일 — 대시보드와 통일, 사용자 결정)를 반영했다. 템플릿(`templates/graph/index.html`, `_org_panel.html`, 신규 `_edge_panel.html`)은 PD가 직접 구현 완료했고, 백엔드(뷰·URL·쿼리)는 아래 "1단계 백엔드 스펙(PE 인계)"에 정리된 대로 PE가 구현해야 한다 — **이 문서 갱신 시점에는 뷰가 아직 이 스펙을 반영하지 않은 상태이므로, 템플릿은 더미 컨텍스트 변수(`selected_period`, `org_a`/`org_b`, `news_count` 등)를 가정하고 작성돼 있다.**
 
 **목적**: 활성 기업(Organization) 간 "같은 뉴스에 함께 등장" 관계를 force-directed 그래프로 시각화해, 개별 기업·뉴스 단위로는 보이지 않는 업계 관계망(어떤 금융사·보험사가 어떤 AI 기업과 자주 엮이는지)을 한눈에 파악하는 분석 화면. 조회 전용이며 CRUD가 없다(SET 화면군과 성격이 다른 이유).
 
 **라우트**
 | 경로 | 뷰 | 역할 |
 |---|---|---|
-| `/graph/` | `apps.graph.views.graph` | 메인 화면. 전체 그래프(노드+엣지) 렌더 |
-| `/graph/orgs/<int:pk>/panel/` | `apps.graph.views.graph_org_panel` | 노드 클릭 시 HTMX로 로드되는 우측 패널 프래그먼트(독립 화면 아님 — `GRAPH-001`의 하위 프래그먼트, NEWS-001의 `_list.html`과 동일 관례) |
+| `/graph/?period=all\|30d\|7d` | `apps.graph.views.graph` | 메인 화면. 전체 그래프(노드+엣지) 렌더. `period` 쿼리파라미터로 기간 필터(기본값 `7d`=최근 7일, 대시보드와 통일) — 선택은 `<a href="?period=...">` 전체 페이지 GET 재로드(아래 "왜 HTMX가 아닌 페이지 재로드인가" 참고) |
+| `/graph/orgs/<int:pk>/panel/?period=...` | `apps.graph.views.graph_org_panel` | 노드 클릭 시 HTMX로 로드되는 우측 패널 프래그먼트(독립 화면 아님 — `GRAPH-001`의 하위 프래그먼트, NEWS-001의 `_list.html`과 동일 관례). `period`는 메인 화면에서 선택된 값을 그대로 전달받아야 함(기간 정합성 계약) |
+| **(신규)** `/graph/edges/<int:pk_a>/<int:pk_b>/panel/?period=...` | `apps.graph.views.graph_edge_panel` (미구현 — PE) | 엣지(기업 쌍) 클릭 시 HTMX로 로드되는 교집합 근거뉴스 패널. `pk_a`/`pk_b`는 어느 순서로 와도 뷰 내부에서 정규화(작음/큼)해 처리. 독립 화면 아님, 위와 동일 관례. URL name에 `graph`가 들어가 `templates/base.html`의 사이드바 활성 판정(`'graph' in request.resolver_match.url_name`)이 별도 수정 없이 그대로 적용됨 |
 
 **구성 요소**
 
 ```
-┌─ 그래프 캔버스 (flex-1, bg-white shadow-sm rounded-[10px]) ─────────┐┌─ 기업 패널 (w-72) ─┐
+┌ 기간 [전체|최근 30일|●최근 7일] (세그먼트 pill, <a href="?period=..."> 전체 페이지 GET 재로드, 기본값 최근 7일) ─────────────┐
+└───────────────────────────────────────────────────────────────────────────────────────────────┘
+┌─ 그래프 캔버스 (flex-1, bg-white shadow-sm rounded-[10px]) ─────────┐┌─ 기업/쌍 패널 (w-72) ┐
 │ ┌ 범례(좌상단, 클릭 토글) ┐        ┌ 통계(우상단) ┐                  ││┌─ bg-white shadow-sm ┐│
 │ │● 금융사 ● 보험사 ● AI  │        │기업 24개·연결│                  │││ [금융사] 뱃지        ││
-│ └────────────────────────┘        │  9개         │                  │││ KB국민은행           ││
-│                                    └──────────────┘                  │││ 국민은행, KB (별칭)  ││
-│              ●AI기업A                                                │││──────────────────── ││
-│             ╱│  ╲                                                    │││ 관련 뉴스            ││
-│      금융사●─┤   ●보험사X   (선 굵기 = 공동등장 가중치)              │││ · 기사 제목 1  MM.DD ││
-│             ╲│  ╱                                                    │││   [금융사][AI] 뱃지  ││
-│              ●AI기업B                                                │││ · 기사 제목 2 (최대  ││
-│  (드래그로 위치 이동, 줌/팬, 빈 공간 클릭 시 하이라이트 해제)         │││   10건)              ││
+│ └────────────────────────┘        │  9개(선택된  │                  │││ KB국민은행           ││
+│                                    │  기간 기준)  │                  │││ 국민은행, KB (별칭)  ││
+│              ●AI기업A              └──────────────┘                  │││──────────────────── ││
+│             ╱│  ╲                                                    │││ 관련 뉴스   전체 23건││
+│      금융사●═┿═══●보험사X   (선 굵기 = 공동등장 가중치, 클릭 가능)  │││   중 10건            ││
+│             ╲│  ╱   ↑ 얇은 시각선 위에 14px 투명 히트라인을 겹쳐서   │││ · 기사 제목 1  MM.DD ││
+│              ●AI기업B  클릭 영역을 넓힘(선 자체는 그대로 얇게 유지)   │││   [금융사][AI] 뱃지  ││
+│  (드래그로 위치 이동, 줌/팬, 빈 공간 클릭 시 하이라이트 해제)         │││ · 기사 제목 2 ...    │││
 │                                                                       ││└──────────────────── ││
-│  ※ 뉴스 0건이면 "뉴스가 수집되면 기업 간 연결이 표시됩니다." 안내    ││ (미선택 시: 마우스     ││
+│  ※ 기업/연결 0개면 기간별 안내 문구 분기(아래 "빈 상태 문구" 참고)   ││ (미선택 시: 마우스     ││
 │                                                                       ││  포인터 아이콘 +      ││
-│                                                                       ││  "기업 노드를 클릭하면 ││
+│                                                                       ││  "기업 노드 또는      ││
+│                                                                       ││  연결선을 클릭하면    ││
 │                                                                       ││  관련 뉴스를 볼 수    ││
 │                                                                       ││  있습니다." 안내)      ││
 └───────────────────────────────────────────────────────────────────┘└──────────────────────┘
+
+# 엣지 클릭 시 우측 패널 (기업 쌍 뷰 — 노드 클릭 뷰와 다른 프래그먼트)
+┌─ 기업/쌍 패널 (w-72) ─┐
+│ KB국민은행 × Anthropic │  ← "A × B 함께 언급된 뉴스 N건" (N == 엣지 value, 검증 포인트)
+│ 함께 언급된 뉴스 3건    │
+│ [금융사]KB국민은행      │
+│ [AI]Anthropic          │
+│──────────────────────  │
+│ 근거 뉴스 (컷오프 없음, 전량 노출)
+│ · 기사 제목 1   MM.DD  │
+│   [금융사][AI] 뱃지    │
+│ · 기사 제목 2   MM.DD  │
+│ · 기사 제목 3   MM.DD  │
+└────────────────────────┘
 ```
+
+**빈 상태 문구 (기간 인지형)** — 기업/연결이 0개인 두 케이스 모두, `selected_period`가 `all`이면 기존 문구("뉴스가 수집되면 기업 간 연결이 표시됩니다.")를 유지하고, `30d`/`7d`면 "선택한 기간에는 뉴스가 있는 기업이 없습니다." / "선택한 기간에는 기업 간 연결이 없습니다." + "다른 기간을 선택해보세요."로 분기한다. 전체 기간에서는 보이던 노드가 짧은 기간으로 좁히면 뉴스 0건이 되어 자연스럽게 사라질 수 있는데(현재도 `news_count__gt=0` 조건으로 동일하게 걸러짐), 문구를 기간 인지형으로 분기해두지 않으면 "데이터가 원래 없다"는 오해를 줄 수 있어 PD 판단으로 추가했다.
 
 **데이터 모델 (`apps/graph/views.py`)**
 
@@ -1349,22 +1418,72 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 기술 주제 관리 
 - **엣지** — 같은 `News`에 2개 이상의 기업이 함께 등장(`organizations__count >= 2`)할 때 모든 쌍(`itertools.combinations`)의 공동등장 횟수를 누적해 가중치(`value`)로 사용. 단 `ALLOWED_TYPE_PAIRS = {frozenset({"금융사","AI"}), frozenset({"보험사","AI"})}` 필터로 **금융사-AI, 보험사-AI 쌍만 허용**하고 금융사-금융사·보험사-보험사·AI-AI·금융사-보험사 조합은 제외한다(업계 관계망이라는 화면 목적상 "동종업계끼리의 단순 동반 언급"보다 "금융/보험이 AI를 어떻게 활용하는가"라는 교차 관계에 집중하기 위한 설계 판단으로 보임).
 - 카테고리 인덱스: `CATEGORY_INDEX = {"금융사": 0, "보험사": 1, "AI": 2}` — 노드 JSON의 `category` 필드로 D3 색상 배열 인덱싱에 쓰임.
 
+**1단계 백엔드 스펙 (PE 인계 — `docs/planning.md` "지식그래프 개선 로드맵" 1단계 착수 스펙을 화면 단위로 구체화)**
+
+1. **공통 기간 필터 헬퍼** — 세 뷰(`graph`, `graph_org_panel`, 신규 `graph_edge_panel`) 모두 동일한 필터 로직을 써야 한다(기간 정합성 계약). 기준 필드는 `News.published_at`(발행일, `DateTimeField`), 수집일(`collected_at`) 아님. `request.GET.get("period", "7d")` 값 `"all" | "30d" | "7d"`(그 외 값은 `"7d"`로 폴백)에 대해:
+   - `"all"` → 필터 없음(전체, 삭제되지 않고 남은 `News` 전체).
+   - `"30d"` → `published_at`이 `[오늘−29일, 오늘]`에 포함(오늘 포함, 자정 경계).
+   - `"7d"` → `published_at`이 `[오늘−6일, 오늘]`에 포함.
+   - `News` 쿼리셋에는 `published_at__date__gte=start`(및 필요 시 `__lte=오늘`) 형태로 적용. `Organization` 쪽 `annotate(news_count=Count("news"))`처럼 관계를 통해 세는 곳은 `Count("news", filter=Q(news__published_at__date__gte=start))`로 조건부 집계해야 한다(그냥 `.filter()`를 annotate 앞에 걸면 JOIN이 필터링돼 다른 집계에도 영향을 줄 수 있으니 주의).
+2. **`graph(request)` 변경** — `period = request.GET.get("period", "7d")`로 받아 (a) 노드 `news_count` annotate에 기간 조건부 `Count` 적용, (b) 엣지 가중치 집계에 쓰는 `News` 베이스 쿼리셋에 기간 필터 적용. `render` 컨텍스트에 `"selected_period": period` 추가(템플릿의 pill 활성 상태·`CURRENT_PERIOD` JS 변수에 사용됨 — 이미 템플릿에 반영돼 있음, 뷰만 없는 상태).
+3. **`graph_org_panel(request, pk)` 변경** — `period` 쿼리파라미터를 받아 `org.news` 쿼리셋에 동일 필터 적용. 컷오프는 유지하되(`[:10]`) **자르기 전에 전체 건수를 세어 `total_count`로 함께 넘긴다**(템플릿이 `{% if total_count > 10 %}전체 {{ total_count }}건 중 10건{% endif %}`으로 잘림을 표기하도록 이미 반영돼 있음 — PM이 준 두 선택지 중 "컷오프 유지 + 명시" 쪽으로 PD가 결정한 것, 근거는 아래 "PD 판단 기록" 참고).
+4. **신규 `graph_edge_panel(request, pk_a, pk_b)`** — URL `graph/edges/<int:pk_a>/<int:pk_b>/panel/`.
+   ```python
+   def graph_edge_panel(request, pk_a, pk_b):
+       pk_a, pk_b = sorted((pk_a, pk_b))  # 정규화, 2단계 OrgRelation의 org_a.pk < org_b.pk 규칙과 동일
+       org_a = get_object_or_404(Organization, pk=pk_a)
+       org_b = get_object_or_404(Organization, pk=pk_b)
+       period = request.GET.get("period", "7d")
+
+       # 반드시 두 번 체이닝한 .filter()로 교집합(AND)을 구현한다 — organizations__in=[a, b] 등
+       # 단일 필터는 합집합(OR)이 되어 "둘 중 하나만 있어도 걸리는" 오답을 낸다.
+       news_qs = (
+           News.objects
+           .filter(organizations=org_a)
+           .filter(organizations=org_b)
+       )
+       news_qs = _apply_period_filter(news_qs, period)  # 위 공통 헬퍼, published_at 기준
+       news_list = news_qs.prefetch_related("organizations").order_by("-published_at").distinct()
+       # distinct() 필요: 두 번의 M2M 체이닝 필터가 각각 JOIN을 만들어 중복 행이 생길 수 있음
+
+       return render(request, "graph/_edge_panel.html", {
+           "org_a": org_a,
+           "org_b": org_b,
+           "news_list": news_list,
+           "news_count": news_list.count(),
+           "selected_period": period,
+       })
+   ```
+   **검증 포인트(PM 명시)**: 같은 `period`에서 이 뷰의 `news_count`는 `graph()`가 계산한 해당 엣지의 `value`와 반드시 일치해야 한다. 두 계산이 같은 근거인 이유 — `graph()`의 엣지 가중치는 "두 기업이 모두 태깅된 서로 다른 `News`의 개수"를 `combinations`로 집계한 것이고, 여기 `news_count`도 정확히 "두 기업이 모두 태깅된 `News`의 개수"이므로 같은 `period` 필터 하에서 두 숫자는 항상 같아야 한다. **컷오프는 걸지 않는다**(PM 지시 — 쌍 교집합은 대개 소수라 부담이 없고, 2단계 RA 관계 라벨링 때 근거 전체가 필요).
+5. **URL 등록** — `apps/graph/urls.py`에 `path("edges/<int:pk_a>/<int:pk_b>/panel/", views.graph_edge_panel, name="graph_edge_panel")` 추가. `graph`라는 문자열을 포함하는 이름이라 `templates/base.html`의 사이드바 활성 판정 로직은 수정할 필요 없음.
+
+**PD 판단 기록 — 노드 패널 컷오프는 "유지 + 명시"로 결정**: PM이 준 두 선택지(컷오프 제거 vs "전체 N건 중 10건" 명시) 중 후자를 택했다. 이유: "전체" 기간을 선택했을 때 활성도 높은 기업(예: KB국민은행)은 뉴스가 수십~수백 건일 수 있는데, `w-72` 좁은 패널에 전량을 넣으면 스크롤이 지나치게 길어지고 정작 "최근에 무슨 일이 있었는지"를 훑는 목적에는 오히려 방해가 된다. 반면 쌍(엣지) 패널의 교집합은 두 기업이 동시에 등장한 경우로 한정돼 표본이 훨씬 작고, 2단계에서 RA가 관계를 판단하려면 일부만 보고 놓치는 근거가 없어야 하므로 컷오프를 걷어내는 것이 맞다. 두 패널의 성격(개별 기업의 "최근 동향 훑기" vs 쌍의 "근거 전수 검토")이 다르므로 같은 규칙을 억지로 맞추지 않았다.
+
 **시각화 구현 (`templates/graph/index.html`, D3.js v7.8.5 CDN)**
 
 - SVG + `d3.forceSimulation`(link/charge/x/y/collide 5개 force 조합)로 좌표 계산, alpha가 자연 수렴하면 정지(지속적 애니메이션 없음 — 깜빡임 방지).
 - 줌/팬: `d3.zoom().scaleExtent([0.2, 4])`.
 - 드래그: 노드를 잡아 고정(`fx`/`fy`), 놓으면 시뮬레이션에 복귀.
-- 노드 클릭: (1) 클릭한 노드와 인접 노드만 `opacity: 1`, 나머지는 `0.08`로 페이드 — 연결선도 `#60269E`(Primary)로 강조/`#D1D5DB`로 톤다운. (2) 동시에 `htmx.ajax('GET', '/graph/orgs/<pk>/panel/', {target:'#org-panel', swap:'innerHTML'})`로 우측 패널을 로드. 배경(빈 공간) 클릭 시 하이라이트 초기화.
-- 범례 클릭: 카테고리(금융사/보험사/AI)별로 노드·엣지를 `display:none` 토글, 비활성 상태 버튼은 `opacity:0.35`.
+- 노드 클릭: (1) 클릭한 노드와 인접 노드만 `opacity: 1`, 나머지는 `0.08`로 페이드 — 연결선도 `#60269E`(Primary)로 강조/`#D1D5DB`로 톤다운. (2) 동시에 `htmx.ajax('GET', '/graph/orgs/<pk>/panel/?period=' + CURRENT_PERIOD, {target:'#org-panel', swap:'innerHTML'})`로 우측 패널을 로드. 배경(빈 공간) 클릭 시 하이라이트 초기화.
+- **엣지 클릭(2026-07 추가)** — 엣지는 `<line>` 두 겹으로 구현한다. (1) 시각 레이어(`link`, 기존과 동일한 굵기·색·`stroke-opacity:0.6`)는 `pointer-events: none`으로 클릭을 통과시킨다. (2) 그 위에 겹치는 히트 레이어(`linkHit`, `stroke="transparent"`, `stroke-width:14`, `cursor:pointer`)가 클릭을 전담한다 — 얇은 선(최대 5px)만으로는 클릭 타겟이 좁아 사용성이 나쁘기 때문. `stroke="transparent"`는 완전 투명해도 SVG 히트테스트의 "칠해진 영역"으로 간주돼 기본 `pointer-events: visiblePainted`에서 정상적으로 클릭이 잡힌다(`stroke="none"`과의 차이 — `none`은 애초에 칠해지지 않아 클릭도 안 잡힘). 클릭 시: 그 엣지의 두 endpoint 노드만 `opacity:1`(나머지 `0.08`), 클릭한 엣지 자신만 `#60269E`로 강조(나머지 엣지는 `stroke-opacity:0.05`로 톤다운 — 노드 클릭의 "인접 전체 강조"와 달리 "이 엣지 하나만" 강조해 노드 클릭과 시각적으로 구분), `htmx.ajax('GET', '/graph/edges/<pkA>/<pkB>/panel/?period=' + CURRENT_PERIOD, {target:'#org-panel', swap:'innerHTML'})`로 쌍 패널을 같은 `#org-panel` 슬롯에 로드(노드 패널과 쌍 패널은 서로 다른 프래그먼트지만 같은 컨테이너를 공유 — `news/_orgs.html`의 단일 패널 슬롯 재사용 관례와 동일). `pkA`/`pkB`는 `Math.min/max`로 정규화해 URL에 넣는다(2단계 `OrgRelation.org_a.pk < org_b.pk` 정규화 규칙과 동일 컨벤션을 미리 맞춤).
+- 범례 클릭: 카테고리(금융사/보험사/AI)별로 노드·엣지(`link` **및 `linkHit`** — 히트 레이어도 함께 숨겨야 "안 보이는데 클릭은 되는" 불일치가 없다)를 `display:none` 토글, 비활성 상태 버튼은 `opacity:0.35`.
+- **기간 필터(2026-07 추가)** — 페이지 상단 세그먼트 pill(전체/최근 30일/최근 7일, 기본값 최근 7일 — 대시보드와 통일)은 `<a href="?period=...">` **전체 페이지 GET 재로드** 방식이다(HTMX 부분 스왑이 아님). 이는 의도적 선택이다: D3 초기화 스크립트가 `const`/`let`을 최상위 스코프에 선언하는데, 같은 문서 안에서 `<script>`만 HTMX로 반복 재실행하면 브라우저가 두 번째 실행부터 "이미 선언된 식별자" `SyntaxError`를 던진다(classic `<script>`의 최상위 `let`/`const`는 문서 전역 렉시컬 환경을 공유해 재선언이 막힘). 전체 페이지 재로드는 매번 새 문서이므로 이 문제 자체가 없고, `news/list.html` 검색·필터 바(`<form method="get">`)와 같은 이미 검증된 패턴과도 톤이 맞는다. 재로드 시 뷰가 `period`에 맞춰 노드·엣지·`org_count`/`edge_count`를 다시 계산해 내려주므로 별도 클라이언트 로직 없이 정합성이 자동으로 맞는다. 서버 렌더링 시점에 `selected_period`를 `CURRENT_PERIOD` JS 상수로 심어두고, 노드/엣지 패널 HTMX 호출 시 `?period=` 쿼리로 그대로 붙여 캔버스와 패널이 항상 같은 기간을 보게 한다(기간 정합성 계약).
 - 리사이즈: `window.resize` 시 `forceCenter` 재계산.
 - 노드 라벨: SVG `<text>`로 기업명 표시, `font-family`를 시스템 한글 폰트("Malgun Gothic"/"맑은 고딕")로 별도 지정 — 프로젝트 기본 `font-sans`(Noto Sans KR)와 다른 지정이라 아래 "디자인 시스템 정합성 점검"에 기록.
-- HTMX 로딩 인디케이터(`hx-indicator`) 없음 — 패널 프래그먼트가 가볍고(최대 10건 카드) 지연이 체감되지 않는 규모라 별도 스피너를 넣지 않은 것으로 보인다. 데이터 규모가 커지면 재검토 필요.
+- HTMX 로딩 인디케이터(`hx-indicator`) 없음 — 패널 프래그먼트가 가볍고(최대 10건 카드, 쌍 패널도 교집합이라 대개 소수) 지연이 체감되지 않는 규모라 별도 스피너를 넣지 않은 것으로 보인다. 데이터 규모가 커지면 재검토 필요.
 
-**기업 패널 (`templates/graph/_org_panel.html`)**
+**기업 패널 (`templates/graph/_org_panel.html`) — 노드 클릭 시**
 
 - 상단: 유형 뱃지(금융사 `bg-blue-100 text-blue-700` / 보험사 `bg-[#E6F7F5] text-[#00AF9A]` / AI `bg-[#F3EAFB] text-primary` — SET-007 뱃지 규칙과 동일 토큰) + 비활성 기업이면 "(비활성)" 회색 텍스트 + 기업명(bold) + 별칭(있으면).
-- 관련 뉴스: 최대 10건, 최신 발행일순. 각 카드는 List Card 패턴(`<a class="block group">`)을 따르며 — 이 문서 "1.5 컴포넌트 정의 > List Card" 절이 실제로 이 파일(23행)을 참고 구현 예시로 이미 지목하고 있다. 카드 안에 뉴스에 연결된 기업들의 뱃지를 작게 다시 나열(제목 2줄 line-clamp + 발행월일).
-- 미선택 상태: 중앙 정렬 안내(Lucide `mouse-pointer-click` 아이콘 32px, opacity-30 + "기업 노드를 클릭하면 관련 뉴스를 볼 수 있습니다.") — 기존 empty state 패턴(회색 아이콘 + 안내문)과 톤 일치.
+- 관련 뉴스: 최대 10건, 최신 발행일순, **컷오프는 유지하되 2026-07부터 "관련 뉴스" 제목 옆에 `total_count > 10`일 때 "전체 N건 중 10건"을 명시**해 잘림을 숨기지 않는다(위 "PD 판단 기록" 참고 — 쌍 패널은 컷오프 없음과 의도적으로 다름). 각 카드는 List Card 패턴(`<a class="block group">`)을 따르며 — 이 문서 "1.5 컴포넌트 정의 > List Card" 절이 실제로 이 파일(23행)을 참고 구현 예시로 이미 지목하고 있다. 카드 안에 뉴스에 연결된 기업들의 뱃지를 작게 다시 나열(제목 2줄 line-clamp + 발행월일).
+- 미선택 상태: 중앙 정렬 안내(Lucide `mouse-pointer-click` 아이콘 32px, opacity-30 + "기업 노드 또는 연결선을 클릭하면 관련 뉴스를 볼 수 있습니다." — 2026-07 엣지 클릭 추가에 맞춰 문구 갱신) — 기존 empty state 패턴(회색 아이콘 + 안내문)과 톤 일치.
+
+**쌍 패널 (`templates/graph/_edge_panel.html`, 신규 2026-07) — 엣지 클릭 시**
+
+- 노드 클릭 시 뜨는 위 기업 패널과 서로 다른 프래그먼트지만, 같은 `#org-panel` 컨테이너를 공유해 스왑된다(둘 다 GRAPH-001의 하위 프래그먼트, 독립 화면 아님).
+- 상단 헤더: "{{ org_a.name }} × {{ org_b.name }}" + 줄바꿈 + "함께 언급된 뉴스 {{ news_count }}건" — PM이 지정한 문구 형식을 그대로 따름. `news_count`는 반드시 해당 엣지의 `value`(공동등장 가중치)와 일치해야 하는 검증 포인트(위 백엔드 스펙 참고). 바로 아래에 두 기업의 유형 뱃지를 나란히 표시(각자 org_type에 맞는 색 토큰).
+- 근거 뉴스: **컷오프 없이 전량 노출**(교집합이라 표본이 작음을 전제, PM 명시 요구사항). 카드 레이아웃은 기업 패널의 List Card와 동일 패턴 재사용(제목 2줄 line-clamp + 뱃지 + 발행월일).
+- 빈 상태(이론상 도달하지 않아야 함 — 엣지가 존재하면 교집합도 최소 1건): "함께 언급된 뉴스가 없습니다."
 
 **사이드바 메뉴 (`templates/base.html`)**
 
@@ -1398,16 +1517,19 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 지식그래프 화�
 - Border radius: 10px, Border: 1px solid #E5E5E5, 카드는 bg-white shadow-sm
 
 [레이아웃]
+- 최상단: 기간 필터 세그먼트 pill — "전체 | 최근 30일 | 최근 7일" 3버튼, 선택된 버튼은 bg-primary/text-white, 나머지는 text-gray-600. 기본 선택은 "최근 7일"
 - 좌측: 그래프 캔버스(flex-1, 흰 카드, 화면 높이 꽉 채움)
   - 좌상단: 범례 pill — "● 금융사(blue-500) ● 보험사(#00AF9A) ● AI(#60269E)", 클릭 시 opacity 0.35로 토글
-  - 우상단: "기업 N개 · 연결 N개" 통계 텍스트
-  - 중앙: force-directed 그래프. 노드=기업(카테고리별 색상 원, 크기는 뉴스 건수 비례 14~40px), 엣지=공동등장 가중치에 비례한 선 굵기(색 #D1D5DB, 최대 5px)
-  - 인터랙션: 줌/팬, 노드 드래그, 노드 클릭 시 연결된 노드만 강조(비연결 노드 opacity 0.08, 연결선 #60269E), 빈 공간 클릭 시 초기화
-- 우측: w-72 기업 패널(흰 카드)
-  - 미선택 시: 중앙 정렬 안내 아이콘 + "기업 노드를 클릭하면 관련 뉴스를 볼 수 있습니다."
-  - 선택 시: 유형 뱃지(금융사 blue-100/blue-700, 보험사 #E6F7F5/#00AF9A, AI #F3EAFB/#60269E) + 기업명 + 별칭 + "관련 뉴스" 카드 리스트(최대 10건, 제목 2줄 + 기업 뱃지 + 발행월일)
+  - 우상단: "기업 N개 · 연결 N개" 통계 텍스트 (선택된 기간 기준으로 값이 바뀜)
+  - 중앙: force-directed 그래프. 노드=기업(카테고리별 색상 원, 크기는 뉴스 건수 비례 14~40px), 엣지=공동등장 가중치에 비례한 선 굵기(색 #D1D5DB, 최대 5px) + 클릭 가능(얇은 선 위에 넓은 투명 히트 영역)
+  - 인터랙션: 줌/팬, 노드 드래그, 노드 클릭 시 연결된 노드만 강조(비연결 노드 opacity 0.08, 연결선 #60269E), 엣지 클릭 시 그 엣지의 두 기업만 강조 + 우측 패널에 "A × B 함께 언급된 뉴스 N건" 표시, 빈 공간 클릭 시 초기화
+- 우측: w-72 기업/쌍 패널(흰 카드, 하나의 슬롯을 두 종류 패널이 공유)
+  - 미선택 시: 중앙 정렬 안내 아이콘 + "기업 노드 또는 연결선을 클릭하면 관련 뉴스를 볼 수 있습니다."
+  - 노드 선택 시: 유형 뱃지(금융사 blue-100/blue-700, 보험사 #E6F7F5/#00AF9A, AI #F3EAFB/#60269E) + 기업명 + 별칭 + "관련 뉴스" 카드 리스트(최대 10건, 10건 초과 시 "전체 N건 중 10건" 표기 + 제목 2줄 + 기업 뱃지 + 발행월일)
+  - 엣지 선택 시: "기업A × 기업B" + "함께 언급된 뉴스 N건" 헤더 + 두 기업 유형 뱃지 + "근거 뉴스" 카드 리스트(컷오프 없이 전량, 카드 형식은 위와 동일)
 
 [샘플 데이터]
 - 노드: KB국민은행(금융사, 9건), 삼성생명(보험사, 6건), Anthropic(AI, 5건), 신한은행(금융사, 4건), 교보생명(보험사, 3건), OpenAI(AI, 4건)
 - 엣지: KB국민은행–Anthropic(가중치 3), 삼성생명–OpenAI(가중치 2), 신한은행–OpenAI(가중치 1) — 동종업계(금융사-금융사, 보험사-보험사 등)끼리는 연결선 없음
+- 엣지 클릭 예시: "KB국민은행 × Anthropic" 클릭 시 우측 패널 헤더 "KB국민은행 × Anthropic / 함께 언급된 뉴스 3건" + 근거 뉴스 3건 전량 표시
 ```

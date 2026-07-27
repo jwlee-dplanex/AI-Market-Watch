@@ -1,0 +1,58 @@
+<!-- 엣지(기업 쌍) 클릭 시 뜨는 교집합 근거뉴스 패널. _org_panel.html(단일 기업 전체 뉴스)과 달리
+     "두 기업이 모두 연결된" 뉴스만 보여준다. GRAPH-001의 하위 프래그먼트(node panel과 동일 관례),
+     별도 화면 ID 없음. 컷오프 없이 news_list를 전량 출력한다(2단계 관계 라벨링 시 근거 전체를
+     RA가 봐야 하므로 — docs/planning.md "지식그래프 개선 로드맵" 1단계 스펙 참고). -->
+
+<!-- 기업 쌍 헤더 — "A × B 함께 언급된 뉴스 N건" 문구 그대로, N은 엣지 value와 반드시 일치(검증 포인트) -->
+<div class="mb-4 pb-4 border-b border-gray-100">
+  <p class="text-sm font-bold text-gray-900 leading-relaxed">
+    {{ org_a.name }} × {{ org_b.name }}<br>함께 언급된 뉴스 {{ news_count }}건
+  </p>
+  <div class="flex items-center gap-1.5 flex-wrap mt-2">
+    <span class="text-xs font-semibold px-2 py-0.5 rounded-full
+      {% if org_a.org_type == '금융사' %}bg-blue-100 text-blue-700
+      {% elif org_a.org_type == '보험사' %}bg-[#E6F7F5] text-[#00AF9A]
+      {% elif org_a.org_type == 'AI' %}bg-[#F3EAFB] text-primary
+      {% endif %}">{{ org_a.name }}</span>
+    {% if not org_a.is_active %}
+    <span class="text-xs text-gray-400">(비활성)</span>
+    {% endif %}
+    <span class="text-xs font-semibold px-2 py-0.5 rounded-full
+      {% if org_b.org_type == '금융사' %}bg-blue-100 text-blue-700
+      {% elif org_b.org_type == '보험사' %}bg-[#E6F7F5] text-[#00AF9A]
+      {% elif org_b.org_type == 'AI' %}bg-[#F3EAFB] text-primary
+      {% endif %}">{{ org_b.name }}</span>
+    {% if not org_b.is_active %}
+    <span class="text-xs text-gray-400">(비활성)</span>
+    {% endif %}
+  </div>
+</div>
+
+<!-- 근거 뉴스 — 컷오프 없이 전량 노출(쌍 교집합은 대개 소수라 부담 없음). 목록 스크롤은 상위 컨테이너
+     (index.html의 .overflow-y-auto)가 담당하므로 이 프래그먼트 안에서 별도 스크롤 처리는 하지 않는다. -->
+<h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">근거 뉴스</h4>
+<div class="space-y-3">
+  {% for news in news_list %}
+  <a href="{% url 'news_detail' news.uid %}" class="block group">
+    <p class="text-xs font-medium text-gray-800 group-hover:text-primary transition-colors line-clamp-2 leading-relaxed">{{ news.title }}</p>
+    {% with orgs=news.organizations.all %}
+    {% if orgs %}
+    <div class="flex flex-wrap gap-1 mt-1">
+      {% for o in orgs %}
+      <span class="text-xs px-1.5 py-0.5 rounded-full
+        {% if o.org_type == '금융사' %}bg-blue-50 text-blue-600
+        {% elif o.org_type == '보험사' %}bg-[#E6F7F5] text-[#00AF9A]
+        {% else %}bg-purple-50 text-primary{% endif %}">
+        {{ o.name }}
+      </span>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+    <p class="text-xs text-gray-400 mt-0.5">{{ news.published_at|date:"m.d" }}</p>
+  </a>
+  {% empty %}
+  <p class="text-xs text-gray-400 text-center py-6">함께 언급된 뉴스가 없습니다.</p>
+  {% endfor %}
+</div>
+<script>lucide.createIcons();</script>

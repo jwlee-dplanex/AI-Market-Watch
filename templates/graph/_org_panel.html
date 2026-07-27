@@ -16,8 +16,16 @@
   {% endif %}
 </div>
 
-<!-- 관련 뉴스 -->
-<h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">관련 뉴스</h4>
+<!-- 관련 뉴스 — 최대 10건만 표시(컷오프). 전체가 10건을 넘으면 "전체 N건 중 10건 표시"로 잘림을 명시한다
+     (엣지 쌍 패널은 컷오프 없이 전량 노출하는 것과 의도적으로 다름 — 단일 기업의 누적 뉴스는 기간에 따라
+     수십~수백 건일 수 있어 좁은 패널에 전량을 넣으면 오히려 스캔하기 어려워지지만, 쌍 교집합은 대개
+     소수라 전량 노출 부담이 없다). -->
+<div class="flex items-center justify-between mb-3">
+  <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">관련 뉴스</h4>
+  {% if total_count > 10 %}
+  <span class="text-xs text-gray-400">전체 {{ total_count }}건 중 10건</span>
+  {% endif %}
+</div>
 <div class="space-y-3">
   {% for news in news_list %}
   <a href="{% url 'news_detail' news.uid %}" class="block group">

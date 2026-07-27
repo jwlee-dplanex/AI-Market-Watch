@@ -1,18 +1,26 @@
 from datetime import timedelta
 
-from django.db.models import Count, Q
+from django.db.models import Count, Min, Q
 from django.db.models.functions import TruncDate
 from django.shortcuts import render
 from django.utils import timezone
 
 from apps.news.models import Insight, News
 from apps.setting.models import Organization, TechTopic
+from services.periods import period_bounds, resolve_period
 
 PAD_LEFT, PAD_RIGHT, PAD_TOP, PAD_BOTTOM = 16, 6, 8, 18
 VIEW_W = 300
 VIEW_H = 100
 CHART_W = VIEW_W - PAD_LEFT - PAD_RIGHT
 CHART_H = VIEW_H - PAD_TOP - PAD_BOTTOM
+BASELINE_Y = PAD_TOP + CHART_H
+
+# "전체" 기간의 버킷 단위 임계값: 주 단위로 그렸을 때 카드 폭이 감당 가능한 최대 포인트 수 기준(PD 결정,
+# docs/design.md ALL-001 "기간 필터 + 뉴스 건수 추이 차트 가변화" 절 3번). PE가 임의로 바꾸지 않는다.
+WEEK_BUCKET_MAX_DAYS = 364
+# 트렌드 차트 dot 개수가 이 값을 넘으면 겹침 방지를 위해 dot을 한 단계 작게 그린다(PD 결정, 임계값 그대로 유지).
+DOT_DENSE_THRESHOLD = 15
 
 
 def _pct(value, max_value):
@@ -22,40 +30,138 @@ def _pct(value, max_value):
     return round(value / max_value * 100)
 
 
-def _build_daily_counts(start_date, today):
+def _daily_counts_map(start_date, today):
+    """News.published_at 기준 일별 건수 맵을 단일 쿼리로 구한다.
+    start_date가 None이면 "전체" 기간 — 하한·상한 어느 쪽도 걸지 않고 전량을 집계한다
+    (그래프 앱의 _apply_period_filter와 동일한 "전체=필터 없음" 계약, services/periods.py 참고)."""
     current_tz = timezone.get_current_timezone()
+    qs = News.objects.all()
+    if start_date is not None:
+        qs = qs.filter(published_at__date__gte=start_date, published_at__date__lte=today)
     rows = (
-        News.objects
-        .filter(published_at__date__gte=start_date, published_at__date__lte=today)
+        qs
         .annotate(day=TruncDate("published_at", tzinfo=current_tz))
         .values("day")
         .annotate(count=Count("pk"))
     )
-    counts_by_date = {row["day"]: row["count"] for row in rows}
+    return {row["day"]: row["count"] for row in rows}
 
-    daily_counts = []
-    for i in range(7):
+
+def _build_trend_line_path(points):
+    """"수평 탄젠트" 3차 베지어를 N개 포인트로 일반화(docs/design.md 5번 절 참고)."""
+    if not points:
+        return ""
+    d = f"M {points[0]['x']},{points[0]['y']}"
+    for i in range(1, len(points)):
+        x0, y0 = points[i - 1]["x"], points[i - 1]["y"]
+        x1, y1 = points[i]["x"], points[i]["y"]
+        cx = (x0 + x1) / 2
+        d += f" C {cx},{y0} {cx},{y1} {x1},{y1}"
+    return d
+
+
+def _build_trend_area_path(points, line_path, baseline_y=BASELINE_Y):
+    if not points:
+        return ""
+    first_x, last_x = points[0]["x"], points[-1]["x"]
+    return f"{line_path} L {last_x},{baseline_y} L {first_x},{baseline_y} Z"
+
+
+def _build_day_buckets(today, start_date):
+    """"7d"/"30d" 전용 — 일 단위 버킷. start_date부터 오늘까지 하루씩.
+    버킷 개수는 (today - start_date).days + 1로 유도한다 — 호출부(dashboard())가 이미
+    period_bounds()로 start_date를 결정했으므로 여기서 "7d"/"30d" 문자열로 다시
+    판단하지 않는다(중복 계산 제거)."""
+    days = (today - start_date).days + 1
+    buckets = []
+    for i in range(days):
         day = start_date + timedelta(days=i)
-        daily_counts.append({
-            "date": day,
-            "label": day.strftime("%m/%d"),
-            "count": counts_by_date.get(day, 0),
-            "is_today": day == today,
+        buckets.append({"start": day, "end": day})
+    return buckets
+
+
+def _build_rolling_buckets(today, earliest_date, bucket_size):
+    """"전체" 기간용 — 오늘부터 거꾸로 굴리는 롤링 윈도우 버킷(캘린더 주/월 경계가 아님).
+    docs/design.md "기간 필터 + 뉴스 건수 추이 차트 가변화" 3번 절의 알고리즘을 그대로 구현."""
+    buckets = []
+    i = 0
+    while True:
+        end = today - timedelta(days=i * bucket_size)
+        start = end - timedelta(days=bucket_size - 1)
+        buckets.append({"start": start, "end": end})
+        if end < earliest_date:
+            break
+        i += 1
+    buckets.reverse()
+    return buckets
+
+
+def _build_trend_points(start_date, today, bucket_unit, earliest_date):
+    """가변 버킷(일/주/월) 대응 뉴스 건수 추이 포인트를 계산한다.
+    반환값: (trend_points, trend_max_count)."""
+    counts_by_date = _daily_counts_map(start_date, today)
+
+    if bucket_unit == "day":
+        buckets = _build_day_buckets(today, start_date)
+    else:
+        bucket_size = 7 if bucket_unit == "week" else 30
+        buckets = _build_rolling_buckets(today, earliest_date, bucket_size)
+
+    for bucket in buckets:
+        span = (bucket["end"] - bucket["start"]).days + 1
+        bucket["count"] = sum(
+            counts_by_date.get(bucket["start"] + timedelta(days=d), 0)
+            for d in range(span)
+        )
+
+    n = len(buckets)
+    max_count = max((b["count"] for b in buckets), default=0)
+    interval = max(1, round(n / 6)) if n else 1
+
+    trend_points = []
+    for i, bucket in enumerate(buckets):
+        pct = _pct(bucket["count"], max_count)
+        label = bucket["start"].strftime("%m/%d")
+        if bucket_unit == "day":
+            range_label = label
+        else:
+            range_label = f"{bucket['start'].strftime('%m/%d')}~{bucket['end'].strftime('%m/%d')}"
+
+        if n > 1:
+            x = round(PAD_LEFT + i * (CHART_W / (n - 1)))
+        else:
+            x = round(PAD_LEFT + CHART_W / 2)
+        y = round(PAD_TOP + CHART_H - (pct / 100 * CHART_H))
+
+        trend_points.append({
+            "label": label,
+            "range_label": range_label,
+            "count": bucket["count"],
+            "pct": pct,
+            "is_current": i == n - 1,
+            "x": x,
+            "y": y,
+            "show_label": (i % interval == 0) or (i == n - 1),
         })
 
-    max_count = max((d["count"] for d in daily_counts), default=0)
-    for i, d in enumerate(daily_counts):
-        d["pct"] = _pct(d["count"], max_count)
-        d["x"] = round(PAD_LEFT + i * (CHART_W / 6))
-        d["y"] = round(PAD_TOP + CHART_H - (d["pct"] / 100 * CHART_H))
-    return daily_counts, max_count
+    return trend_points, max_count
+
+
+def _date_filter(field_prefix, start_date, today):
+    """start_date가 None(전체 기간)이면 빈 Q()(필터 없음)를 반환한다 — 그래프 앱의
+    _apply_period_filter와 동일한 "전체=필터 없음" 계약(services/periods.py 참고).
+    field_prefix는 "news__published_at" 또는 "published_at"처럼 필드 경로."""
+    if start_date is None:
+        return Q()
+    return Q(**{
+        f"{field_prefix}__date__gte": start_date,
+        f"{field_prefix}__date__lte": today,
+    })
 
 
 def _build_org_ranking(start_date, today):
-    date_filter = Q(
-        news__published_at__date__gte=start_date,
-        news__published_at__date__lte=today,
-    )
+    date_filter = _date_filter("news__published_at", start_date, today)
+    news_filter = _date_filter("published_at", start_date, today)
     orgs = list(
         Organization.objects
         .filter(is_active=True)
@@ -69,7 +175,7 @@ def _build_org_ranking(start_date, today):
     for rank, org in enumerate(orgs, start=1):
         recent_news = list(
             org.news
-            .filter(published_at__date__gte=start_date, published_at__date__lte=today)
+            .filter(news_filter)
             .order_by("-published_at", "-pk")[:5]
         )
         org_ranking.append({
@@ -85,10 +191,8 @@ def _build_org_ranking(start_date, today):
 
 
 def _build_tech_topic_counts(start_date, today):
-    date_filter = Q(
-        news__published_at__date__gte=start_date,
-        news__published_at__date__lte=today,
-    )
+    date_filter = _date_filter("news__published_at", start_date, today)
+    news_filter = _date_filter("published_at", start_date, today)
     topics = list(
         TechTopic.objects
         .filter(is_active=True)
@@ -102,7 +206,7 @@ def _build_tech_topic_counts(start_date, today):
     for rank, topic in enumerate(topics, start=1):
         recent_news = list(
             topic.news
-            .filter(published_at__date__gte=start_date, published_at__date__lte=today)
+            .filter(news_filter)
             .order_by("-published_at", "-pk")[:5]
         )
         tech_topic_counts.append({
@@ -117,6 +221,33 @@ def _build_tech_topic_counts(start_date, today):
 
 
 def dashboard(request):
+    period = resolve_period(request)
+    today = timezone.localtime(timezone.now()).date()
+    start_date, _ = period_bounds(period, today)
+
+    earliest_date = None
+    if period == "all":
+        earliest = News.objects.aggregate(Min("published_at"))["published_at__min"]
+        earliest_date = timezone.localtime(earliest).date() if earliest else today
+        total_days = (today - earliest_date).days + 1
+        bucket_unit = "week" if total_days <= WEEK_BUCKET_MAX_DAYS else "month"
+    else:
+        bucket_unit = "day"
+
+    trend_points, trend_max_count = _build_trend_points(
+        start_date, today, bucket_unit, earliest_date
+    )
+    has_trend_data = trend_max_count > 0
+    trend_line_path = _build_trend_line_path(trend_points)
+    trend_area_path = _build_trend_area_path(trend_points, trend_line_path)
+    # 점(dot) 개수가 많아질수록(최근 30일=30개) 호버 히트박스가 겹치지 않도록 크기를 줄인다.
+    # 임계값(DOT_DENSE_THRESHOLD=15)은 그대로 유지하되, 판단은 템플릿이 아니라 여기서 한다
+    # (docs/design.md "SVG 좌표는 뷰에서 계산" 원칙을 점 크기 플래그까지 확장 — 코드리뷰 지적).
+    trend_dense = len(trend_points) > DOT_DENSE_THRESHOLD
+
+    org_ranking = _build_org_ranking(start_date, today)
+    tech_topic_counts = _build_tech_topic_counts(start_date, today)
+
     insights = (
         Insight.objects
         .annotate(news_count=Count("news"))
@@ -125,23 +256,17 @@ def dashboard(request):
     )
     latest_news = News.objects.order_by("-published_at")[:10]
 
-    today = timezone.localtime(timezone.now()).date()
-    start_date = today - timedelta(days=6)
-
-    daily_counts, daily_max_count = _build_daily_counts(start_date, today)
-    # daily_counts는 항상 7개 항목을 반환하므로(빈 날짜도 count=0으로 채움) {% if daily_counts %}는
-    # 항상 참이 되어 빈 상태 문구가 절대 뜨지 않는다. daily_max_count가 0이면 7일 구간 전체에
-    # News가 하나도 없다는 뜻이므로, 이를 별도 플래그로 템플릿에 전달해 표시 여부를 판단한다.
-    has_daily_data = daily_max_count > 0
-    org_ranking = _build_org_ranking(start_date, today)
-    tech_topic_counts = _build_tech_topic_counts(start_date, today)
-
     return render(request, "dashboard/index.html", {
-        "insights": insights,
-        "latest_news": latest_news,
-        "daily_counts": daily_counts,
-        "daily_max_count": daily_max_count,
-        "has_daily_data": has_daily_data,
+        "period": period,
+        "bucket_unit": bucket_unit,
+        "trend_points": trend_points,
+        "trend_max_count": trend_max_count,
+        "has_trend_data": has_trend_data,
+        "trend_line_path": trend_line_path,
+        "trend_area_path": trend_area_path,
+        "trend_dense": trend_dense,
         "org_ranking": org_ranking,
         "tech_topic_counts": tech_topic_counts,
+        "insights": insights,
+        "latest_news": latest_news,
     })

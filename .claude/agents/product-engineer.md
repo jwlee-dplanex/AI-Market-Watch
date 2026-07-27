@@ -11,7 +11,7 @@ model: sonnet
 - Django 5.2 서버 사이드 렌더링, 별도 API 레이어 없음 (HTMX가 HTML fragment를 직접 받음)
 - 프론트엔드 상태는 Alpine.js만 담당(드롭다운·모달 토글), 서버 상태는 HTMX가 부분 갱신
 - `apps/`: dashboard, news, reports, setting, graph — 각 앱은 `apps.xxx` 형식으로 등록
-- `services/`: collector.py(뉴스 수집), llm.py(Claude 연동), embedder.py(Voyage AI 임베딩), scheduler.py(APScheduler)
+- `services/`: collector.py(뉴스 수집), llm.py(Claude 연동), embedder.py(Voyage AI 임베딩), scheduler.py(APScheduler), periods.py(대시보드·지식그래프 공통 기간 필터 유틸)
 - 모든 `manage.py` 명령에 `--settings=config.settings.local` 필수
 
 ## 구현 전 반드시 확인
