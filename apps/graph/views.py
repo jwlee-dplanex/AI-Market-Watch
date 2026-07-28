@@ -59,6 +59,12 @@ def graph(request):
         .annotate(news_count=_period_news_count(start_date, today))
         .filter(news_count__gt=0)
     )
+    org_pk_set = {o.pk for o in orgs}
+
+    # OrgRelation 조회는 유지하되, 용도는 "이미 기간 내에 실존하는 엣지에 라벨 정보를
+    # 얹는 것"으로만 쓴다(노드/엣지 강제 부활 없음 — docs/planning.md
+    # "지식그래프: 라벨 강제 표시 롤백" 정책, 2026-07-28).
+    relations = list(OrgRelation.objects.select_related("org_a", "org_b").all())
 
     nodes = [
         {
@@ -70,7 +76,6 @@ def graph(request):
         for o in orgs
     ]
 
-    org_pk_set = {o.pk for o in orgs}
     org_type_by_pk = {o.pk: o.org_type for o in orgs}
     edge_weights = defaultdict(int)
 
@@ -90,8 +95,24 @@ def graph(request):
                 if _edge_allowed(org_type_by_pk[a], org_type_by_pk[b]):
                     edge_weights[(a, b)] += 1
 
+    # 라벨 정보는 이제 "이미 edge_weights에 실존하는 엣지"에만 얹는다(강제 삽입 없음 —
+    # docs/planning.md "지식그래프: 라벨 강제 표시 롤백"). OrgRelation.save()가
+    # org_a.pk < org_b.pk로 정규화해 저장하므로 키가 edge_weights의 sorted(a, b) 키와
+    # 순서가 항상 일치한다.
+    labeled_map = {
+        (rel.org_a_id, rel.org_b_id): rel.label
+        for rel in relations
+        if rel.org_a_id in org_pk_set and rel.org_b_id in org_pk_set
+    }
+
     edges = [
-        {"source": str(a), "target": str(b), "value": w}
+        {
+            "source": str(a),
+            "target": str(b),
+            "value": w,
+            "has_label": (a, b) in labeled_map,
+            "label": labeled_map.get((a, b)),
+        }
         for (a, b), w in edge_weights.items()
     ]
 

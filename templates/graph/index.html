@@ -7,6 +7,7 @@
   #graph-svg { cursor: grab; user-select: none; }
   #graph-svg:active { cursor: grabbing; }
   .node-g text { font-family: "Malgun Gothic", "맑은 고딕", system-ui, sans-serif; }
+  .edge-label-g text { font-family: "Malgun Gothic", "맑은 고딕", system-ui, sans-serif; }
 </style>
 
 <!-- 기간 필터 — 대시보드·지식그래프 공통 정책(전체/최근 30일/최근 7일), 대시보드·지식그래프 둘 다 기본값은 최근 7일로 통일.
@@ -102,6 +103,10 @@ const CURRENT_PERIOD = "{{ selected_period }}";
 
 const rawNodes = JSON.parse(document.getElementById('graph-nodes').textContent);
 const rawEdges = JSON.parse(document.getElementById('graph-edges').textContent);
+// 엣지 JSON 필드 기대값(PE 인계, docs/design.md GRAPH-001 "라벨 있는 엣지 상시 표시 + 캔버스 라벨
+// 텍스트 렌더" 절 참고) — 기존 source/target/value에 has_label(bool)/label(string)이 추가로 실릴
+// 것을 가정하고 아래 코드를 작성했다. 아직 뷰가 이 필드를 채우지 않아도 has_label이 undefined→falsy로
+// 처리돼 기존과 동일한 "미분류" 스타일로 자동 폴백하므로 화면이 깨지지 않는다.
 
 // 인접 맵 — D3가 edges를 변환하기 전에 string id 기준으로 구성
 const neigh = {};
@@ -144,13 +149,61 @@ const linkHit = g.append('g')
   .style('cursor', 'pointer')
   .on('click', (e, d) => { e.stopPropagation(); selectEdge(d); });
 
-// 엣지 — 공통 기사 수에 비례한 굵기 (클릭은 위 linkHit이 전담)
+// 라벨 유무 시각 채널 — 굵기(활동량)와 완전히 분리된 채널(PM 정책, docs/planning.md "라벨 있는 엣지
+// 상시 표시"). 세 헬퍼로 캡슐화해 link 초기 렌더/배경 클릭 리셋/selectNode/selectEdge가 모두 재사용한다
+// (하드코딩된 '#D1D5DB' 중복 제거).
+function edgeIdleColor(d)   { return d.has_label ? '#60269E' : '#D1D5DB'; }
+function edgeIdleOpacity(d) { return d.has_label ? 0.75 : 0.6; }
+// 다른 노드/엣지 강조 중 톤다운될 때도 라벨 있는 엣지는 완전히 죽이지 않는다(0.15 vs 기존 0.05).
+function edgeFadeOpacity(d) { return d.has_label ? 0.15 : 0.05; }
+// 굵기 = 선택 기간 공동언급 value 그대로(활동 강도, 거짓 신호 방지). 라벨 있는 엣지는 value=0이어도
+// 최소 1.5px는 보장해 "얇게 그리되 안 보이게 하지 않는다"는 정책을 지킨다.
+function edgeWidth(d) {
+  const base = Math.min(1 + d.value * 0.5, 5);
+  return d.has_label ? Math.max(1.5, base) : base;
+}
+
+// 엣지 — 공통 기사 수에 비례한 굵기 (클릭은 위 linkHit이 전담). 라벨 있는 엣지는 점선 + primary 색.
 const link = g.append('g')
   .selectAll('line').data(edges).join('line')
-  .attr('stroke', '#D1D5DB')
-  .attr('stroke-opacity', 0.6)
-  .attr('stroke-width', d => Math.min(1 + d.value * 0.5, 5))
+  .attr('stroke', edgeIdleColor)
+  .attr('stroke-opacity', edgeIdleOpacity)
+  .attr('stroke-width', edgeWidth)
+  .attr('stroke-dasharray', d => d.has_label ? '5,3' : null)
   .style('pointer-events', 'none');
+
+// 라벨 텍스트 캔버스 상시 렌더(2026-07-28) — has_label인 엣지에만 흰 배경 pill + 텍스트를 얹는다.
+// 미분류 엣지는 텍스트를 그리지 않는다(현재 31개 중 3개만 라벨이 있어 겹침 우려 낮음 — YAGNI, 라벨
+// 붙은 엣지가 15~20개를 넘으면 그때 겹침 방지 로직을 추가 검토한다. docs/planning.md 참고).
+const labeledEdges = edges.filter(d => d.has_label);
+
+const linkLabel = g.append('g')
+  .selectAll('g').data(labeledEdges).join('g')
+  .attr('class', 'edge-label-g')
+  .style('pointer-events', 'none');
+
+linkLabel.append('rect')
+  .attr('rx', 8).attr('ry', 8)
+  .attr('height', 18)
+  .attr('y', -9)
+  .attr('fill', '#FFFFFF')
+  .attr('stroke', '#60269E')
+  .attr('stroke-width', 1);
+
+linkLabel.append('text')
+  .attr('text-anchor', 'middle')
+  .attr('dominant-baseline', 'middle')
+  .attr('font-size', 10)
+  .attr('font-weight', 600)
+  .attr('fill', '#60269E')
+  .text(d => d.label);
+
+// pill 너비는 텍스트 실측(getBBox)에 맞춰 최초 렌더 시 1회만 계산한다 — 라벨 텍스트는 정적이라
+// tick마다 재측정할 이유가 없다(성능 낭비 방지).
+linkLabel.each(function (d) {
+  const w = this.querySelector('text').getBBox().width + 12; // 좌우 패딩 6px씩
+  d3.select(this).select('rect').attr('width', w).attr('x', -w / 2);
+});
 
 // 노드 그룹
 const node = g.append('g')
@@ -186,13 +239,15 @@ sim.on('tick', () => {
   link
     .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
     .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+  linkLabel
+    .attr('transform', d => `translate(${(d.source.x + d.target.x) / 2},${(d.source.y + d.target.y) / 2})`);
   node.attr('transform', d => `translate(${d.x},${d.y})`);
 });
 
 // 배경 클릭 → 하이라이트 초기화
 svg.on('click', () => {
   node.style('opacity', 1);
-  link.attr('stroke', '#D1D5DB').attr('stroke-opacity', 0.6);
+  link.attr('stroke', edgeIdleColor).attr('stroke-opacity', edgeIdleOpacity);
 });
 
 function selectNode(d) {
@@ -201,8 +256,8 @@ function selectNode(d) {
   // 비인접 노드 페이드
   node.style('opacity', n => (n.id === d.id || adj.has(n.id)) ? 1 : 0.08);
   link
-    .attr('stroke',         l => (l.source.id === d.id || l.target.id === d.id) ? '#60269E' : '#D1D5DB')
-    .attr('stroke-opacity', l => (l.source.id === d.id || l.target.id === d.id) ? 0.9 : 0.05);
+    .attr('stroke',         l => (l.source.id === d.id || l.target.id === d.id) ? '#60269E' : edgeIdleColor(l))
+    .attr('stroke-opacity', l => (l.source.id === d.id || l.target.id === d.id) ? 0.9 : edgeFadeOpacity(l));
 
   htmx.ajax('GET', `/graph/orgs/${d.id}/panel/?period=${CURRENT_PERIOD}`, { target: '#org-panel', swap: 'innerHTML' });
 }
@@ -214,8 +269,8 @@ function selectEdge(d) {
   node.style('opacity', n => (n.id === aId || n.id === bId) ? 1 : 0.08);
   // 클릭한 엣지만 강조, 나머지 엣지는 톤다운(노드 클릭 때의 "인접 전체 강조"와 달리 이 엣지 하나만)
   link
-    .attr('stroke',         l => (l === d) ? '#60269E' : '#D1D5DB')
-    .attr('stroke-opacity', l => (l === d) ? 0.9 : 0.05);
+    .attr('stroke',         l => (l === d) ? '#60269E' : edgeIdleColor(l))
+    .attr('stroke-opacity', l => (l === d) ? 0.9 : edgeFadeOpacity(l));
 
   // pk_a < pk_b 정규화 — 2단계 OrgRelation 정규화 순서 규칙과 동일하게 맞춰둔다.
   const pkA = Math.min(+aId, +bId);
@@ -235,6 +290,10 @@ function toggleCategory(cat, btn) {
   );
   // linkHit(클릭 히트 영역)도 함께 숨겨야 시각적으로 사라진 엣지가 클릭은 되는 불일치가 없다.
   linkHit.style('display', l =>
+    (hiddenCats.has(l.source.category) || hiddenCats.has(l.target.category)) ? 'none' : null
+  );
+  // 캔버스 라벨 텍스트도 함께 숨긴다 — 카테고리를 숨겼는데 그 라벨 텍스트만 남아있으면 불일치.
+  linkLabel.style('display', l =>
     (hiddenCats.has(l.source.category) || hiddenCats.has(l.target.category)) ? 'none' : null
   );
 }

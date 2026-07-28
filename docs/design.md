@@ -1362,6 +1362,8 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 기술 주제 관리 
 > **(2026-07 갱신)** `docs/planning.md`의 "지식그래프 개선 로드맵" 1단계(엣지 근거뉴스)와 "대시보드·지식그래프 공통 기간 필터 정책"이 확정됨에 따라, 아래 내용에 (1) 엣지 클릭 → 기업 쌍(pair) 교집합 뉴스 패널, (2) 기간 필터(전체/최근 30일/최근 7일, 기본값 최근 7일 — 대시보드와 통일, 사용자 결정)를 반영했다. 템플릿(`templates/graph/index.html`, `_org_panel.html`, 신규 `_edge_panel.html`)은 PD가 직접 구현 완료했고, 백엔드(뷰·URL·쿼리)는 아래 "1단계 백엔드 스펙(PE 인계)"에 정리된 대로 PE가 구현해야 한다 — **이 문서 갱신 시점에는 뷰가 아직 이 스펙을 반영하지 않은 상태이므로, 템플릿은 더미 컨텍스트 변수(`selected_period`, `org_a`/`org_b`, `news_count` 등)를 가정하고 작성돼 있다.**
 >
 > **(2026-07 추가 갱신 — 2단계 관계 라벨링)** `docs/planning.md` "지식그래프 개선 로드맵" 2단계(RA 수동 관계 라벨링) 착수 스펙이 확정됨에 따라, `_edge_panel.html`에 "관계" 라벨 표시/입력 UI를 PD가 정적 마크업 수준으로 구현 완료했다(아래 "2단계 관계 라벨 UI 스펙" 절). `OrgRelation` 모델과 저장 뷰(`graph_edge_label_save` 가칭)는 **아직 PE가 구현하지 않았다** — 그 결과 이 문서 갱신 시점에는 `relation` 컨텍스트 변수가 항상 비어 있어 화면은 항상 "관계 미분류" 상태로만 보인다(정상 동작). PE가 모델·마이그레이션·저장 뷰·`graph_edge_panel`의 `relation` 컨텍스트 주입을 구현하면 그대로 동작한다.
+>
+> **(2026-07-28 추가 갱신 — 라벨 있는 엣지 상시 표시 + 캔버스 라벨 텍스트)** `docs/planning.md`의 "라벨 있는 엣지 상시 표시"(기간 필터 예외)·"라벨 텍스트 캔버스 상시 렌더"(스코프 제외 결정 번복) 두 정책이 확정됨에 따라, `templates/graph/index.html`의 D3 렌더링 로직을 PD가 직접 구현 완료했다(아래 "라벨 있는 엣지 상시 표시 + 캔버스 라벨 텍스트 렌더" 절). `apps/graph/views.py`의 `graph()` 뷰는 **아직 노드/엣지 합집합 로직과 `has_label`/`label` 필드를 채우지 않은 상태**라, 이 문서 갱신 시점에는 모든 엣지가 `has_label=undefined`(falsy)로 폴백해 기존과 동일한 회색 실선으로만 보인다(정상 동작, 에러 없음). PE가 `graph()` 뷰에 두 필드와 합집합 로직을 채우면 그대로 동작한다.
 
 **목적**: 활성 기업(Organization) 간 "같은 뉴스에 함께 등장" 관계를 force-directed 그래프로 시각화해, 개별 기업·뉴스 단위로는 보이지 않는 업계 관계망(어떤 금융사·보험사가 어떤 AI 기업과 자주 엮이는지)을 한눈에 파악하는 분석 화면. 조회 전용이며 CRUD가 없다(SET 화면군과 성격이 다른 이유).
 
@@ -1423,6 +1425,8 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 기술 주제 관리 
 └────────────────────────┘
 ```
 
+**캔버스 라벨 있는 엣지 표기(2026-07-28 추가)** — 위 ASCII 다이어그램에는 지면상 생략했지만, 실제 캔버스에서 라벨(`OrgRelation.label`)이 붙은 엣지는 다음과 같이 그려진다: `금융사●┄┄[기술협업]┄┄●AI기업`처럼 **점선 + primary색(`#60269E`) 선** 위, 엣지 중점에 **흰 배경 + primary 테두리 pill**로 라벨 텍스트가 클릭 없이 항상 떠 있다. 미분류 엣지(대다수)는 기존과 동일한 회색 실선이며 텍스트가 없다. 상세 스펙은 아래 "라벨 있는 엣지 상시 표시 + 캔버스 라벨 텍스트 렌더" 절 참고.
+
 **빈 상태 문구 (기간 인지형)** — 기업/연결이 0개인 두 케이스 모두, `selected_period`가 `all`이면 기존 문구("뉴스가 수집되면 기업 간 연결이 표시됩니다.")를 유지하고, `30d`/`7d`면 "선택한 기간에는 뉴스가 있는 기업이 없습니다." / "선택한 기간에는 기업 간 연결이 없습니다." + "다른 기간을 선택해보세요."로 분기한다. 전체 기간에서는 보이던 노드가 짧은 기간으로 좁히면 뉴스 0건이 되어 자연스럽게 사라질 수 있는데(현재도 `news_count__gt=0` 조건으로 동일하게 걸러짐), 문구를 기간 인지형으로 분기해두지 않으면 "데이터가 원래 없다"는 오해를 줄 수 있어 PD 판단으로 추가했다.
 
 **데이터 모델 (`apps/graph/views.py`)**
@@ -1478,8 +1482,9 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 기술 주제 관리 
 - 줌/팬: `d3.zoom().scaleExtent([0.2, 4])`.
 - 드래그: 노드를 잡아 고정(`fx`/`fy`), 놓으면 시뮬레이션에 복귀.
 - 노드 클릭: (1) 클릭한 노드와 인접 노드만 `opacity: 1`, 나머지는 `0.08`로 페이드 — 연결선도 `#60269E`(Primary)로 강조/`#D1D5DB`로 톤다운. (2) 동시에 `htmx.ajax('GET', '/graph/orgs/<pk>/panel/?period=' + CURRENT_PERIOD, {target:'#org-panel', swap:'innerHTML'})`로 우측 패널을 로드. 배경(빈 공간) 클릭 시 하이라이트 초기화.
-- **엣지 클릭(2026-07 추가)** — 엣지는 `<line>` 두 겹으로 구현한다. (1) 시각 레이어(`link`, 기존과 동일한 굵기·색·`stroke-opacity:0.6`)는 `pointer-events: none`으로 클릭을 통과시킨다. (2) 그 위에 겹치는 히트 레이어(`linkHit`, `stroke="transparent"`, `stroke-width:14`, `cursor:pointer`)가 클릭을 전담한다 — 얇은 선(최대 5px)만으로는 클릭 타겟이 좁아 사용성이 나쁘기 때문. `stroke="transparent"`는 완전 투명해도 SVG 히트테스트의 "칠해진 영역"으로 간주돼 기본 `pointer-events: visiblePainted`에서 정상적으로 클릭이 잡힌다(`stroke="none"`과의 차이 — `none`은 애초에 칠해지지 않아 클릭도 안 잡힘). 클릭 시: 그 엣지의 두 endpoint 노드만 `opacity:1`(나머지 `0.08`), 클릭한 엣지 자신만 `#60269E`로 강조(나머지 엣지는 `stroke-opacity:0.05`로 톤다운 — 노드 클릭의 "인접 전체 강조"와 달리 "이 엣지 하나만" 강조해 노드 클릭과 시각적으로 구분), `htmx.ajax('GET', '/graph/edges/<pkA>/<pkB>/panel/?period=' + CURRENT_PERIOD, {target:'#org-panel', swap:'innerHTML'})`로 쌍 패널을 같은 `#org-panel` 슬롯에 로드(노드 패널과 쌍 패널은 서로 다른 프래그먼트지만 같은 컨테이너를 공유 — `news/_orgs.html`의 단일 패널 슬롯 재사용 관례와 동일). `pkA`/`pkB`는 `Math.min/max`로 정규화해 URL에 넣는다(2단계 `OrgRelation.org_a.pk < org_b.pk` 정규화 규칙과 동일 컨벤션을 미리 맞춤).
-- 범례 클릭: 카테고리(금융사/보험사/AI)별로 노드·엣지(`link` **및 `linkHit`** — 히트 레이어도 함께 숨겨야 "안 보이는데 클릭은 되는" 불일치가 없다)를 `display:none` 토글, 비활성 상태 버튼은 `opacity:0.35`.
+- **엣지 클릭(2026-07 추가)** — 엣지는 `<line>` 두 겹으로 구현한다. (1) 시각 레이어(`link`, 기존과 동일한 굵기·색·`stroke-opacity:0.6`)는 `pointer-events: none`으로 클릭을 통과시킨다. (2) 그 위에 겹치는 히트 레이어(`linkHit`, `stroke="transparent"`, `stroke-width:14`, `cursor:pointer`)가 클릭을 전담한다 — 얇은 선(최대 5px)만으로는 클릭 타겟이 좁아 사용성이 나쁘기 때문. `stroke="transparent"`는 완전 투명해도 SVG 히트테스트의 "칠해진 영역"으로 간주돼 기본 `pointer-events: visiblePainted`에서 정상적으로 클릭이 잡힌다(`stroke="none"`과의 차이 — `none`은 애초에 칠해지지 않아 클릭도 안 잡힘). 클릭 시: 그 엣지의 두 endpoint 노드만 `opacity:1`(나머지 `0.08`), 클릭한 엣지 자신만 `#60269E`로 강조(나머지 엣지는 톤다운 — 노드 클릭의 "인접 전체 강조"와 달리 "이 엣지 하나만" 강조해 노드 클릭과 시각적으로 구분), `htmx.ajax('GET', '/graph/edges/<pkA>/<pkB>/panel/?period=' + CURRENT_PERIOD, {target:'#org-panel', swap:'innerHTML'})`로 쌍 패널을 같은 `#org-panel` 슬롯에 로드(노드 패널과 쌍 패널은 서로 다른 프래그먼트지만 같은 컨테이너를 공유 — `news/_orgs.html`의 단일 패널 슬롯 재사용 관례와 동일). `pkA`/`pkB`는 `Math.min/max`로 정규화해 URL에 넣는다(2단계 `OrgRelation.org_a.pk < org_b.pk` 정규화 규칙과 동일 컨벤션을 미리 맞춤).
+- **라벨 있는 엣지 시각 채널 + 캔버스 라벨 텍스트(2026-07-28 추가, 구현 완료)** — 굵기(활동량)와 별개로 라벨 유무를 점선(`stroke-dasharray:"5,3"`)·강조색(`#60269E`)으로 구분하고, 톤다운 시 강조/페이드 투명도(`edgeIdleColor`/`edgeIdleOpacity`/`edgeFadeOpacity`/`edgeWidth` 4개 헬퍼로 캡슐화)도 라벨 없음과 다르게 처리한다. 라벨 텍스트 자체는 흰 배경 pill(`edge-label-g` — `<rect>`+`<text>`)로 엣지 중점에 클릭 없이 상시 렌더한다. 상세 스펙·정확한 값·PE가 채워야 할 JSON 필드는 아래 "라벨 있는 엣지 상시 표시 + 캔버스 라벨 텍스트 렌더" 절 참고.
+- 범례 클릭: 카테고리(금융사/보험사/AI)별로 노드·엣지(`link`, `linkHit`, **`linkLabel`** — 히트 레이어와 라벨 텍스트도 함께 숨겨야 "안 보이는데 클릭은 되는"/"카테고리는 숨겼는데 라벨 텍스트만 남는" 불일치가 없다)를 `display:none` 토글, 비활성 상태 버튼은 `opacity:0.35`.
 - **기간 필터(2026-07 추가)** — 페이지 상단 세그먼트 pill(전체/최근 30일/최근 7일, 기본값 최근 7일 — 대시보드와 통일)은 `<a href="?period=...">` **전체 페이지 GET 재로드** 방식이다(HTMX 부분 스왑이 아님). 이는 의도적 선택이다: D3 초기화 스크립트가 `const`/`let`을 최상위 스코프에 선언하는데, 같은 문서 안에서 `<script>`만 HTMX로 반복 재실행하면 브라우저가 두 번째 실행부터 "이미 선언된 식별자" `SyntaxError`를 던진다(classic `<script>`의 최상위 `let`/`const`는 문서 전역 렉시컬 환경을 공유해 재선언이 막힘). 전체 페이지 재로드는 매번 새 문서이므로 이 문제 자체가 없고, `news/list.html` 검색·필터 바(`<form method="get">`)와 같은 이미 검증된 패턴과도 톤이 맞는다. 재로드 시 뷰가 `period`에 맞춰 노드·엣지·`org_count`/`edge_count`를 다시 계산해 내려주므로 별도 클라이언트 로직 없이 정합성이 자동으로 맞는다. 서버 렌더링 시점에 `selected_period`를 `CURRENT_PERIOD` JS 상수로 심어두고, 노드/엣지 패널 HTMX 호출 시 `?period=` 쿼리로 그대로 붙여 캔버스와 패널이 항상 같은 기간을 보게 한다(기간 정합성 계약).
 - 리사이즈: `window.resize` 시 `forceCenter` 재계산.
 - 노드 라벨: SVG `<text>`로 기업명 표시, `font-family`를 시스템 한글 폰트("Malgun Gothic"/"맑은 고딕")로 별도 지정 — 프로젝트 기본 `font-sans`(Noto Sans KR)와 다른 지정이라 아래 "디자인 시스템 정합성 점검"에 기록.
@@ -1531,7 +1536,37 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 기술 주제 관리 
 
 6. **컨텍스트 변수 제안(PE 인계)** — `graph_edge_panel` 뷰(및 신규 저장 뷰)가 템플릿에 넘겨야 할 변수: `relation`(`OrgRelation` 인스턴스 또는 없으면 `None`/컨텍스트에서 생략 — 템플릿은 둘 다 "관계 미분류"로 동일하게 처리하므로 무엇이든 무방하나 `None`을 명시적으로 넘기는 쪽을 권장, `docs/planning.md`의 "정규화된 `(pk_a, pk_b)`로 `OrgRelation`을 조회, 없으면 `None`" 지시와 일치). 그 외 기존 `org_a`, `org_b`, `news_list`, `news_count`, `selected_period`는 변경 없음.
 
-7. **비범위 확인** — 그래프 캔버스 엣지 선 위 상시 라벨 렌더(SVG)는 이번에 구현하지 않았다(PM 정책대로 스코프 제외). 새 화면 ID도 부여하지 않았다(GRAPH-001 하위 프래그먼트 관례 유지).
+7. **(2026-07-28 갱신) 캔버스 상시 라벨 렌더 — 스코프 제외 결정 폐기, 구현 완료**: 위 작성 시점에는 "그래프 캔버스 엣지 선 위 상시 라벨 렌더는 구현하지 않는다(PM 정책대로 스코프 제외)"였으나, `docs/planning.md`의 "지식그래프: 라벨 텍스트 캔버스 상시 렌더" 절에서 이 제외 결정이 번복됐고, PD가 `templates/graph/index.html`에 실제로 구현을 완료했다. 상세 스펙은 아래 "라벨 있는 엣지 상시 표시 + 캔버스 라벨 텍스트 렌더" 절 참고. 새 화면 ID는 여전히 부여하지 않는다(GRAPH-001 하위 프래그먼트 관례 유지).
+
+**라벨 있는 엣지 상시 표시 + 캔버스 라벨 텍스트 렌더 (PD 설계·구현 완료, 2026-07-28 — `docs/planning.md` "지식그래프: 라벨 있는 엣지 상시 표시"·"지식그래프: 라벨 텍스트 캔버스 상시 렌더" 두 정책을 화면 단위로 구체화, PE 인계)**
+
+`templates/graph/index.html`에 실제로 구현했다(D3 렌더링 로직까지 완료 — 아래 "PE 인계" 항목만 남음). 두 정책은 서로 결합된 하나의 시각 언어다: (1) 라벨 있는 쌍은 기간 필터와 무관하게 항상 엣지로 존재하고, (2) 그 엣지는 굵기와 별개의 시각 채널(점선+강조색)로 구분되며, (3) 라벨 텍스트 자체도 클릭 없이 캔버스에 pill로 상시 표시된다.
+
+1. **엣지 시각 채널 — 굵기(활동)와 라벨 유무를 분리**:
+   - 굵기: 기존과 동일하게 `Math.min(1 + d.value * 0.5, 5)`(선택 기간 공동언급 `value` 그대로, 거짓 활동 신호 방지). 단 라벨 있는 엣지는 여기에 **최소 1.5px 바닥**을 추가한다 — `d.has_label ? Math.max(1.5, base) : base`. value=0인 라벨 엣지도 이 바닥 덕분에 "안 보이는 선"이 되지 않는다.
+   - 색·투명도: 라벨 없음(기본) = `#D1D5DB`(gray-300) / opacity `0.6`(기존과 동일). 라벨 있음 = Primary Violet `#60269E` / opacity `0.75`(더 진하게, 최소 가시성 보장).
+   - 점선: 라벨 있는 엣지에만 `stroke-dasharray="5,3"`을 적용해 실선(활동 표시)과 완전히 구분되는 채널로 만든다. 미분류 엣지는 `stroke-dasharray` 없음(실선 유지).
+   - 코드: `edgeIdleColor(d)`, `edgeIdleOpacity(d)`, `edgeFadeOpacity(d)`, `edgeWidth(d)` 4개 헬퍼 함수로 캡슐화(`templates/graph/index.html` 152~164행). 기존 `link` 생성 코드, `svg.on('click', ...)`(배경 클릭 리셋), `selectNode`/`selectEdge`의 "비활성 상태" 분기가 모두 이 헬퍼를 재사용하도록 고쳐, 하드코딩된 `#D1D5DB`가 여러 곳에 중복되던 것을 제거했다.
+   - **강조(하이라이트) 상태와의 관계**: 노드/엣지를 클릭해 다른 요소가 페이드되는 중에도 라벨 있는 엣지는 완전히 죽이지 않는다 — 페이드 투명도를 `edgeFadeOpacity(d)`로 분리해 라벨 없음은 `0.05`(기존과 동일), 라벨 있음은 `0.15`로 살짝 더 남긴다. 단 점선(`stroke-dasharray`) 자체는 하이라이트 상태와 무관하게 최초 렌더 시 한 번만 설정하고 이후 변경하지 않는다 — 색/투명도만 토글하고 점선은 항상 유지해, "이건 라벨이 있는 관계"라는 정체성이 상호작용 중에도 사라지지 않게 했다.
+
+2. **캔버스 라벨 텍스트 — 흰 배경 pill, 수평 고정, 엣지 중점에 배치**:
+   - 대상: `has_label === true`인 엣지만(`labeledEdges = edges.filter(d => d.has_label)`, `templates/graph/index.html` 178행). 미분류 엣지에는 텍스트를 그리지 않는다(정책 그대로 — 현재 31개 중 3개만 라벨이 있어 겹침 우려 낮음).
+   - 배치: 엣지 선의 **중점**(`(source.x+target.x)/2, (source.y+target.y)/2`)에 `<g class="edge-label-g">`를 `translate`로 위치시킨다. 힘 시뮬레이션으로 선 각도가 계속 바뀌므로 **텍스트는 회전시키지 않고 항상 수평 고정**했다(PD 판단 — 회전 텍스트는 가독성이 떨어지고 매 tick 각도 재계산이 필요해 복잡도만 늘어난다. 수평 고정 권장대로 채택).
+   - 마크업: `<g>` 안에 `<rect rx=8 ry=8 height=18 fill=#FFFFFF stroke=#60269E stroke-width=1>` + `<text text-anchor=middle dominant-baseline=middle font-size=10 font-weight=600 fill=#60269E>{{ label }}</text>`. 흰 배경 + primary 테두리 pill이라 회색 엣지 선이나 다른 노드와 겹쳐도 잘 읽힌다(halo 대신 solid 배경 방식 채택 — SVG에서 텍스트에 직접 stroke halo를 주는 것보다 배경 rect가 구현이 단순하고, 이 프로젝트의 기존 뱃지/필 시각 언어와도 톤이 맞는다).
+   - pill 너비: 텍스트 실측(`text.getBBox().width + 12`, 좌우 패딩 6px씩)으로 라벨마다 동적 계산한다. **최초 렌더 시 1회만 측정**하고 매 tick마다 재측정하지 않는다(라벨 텍스트는 정적이라 매 프레임 `getBBox()` 호출은 불필요한 비용, `templates/graph/index.html` 203~206행).
+   - tick 갱신: `sim.on('tick', ...)` 콜백(`templates/graph/index.html` 235행)에 `linkLabel.attr('transform', d => translate(중점 좌표))`를 추가했다(기존 `linkHit`/`link`/`node` 좌표 갱신과 동일한 패턴 재사용).
+   - z-order: `g.append('g')` 호출 순서로 `linkHit` → `link` → `linkLabel` → `node` 순으로 쌓았다. 라벨 pill이 엣지 선 위, 노드 원 아래에 그려진다 — 짧은 거리(force distance 160)에서 노드가 라벨을 완전히 가리는 경우는 드물지만, 만에 하나 겹쳐도 클릭 가능한 노드가 항상 최상단이어야 상호작용이 가려지지 않는다.
+   - `pointer-events: none` — 라벨 텍스트/pill은 클릭 대상이 아니다(엣지 클릭은 여전히 `linkHit`이 전담).
+   - 범례 토글 연동: `toggleCategory()`가 `linkLabel`에도 `display:none` 토글을 적용하도록 확장(기존에 `link`/`linkHit`만 토글하던 것에 추가) — 카테고리를 숨기면 그 카테고리가 걸린 라벨 엣지의 텍스트도 함께 사라져야 시각적 일치가 유지된다.
+   - 겹침 방지 로직(hover 시에만 표시, 줌 레벨별 밀도 조절 등)은 **지금 구현하지 않는다** — `docs/planning.md`에 명시된 트리거(캔버스에 동시 표시되는 라벨이 15~20개를 넘어설 때)가 오면 그때 추가한다(YAGNI 유지, 이 문단이 재검토 트리거 기록).
+
+3. **PE 인계 — `apps/graph/views.py`의 `graph()` 뷰가 채워야 할 정확한 엣지 JSON 필드**: 위 프런트 코드는 `edges` 배열의 각 dict가 다음 필드를 갖는다고 가정하고 이미 작성돼 있다(필드가 없으면 `has_label`이 `undefined`로 falsy 처리돼 기존과 동일하게 "미분류" 스타일로 자동 폴백하므로, PE 작업 전에도 화면이 깨지지 않는다 — `templates/graph/index.html` 106~109행에 이 폴백 계약을 주석으로 명시해뒀다):
+   - `has_label` (bool) — 이 쌍에 `OrgRelation` 레코드가 존재하는지.
+   - `label` (string, `has_label=false`면 `null` 또는 필드 생략 가능) — `OrgRelation.label` 값 그대로. 캔버스 pill 텍스트로 그대로 출력되므로 이스케이프는 Django `json_script` 필터가 자동 처리한다(기존 `{{ edges|json_script:"graph-edges" }}` 그대로 사용, 별도 처리 불필요).
+   - 기존 `source`/`target`/`value`는 변경 없음. `value`는 여전히 "선택 기간 공동언급 건수"만 의미하며(라벨 엣지는 0 가능), 라벨이 있다고 값을 부풀리지 않는다(`docs/planning.md` "충돌 시 우선순위" 규칙과 정확히 일치).
+   - **노드/엣지 합집합 로직(`docs/planning.md` "라벨 있는 엣지 상시 표시" 1번 요약)**: 엣지 목록은 (선택 기간 공동언급 엣지) ∪ (`OrgRelation`이 존재하는 모든 쌍, 기간 내 공동언급이 없으면 value=0). 노드 목록도 (기간 내 news_count>0인 기업) ∪ (라벨 엣지의 양 끝 기업)이어야 한다 — 그래야 프런트가 라벨 엣지의 `source`/`target` id로 존재하지 않는 노드를 참조해 D3가 깨지는 일이 없다. `_edge_allowed`(금융/보험-AI 제약)는 라벨 있는 엣지에는 적용하지 않는다(예외).
+
+4. **value=0 노드 처리 확인(변경 없음)** — 노드 `symbolSize = max(14, min(40, 14 + news_count*2))`는 이미 `news_count=0`을 14px 최소값으로 안전하게 처리한다(기간 활동 0인 라벨 엣지의 끝 노드가 새로 등장해도 별도 예외 처리 불필요, 확인만 하고 변경하지 않았다). 활동 0 노드를 시각적으로 별도 구분(흐리게 등)할지는 `docs/planning.md`가 PD 재량·비필수로 남긴 항목인데, 이번 착수에서는 추가하지 않았다(YAGNI — 지금 데이터에서 혼란 사례가 보고된 바 없음, 필요해지면 재검토).
 
 **사이드바 메뉴 (`templates/base.html`)**
 
@@ -1569,7 +1604,7 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 지식그래프 화�
 - 좌측: 그래프 캔버스(flex-1, 흰 카드, 화면 높이 꽉 채움)
   - 좌상단: 범례 pill — "● 금융사(blue-500) ● 보험사(#00AF9A) ● AI(#60269E)", 클릭 시 opacity 0.35로 토글
   - 우상단: "기업 N개 · 연결 N개" 통계 텍스트 (선택된 기간 기준으로 값이 바뀜)
-  - 중앙: force-directed 그래프. 노드=기업(카테고리별 색상 원, 크기는 뉴스 건수 비례 14~40px), 엣지=공동등장 가중치에 비례한 선 굵기(색 #D1D5DB, 최대 5px) + 클릭 가능(얇은 선 위에 넓은 투명 히트 영역)
+  - 중앙: force-directed 그래프. 노드=기업(카테고리별 색상 원, 크기는 뉴스 건수 비례 14~40px), 엣지=공동등장 가중치에 비례한 선 굵기(미분류는 실선 #D1D5DB 최대 5px, 관계 라벨이 붙은 엣지는 점선 #60269E + 최소 1.5px 바닥 + 엣지 중점에 흰 배경/primary 테두리 pill로 라벨 텍스트("기술협업" 등) 클릭 없이 상시 표시) + 클릭 가능(얇은 선 위에 넓은 투명 히트 영역)
   - 인터랙션: 줌/팬, 노드 드래그, 노드 클릭 시 연결된 노드만 강조(비연결 노드 opacity 0.08, 연결선 #60269E), 엣지 클릭 시 그 엣지의 두 기업만 강조 + 우측 패널에 "A × B 함께 언급된 뉴스 N건" 표시, 빈 공간 클릭 시 초기화
 - 우측: w-72 기업/쌍 패널(흰 카드, 하나의 슬롯을 두 종류 패널이 공유)
   - 미선택 시: 중앙 정렬 안내 아이콘 + "기업 노드 또는 연결선을 클릭하면 관련 뉴스를 볼 수 있습니다."
