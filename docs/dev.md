@@ -125,21 +125,24 @@ bleach
 
 ---
 
-**Report** — 주간 AI 인사이트 보고서
+**Report** — 주간 AI 인사이트 보고서. **자동 생성되지 않으며, RA가 `docs/planning.md`의 "주간 보고서(Report) 표준 구조"에 따라 수동으로 작성**합니다. `status`도 자동 전이되지 않고 RA가 작성을 마치면 `"done"`으로 명시적으로 바꿔야 합니다.
 
 | 필드 | 타입 | 설명 |
 |------|------|------|
 | id | AutoField | PK |
-| year | IntegerField | 연도 |
-| week | IntegerField | 주차 |
-| date_from | DateField | 해당 주 시작일 |
-| date_to | DateField | 해당 주 종료일 |
-| title | CharField | 보고서 제목 |
-| overview | TextField | 주요 동향 개요 |
-| content | TextField | 주요 이슈 + 시사점 |
-| status | CharField | 생성중·완료·실패 |
+| uid | UUIDField | shortuuid 기반 공개 식별자 (URL에 노출, unique·db_index, `default=uuid.uuid4`) |
+| period_type | CharField(10) | `daily`/`weekly`/`monthly` — choices, default `weekly` |
+| date_from | DateField | 해당 기간 시작일 |
+| date_to | DateField | 해당 기간 종료일 |
+| title | CharField(500) | 보고서 제목 |
+| overview | TextField(blank) | 주요 동향 개요 |
+| content | TextField(blank) | 주요 이슈 + 시사점 |
+| status | CharField(20) | `generating`(생성중, default) / `done`(완료) / `failed`(실패) — RA가 작성 완료 시 `done`으로 명시 전환 |
 | slack_sent_at | DateTimeField(null) | Slack 발송 시각 |
+| news | ManyToManyField(News, through=ReportNews) | 근거 News |
 | created_at | DateTimeField | |
+
+`Meta.unique_together = ("period_type", "date_from")`, `ordering = ["-date_from"]`.
 
 ---
 
@@ -241,6 +244,8 @@ bleach
 | webhook_url | URLField | Webhook URL |
 | is_active | BooleanField | 활성 여부 |
 | last_sent_at | DateTimeField(null) | 마지막 발송 시각 |
+
+`setting.views.slack`은 `channel_name`/`webhook_url`/`is_active` **설정 저장만** 담당합니다. 실제 webhook으로 POST를 보내는 발송 코드는 미구현이며, 당분간 구현하지 않기로 확정된 상태입니다.
 
 ---
 
@@ -356,7 +361,7 @@ ai_market_watch/
 | `/news/<uid>/` | 뉴스 상세 (NEWS-002) |
 | `/news/<uid>/delete/` | 뉴스 삭제 (POST) |
 | `/reports/` | 보고서 목록 (REPORT-001) |
-| `/reports/<id>/` | 보고서 상세 (REPORT-002) |
+| `/reports/<uid>/` | 보고서 상세 (REPORT-002) — `uid`는 `shortuuid` 커스텀 컨버터(`config/converters.py`) |
 | `/setting/sources/` | 데이터 소스 (SET-001) |
 | `/setting/sources/<pk>/toggle/` | 데이터 소스 활성 토글 (POST) |
 | `/setting/sources/collect-now/` | 수동 수집 실행 (POST) |
@@ -444,6 +449,10 @@ ai_market_watch/
 
 기업·기술 주제 마스터(별칭)를 SET-007/SET-008 화면에서 수정한 뒤에는 각 화면의 재매핑 버튼(`remap_organizations()`/`remap_tech_topics()`)으로 이미 수집된 News 전체의 매핑을 다시 계산할 수 있습니다.
 
+**별칭 매칭 경계 판정(`_contains_alias`, `services/collector.py`)**: 별칭이 텍스트 안에서 단어 경계를 지키며 등장하는지 확인하되, 경계 검사는 **alias 자신의 시작/끝 글자가 영숫자일 때만** 적용합니다. alias 자신의 경계 글자가 한글이면 그쪽 경계 검사를 생략합니다 — "NH농협캐피탈"처럼 한글 별칭("농협")이 영문 약어("NH")에 공백 없이 붙는 표기가 실제 기사에 흔한데, 텍스트 쪽 인접 글자("H")만 보고 경계를 판정하면 alias 자신은 한글인데도 매칭이 막혀버리기 때문입니다. alias가 "RAG"처럼 영문으로 시작/끝나는 경우는 기존처럼 엄격하게 경계를 검사해 "storage"/"average" 안에 우연히 낀 매칭은 계속 막습니다.
+
+**알려진 구조적 한계 — 기업 과다태깅**: collector는 본문에 언급된 **모든 기업을 무차별 태깅**하며 "핵심 주체 vs 배경 언급"(관련성 판단 기준 1)을 구분하지 못합니다. 이는 결정론적 별칭 매칭의 구조적 한계입니다. 실례로 News 901(KB금융-구글 기사)은 본문의 경쟁사 비교 서술("신한은행은… 하나은행 역시…") 때문에 신한·하나은행이 오태깅됐습니다. 근본 해결(LLM 기반 핵심 주체 판별)은 옵션 B 코드화 과제이며, 그때까지는 RA가 배치 처리(관련성 판정·삭제) 시 기업 태깅도 함께 수동 검증·교정합니다. ⚠️ `remap_organizations()`를 실행하면 collector 로직으로 전량 재태깅되어 RA의 수동 교정이 원상복구되므로, 별칭 변경 시에만 신중히 실행하고 실행 후 RA가 교정분을 재확인해야 합니다(자세한 정책은 `docs/planning.md` 참조).
+
 ### 소스별 수집 방식
 
 | 소스 | 방식 | 주요 수집 필드 |
@@ -503,7 +512,7 @@ if News.objects.filter(url_hash=url_hash).exists():
 
 ### RA의 온디맨드 처리 흐름
 
-1. **노이즈 판정 + 삭제** — 갓 수집된 뉴스 배치를 직접 읽고 PM이 정의한 관련성 기준으로 판단, `product-engineer`의 안전 삭제 패턴(`ExcludedURL.objects.get_or_create()` 선기록 후 `news.delete()`, 건별 개별 처리)을 그대로 따라 직접 삭제까지 실행합니다. 남은 `News`는 삭제되지 않았다는 사실 자체가 "관련 있음"을 의미하므로 별도 플래그(`is_relevant`)가 필요 없습니다.
+1. **노이즈 판정 + 삭제** — 갓 수집된 뉴스 배치를 직접 읽고 PM이 정의한 관련성 기준으로 판단, `product-engineer`의 안전 삭제 패턴(`ExcludedURL.objects.get_or_create()` 선기록 후 `news.delete()`, 건별 개별 처리)을 그대로 따라 직접 삭제까지 실행합니다. 남은 `News`는 삭제되지 않았다는 사실 자체가 "관련 있음"을 의미하므로 별도 플래그(`is_relevant`)가 필요 없습니다. **기업 태깅 검증·교정도 이 단계에 편입**됩니다 — collector의 별칭 매칭이 "핵심 주체 vs 배경 언급"을 구분하지 못해 과다태깅되는 구조적 한계(5절 참고)가 있으므로, RA가 배치를 판정하면서 잘못 태깅된 `Organization`/`TechTopic` 연결도 함께 수동 검증·교정합니다.
 2. **관련 기사 찾기 + Insight 작성** — 남은 배치의 제목·본문을 직접 읽고(pgvector 쿼리 미사용) 같은 사건을 다루는 기사를 식별해 Django ORM으로 `Insight`(`title`/`content`/`implication`)를 작성하고 `insight.news.set([...])`로 근거 `News`를 연결합니다. 별도 그룹 테이블(과거 `IssueGroup`) 없이 `Insight` 자체가 "이 기사들 + 이 분석"의 단위입니다.
 3. **주간 보고서 편집** — `Report.title`/`overview`/`content`를 편집하고 `ReportNews`로 근거 `News`를 직접 연결합니다.
 

@@ -92,7 +92,7 @@ templates/      # 앱별 하위 디렉토리를 포함한 루트 레벨 템플�
 | **product-manager (PM)** | 기능 우선순위·제품 정책 정의(예: 뉴스 관련성 판단 기준, Insight 승격 기준). 화면 ID 필요 여부 판단 | `docs/planning.md` |
 | **product-designer (PD)** | 화면·디자인 시스템(컬러 토큰, 컴포넌트 패턴), 와이어프레임 설계 | `docs/design.md`, `templates/` |
 | **product-engineer (PE)** | 실제 구현 전체 — 모델·뷰·마이그레이션·서비스 코드, PM/PD가 정한 요구사항 구현 | 제한 없음 |
-| **research-analyst (RA)** | 수집된 뉴스로 실제 리서치 산출물(노이즈 정리·시사점·주간 보고서) 생성. PM/PD/PE가 "플랫폼을 만드는" 축이라면 RA는 "플랫폼을 쓰는" 축 | 제한 없음(단 `.py` 구현은 소프트 제약) |
+| **research-analyst (RA)** | 수집된 뉴스로 실제 리서치 산출물(노이즈 정리·태깅 교정·시사점·지식그래프 관계 라벨링·주간 보고서) 생성. PM/PD/PE가 "플랫폼을 만드는" 축이라면 RA는 "플랫폼을 쓰는" 축 | 제한 없음(단 `.py` 구현은 소프트 제약) |
 
 작업 유형별 호출 순서(신규 화면: PM→PD→PE, 버그 수정: PE만 등)를 포함한 전체 규칙은 [`CLAUDE.md`](./CLAUDE.md#서브에이전트-pmpdpera)를 참고하세요.
 
