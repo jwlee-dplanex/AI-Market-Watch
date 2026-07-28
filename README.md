@@ -77,6 +77,7 @@ services/
   llm.py        # Claude API 연동
   embedder.py   # 임베딩 생성 (Voyage AI)
   scheduler.py  # APScheduler 작업 등록
+  periods.py    # 대시보드·지식그래프 공통 기간 필터 유틸
 config/settings/
   base.py / local.py / production.py
 templates/      # 앱별 하위 디렉토리를 포함한 루트 레벨 템플릿

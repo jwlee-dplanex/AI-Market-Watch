@@ -53,6 +53,7 @@ services/
   llm.py        # Claude API 연동
   embedder.py   # 임베딩 생성 + 유사 기사 그룹핑
   scheduler.py  # APScheduler 작업 등록
+  periods.py    # 대시보드·지식그래프 공통 기간 필터 유틸
 config/settings/
   base.py       # 공통 설정 (django-environ으로 .env 로딩)
   local.py      # DEBUG=True
