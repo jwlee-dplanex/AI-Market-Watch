@@ -2,13 +2,6 @@
 
 {% block page_title %}AI 인사이트 보고서{% endblock %}
 
-{% block header_actions %}
-<button class="flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-[10px] hover:bg-primary-hover transition-colors">
-  <i data-lucide="plus" class="w-4 h-4"></i>
-  보고서 생성
-</button>
-{% endblock %}
-
 {% block content %}
 
 <div class="space-y-3">
@@ -38,7 +31,7 @@
   <div class="bg-white rounded-[10px] shadow-sm p-16 text-center text-gray-400">
     <i data-lucide="file-text" class="w-10 h-10 mx-auto mb-3 opacity-40"></i>
     <p class="text-sm">생성된 보고서가 없습니다.</p>
-    <p class="text-xs mt-1">위 버튼을 눌러 보고서를 생성해보세요.</p>
+    <p class="text-xs mt-1">리서치 담당자(RA)가 주간 보고서를 작성하면 여기에 표시됩니다.</p>
   </div>
   {% endfor %}
 </div>

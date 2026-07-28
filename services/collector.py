@@ -59,6 +59,14 @@ def _contains_alias(lower_text: str, alias: str) -> bool:
     """lower_text 안에서 alias가 단어 경계를 지키며 등장하는지 확인한다.
 
     lower_text는 이미 소문자로 변환된 상태여야 한다.
+
+    경계 검사는 alias 자신의 시작/끝 글자가 영숫자일 때만 적용한다. "NH농협캐피탈"처럼
+    한글 별칭("농협")이 영문 약어("NH")에 공백 없이 붙는 표기가 실제 기사에 흔한데,
+    텍스트 쪽 인접 글자(예: "NH"의 "H")만 보고 경계를 판정하면 alias 자신은 한글인데도
+    매칭이 막혀버린다("한글 별칭은 부분 문자열 매칭만 적용한다"는 원래 의도와 어긋남).
+    alias 자신의 경계 글자가 영숫자가 아니면(=한글이면) 그 쪽 경계 검사를 생략해 이
+    불일치를 없앤다. alias가 영문("RAG" 등)으로 시작/끝나는 경우는 기존처럼 엄격하게
+    경계를 검사해 "storage"/"average" 안에 우연히 낀 매칭은 여전히 막는다.
     """
     if not alias:
         return False
@@ -68,13 +76,23 @@ def _contains_alias(lower_text: str, alias: str) -> bool:
     start = 0
     text_len = len(lower_text)
     needle_len = len(needle)
+    needle_starts_word = _is_word_char(needle[0])
+    needle_ends_word = _is_word_char(needle[-1])
     while True:
         idx = lower_text.find(needle, start)
         if idx == -1:
             return False
-        before_ok = idx == 0 or not _is_word_char(lower_text[idx - 1])
+        before_ok = (
+            idx == 0
+            or not needle_starts_word
+            or not _is_word_char(lower_text[idx - 1])
+        )
         after_idx = idx + needle_len
-        after_ok = after_idx == text_len or not _is_word_char(lower_text[after_idx])
+        after_ok = (
+            after_idx == text_len
+            or not needle_ends_word
+            or not _is_word_char(lower_text[after_idx])
+        )
         if before_ok and after_ok:
             return True
         start = idx + 1
