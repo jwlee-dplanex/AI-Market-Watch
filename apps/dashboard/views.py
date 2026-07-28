@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from django.db.models import Count, Min, Q
+from django.db.models import Count, F, Max, Min, Q
 from django.db.models.functions import TruncDate
 from django.shortcuts import render
 from django.utils import timezone
@@ -248,11 +248,16 @@ def dashboard(request):
     org_ranking = _build_org_ranking(start_date, today)
     tech_topic_counts = _build_tech_topic_counts(start_date, today)
 
+    # "RA가 Insight를 만든 시각"이 아니라 "근거 기사가 실제로 최신인가"를 기준으로 정렬한다
+    # (사용자 확정 요구사항) — latest_news_at은 근거 뉴스(M2M)의 published_at 중 최댓값.
+    # 근거 뉴스가 0건이면 NULL이 되는데, PostgreSQL은 기본적으로 내림차순에서 NULL을 앞에
+    # 놓으므로 nulls_last=True로 뒤로 보낸다. 동률(tie) 대비 -pk를 tie-breaker로 포함
+    # (검증된 구현 패턴 5번).
     insights = (
         Insight.objects
-        .annotate(news_count=Count("news"))
+        .annotate(news_count=Count("news"), latest_news_at=Max("news__published_at"))
         .prefetch_related("news")
-        .order_by("-created_at")[:5]
+        .order_by(F("latest_news_at").desc(nulls_last=True), "-pk")[:5]
     )
     latest_news = News.objects.order_by("-published_at")[:10]
 

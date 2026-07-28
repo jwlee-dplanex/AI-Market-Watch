@@ -2,6 +2,7 @@ services:
   db:
     image: pgvector/pgvector:pg16
     container_name: ai_market_watch_db
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ai_market_watch
       POSTGRES_USER: jwlee
