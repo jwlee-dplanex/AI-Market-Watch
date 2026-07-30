@@ -257,7 +257,7 @@ def dashboard(request):
         Insight.objects
         .annotate(news_count=Count("news"), latest_news_at=Max("news__published_at"))
         .prefetch_related("news")
-        .order_by(F("latest_news_at").desc(nulls_last=True), "-pk")[:5]
+        .order_by(F("latest_news_at").desc(nulls_last=True), "-pk")[:8]
     )
     latest_news = News.objects.order_by("-published_at")[:10]
 
