@@ -95,15 +95,38 @@
 </div>
 {% endif %}
 
-<!-- 주요 이슈 & 시사점 -->
+<!-- 주요 이슈 -->
 {% if report.content %}
+{% with parsed=report.content|report_issues %}
 <div class="bg-white rounded-[10px] shadow-sm p-6 mb-4">
   <h2 class="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
     <i data-lucide="layers" class="w-4 h-4 text-primary"></i>
-    주요 이슈 & 시사점
+    주요 이슈
   </h2>
-  <div class="markdown-content">{{ report.content|markdown }}</div>
+
+  {% if parsed.issues %}
+    {% if parsed.preamble %}
+    <div class="markdown-content mb-4">{{ parsed.preamble|markdown }}</div>
+    {% endif %}
+    <div class="space-y-4">
+      {% for issue in parsed.issues %}
+      <div class="bg-gray-50/50 border border-[#E5E5E5] rounded-[10px] p-5">
+        <h3 class="flex items-center gap-2.5 text-sm font-semibold text-gray-900 mb-3">
+          <span class="w-6 h-6 flex-shrink-0 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">
+            {{ forloop.counter }}
+          </span>
+          {{ issue.title }}
+        </h3>
+        <div class="markdown-content">{{ issue.body|markdown }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <!-- content에 "### " 구분자가 없는 과거 데이터: 기존 통짜 렌더링으로 폴백 -->
+    <div class="markdown-content">{{ report.content|markdown }}</div>
+  {% endif %}
 </div>
+{% endwith %}
 {% endif %}
 
 <!-- 빈 상태: 완료 상태인데 본문이 모두 비어있는 경우 -->

@@ -525,6 +525,23 @@ RA가 `Report.overview`/`Report.content`에 작성하는 마크다운은 `apps/r
 - **python-markdown**(`Markdown` 패키지)으로 마크다운을 HTML로 변환(`sane_lists` 확장 사용).
 - **bleach**로 변환된 HTML을 화이트리스트 방식으로 정제(`p`/`strong`/`em`/`ul`/`ol`/`li`/`a`/`h1~h6`/`blockquote`/`code`/`pre`/`hr` 등 허용 태그만 남기고 `script`, `on*` 이벤트 핸들러, `javascript:` 스킴 등은 제거). RA(사람)가 작성하는 콘텐츠지만 XSS 벡터를 원천 차단하기 위해 화이트리스트를 적용합니다.
 
+### 이슈 카드 렌더링 (`report_issues` 필터)
+
+RA는 `Report.content`를 `docs/planning.md`의 "주간 보고서(Report) 표준 구조"(고정 3단: `### 이슈 제목` → 흐름 분석 1문단 → 시사점 1~2문단, 근거 링크는 content에 넣지 않음)에 맞춰 작성합니다. `apps/reports/templatetags/report_extras.py`의 `report_issues` 필터가 이 구조를 파싱해 REPORT-002 상세 화면이 이슈별 카드로 렌더링할 수 있게 합니다.
+
+- **계약**: `content: str` → `{"preamble": str, "issues": [{"title": str, "body": str}, ...]}`
+  - 줄 시작의 `### 이슈 제목`(h3)만 이슈 구분자로 인식합니다(`#### `처럼 h4 이상은 제외, 정규식 `^###[ \t]+(?!#)(.*)$`, `re.MULTILINE`).
+  - 첫 `### ` 이전 텍스트는 `preamble`로, 각 `### ` 구간은 제목(`title`)과 다음 `### `(또는 문자열 끝)까지의 본문(`body`)으로 분리됩니다.
+  - `body`는 마크다운 원문 그대로 반환되며 이 필터 안에서는 HTML로 변환하지 않습니다 — 템플릿이 `|markdown` 필터를 별도로 한 번 더 통과시켜 bleach 새니타이즈를 유지합니다.
+  - **폴백**: `content`가 비어 있거나 `### ` 구분자가 전혀 없는 비표준/과거 데이터는 `{"preamble": content, "issues": []}`(또는 content도 없으면 `{"preamble": "", "issues": []}`)를 반환합니다.
+
+- **`templates/reports/detail.html`의 렌더링**: "주요 이슈" 카드에서 `{% with parsed=report.content|report_issues %}`로 파싱한 뒤,
+  - `parsed.issues`가 있으면: `preamble`이 있을 때만 먼저 `|markdown`으로 렌더링하고, 이어서 이슈마다 번호 배지(`forloop.counter`)와 제목을 헤더로 갖는 회색 카드(`bg-gray-50/50` 박스)를 순서대로 렌더링합니다. 카드 본문(`issue.body`)은 기존 `|markdown` 필터를 그대로 통과시켜 h1~h6/목록/링크 등이 정상 렌더링되고 bleach 새니타이즈도 유지됩니다.
+  - `parsed.issues`가 비어 있으면(폴백): `report.content` 전체를 통짜로 `|markdown` 렌더링하는 기존 방식으로 돌아갑니다.
+  - 이슈 카드에는 라벨(예: `**시사점:**`)이나 근거 링크가 표시되지 않습니다 — 시사점은 표준 구조 정책에 따라 "블록의 마지막 문단"이라는 위치 규칙으로만 식별되는 라벨 없는 일반 문단이고, 근거 기사는 이 카드가 아니라 상세 화면 하단의 별도 "참고 뉴스" 섹션이 전담합니다.
+  - **"참고 뉴스" 섹션**은 이슈 카드와 별개로, `report.news.all`(`Report.news` M2M)을 제목·발행일 테이블로 렌더링하고 각 행이 `news_detail`(NEWS-002)로 링크됩니다 — content 내 이슈 카드에는 근거 링크가 전혀 없으므로, 보고서의 근거 추적은 오직 이 섹션을 통해서만 이뤄집니다.
+  - 표준 구조(이슈당 고정 3단 구성, 근거 링크를 content에서 뺀 이유, `Report.news`가 유일한 출처 채널이라는 정책 등) 자체의 정의·근거는 `docs/planning.md`의 "주간 보고서(Report) 표준 구조" 절을 참조하세요 — 이 문서는 구현(필터·템플릿) 설명만 다룹니다.
+
 ---
 
 ## 7. 임베딩 & 유사 기사
