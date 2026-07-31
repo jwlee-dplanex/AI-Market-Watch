@@ -257,12 +257,12 @@ def dashboard(request):
         Insight.objects
         .annotate(news_count=Count("news"), latest_news_at=Max("news__published_at"))
         .prefetch_related("news")
-        .order_by(F("latest_news_at").desc(nulls_last=True), "-pk")[:8]
+        .order_by(F("latest_news_at").desc(nulls_last=True), "-pk")[:20]
     )
     # 최신 뉴스는 기간 필터와 무관하게 항상 전체에서 최신 10건을 보여준다. 기간 셀렉터
     # (7d/30d/전체)는 "핵심 지표" 섹션 전용이며, 주요 이슈·최신 뉴스는 기간과 별개로 항상
     # 현재 기준을 노출한다(사용자 확정 2026-07-31 — 기간 = 핵심 지표 전용).
-    latest_news = News.objects.order_by("-published_at")[:10]
+    latest_news = News.objects.order_by("-published_at")[:30]
 
     return render(request, "dashboard/index.html", {
         "period": period,
