@@ -1,0 +1,23 @@
+{# "Info Tooltip" 재사용 컴포넌트 — docs/design.md "1. 디자인 시스템 › 1.5 컴포넌트 정의 › Info Tooltip" 참고.
+   카드/섹션 제목이 "이 데이터를 어떤 기준으로 집계했는지" 안내하는 정적 텍스트 팝오버.
+   apps/dashboard/templatetags/dashboard_extras.py의 info_tooltip inclusion_tag가 이 파일을 렌더링한다.
+   context: text(문구), label(aria-label용 안내 대상 이름) #}
+<span class="relative inline-flex" x-data="{ open: false }"
+      @mouseenter="open = true" @mouseleave="open = false"
+      @click.outside="open = false">
+  <button type="button"
+          @click="open = !open"
+          @keydown.escape="open = false"
+          aria-label="{{ label }} 안내"
+          :aria-expanded="open"
+          class="w-4 h-4 rounded-full bg-gray-100 text-gray-400 text-[10px] font-bold
+                 flex items-center justify-center hover:bg-gray-200 hover:text-gray-600
+                 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30">
+    ?
+  </button>
+  <div x-show="open" x-cloak
+       class="absolute left-0 top-full z-30 w-64 bg-white border border-gray-200
+              rounded-[10px] shadow-lg p-3">
+    <p class="text-sm text-gray-700 leading-relaxed">{{ text }}</p>
+  </div>
+</span>

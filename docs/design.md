@@ -148,6 +148,105 @@ hover: bg #F9F9F7
   text-xs 유지 — 대시보드 "최신 뉴스" 목록과 동일한 밀도의 스캔용 목록이므로 굳이 키우지 않는다
 ```
 
+**Info Tooltip** (데이터·기준 안내 팝오버 — 전 화면 공용, 2026-07-31 신설, PD)
+```
+배경: 데모 피드백 축 3 "항목별 데이터·기준 툴팁". PM 통합 계획서 채택안 —
+      "재사용 팝오버 컴포넌트 1개 + 문구는 별도 딕셔너리로 한곳 관리, 대시보드(ALL-001)부터
+      단계 적용". 최초 적용은 ALL-001 5개 카드(아래 ALL-001 절 "카드별 데이터·기준 툴팁 적용"
+      참고), 이후 다른 화면은 이 컴포넌트를 그대로 재사용하고 문구만 딕셔너리에 추가한다.
+
+역할 구분: 이 프로젝트에 이미 있는 "관련 뉴스 호버 팝오버"(기업별 Top10·기술주제별 카드,
+      데이터 자체를 목록으로 보여줌)와는 목적이 다르다 — Info Tooltip은 "이 카드가 무엇을
+      어떤 기준으로 집계했는지"를 설명하는 정적 텍스트 팝오버다. 다만 같은 화면 안에서
+      "팝오버 상호작용"에 대한 사용자 학습 비용을 하나로 통일하기 위해 시각 톤
+      (흰 배경 · 테두리 · shadow-lg · rounded-[10px])과 Alpine 패턴(호버+클릭, x-cloak)은
+      기존 관련 뉴스 팝오버와 동일하게 맞춘다.
+
+트리거: "?" 아이콘 버튼 — w-4 h-4 rounded-full bg-gray-100 text-gray-400 text-[10px] font-bold
+        flex items-center justify-center, hover 시 bg-gray-200 hover:text-gray-600
+        (기존 templates/setting/_keywords.html "?" 버튼과 톤 동일, 배경색은 흰 팝오버로 통일해
+        가져옴 — _keywords.html 쪽은 어두운 팝오버라 이번엔 따르지 않음, 아래 "왜 다른가" 참고)
+        카드/섹션 제목(H2·H3, text-sm font-semibold text-gray-900) 바로 옆 gap-1.5로 배치.
+
+팝오버: bg-white border border-gray-200 rounded-[10px] shadow-lg p-3, w-64
+        문구는 text-sm text-gray-700 leading-relaxed 한 문단만(별도 헤딩 없음 — 카드 제목이
+        이미 주제를 밝히고 있어 팝오버 안에서 반복하지 않는다)
+        배치: absolute left-0 top-full(트리거 바로 아래, 여백 0). top-6처럼 여백을 두면 마우스가
+        트리거→팝오버로 이동하는 동안 빈 픽셀 지대를 지나며 mouseleave가 먼저 발동해 팝오버가
+        열리기도 전에 닫히는 "호버 데드존" 버그가 생긴다 — 기업별 Top10 호버 팝오버에서 이미
+        검증·회피한 문제와 동일 원인(위 ALL-001 절 "기업별 Top10 호버 팝오버" 참고)이라 동일하게
+        여백 0으로 방지한다.
+        z-index: z-30 (같은 화면의 기존 데이터 팝오버 z-20보다 위)
+
+인터랙션 (Alpine.js, x-cloak 필수 — CLAUDE.md 최우선 점검 항목):
+  x-data="{ open: false }" — 트리거+팝오버를 함께 감싸는 wrapper(position relative)에 선언
+  @mouseenter="open = true" @mouseleave="open = false"  (wrapper)  — 데스크탑 호버
+  @click="open = !open"                                  (버튼)    — 터치 기기·클릭 사용자용 토글
+  @click.outside="open = false"                           (wrapper) — 클릭으로 연 상태에서 바깥 클릭 시 닫기
+  @keydown.escape="open = false"                          (버튼)    — 포커스 상태에서 Esc로 닫기
+  x-show="open" x-cloak                                   (팝오버)  — FOUC 방지, 예외 없이 필수
+  버튼: aria-label="{{ 안내 대상 이름 }} 안내"  :aria-expanded="open"
+
+마크업 예시 (PE가 그대로 구현, 문구/label만 카드별로 치환):
+```html
+<span class="relative inline-flex" x-data="{ open: false }"
+      @mouseenter="open = true" @mouseleave="open = false"
+      @click.outside="open = false">
+  <button type="button"
+          @click="open = !open"
+          @keydown.escape="open = false"
+          aria-label="{{ 안내 대상 이름 }} 안내"
+          :aria-expanded="open"
+          class="w-4 h-4 rounded-full bg-gray-100 text-gray-400 text-[10px] font-bold
+                 flex items-center justify-center hover:bg-gray-200 hover:text-gray-600
+                 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30">
+    ?
+  </button>
+  <div x-show="open" x-cloak
+       class="absolute left-0 top-full z-30 w-64 bg-white border border-gray-200
+              rounded-[10px] shadow-lg p-3">
+    <p class="text-sm text-gray-700 leading-relaxed">{{ 문구 }}</p>
+  </div>
+</span>
+```
+
+왜 `_keywords.html`의 어두운 툴팁(`bg-gray-900 text-white rounded-lg`)을 따르지 않았나:
+  이번 요구사항이 명시한 톤(text-sm/leading-relaxed/text-gray-700, 카드 소제목
+  text-sm font-semibold text-gray-900, rounded-[10px], shadow-sm)은 흰 배경 팝오버 쪽이고,
+  ALL-001 안에 이미 3곳(기업별 Top10, 기술주제별, 차트 dot)에 흰 배경 팝오버가 정착해 있어
+  같은 화면 안에서 팝오버 톤을 통일하는 게 우선이라고 판단했다. `_keywords.html`을 이 톤에
+  맞춰 고치는 건 이번 스코프 밖(대시보드 5개 카드 한정)이라 진행하지 않았다 — 추후 다른
+  화면에 이 컴포넌트를 확장 적용할 때 함께 정리할 여지로 남겨둔다.
+
+재사용 방법 (구현 지침 — PE):
+  문구를 템플릿에 하드코딩하지 않고 별도 딕셔너리로 한곳 관리한다(PM 채택안 필수 요건).
+  이 프로젝트에 이미 커스텀 템플릿 태그 전례가 있으므로(`apps/reports/templatetags/report_extras.py`,
+  `{% load report_extras %}` + markdown 필터) 동일 관례를 따르는 걸 권장한다(파일 위치·태그 이름
+  자체는 PE 판단, 아래는 참고용 스케치):
+    1) 문구 딕셔너리 하나 — 예) `apps/dashboard/tooltips.py` (여러 화면이 공유하게 되면
+       `apps/common/tooltips.py` 등으로 승격 가능). 키는 화면 prefix를 붙인 slug 문자열
+       (다른 화면 문구가 나중에 섞여도 충돌 없게), 값은 안내 문구 한 문단.
+       ```python
+       INFO_TOOLTIPS = {
+           "dashboard.trend": "...",
+           "dashboard.org_ranking": "...",
+           "dashboard.tech_topic": "...",
+           "dashboard.insights": "...",
+           "dashboard.latest_news": "...",
+       }
+       ```
+    2) inclusion_tag 하나 — `apps/dashboard/templatetags/dashboard_extras.py`에
+       `{% info_tooltip "dashboard.trend" label="일별 뉴스 건수 추이" %}` 형태로 위 마크업을
+       렌더링하는 태그를 만든다. `label`은 딕셔너리 키와 별개로 aria-label용 텍스트를 태그
+       인자로 받는다(문구와 라벨을 같은 딕셔너리 value에 억지로 합치지 않기 위함).
+    3) 컴포넌트 파일은 `templates/components/_info_tooltip.html` 하나로 통일 — 5곳(과 이후
+       다른 화면)이 전부 이 파일을 `{% include %}`(또는 inclusion_tag 내부에서 include)하도록
+       해 마크업이 여러 곳에 중복되지 않게 한다.
+  PD가 이 파일 구조까지 강제하는 건 아니다 — 다만 "컴포넌트 1개 + 문구 딕셔너리 1곳"이라는
+  PM 채택 방향은 반드시 지킬 것 (템플릿마다 팝오버 마크업을 복붙하거나 문구를 각 템플릿에
+  흩어 넣는 방식은 채택안 위반).
+```
+
 ---
 
 ## 2. 레이아웃 구조
@@ -432,6 +531,73 @@ PM이 확정한 대시보드 공통 기간 필터(전체/최근 30일/최근 7�
    - `dashboard()` 뷰 최상위 컨텍스트에 `period`/`bucket_unit`/`trend_points`/`trend_max_count`/`has_trend_data` 추가, 기존 `daily_counts`/`daily_max_count`/`has_daily_data`는 제거(템플릿이 더 이상 참조하지 않음).
    - 템플릿(`templates/dashboard/index.html`)은 이미 새 변수명·구조로 작성 완료됐다 — 위 컨텍스트가 채워지지 않으면 `{{ }}` 출력이 비거나 `{% if %}` 분기가 empty state로 빠질 뿐 500 에러는 나지 않는다(기존 관례와 동일하게 안전한 degrade).
 
+**카드별 데이터·기준 툴팁 적용 (2026-07-31, PD, 데모 피드백 축 3 — PM 통합 계획 채택안)**
+
+위 "1. 디자인 시스템 › 1.5 컴포넌트 정의 › Info Tooltip"을 대시보드 5개 카드 제목 옆에 배치한다.
+문구는 `apps/dashboard/views.py`의 실제 집계 로직을 검증해 사실만 기술했다(추측·과장 없음, 아래
+문구 외의 기준을 임의로 덧붙이지 않는다).
+
+| 카드 | 트리거 위치 | 딕셔너리 키(제안) | 문구 |
+|---|---|---|---|
+| ① 일별 뉴스 건수 추이 | 동적 `<h3>`(일별/주별/월별 뉴스 건수 추이) 텍스트 옆 | `dashboard.trend` | "뉴스 발행일(수집일 아님) 기준으로 집계합니다. 최근 7일·30일은 일 단위, 전체 기간은 364일 이하면 주 단위, 그보다 길면 월 단위로 묶어서 보여줍니다." |
+| ② 기업별 건수 Top 10 | `<h3>기업별 건수 Top 10</h3>` 옆 | `dashboard.org_ranking` | "활성 상태인 기업 중 선택한 기간에 발행된 뉴스 건수가 많은 순으로 상위 10개를 보여줍니다. 비활성 기업은 집계에서 제외됩니다." |
+| ③ 기술 주제별 언급 건수 | `<h3>기술 주제별 언급 건수</h3>` 옆 | `dashboard.tech_topic` | "활성 상태인 기술 주제 중 선택한 기간에 언급된(중복 제거) 뉴스 건수가 많은 순으로 상위 10개를 보여줍니다." |
+| ④ 주요 이슈 | `<h2>주요 이슈</h2>` 옆 | `dashboard.insights` | "리서치 애널리스트가 작성한 이슈를, 근거로 연결된 뉴스 중 가장 최근에 발행된 기사 순으로 정렬해 상위 8건을 보여줍니다. 이슈를 작성한 시각이 아니라 근거 기사의 최신성 기준입니다." |
+| ⑤ 최신 뉴스 | `<h2>최신 뉴스</h2>` 옆(우측 "전체 보기" 링크보다 왼쪽) | `dashboard.latest_news` | "발행일이 최신인 순으로 상위 10건을 보여줍니다. 상단의 기간 필터와 무관하게 항상 전체 뉴스 중 최신순입니다." |
+
+**템플릿 반영 지점 (`templates/dashboard/index.html`, PE 작업)** — 현재 각 제목이 아이콘을 끼워
+넣을 flex 래퍼가 없는 곳이 있어, 아이콘 삽입 시 함께 손볼 지점을 명시한다.
+
+1. **일별 뉴스 건수 추이** — 바깥 `<div class="flex items-baseline gap-2 mb-4 shrink-0">`는
+   그대로 두고(다른 요소가 `items-baseline`에 의존할 수 있어 건드리지 않는다), `<h3>` 내부를
+   `inline-flex items-center gap-1.5`로 감싸 아이콘만 로컬로 수직 중앙 정렬한다:
+   ```html
+   <h3 class="text-sm font-semibold text-gray-900 inline-flex items-center gap-1.5">
+     <span>{% if bucket_unit == 'week' %}주별{% elif bucket_unit == 'month' %}월별{% else %}일별{% endif %} 뉴스 건수 추이</span>
+     {% info_tooltip "dashboard.trend" label="뉴스 건수 추이" %}
+   </h3>
+   ```
+2. **기업별 건수 Top 10** — 기존 `<h3 class="text-sm font-semibold text-gray-900 mb-4">기업별 건수 Top 10</h3>`을:
+   ```html
+   <h3 class="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-1.5">
+     기업별 건수 Top 10
+     {% info_tooltip "dashboard.org_ranking" label="기업별 건수 Top 10" %}
+   </h3>
+   ```
+3. **기술 주제별 언급 건수** — 2번과 동일한 방식(`flex items-center gap-1.5` 추가 + 아이콘).
+4. **주요 이슈** — 기존 `<div class="flex items-center mb-4"><h2 ...>주요 이슈</h2></div>`을:
+   ```html
+   <div class="flex items-center gap-1.5 mb-4">
+     <h2 class="text-sm font-semibold text-gray-900">주요 이슈</h2>
+     {% info_tooltip "dashboard.insights" label="주요 이슈" %}
+   </div>
+   ```
+5. **최신 뉴스** — 기존 `<div class="flex items-center justify-between mb-4">`가 `<h2>`와
+   "전체 보기" 링크를 양끝 정렬하고 있으므로, `<h2>`만 별도 flex로 한 번 더 감싸 아이콘을
+   제목 바로 옆에 붙이고 "전체 보기"는 계속 오른쪽 끝에 남긴다:
+   ```html
+   <div class="flex items-center justify-between mb-4">
+     <h2 class="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
+       최신 뉴스
+       {% info_tooltip "dashboard.latest_news" label="최신 뉴스" %}
+     </h2>
+     <a href="{% url 'news_list' %}" class="text-xs text-primary hover:underline">전체 보기</a>
+   </div>
+   ```
+
+**PE 구현 체크리스트**
+- `x-cloak`을 팝오버 `x-show` 요소에 반드시 함께 붙인다 — 누락 시 FOUC(Flash Of Unstyled
+  Content) 버그(뉴스 상세 "기업 추가" 드롭다운에서 발견돼 로그·기업관리 탭 등 총 3곳에서
+  수정된 전례가 있는 바로 그 패턴). 이번에 5곳을 새로 추가하므로 5곳 모두 점검.
+- 문구는 위 표의 5개 텍스트 그대로 사용한다(각색·요약·과장 금지 — PM이 코드로 검증한 사실).
+- 문구를 템플릿에 직접 쓰지 말고 딕셔너리 1곳에서 관리하고, 마크업은 재사용 컴포넌트 1개로
+  통일한다(위 "1.5 Info Tooltip" 절의 "재사용 방법" 참고) — 5곳에 마크업을 복붙하지 않는다.
+- 접근성: 버튼에 `aria-label`, `:aria-expanded`, `@keydown.escape` 반드시 포함. 마우스 호버뿐
+  아니라 클릭(터치)·키보드로도 열고 닫을 수 있어야 한다.
+- 이번 스코프는 대시보드 5개 카드에 한정한다. 다른 화면(SET-*, NEWS-*, REPORT-*, GRAPH-001)은
+  이번에 신규 화면 ID를 만들지 않으며, 나중에 필요해지면 이미 만들어진 컴포넌트를 재사용하고
+  딕셔너리에 문구만 추가하면 된다(PM 통합 계획서의 "이후 화면은 문구만 추가" 방향과 일치).
+
 **변경 이력 (2026-07-10, PD)**
 
 - PM이 `docs/planning.md`에 확정한 정량화 축 Phase A 3개 지표(일별 추이/기업유형별/기업별 Top10)를 "핵심 지표" 로우로 추가. 기존 "주요 이슈 + 최신 뉴스" 로우 위에 배치.
@@ -446,6 +612,7 @@ PM이 확정한 대시보드 공통 기간 필터(전체/최근 30일/최근 7�
   - **최신 뉴스**: 기존엔 `border-b border-gray-100 last:border-0` 얇은 밑줄 하나로만 항목을 구분해, 같은 화면의 "주요 이슈" 박스형 카드에 비해 구분감이 약했다. 새 패턴을 만들지 않고, 같은 파일 "주요 이슈" 카드에 이미 쓰이던 `border border-gray-100 rounded-[10px] p-3 hover:border-primary/30 transition-colors` 박스 패턴을 그대로 재사용해 각 뉴스 항목을 독립된 카드로 바꿨다(`space-y-3`는 유지). 이제 리스트 항목 하나하나가 테두리로 명확히 나뉜다.
   - **주요 이슈 아코디언**: (1) 이슈 카드 사이 간격을 `space-y-3`(12px)→`space-y-4`(16px)로 넓힘. (2) 펼침 상태에서 제목→"분석" 라벨→분석 본문 순서의 간격이 `mt-2`/`mt-1`(8px/4px)로 좁아 붙어 보이던 것을 `mt-3`/`mt-2`(12px/8px)로 넓힘. (3) 시사점 블록과 관련 기사 블록 사이에 구분선이 없어 이어져 보이던 것을, 상단 헤더-펼침영역 경계에 이미 쓰인 `border-t border-gray-100 pt-4` 패턴을 그대로 가져와 시사점이 있을 때만(`{% if insight.implication %}`) 관련 기사 블록 앞에 추가했다(시사점이 없으면 불필요한 빈 구분선이 생기지 않도록 조건부 처리). (4) 관련 기사 링크 목록 줄 간격을 `space-y-1`→`space-y-1.5`로 살짝 넓힘.
 - **(배치 8, 2026-07-27, PM 정책 — "대시보드·지식그래프 공통 기간 필터 정책") 기간 셀렉터(전체/최근 30일/최근 7일) 도입 + "일별 뉴스 건수 추이" 카드를 가변 데이터포인트 구조로 재설계.** 기존 "최근 7일" 고정 pill 배지를 3-옵션 GET 링크 토글로 교체(3개 카드 공통, 기본값 최근 7일). 차트 카드는 7개 고정 전제로 하드코딩돼 있던 베지어 제어점 좌표 리터럴을 전부 제거하고, 좌표뿐 아니라 SVG 경로 문자열 자체(`trend_line_path`/`trend_area_path`)를 뷰가 임의 개수의 포인트에 대해 일반화된 "수평 탄젠트" 공식으로 계산해 넘기는 구조로 바꿨다(폴리라인 단순화 대신 곡선 유지 — 자세한 판단 근거는 위 "기간 필터 + 뉴스 건수 추이 차트 가변화" 절 5번). 카드 제목은 버킷 단위(`bucket_unit`)에 따라 "일별/주별/월별"로 자동 전환해 PM이 예약해 둔 "일/주 토글"을 별도 UI 없이 흡수했다. x축 라벨은 `show_label` 플래그(간격 = `round(N/6)`)로 솎아내고, dot/호버 히트박스는 포인트 15개 초과 시 크기를 줄여 겹침을 방지했다. 카드2/3(기업별 Top10, 기술주제별)은 구조 변경 없이 집계 쿼리 날짜 하한만 `period`를 따르도록 바뀐다. `views.py`는 이번에도 PD가 직접 수정하지 않았고 PE 작업 스펙을 위 절에 상세히 남김 — 적용 전까지는 `trend_points` 등 신규 컨텍스트 변수가 비어 empty state로 보이는 임시 상태(에러는 없음, 기존 관례와 동일).
+- **(배치 9, 2026-07-31, 데모 피드백 축 3 — PM 통합 계획 채택안) "항목별 데이터·기준 툴팁" 도입.** 5개 카드(일별 추이/기업별 Top10/기술주제별/주요 이슈/최신 뉴스) 제목 옆에 "?" 아이콘 → 팝오버로 "어떤 데이터를 어떤 기준으로 보여주는지" 설명을 추가했다. 새 재사용 컴포넌트 "Info Tooltip"을 디자인 시스템(위 "1.5 컴포넌트 정의")에 신설하고, 문구는 화면 템플릿이 아니라 별도 딕셔너리 한곳에서 관리하도록 PE에게 지시했다(위 "카드별 데이터·기준 툴팁 적용" 절 참고). 기존 "관련 뉴스 호버 팝오버"(기업별 Top10·기술주제별)와 시각 톤(흰 배경·rounded-[10px]·shadow-lg)·Alpine 패턴(호버+클릭, x-cloak)은 통일하되 역할은 분리했다(데이터 목록 vs. 집계 기준 설명). 새 화면 ID는 만들지 않았다 — 기존 ALL-001 카드에 얹는 부가 UI.
 
 ```
 DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 전체 대시보드 화면을 HTML + Tailwind CSS로 만들어줘.

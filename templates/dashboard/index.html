@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load report_extras %}
+{% load dashboard_extras %}
 
 {% block page_title %}전체 대시보드{% endblock %}
 
@@ -63,8 +64,9 @@
       <div class="flex items-baseline gap-2 mb-4 shrink-0">
         <!-- 카드 제목은 현재 버킷 단위(bucket_unit)에 맞춰 "일별/주별/월별"로 바뀐다 — 기간 선택이 곧 버킷
              단위를 자동으로 결정하므로(아래 "PE 작업 스펙" 참고) 별도의 일/주 토글 컨트롤을 두지 않는다. -->
-        <h3 class="text-sm font-semibold text-gray-900">
-          {% if bucket_unit == 'week' %}주별{% elif bucket_unit == 'month' %}월별{% else %}일별{% endif %} 뉴스 건수 추이
+        <h3 class="text-sm font-semibold text-gray-900 inline-flex items-center gap-1.5">
+          <span>{% if bucket_unit == 'week' %}주별{% elif bucket_unit == 'month' %}월별{% else %}일별{% endif %} 뉴스 건수 추이</span>
+          {% info_tooltip "dashboard.trend" label="뉴스 건수 추이" %}
         </h3>
       </div>
       {% if has_trend_data %}
@@ -176,7 +178,10 @@
 
     <!-- 개별 기관별 건수 랭킹 Top 10 -->
     <div class="bg-white rounded-[10px] shadow-sm p-5">
-      <h3 class="text-sm font-semibold text-gray-900 mb-4">기업별 건수 Top 10</h3>
+      <h3 class="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-1.5">
+        기업별 건수 Top 10
+        {% info_tooltip "dashboard.org_ranking" label="기업별 건수 Top 10" %}
+      </h3>
       {% if org_ranking %}
       <!-- 색상 범례: 미니바 색이 기업 카테고리(org_type)를 뜻함을 안내 -->
       <div class="flex items-center gap-3 mb-3">
@@ -239,7 +244,10 @@
 
     <!-- 기술 주제별 언급 건수 (0건 주제는 제외 — 기관별 Top10과 동일하게 count__gt=0 기준) -->
     <div class="bg-white rounded-[10px] shadow-sm p-5">
-      <h3 class="text-sm font-semibold text-gray-900 mb-4">기술 주제별 언급 건수</h3>
+      <h3 class="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-1.5">
+        기술 주제별 언급 건수
+        {% info_tooltip "dashboard.tech_topic" label="기술 주제별 언급 건수" %}
+      </h3>
       {% if tech_topic_counts %}
       <div class="space-y-2">
         {% for topic in tech_topic_counts %}
@@ -292,8 +300,9 @@
   <!-- 주요 이슈 (2/3) -->
   <div class="col-span-2">
     <div class="bg-white rounded-[10px] shadow-sm p-5 h-full">
-      <div class="flex items-center mb-4">
+      <div class="flex items-center gap-1.5 mb-4">
         <h2 class="text-sm font-semibold text-gray-900">주요 이슈</h2>
+        {% info_tooltip "dashboard.insights" label="주요 이슈" %}
       </div>
       <div class="space-y-4">
         {% for insight in insights %}
@@ -357,7 +366,10 @@
   <div class="col-span-1">
     <div class="bg-white rounded-[10px] shadow-sm p-5 h-full">
       <div class="flex items-center justify-between mb-4">
-        <h2 class="text-sm font-semibold text-gray-900">최신 뉴스</h2>
+        <h2 class="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
+          최신 뉴스
+          {% info_tooltip "dashboard.latest_news" label="최신 뉴스" %}
+        </h2>
         <a href="{% url 'news_list' %}" class="text-xs text-primary hover:underline">전체 보기</a>
       </div>
       <div class="space-y-3">
