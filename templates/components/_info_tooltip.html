@@ -1,7 +1,11 @@
-{# "Info Tooltip" 재사용 컴포넌트 — docs/design.md "1. 디자인 시스템 › 1.5 컴포넌트 정의 › Info Tooltip" 참고.
-   카드/섹션 제목이 "이 데이터를 어떤 기준으로 집계했는지" 안내하는 정적 텍스트 팝오버.
-   apps/dashboard/templatetags/dashboard_extras.py의 info_tooltip inclusion_tag가 이 파일을 렌더링한다.
-   context: text(문구), label(aria-label용 안내 대상 이름) #}
+{% comment %}
+"Info Tooltip" 재사용 컴포넌트 — docs/design.md "1. 디자인 시스템 › 1.5 컴포넌트 정의 › Info Tooltip" 참고.
+카드/섹션 제목이 "이 데이터를 어떤 기준으로 집계했는지" 안내하는 정적 텍스트 팝오버.
+apps/dashboard/templatetags/dashboard_extras.py의 info_tooltip inclusion_tag가 이 파일을 렌더링한다.
+여러 줄 주석은 comment 블록 태그로 감싼다 — 한 줄 주석 문법은 여러 줄로 쓰면
+주석으로 인식되지 않고 화면에 그대로 출력된다(Django 템플릿 렉서 제약).
+context: text(문구), label(aria-label용 안내 대상 이름)
+{% endcomment %}
 <span class="relative inline-flex" x-data="{ open: false }"
       @mouseenter="open = true" @mouseleave="open = false"
       @click.outside="open = false">
