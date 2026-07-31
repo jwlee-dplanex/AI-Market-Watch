@@ -1,9 +1,12 @@
 import re
+import uuid
 
 import bleach
 import markdown as md
 from django import template
 from django.utils.safestring import mark_safe
+
+from apps.news.models import News
 
 register = template.Library()
 
@@ -11,6 +14,10 @@ register = template.Library()
 # "^###[ \t]+" 뒤에 '#'이 더 오면(즉 "#### ..."처럼 h4 이상이면) 매치하지 않도록
 # 부정형 전방탐색(negative lookahead)을 둔다. re.MULTILINE으로 각 줄의 시작(^)을 인식한다.
 _ISSUE_HEADER_RE = re.compile(r"^###[ \t]+(?!#)(.*)$", re.MULTILINE)
+
+# 이슈 블록 최하단 "참고: <uid>, <uid>" 규약 줄. "참고"와 콜론 사이 공백,
+# 전각 콜론(：)까지 관용적으로 허용한다(옵션 C 규약, docs/planning.md 참고).
+_REF_LINE_RE = re.compile(r"^[ \t]*참고[ \t]*[:：][ \t]*(.*)$")
 
 # RA가 Report.content/overview에 넣는 마크다운을 HTML로 렌더링할 때 허용할 태그/속성.
 # report.content는 RA(사람)가 작성하지만 XSS 벡터를 원천 차단하기 위해 화이트리스트 방식으로 제한한다.
@@ -51,6 +58,68 @@ def markdown_filter(text):
     return mark_safe(cleaned)
 
 
+def _split_ref_line(body):
+    """이슈 블록 body 최하단의 "참고: <uid>, <uid>" 규약 줄을 분리한다.
+
+    옵션 C 규약(docs/planning.md "이슈별 참고뉴스 인라인 규약")에 따라, 마커는
+    (참고 규약 줄을 제외한) 블록의 실제 마지막 줄에만 있어야 인정한다 — 그래야
+    "블록 마지막 문단 = 시사점" 위치 규칙이 마커 줄 제거 후에도 그대로 성립한다.
+
+    Returns (body_without_ref_line, uid_token_list). 마커 줄이 없으면
+    (body, [])를 반환한다 — 옵션 C 이전 과거 데이터의 정상 폴백 경로.
+    """
+    lines = body.split("\n")
+
+    # 끝에서부터 공백만 있는 줄은 건너뛰고 실제 내용이 있는 마지막 줄을 찾는다.
+    last_idx = None
+    for i in range(len(lines) - 1, -1, -1):
+        if lines[i].strip():
+            last_idx = i
+            break
+    if last_idx is None:
+        return body, []
+
+    m = _REF_LINE_RE.match(lines[last_idx].strip())
+    if not m:
+        return body, []
+
+    tokens = [t.strip() for t in m.group(1).split(",")]
+    tokens = [t for t in tokens if t]  # 후행 콤마·빈 토큰 관용 처리
+
+    remaining = "\n".join(lines[:last_idx]).strip("\n")
+    return remaining, tokens
+
+
+def _resolve_ref_news(tokens):
+    """uid 토큰 목록을 News 조회 결과로 해결한다.
+
+    오타·존재하지 않는 uid·형식 오류 토큰은 예외를 던지지 않고 조용히
+    건너뛴다(옵션 C 폴백 규약). 해결된 News는 uid 토큰이 적힌 순서를 보존한다.
+    """
+    ordered_uuids = []
+    for token in tokens:
+        try:
+            ordered_uuids.append(uuid.UUID(token))
+        except (ValueError, AttributeError, TypeError):
+            continue  # 미해결 토큰은 스킵, 해결분만 렌더
+
+    if not ordered_uuids:
+        return []
+
+    news_by_uid = {n.uid: n for n in News.objects.filter(uid__in=ordered_uuids)}
+
+    resolved = []
+    seen = set()
+    for u in ordered_uuids:
+        if u in seen:
+            continue
+        seen.add(u)
+        news = news_by_uid.get(u)
+        if news is not None:
+            resolved.append(news)
+    return resolved
+
+
 @register.filter(name="report_issues")
 def report_issues(content):
     """Report.content(markdown 원문)를 "### 이슈 제목" 블록 단위로 분할한다.
@@ -58,10 +127,14 @@ def report_issues(content):
     RA가 작성하는 보고서 본문은 표준적으로 "### 이슈 제목" (h3)이 반복되는
     구조를 갖는다. REPORT-002 상세 화면에서 이슈별로 개별 카드/섹션을
     렌더링할 수 있도록, 첫 "### " 이전 텍스트(preamble)와 이슈별
-    (title, body) 목록으로 나눠 dict로 반환한다.
+    (title, body, news_list) 목록으로 나눠 dict로 반환한다.
 
-    - body는 markdown 원문 그대로이며, 필터를 한 번 더 거치지 않는다.
-      템플릿에서 기존 |markdown 필터를 그대로 통과시켜 bleach 새니타이즈를 유지해야 한다.
+    - body는 각 블록 최하단의 "참고: <uid>, ..." 규약 줄(옵션 C, 2026-07-31)을
+      떼어낸 뒤의 markdown 원문이며, 필터를 한 번 더 거치지 않는다. 템플릿에서
+      기존 |markdown 필터를 그대로 통과시켜 bleach 새니타이즈를 유지해야 한다.
+    - news_list는 그 규약 줄의 uid를 조회해 얻은 News 목록(uid 순서 보존)이다.
+      규약 줄이 없거나 uid가 하나도 해결되지 않으면 빈 리스트다 — 템플릿은
+      `{% if issue.news_list %}`로 감싸 있을 때만 렌더한다.
     - "### "가 전혀 없는 비표준/과거 데이터는 issues=[]로 반환해 템플릿이
       기존처럼 content 전체를 통짜로 렌더링하도록 폴백시킨다.
     """
@@ -79,7 +152,9 @@ def report_issues(content):
         title = m.group(1).strip()
         body_start = m.end()
         body_end = matches[i + 1].start() if i + 1 < len(matches) else len(content)
-        body = content[body_start:body_end].strip("\n")
-        issues.append({"title": title, "body": body})
+        raw_body = content[body_start:body_end].strip("\n")
+        body, ref_tokens = _split_ref_line(raw_body)
+        news_list = _resolve_ref_news(ref_tokens)
+        issues.append({"title": title, "body": body, "news_list": news_list})
 
     return {"preamble": preamble, "issues": issues}
