@@ -102,14 +102,17 @@
     </div>
     {% endif %}
 
-    <!-- 시사점 -->
+    <!-- 이슈 시사점: 이 기사가 속한 Insight(이슈) 단위의 시사점.
+         같은 이슈로 묶인 기사끼리는 시사점을 공유하므로, 이슈 제목을 함께 표시해
+         "이 시사점은 기사 단독이 아니라 이슈 단위"임을 드러낸다. -->
     {% for insight in insights %}
     {% if insight.implication %}
     <div class="bg-white rounded-[10px] shadow-sm p-5">
-      <div class="flex items-center gap-2 mb-3">
+      <div class="flex items-center gap-2 mb-1">
         <i data-lucide="lightbulb" class="w-4 h-4 text-accent"></i>
-        <span class="text-sm font-semibold text-gray-900">시사점</span>
+        <span class="text-sm font-semibold text-gray-900">이슈 시사점</span>
       </div>
+      <p class="text-xs text-gray-400 mb-3 ml-6">이 기사가 속한 이슈 &middot; <span class="text-gray-500">{{ insight.title }}</span></p>
       <div class="bg-purple-50 border-l-4 border-primary rounded-r-[10px] p-3">
         <div class="text-sm text-gray-700 markdown-spacing">{{ insight.implication|markdown }}</div>
       </div>
