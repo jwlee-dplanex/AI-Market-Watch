@@ -259,14 +259,10 @@ def dashboard(request):
         .prefetch_related("news")
         .order_by(F("latest_news_at").desc(nulls_last=True), "-pk")[:8]
     )
-    # 최신 뉴스도 다른 카드와 동일하게 선택 기간(published_at)을 따른다("전체"면 _date_filter가
-    # 빈 Q()를 반환해 필터 없음). 종전엔 기간 무관 전체 최신이었으나, 대시보드 카드 간 일관성과
-    # 툴팁 문구("선택한 기간에 발행된 뉴스 중 최신순")의 정확성을 위해 기간 필터를 적용한다.
-    latest_news = (
-        News.objects
-        .filter(_date_filter("published_at", start_date, today))
-        .order_by("-published_at")[:10]
-    )
+    # 최신 뉴스는 기간 필터와 무관하게 항상 전체에서 최신 10건을 보여준다. 기간 셀렉터
+    # (7d/30d/전체)는 "핵심 지표" 섹션 전용이며, 주요 이슈·최신 뉴스는 기간과 별개로 항상
+    # 현재 기준을 노출한다(사용자 확정 2026-07-31 — 기간 = 핵심 지표 전용).
+    latest_news = News.objects.order_by("-published_at")[:10]
 
     return render(request, "dashboard/index.html", {
         "period": period,
