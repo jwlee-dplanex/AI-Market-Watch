@@ -54,17 +54,28 @@ def graph(request):
     today = timezone.localtime(timezone.now()).date()
     start_date, today = period_bounds(period, today)
 
+    # 옵션 a(docs/planning.md "지식그래프 축 1 확정: 옵션 a", 2026-07-31): 엣지 존재 게이트 =
+    # OrgRelation(라벨) 존재. 공동언급만 있고 라벨이 없는 쌍은 엣지 딕셔너리 자체를 만들지 않는다
+    # (기존 itertools.combinations 전수 계산 → 사후 라벨 매핑 방식은 폐기). 양 끝이 모두 활성 기업이고
+    # ALLOWED_TYPE_PAIRS(금융-AI/보험-AI)를 통과하는 OrgRelation만 라벨 엣지 후보로 채택한다.
+    relations = [
+        rel for rel in OrgRelation.objects.select_related("org_a", "org_b").all()
+        if rel.org_a.is_active and rel.org_b.is_active
+        and _edge_allowed(rel.org_a.org_type, rel.org_b.org_type)
+    ]
+    # OrgRelation.save()가 org_a.pk < org_b.pk로 정규화해 저장하므로 (a, b) 키 순서가 항상 고정된다.
+    labeled_pairs = {(rel.org_a_id, rel.org_b_id) for rel in relations}
+    label_by_pair = {(rel.org_a_id, rel.org_b_id): rel.label for rel in relations}
+    labeled_org_pks = {pk for pair in labeled_pairs for pk in pair}
+
+    # 노드 union: (선택 기간 내 news_count>0인 활성 기업) ∪ (라벨 엣지 양끝 조직, is_active=True 전제).
+    # 라벨 엣지는 기간 무관 상시 노출이므로, 그 상대편 조직이 선택 기간에 뉴스 0건이어도 노드로는 있어야
+    # 떠다니는 엣지(참조하는 노드가 없는 엣지)가 생기지 않는다.
     orgs = list(
         Organization.objects.filter(is_active=True)
         .annotate(news_count=_period_news_count(start_date, today))
-        .filter(news_count__gt=0)
+        .filter(Q(news_count__gt=0) | Q(pk__in=labeled_org_pks))
     )
-    org_pk_set = {o.pk for o in orgs}
-
-    # OrgRelation 조회는 유지하되, 용도는 "이미 기간 내에 실존하는 엣지에 라벨 정보를
-    # 얹는 것"으로만 쓴다(노드/엣지 강제 부활 없음 — docs/planning.md
-    # "지식그래프: 라벨 강제 표시 롤백" 정책, 2026-07-28).
-    relations = list(OrgRelation.objects.select_related("org_a", "org_b").all())
 
     nodes = [
         {
@@ -76,9 +87,9 @@ def graph(request):
         for o in orgs
     ]
 
-    org_type_by_pk = {o.pk: o.org_type for o in orgs}
+    # 굵기(value) = 선택 기간 공동언급 건수. 라벨 엣지 쌍에 한정해 기존 combinations 집계 로직을
+    # 재사용한다(전수 계산이 아니라 labeled_pairs 멤버십 체크로 한정).
     edge_weights = defaultdict(int)
-
     news_qs = _apply_period_filter(News.objects.all(), start_date, today)
     for news in (
         news_qs
@@ -88,32 +99,23 @@ def graph(request):
     ):
         pks = sorted(
             o.pk for o in news.organizations.all()
-            if o.pk in org_pk_set
+            if o.pk in labeled_org_pks
         )
         if len(pks) >= 2:
             for a, b in combinations(pks, 2):
-                if _edge_allowed(org_type_by_pk[a], org_type_by_pk[b]):
+                if (a, b) in labeled_pairs:
                     edge_weights[(a, b)] += 1
 
-    # 라벨 정보는 이제 "이미 edge_weights에 실존하는 엣지"에만 얹는다(강제 삽입 없음 —
-    # docs/planning.md "지식그래프: 라벨 강제 표시 롤백"). OrgRelation.save()가
-    # org_a.pk < org_b.pk로 정규화해 저장하므로 키가 edge_weights의 sorted(a, b) 키와
-    # 순서가 항상 일치한다.
-    labeled_map = {
-        (rel.org_a_id, rel.org_b_id): rel.label
-        for rel in relations
-        if rel.org_a_id in org_pk_set and rel.org_b_id in org_pk_set
-    }
-
+    # labeled_pairs를 직접 순회해 edges를 만든다(edge_weights를 순회하지 않음) — 그래야 선택 기간에
+    # 공동언급이 0건인 라벨 엣지도 value=0으로 상시 노출된다(옵션 a 핵심 규칙).
     edges = [
         {
             "source": str(a),
             "target": str(b),
-            "value": w,
-            "has_label": (a, b) in labeled_map,
-            "label": labeled_map.get((a, b)),
+            "value": edge_weights.get((a, b), 0),
+            "label": label_by_pair[(a, b)],
         }
-        for (a, b), w in edge_weights.items()
+        for (a, b) in labeled_pairs
     ]
 
     return render(request, "graph/index.html", {

@@ -103,10 +103,9 @@ const CURRENT_PERIOD = "{{ selected_period }}";
 
 const rawNodes = JSON.parse(document.getElementById('graph-nodes').textContent);
 const rawEdges = JSON.parse(document.getElementById('graph-edges').textContent);
-// 엣지 JSON 필드 기대값(PE 인계, docs/design.md GRAPH-001 "라벨 있는 엣지 상시 표시 + 캔버스 라벨
-// 텍스트 렌더" 절 참고) — 기존 source/target/value에 has_label(bool)/label(string)이 추가로 실릴
-// 것을 가정하고 아래 코드를 작성했다. 아직 뷰가 이 필드를 채우지 않아도 has_label이 undefined→falsy로
-// 처리돼 기존과 동일한 "미분류" 스타일로 자동 폴백하므로 화면이 깨지지 않는다.
+// 옵션 a(docs/design.md GRAPH-001 "라벨 엣지 상시 노출 + 실선 통일", 2026-07-31) — edges 배열은
+// 뷰 단계에서 이미 라벨 엣지만 담고 있다(공동언급만 있고 라벨 없는 쌍은 애초에 포함되지 않음).
+// 각 엣지는 source/target/value/label을 갖는다(has_label 필드는 항상 true가 되어 폐기).
 
 // 인접 맵 — D3가 edges를 변환하기 전에 string id 기준으로 구성
 const neigh = {};
@@ -149,36 +148,37 @@ const linkHit = g.append('g')
   .style('cursor', 'pointer')
   .on('click', (e, d) => { e.stopPropagation(); selectEdge(d); });
 
-// 라벨 유무 시각 채널 — 굵기(활동량)와 완전히 분리된 채널(PM 정책, docs/planning.md "라벨 있는 엣지
-// 상시 표시"). 세 헬퍼로 캡슐화해 link 초기 렌더/배경 클릭 리셋/selectNode/selectEdge가 모두 재사용한다
-// (하드코딩된 '#D1D5DB' 중복 제거).
-function edgeIdleColor(d)   { return d.has_label ? '#60269E' : '#D1D5DB'; }
-function edgeIdleOpacity(d) { return d.has_label ? 0.75 : 0.6; }
-// 다른 노드/엣지 강조 중 톤다운될 때도 라벨 있는 엣지는 완전히 죽이지 않는다(0.15 vs 기존 0.05).
-function edgeFadeOpacity(d) { return d.has_label ? 0.15 : 0.05; }
-// 굵기 = 선택 기간 공동언급 value 그대로(활동 강도, 거짓 신호 방지). 라벨 있는 엣지는 value=0이어도
-// 최소 1.5px는 보장해 "얇게 그리되 안 보이게 하지 않는다"는 정책을 지킨다.
+// 엣지 시각 채널 — 옵션a(docs/planning.md "지식그래프 축 1 확정: 옵션 a", 2026-07-31)에서 화면에
+// 뜨는 엣지가 전부 라벨 엣지가 되면서 점선/실선 이중 채널이 폐기됐다. 4개 헬퍼는 그대로 유지하되(link
+// 초기 렌더/배경 클릭 리셋/selectNode/selectEdge가 모두 재사용하는 구조는 바뀌지 않음) 내부의 라벨
+// 유무 분기를 제거하고 항상 단일 값을 반환한다.
+// idle 색은 중립 Gray(#898A8D) — 모든 엣지가 (금융/보험)-AI 연결이라 항상 AI 노드(#60269E)에 닿는데,
+// 과거 idle 색을 AI 노드와 동일한 Primary Violet으로 통일했더니 선과 노드가 뭉개져 보이는 문제가
+// 실제로 지적됐다(사용자 UX 지적, 2026-07-31). hover/선택 강조 시에는 selectNode/selectEdge가 여전히
+// '#60269E'로 하드코딩 강조하므로(순간 강조라 무방) idle=Gray, active=Primary Violet으로 분리된다.
+function edgeIdleColor(d)   { return '#898A8D'; }
+function edgeIdleOpacity(d) { return 0.75; }
+// 다른 노드/엣지 강조 중 톤다운될 때도 라벨 엣지는 완전히 죽이지 않는다.
+function edgeFadeOpacity(d) { return 0.15; }
+// 굵기 = 선택 기간 공동언급 value 그대로(활동 강도, 거짓 신호 방지). value=0이어도 최소 1.5px는
+// 보장해 "얇게 그리되 안 보이게 하지 않는다"는 정책을 지킨다(옵션a에서 상시 노출 정책상 value=0인
+// 라벨 엣지가 정상적으로 존재하므로 이 바닥이 실제로 자주 발동한다).
 function edgeWidth(d) {
-  const base = Math.min(1 + d.value * 0.5, 5);
-  return d.has_label ? Math.max(1.5, base) : base;
+  return Math.max(1.5, Math.min(1 + d.value * 0.5, 5));
 }
 
-// 엣지 — 공통 기사 수에 비례한 굵기 (클릭은 위 linkHit이 전담). 라벨 있는 엣지는 점선 + primary 색.
+// 엣지 — 공통 기사 수에 비례한 굵기 (클릭은 위 linkHit이 전담). 모든 엣지 실선 + primary 색 통일.
 const link = g.append('g')
   .selectAll('line').data(edges).join('line')
   .attr('stroke', edgeIdleColor)
   .attr('stroke-opacity', edgeIdleOpacity)
   .attr('stroke-width', edgeWidth)
-  .attr('stroke-dasharray', d => d.has_label ? '5,3' : null)
   .style('pointer-events', 'none');
 
-// 라벨 텍스트 캔버스 상시 렌더(2026-07-28) — has_label인 엣지에만 흰 배경 pill + 텍스트를 얹는다.
-// 미분류 엣지는 텍스트를 그리지 않는다(현재 31개 중 3개만 라벨이 있어 겹침 우려 낮음 — YAGNI, 라벨
-// 붙은 엣지가 15~20개를 넘으면 그때 겹침 방지 로직을 추가 검토한다. docs/planning.md 참고).
-const labeledEdges = edges.filter(d => d.has_label);
-
+// 라벨 텍스트 캔버스 상시 렌더 — 옵션a에서는 edges 배열 자체가 이미 라벨 엣지만 담고 있으므로
+// 필터링 없이 edges 전체에 흰 배경 pill + 텍스트를 그린다(과거 has_label 필터는 제거).
 const linkLabel = g.append('g')
-  .selectAll('g').data(labeledEdges).join('g')
+  .selectAll('g').data(edges).join('g')
   .attr('class', 'edge-label-g')
   .style('pointer-events', 'none');
 
