@@ -65,7 +65,7 @@ bleach
 | 필드 | 타입 | 설명 |
 |------|------|------|
 | id | AutoField | PK |
-| uid | UUIDField | shortuuid 기반 공개 식별자 (URL에 노출, unique·db_index) |
+| uid | UUIDField | 공개 식별자 (`default=uuid.uuid4`, unique·db_index). URL 노출 시엔 shortuuid 인코딩이 아니라 `UUIDField` 자체를 저장하고, URL 표시만 커스텀 컨버터(`config/converters.py`)로 shortuuid 형태로 인코딩합니다. |
 | title | CharField(500) | 제목 |
 | url | URLField | 원문 URL |
 | url_hash | CharField(64) | URL SHA-256 해시 (중복 제거) |
@@ -130,7 +130,7 @@ bleach
 | 필드 | 타입 | 설명 |
 |------|------|------|
 | id | AutoField | PK |
-| uid | UUIDField | shortuuid 기반 공개 식별자 (URL에 노출, unique·db_index, `default=uuid.uuid4`) |
+| uid | UUIDField | 공개 식별자 (`default=uuid.uuid4`, unique·db_index). News.uid와 동일하게 저장 자체는 `UUIDField`이며, URL 표시만 shortuuid 커스텀 컨버터(`config/converters.py`)로 인코딩합니다. |
 | period_type | CharField(10) | `daily`/`weekly`/`monthly` — choices, default `weekly` |
 | date_from | DateField | 해당 기간 시작일 |
 | date_to | DateField | 해당 기간 종료일 |
@@ -279,7 +279,7 @@ bleach
 | id | AutoField | PK |
 | org_a | ForeignKey(Organization, related_name="relations_as_a") | 정규화된 쌍의 낮은 pk 쪽 |
 | org_b | ForeignKey(Organization, related_name="relations_as_b") | 정규화된 쌍의 높은 pk 쪽 |
-| label | CharField(50) | 관계 성격 자유 텍스트(예: 기술협업, 투자, 공급계약) — 단일 값 |
+| label | CharField(50) | 관계 성격 자유 텍스트(단일 값). 권장 어휘 세트(기술협업/공동개발/공급계약/지분투자/인수/합병/MOU·업무협약/파트너십)는 `docs/planning.md` "관계 라벨 권장 어휘 세트" 절 참조 |
 | description | TextField(blank) | 관계 서술(선택) |
 | news | ManyToManyField(News, related_name="org_relations") | 저장 시점 두 기업 교집합 뉴스(근거) |
 | created_at | DateTimeField | |
@@ -416,21 +416,27 @@ ai_market_watch/
 
 세 지표 모두 `News.organizations`/`News.tech_topics` M2M(수집 시 `services/collector.py`의 별칭 매칭으로 자동 연결)을 근거로 집계하며, 별도의 캐시·배치 집계 테이블 없이 매 요청마다 실시간으로 계산합니다. 기간 선택은 `<a href="?period=...">` 전체 페이지 GET 재로드 방식입니다(HTMX 부분 스왑 아님).
 
+**주요 이슈·최신 뉴스 카드(기간 필터 미적용)**: "핵심 지표" 3개 카드와 달리 주요 이슈·최신 뉴스 카드는 상단 기간 필터(전체/최근 30일/최근 7일)의 영향을 받지 않습니다 — 기간 선택은 핵심 지표 전용이며, 주요 이슈·최신 뉴스는 항상 전체 데이터 기준 최신 상태를 보여줍니다. 주요 이슈는 `Insight`를 근거 뉴스 최신 발행일(`latest_news_at = Max("news__published_at")`, `nulls_last=True`, `-pk` tie-breaker) 내림차순으로 최대 20건(`[:20]`), 최신 뉴스는 `News`를 `published_at` 내림차순으로 최대 30건(`[:30]`) 가져옵니다. 두 카드 모두 `max-h-[40rem]`으로 카드 높이를 제한하고 내부 리스트에 `.dashboard-scroll`(커스텀 스크롤바 스타일) 클래스로 스크롤을 겁니다.
+
+**정보 툴팁**: 뉴스 건수 추이·기업별 건수 Top 10·기술 주제별 언급 건수·주요 이슈·최신 뉴스 각 카드 제목 옆에 `{% info_tooltip %}` 커스텀 템플릿 태그(`apps/dashboard/templatetags/dashboard_extras.py`)로 "데이터·기준" 설명 툴팁을 붙입니다. 문구는 `apps/dashboard/tooltips.py`의 `INFO_TOOLTIPS` 딕셔너리(키 예: `"dashboard.trend"`, `"dashboard.insights"`)에서 관리하며, `templates/components/_info_tooltip.html`을 `inclusion_tag`로 렌더링합니다.
+
 ---
 
 ## 지식그래프 (GRAPH-001)
 
-`apps/graph/views.py`가 활성 기업(`Organization`) 간 공동 등장 관계를 D3.js force-directed 그래프로 시각화합니다. 대시보드와 동일한 3-옵션 기간 필터(전체/최근 30일/최근 7일, 기본값 최근 7일)를 상단 세그먼트 pill로 제공하며, `graph`/`graph_org_panel`/`graph_edge_panel` 세 뷰 모두 `services.periods.resolve_period`/`period_bounds`로 같은 기간 정의를 공유합니다("기간 정합성 계약" — 세 뷰가 다른 필터 로직을 쓰면 캔버스·패널 숫자가 어긋날 수 있음).
+`apps/graph/views.py`가 기업(`Organization`) 간 관계를 D3.js force-directed 그래프로 시각화합니다. 대시보드와 동일한 3-옵션 기간 필터(전체/최근 30일/최근 7일, 기본값 최근 7일)를 상단 세그먼트 pill로 제공하며, `graph`/`graph_org_panel`/`graph_edge_panel` 세 뷰 모두 `services.periods.resolve_period`/`period_bounds`로 같은 기간 정의를 공유합니다("기간 정합성 계약" — 세 뷰가 다른 필터 로직을 쓰면 캔버스·패널 숫자가 어긋날 수 있음).
 
-- **노드** — 활성(`is_active=True`) `Organization` 중 선택된 기간에 연결된 `News`가 1건 이상인 기업만 노드로 만듭니다. `symbolSize`는 `news_count`에 비례해 `max(14, min(40, 14 + news_count * 2))`로 14~40 범위로 계산합니다. `category`는 `org_type`(금융사/보험사/AI)을 인덱스(0/1/2)로 매핑해 색상 구분에 사용합니다.
-- **엣지** — 같은 `News`에 2개 이상 기업이 함께 등장할 때, 등장한 기업 쌍마다 공동등장 가중치(`value`)를 누적합니다. **단 `ALLOWED_TYPE_PAIRS`(`{금융사, AI}`, `{보험사, AI}`) 조합만 엣지로 허용**하며, 금융사-금융사·보험사-보험사·AI-AI·금융사-보험사 조합은 제외합니다.
+**2026-07-31 "옵션 a" 확정으로 엣지·노드·라벨 표시 방식이 전면 바뀌었습니다** (근거: `docs/planning.md` "지식그래프 축 1 확정: 옵션 a" 절). 과거의 "공동언급 전수 계산 → 실존 엣지에 라벨을 사후로 얹기" 방식(itertools.combinations 전수 조합 + `has_label` 시각 채널 + 점선/실선 이중 표기)은 폐기되고, 아래 방식으로 대체됐습니다.
+
+- **엣지 존재 게이트 = `OrgRelation`(라벨) 존재 여부입니다.** `graph()` 뷰는 `OrgRelation.objects.select_related("org_a", "org_b").all()`을 순회해 양 끝이 모두 활성(`is_active=True`) 기업이고 `ALLOWED_TYPE_PAIRS`(`{금융사, AI}`, `{보험사, AI}`)를 통과하는 관계만 골라 `relations`로 추립니다. **공동언급만 있고 `OrgRelation` 라벨이 없는 기업 쌍은 엣지를 아예 만들지 않습니다** — `itertools.combinations`로 모든 쌍을 전수 계산하던 옛 로직은 폐기됐고, 이제 `labeled_pairs`(라벨 있는 쌍의 집합) 자체가 엣지 후보 전체입니다.
+- **노드 union** — `orgs`는 (선택 기간에 연결된 `News`가 1건 이상인 활성 기업) **∪** (라벨 엣지 양끝에 등장하는 활성 기업, `Q(news_count__gt=0) | Q(pk__in=labeled_org_pks)`)입니다. 라벨 엣지의 상대편 기업은 선택 기간에 뉴스가 0건이어도 노드로 포함됩니다 — 그래야 라벨 엣지가 참조하는 노드가 캔버스에 없는 "떠다니는 엣지" 상태가 생기지 않습니다. `symbolSize`는 기존과 동일하게 `news_count`에 비례해 `max(14, min(40, 14 + news_count * 2))`(0건이면 최소 14 하한)로 계산합니다. `category`는 `org_type`(금융사/보험사/AI)을 인덱스(0/1/2)로 매핑합니다.
+- **라벨 엣지는 기간과 무관하게 상시 노출됩니다.** `edges` 리스트는 `edge_weights`(기간 내 실제 공동언급 건수 집계)를 순회하지 않고 `labeled_pairs`를 직접 순회해서 만듭니다 — 그래야 선택 기간에 공동언급이 0건인 라벨 엣지도 `value=0`으로 항상 노출됩니다. 굵기(`value`)만 선택 기간의 공동언급 건수를 반영합니다(`edge_weights`는 라벨 엣지 쌍(`labeled_pairs`)에 한정해 기존 `combinations` 집계 로직으로 계산). **굵기의 의미는 "관계 깊이 점수"가 아니라 "선택 기간 공동언급 빈도(활동 강도)"**입니다. 각 엣지 dict는 `{"source", "target", "value", "label"}`을 담으며, `has_label` 필드는 (모든 엣지가 항상 라벨 엣지라 무의미해져) 제거됐습니다.
 - **기업 노드 패널** — 노드 클릭 시 `/graph/orgs/<pk>/panel/`(`graph_org_panel`)이 해당 기업에 연결된 선택 기간 내 `News` 최대 10건을 `graph/_org_panel.html` 조각으로 반환합니다(`total_count`가 10건 초과면 "전체 N건 중 10건" 표기). `is_active` 필터 없이 조회하므로 비활성 기업도 URL 직접 접근으로 볼 수 있고, 이 경우 "(비활성)" 배지를 표시합니다.
-- **엣지(기업 쌍) 패널** — 엣지 클릭 시 `/graph/edges/<pk_a>/<pk_b>/panel/`(`graph_edge_panel`)이 두 기업 모두에 연결된 `News`(교집합, `.filter(organizations=a).filter(organizations=b)` 두 번 체이닝 + `distinct()`)를 `graph/_edge_panel.html` 조각으로 반환합니다. 쌍 교집합은 표본이 작다는 전제로 **컷오프 없이 전량 노출**합니다(노드 패널과 의도적으로 다른 정책). `pk_a`/`pk_b`는 `sorted()`로 정규화하고, `pk_a == pk_b`(자기 자신과의 엣지)면 `Http404`를 raise합니다. `org_a`/`org_b` 중 비활성 기업이 있으면 노드 패널과 동일하게 "(비활성)" 배지를 표시합니다.
-- **관계 라벨(2단계, 구현 완료)** — 엣지 패널 안 "관계" 블록에서 RA가 라벨(자유 텍스트, 필수, 최대 50자)과 설명(선택, 최대 300자)을 입력·수정합니다. 저장은 `/graph/edges/<pk_a>/<pk_b>/label/`(`graph_edge_label_save`, POST 전용)이 담당하며, `pk_a == pk_b`면 `graph_edge_panel`과 동일하게 `Http404`입니다. 정규화된 `(org_a, org_b)`로 `OrgRelation.objects.update_or_create(defaults={"label", "description"})`를 실행하고, `news` M2M은 저장 시점 기준 두 기업의 전체 교집합 뉴스(기간 필터 미적용 — 라벨은 특정 기간 뷰가 아니라 영구 기록)로 `.set()`합니다. `graph_edge_panel`과 `graph_edge_label_save`는 컨텍스트 조립 로직(`_build_edge_panel_context`)을 공유해, 저장 후 같은 `_edge_panel.html`을 재렌더링해 `#org-panel`을 교체합니다. `label`이 빈 문자열이면 저장하지 않고 현재 상태 그대로 재렌더링합니다(크래시 방지). `graph_edge_panel`은 GET 시에도 정규화된 `(org_a, org_b)`로 `OrgRelation`을 조회해 `relation` 컨텍스트로 넘기며, 없으면 `None`(템플릿은 "관계 미분류"로 표시).
-- **캔버스 라벨 텍스트(2026-07-28)** — `graph()` 뷰가 반환하는 엣지 JSON에는 `source`/`target`/`value`와 함께 `has_label`(bool)/`label`(string) 필드가 실립니다. 단 이 필드는 어디까지나 "선택된 기간에 실제 공동언급이 있어 `edge_weights`에 이미 존재하는 엣지"에 라벨 정보를 얹는 용도일 뿐, `OrgRelation`에 라벨이 있다는 이유로 그 기간에 없던 엣지를 억지로 만들어 표시하지는 않습니다(`views.py`의 `labeled_map`은 `edge_weights`의 키 집합 안에서만 조회됨). 한때 "라벨이 있으면 기간과 무관하게 항상 표시"로 구현했다가 사용자 요청으로 철회되고 지금 방식(기간 내 실존 엣지에만 라벨 부착)으로 확정된 이력이 `docs/planning.md`에 있습니다.
-  - `templates/graph/index.html`은 `has_label=true`인 엣지를 굵기(활동량, `value` 기반)와는 별개인 시각 채널로 강조합니다 — `edgeIdleColor`(라벨 있으면 `#60269E`, 없으면 `#D1D5DB`), `edgeIdleOpacity`(0.75 vs 0.6), `edgeFadeOpacity`(다른 노드·엣지 강조로 톤다운될 때 0.15 vs 0.05), `edgeWidth`(라벨 있으면 최소 1.5px 보장) 네 헬퍼가 이 로직을 캡슐화해 초기 렌더·배경 클릭 리셋·`selectNode`/`selectEdge`가 공유합니다. 엣지 선(`link`)에는 `stroke-dasharray: 5,3` 점선이 추가로 걸립니다.
-  - 점선 위에는 `linkLabel` 레이어(`g.edge-label-g`)가 `has_label=true`인 엣지만 걸러(`labeledEdges = edges.filter(d => d.has_label)`) 흰 배경(`fill: #FFFFFF`, `stroke: #60269E`) 둥근 사각형(pill, `rx/ry: 8`) 위에 라벨 텍스트(`#60269E`, 10px, 600 weight)를 그립니다. pill 너비는 `getBBox()`로 텍스트를 실측해 최초 렌더 시 1회만 계산합니다. 클릭 없이도 캔버스에 항상 보인다는 점, 그리고 `toggleCategory()`로 카테고리를 숨기면 `linkLabel`도 함께 `display: none` 처리된다는 점이 특징입니다.
-  - 이 캔버스 상시 라벨은 엣지 클릭 시 뜨는 `_edge_panel.html`의 라벨 표시(위 "관계 라벨(2단계)" 항목)와는 별개 기능입니다. 패널 쪽 라벨은 **클릭해야 보이고** `OrgRelation`이 존재하기만 하면 선택된 기간과 무관하게 항상 표시되는 반면, 캔버스 쪽 라벨은 **클릭 없이 항상 보이지만** 그 라벨이 붙은 엣지 자체가 현재 선택된 기간에 실제로 존재할 때만(즉 두 기업이 그 기간 안에서 실제로 공동 등장한 뉴스가 있을 때만) 나타납니다 — 두 기능의 "기간 조건"이 정반대인 셈입니다.
+- **엣지(기업 쌍) 패널** — 엣지 클릭 시 `/graph/edges/<pk_a>/<pk_b>/panel/`(`graph_edge_panel`)이 두 기업 모두에 연결된 `News`(교집합, `.filter(organizations=a).filter(organizations=b)` 두 번 체이닝 + `distinct()`)를 `graph/_edge_panel.html` 조각으로 반환합니다. 쌍 교집합은 표본이 작다는 전제로 **컷오프 없이 전량 노출**합니다(노드 패널과 의도적으로 다른 정책). `pk_a`/`pk_b`는 `normalize_org_pair()`로 정규화하고, `pk_a == pk_b`(자기 자신과의 엣지)면 `Http404`를 raise합니다. `org_a`/`org_b` 중 비활성 기업이 있으면 노드 패널과 동일하게 "(비활성)" 배지를 표시합니다.
+- **관계 라벨 입력·저장** — 엣지 패널 안 "관계" 블록에서 RA가 라벨(자유 텍스트, 필수, 최대 50자)과 설명(선택, 최대 300자)을 입력·수정합니다. 저장은 `/graph/edges/<pk_a>/<pk_b>/label/`(`graph_edge_label_save`, POST 전용)이 담당하며, `pk_a == pk_b`면 `graph_edge_panel`과 동일하게 `Http404`입니다. 정규화된 `(org_a, org_b)`로 `OrgRelation.objects.update_or_create(defaults={"label", "description"})`를 실행하고, `news` M2M은 선택된 기간 기준 두 기업의 교집합 뉴스(`_edge_news_queryset` 공유 — 패널에 실제로 보이는 `news_list`와 저장되는 `relation.news`가 항상 같은 쿼리에서 나오도록 강제)로 `.set()`합니다. `graph_edge_panel`과 `graph_edge_label_save`는 컨텍스트 조립 로직(`_build_edge_panel_context`)을 공유해, 저장 후 같은 `_edge_panel.html`을 재렌더링해 `#org-panel`을 교체합니다. `label`이 빈 문자열이거나 50자를 초과하면 저장하지 않고 현재 상태 그대로 재렌더링합니다(no-op, 500 방지). `graph_edge_panel`은 GET 시에도 정규화된 `(org_a, org_b)`로 `OrgRelation`을 조회해 `relation` 컨텍스트로 넘기며, 없으면 `None`(템플릿은 "관계 미분류"로 표시). 관계 라벨 운영 규칙(변천/병존/합병 3경우의 수동 처리 절차)과 권장 라벨 어휘 세트(기술협업/공동개발/공급계약/지분투자/인수/합병/MOU·업무협약/파트너십)는 `docs/planning.md`의 "관계 변천 운영 규칙"·"관계 라벨 권장 어휘 세트" 절을 참조하세요.
+- **캔버스 시각 표기(`templates/graph/index.html`)** — 옵션 a에서는 `edges` 배열 자체가 이미 라벨 엣지만 담고 있으므로, 점선(`stroke-dasharray`)/실선 이중 채널과 `has_label` 필터링 분기가 모두 제거되고 **모든 엣지가 실선으로 통일**됐습니다. `edgeIdleColor`는 중립 Gray(`#898A8D`) 고정입니다 — 모든 엣지가 (금융사/보험사)-AI 연결이라 AI 노드 색(`#60269E`, Primary Violet)과 idle 색을 동일하게 두면 선과 노드가 뭉개져 보이는 문제가 있어 분리했습니다. hover/선택 강조 시(`selectNode`/`selectEdge`)에는 `#60269E`로 하드코딩 강조합니다. `edgeIdleOpacity`는 0.75, `edgeFadeOpacity`(다른 노드·엣지 강조로 톤다운될 때)는 0.15로 고정, `edgeWidth`는 `Math.max(1.5, Math.min(1 + value * 0.5, 5))`로 `value=0`이어도 최소 1.5px를 보장합니다.
+  - 라벨 pill(`linkLabel`, `g.edge-label-g`)은 `has_label` 필터링 없이 **`edges` 전체에 클릭 없이 상시 렌더**됩니다 — 흰 배경(`fill: #FFFFFF`, `stroke: #60269E`) 둥근 사각형(`rx/ry: 8`) 위에 라벨 텍스트(`#60269E`, 10px, 600 weight)를 그립니다. pill 너비는 `getBBox()`로 텍스트를 실측해 최초 렌더 시 1회만 계산합니다. `toggleCategory()`로 카테고리를 숨기면 `linkLabel`도 함께 `display: none` 처리됩니다.
+  - 뷰 단계에서 라벨 없는 엣지가 애초에 걸러지므로, 캔버스 상시 라벨과 엣지 클릭 시 뜨는 패널 라벨은 항상 "같은 엣지 = 같은 라벨"이라는 동일 데이터를 보여줍니다.
 - **렌더링** — `templates/graph/index.html`에서 D3.js v7.8.5(CDN)로 force simulation을 구성합니다. 기간 선택은 대시보드와 동일하게 전체 페이지 GET 재로드 방식이며(D3 스크립트의 최상위 `const`/`let` 재선언 문제 회피), 노드·엣지 HTMX 호출 시 `?period=` 쿼리를 그대로 이어 붙여 캔버스와 패널이 같은 기간을 보게 합니다.
 
 ---
@@ -527,20 +533,23 @@ RA가 `Report.overview`/`Report.content`에 작성하는 마크다운은 `apps/r
 
 ### 이슈 카드 렌더링 (`report_issues` 필터)
 
-RA는 `Report.content`를 `docs/planning.md`의 "주간 보고서(Report) 표준 구조"(고정 3단: `### 이슈 제목` → 흐름 분석 1문단 → 시사점 1~2문단, 근거 링크는 content에 넣지 않음)에 맞춰 작성합니다. `apps/reports/templatetags/report_extras.py`의 `report_issues` 필터가 이 구조를 파싱해 REPORT-002 상세 화면이 이슈별 카드로 렌더링할 수 있게 합니다.
+RA는 `Report.content`를 `docs/planning.md`의 "주간 보고서(Report) 표준 구조"에 맞춰 작성합니다. **2026-07-31 "옵션 C" 확정으로 각 이슈(`### ` 블록) 최하단에 `참고: <uid>, <uid>` 규약 줄**(`News.uid` full UUID)을 넣는 방식이 추가됐습니다 — `apps/reports/templatetags/report_extras.py`의 `report_issues` 필터가 이 규약 줄을 파싱해 uid로 `News`를 조회하고, 이슈별 참고뉴스 리스트를 REPORT-002 상세 화면의 이슈 카드 내부에 직접 렌더링합니다.
 
-- **계약**: `content: str` → `{"preamble": str, "issues": [{"title": str, "body": str}, ...]}`
+- **계약**: `content: str` → `{"preamble": str, "issues": [{"title": str, "body": str, "news_list": [News, ...]}, ...]}`
   - 줄 시작의 `### 이슈 제목`(h3)만 이슈 구분자로 인식합니다(`#### `처럼 h4 이상은 제외, 정규식 `^###[ \t]+(?!#)(.*)$`, `re.MULTILINE`).
-  - 첫 `### ` 이전 텍스트는 `preamble`로, 각 `### ` 구간은 제목(`title`)과 다음 `### `(또는 문자열 끝)까지의 본문(`body`)으로 분리됩니다.
+  - 첫 `### ` 이전 텍스트는 `preamble`로, 각 `### ` 구간은 제목(`title`)과 다음 `### `(또는 문자열 끝)까지의 나머지(raw body)로 분리됩니다.
+  - **참고 줄 파싱(`_split_ref_line`)**: raw body에서 공백만 있는 줄을 건너뛰고 실제 내용이 있는 마지막 줄을 찾아 `참고[ \t]*[:：][ \t]*(.*)`(공백·전각 콜론까지 관용 허용) 패턴에 매치하는지 확인합니다. 매치하면 그 줄을 떼어낸 나머지가 `body`, 콤마로 나눈 토큰들이 uid 후보입니다. 매치하지 않으면(참고 줄이 없는 과거 데이터) `body`는 raw body 그대로, uid 토큰은 빈 리스트입니다. 이 위치 규칙 덕분에 "참고 줄을 제외한 블록의 실제 마지막 문단 = 시사점"이라는 표준 구조 식별이 참고 줄 유무와 무관하게 그대로 성립합니다.
+  - **uid 해석(`_resolve_ref_news`)**: 각 토큰을 `uuid.UUID()`로 파싱 시도하고, 실패하는 토큰(오타·과거 pk 등 형식 오류)은 조용히 건너뜁니다. 파싱에 성공한 uid만 `News.objects.filter(uid__in=...)`로 일괄 조회해 존재하는 것만 남기고, 토큰이 적힌 순서를 보존해 `news_list`로 반환합니다. 참고 줄이 아예 없거나 uid가 하나도 해결되지 않으면 `news_list=[]`입니다 — 어떤 경우에도 500 에러 없이 빈 리스트로 폴백합니다.
   - `body`는 마크다운 원문 그대로 반환되며 이 필터 안에서는 HTML로 변환하지 않습니다 — 템플릿이 `|markdown` 필터를 별도로 한 번 더 통과시켜 bleach 새니타이즈를 유지합니다.
   - **폴백**: `content`가 비어 있거나 `### ` 구분자가 전혀 없는 비표준/과거 데이터는 `{"preamble": content, "issues": []}`(또는 content도 없으면 `{"preamble": "", "issues": []}`)를 반환합니다.
 
 - **`templates/reports/detail.html`의 렌더링**: "주요 이슈" 카드에서 `{% with parsed=report.content|report_issues %}`로 파싱한 뒤,
   - `parsed.issues`가 있으면: `preamble`이 있을 때만 먼저 `|markdown`으로 렌더링하고, 이어서 이슈마다 번호 배지(`forloop.counter`)와 제목을 헤더로 갖는 회색 카드(`bg-gray-50/50` 박스)를 순서대로 렌더링합니다. 카드 본문(`issue.body`)은 기존 `|markdown` 필터를 그대로 통과시켜 h1~h6/목록/링크 등이 정상 렌더링되고 bleach 새니타이즈도 유지됩니다.
+  - **각 이슈 카드 내부**에 `{% if issue.news_list %}`로 감싼 "참고 뉴스" 목록을 카드 본문 하단(`border-t`로 구분)에 렌더링합니다 — 제목과 발행일을 나열하고 각 행이 `news_detail`(NEWS-002)로 링크됩니다. `news_list`가 비어 있으면(참고 줄 없음/uid 미해결/과거 데이터) 이 블록 자체를 통째로 생략합니다.
   - `parsed.issues`가 비어 있으면(폴백): `report.content` 전체를 통짜로 `|markdown` 렌더링하는 기존 방식으로 돌아갑니다.
-  - 이슈 카드에는 라벨(예: `**시사점:**`)이나 근거 링크가 표시되지 않습니다 — 시사점은 표준 구조 정책에 따라 "블록의 마지막 문단"이라는 위치 규칙으로만 식별되는 라벨 없는 일반 문단이고, 근거 기사는 이 카드가 아니라 상세 화면 하단의 별도 "참고 뉴스" 섹션이 전담합니다.
-  - **"참고 뉴스" 섹션**은 이슈 카드와 별개로, `report.news.all`(`Report.news` M2M)을 제목·발행일 테이블로 렌더링하고 각 행이 `news_detail`(NEWS-002)로 링크됩니다 — content 내 이슈 카드에는 근거 링크가 전혀 없으므로, 보고서의 근거 추적은 오직 이 섹션을 통해서만 이뤄집니다.
-  - 표준 구조(이슈당 고정 3단 구성, 근거 링크를 content에서 뺀 이유, `Report.news`가 유일한 출처 채널이라는 정책 등) 자체의 정의·근거는 `docs/planning.md`의 "주간 보고서(Report) 표준 구조" 절을 참조하세요 — 이 문서는 구현(필터·템플릿) 설명만 다룹니다.
+  - **하단 통합 "참고 뉴스" 테이블은 옵션 C에서 제거됐습니다** — 과거에는 이슈 카드에 근거 링크가 전혀 없고 상세 화면 맨 아래 별도 테이블(`report.news.all` 전체를 나열)이 근거 추적을 전담했지만, 지금은 이슈별 참고뉴스가 각 카드 안에 인라인으로 붙습니다.
+  - **`Report.news` M2M은 삭제되지 않고 유지**됩니다 — 다만 역할이 "유일한 출처 채널"에서 "집계·출처추적·Slack 발송 채널"로 바뀌었습니다. `Report.news`는 각 이슈 참고 줄 uid들의 합집합에 해당하는 값으로 관리되는 것을 전제로 하지만, 화면에는 더 이상 이 M2M을 직접 나열하는 UI가 없습니다.
+  - 표준 구조·참고 줄 인라인 규약(옵션 C) 자체의 정의·근거는 `docs/planning.md`의 "주간 보고서(Report) 표준 구조"·"이슈별 참고뉴스 인라인 규약" 절을 참조하세요 — 이 문서는 구현(필터·템플릿) 설명만 다룹니다.
 
 ---
 
