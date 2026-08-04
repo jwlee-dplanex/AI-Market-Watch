@@ -8,19 +8,26 @@
   /* report.overview / report.content 마크다운 렌더링 스타일.
      기존 디자인 시스템 톤(text-sm/leading-relaxed/text-gray-700, 카드 소제목
      text-sm font-semibold text-gray-900)을 그대로 값으로 옮겨 재사용한다. */
-  .markdown-content { color: #374151; font-size: 0.875rem; line-height: 1.625; }
+  /* 장문 본문의 세로 리듬 (2026-08-04) — 폭은 그대로 두고 행간·문단 간격만 넓혔다.
+     한 줄이 길수록 눈이 줄 끝에서 다음 줄 첫 글자로 돌아올 때 헤매는데, 행간이
+     넓으면 그 되돌아오기가 쉬워진다. 본문 폭을 좁히는 안은 메인 영역에 여백이
+     너무 많이 생겨 사용자가 반려했다(2026-08-04). */
+  /* word-break: keep-all — 한국어는 어절(띄어쓰기) 단위로 끊어야 읽힌다. 기본값(normal)은
+     줄 끝에서 '금융권에서는' 같은 어절을 '금융권에' / '서는'으로 쪼개는데, 그때마다 눈이
+     멈춘다. 이 한 줄이 폭·행간 조정보다 체감이 클 수 있다. */
+  .markdown-content { color: #374151; font-size: 0.875rem; line-height: 1.9; word-break: keep-all; }
   .markdown-content h1, .markdown-content h2, .markdown-content h3,
   .markdown-content h4, .markdown-content h5, .markdown-content h6 {
     font-size: 0.875rem; font-weight: 600; color: #111827;
     margin-top: 1.25rem; margin-bottom: 0.5rem;
   }
   .markdown-content > :first-child { margin-top: 0; }
-  .markdown-content p { margin-bottom: 0.75rem; }
+  .markdown-content p { margin-bottom: 1.15rem; }
   .markdown-content p:last-child { margin-bottom: 0; }
-  .markdown-content ul, .markdown-content ol { margin: 0 0 0.75rem 1.25rem; }
+  .markdown-content ul, .markdown-content ol { margin: 0 0 1.15rem 1.25rem; }
   .markdown-content ul { list-style: disc; }
   .markdown-content ol { list-style: decimal; }
-  .markdown-content li { margin-bottom: 0.25rem; }
+  .markdown-content li { margin-bottom: 0.45rem; }
   .markdown-content strong { font-weight: 600; color: #111827; }
   .markdown-content a { color: #60269E; text-decoration: underline; }
   .markdown-content blockquote {
@@ -48,6 +55,12 @@
 {% endblock %}
 
 {% block content %}
+
+{# 본문 폭 제한·가운데 정렬은 도입하지 않는다 (2026-08-04, 두 차례 시도 후 사용자 반려).
+   1차: 좌측 정렬 + 640px → 메인 영역 오른쪽에 여백이 너무 많이 생김.
+   2차: 가운데 정렬 + 720px → 마찬가지로 반려.
+   읽기 부담은 폭이 아니라 세로 리듬(행간·문단 간격)과 word-break: keep-all로 푼다 —
+   그쪽은 채택됐다. 폭 제한을 다시 제안하기 전에 이 이력을 먼저 확인할 것. #}
 
 <!-- 브레드크럼 -->
 <nav class="flex items-center justify-between gap-2 text-xs text-gray-400 mb-4">

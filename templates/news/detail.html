@@ -8,13 +8,15 @@
   /* insight.implication 마크다운 렌더링 시 문단 간 여백만 최소로 부여.
      dashboard/index.html의 .markdown-spacing과 동일한 규칙 — 이 페이지의
      text-sm text-gray-700 지정을 유지하기 위해 폰트 크기/색상은 지정하지 않는다. */
-  .markdown-spacing p { margin-bottom: 0.75rem; }
+  /* word-break: keep-all — 한국어는 어절 단위로 끊어야 읽힌다(보고서 상세와 동일 규칙). */
+  .markdown-spacing { word-break: keep-all; }
+  .markdown-spacing p { margin-bottom: 1.15rem; }
   .markdown-spacing p:last-child { margin-bottom: 0; }
-  .markdown-spacing ul, .markdown-spacing ol { margin: 0 0 0.75rem 1.25rem; }
+  .markdown-spacing ul, .markdown-spacing ol { margin: 0 0 1.15rem 1.25rem; }
   .markdown-spacing ul:last-child, .markdown-spacing ol:last-child { margin-bottom: 0; }
   .markdown-spacing ul { list-style: disc; }
   .markdown-spacing ol { list-style: decimal; }
-  .markdown-spacing li { margin-bottom: 0.25rem; }
+  .markdown-spacing li { margin-bottom: 0.45rem; }
 </style>
 {% endblock %}
 
@@ -114,7 +116,7 @@
       </div>
       <p class="text-xs text-gray-400 mb-3 ml-6">이 기사가 속한 이슈 &middot; <span class="text-gray-500">{{ insight.title }}</span></p>
       <div class="bg-purple-50 border-l-4 border-primary rounded-r-[10px] p-3">
-        <div class="text-sm text-gray-700 markdown-spacing">{{ insight.implication|markdown }}</div>
+        <div class="text-sm text-gray-700 leading-[1.9] markdown-spacing">{{ insight.implication|markdown }}</div>
       </div>
     </div>
     {% endif %}
@@ -122,7 +124,10 @@
 
     <!-- 본문 -->
     <div class="bg-white rounded-[10px] shadow-sm p-6">
-      <div class="text-sm text-gray-700 leading-relaxed markdown-spacing">{{ news.body|linebreaks }}</div>
+      <!-- leading-[1.9]: 장문 본문의 세로 리듬 (2026-08-04). 폭은 그대로 두고 행간만 넓혔다 —
+           한 줄이 길수록 줄 끝에서 다음 줄 첫 글자로 눈이 돌아올 때 헤매는데, 행간이 넓으면
+           그 되돌아오기가 쉬워진다. 본문 폭을 좁히는 안은 여백이 너무 많이 생겨 반려됐다. -->
+      <div class="text-sm text-gray-700 leading-[1.9] markdown-spacing">{{ news.body|linebreaks }}</div>
     </div>
 
   </article>
