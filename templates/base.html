@@ -1,9 +1,14 @@
-<!DOCTYPE html>
+{% load static %}<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Market Watch</title>
+
+  <!-- 파비콘 (docs/design.md 1.6 로고 · 심볼 · 파비콘) -->
+  <link rel="icon" type="image/svg+xml" href="{% static 'img/logo_image.svg' %}">
+  <link rel="apple-touch-icon" href="{% static 'img/logo_image.svg' %}">
+  <meta name="theme-color" content="#60269E">
 
   <!-- Tailwind CSS Play CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
