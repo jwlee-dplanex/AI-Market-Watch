@@ -71,11 +71,16 @@
       </div>
     </div>
 
-    <!-- ④ 고아 라벨 관계 (지식그래프) — 기존 3개 지표 아래, 같은 카드 안에 구분선으로 얹는다.
+    <!-- ④ 그래프에 안 보이는 관계 — 기존 3개 지표 아래, 같은 카드 안에 구분선으로 얹는다.
          docs/design.md SET-006 절 "고아 라벨 관계 지표 추가" 참고. 시간축이 없는 지표라 미검증
-         지표처럼 2일 임계값을 두지 않고 0건/그 외 2단계(clear/attention)로만 강조한다. -->
+         지표처럼 2일 임계값을 두지 않고 0건/그 외 2단계(clear/attention)로만 강조한다.
+
+         화면 문구는 "고아 라벨 관계"에서 바꿨다(2026-08-04 사용자 지시 — "고아"가 보기 불편함).
+         컨텍스트 변수명(orphan_relation_count)과 설계 문서 표기는 그대로 두기로 했으므로,
+         이 라벨을 다시 코드 용어에 맞춰 되돌리지 말 것.
+         보조 표기 "(지식그래프)"는 라벨 자체가 이미 그래프를 말하므로 함께 뺐다. -->
     <div class="px-5 py-3 border-t border-gray-100">
-      <p class="text-xs text-gray-400 mb-1">고아 라벨 관계 <span class="text-gray-300">(지식그래프)</span></p>
+      <p class="text-xs text-gray-400 mb-1">그래프에 안 보이는 관계</p>
       <p class="text-lg font-semibold flex items-center gap-2 {% if orphan_relation_count %}text-yellow-700{% else %}text-gray-900{% endif %}">
         {{ orphan_relation_count|default:0 }}건
         {% if orphan_relation_count %}
@@ -84,7 +89,7 @@
         </span>
         {% else %}
         <span class="text-[11px] font-normal text-green-600 flex items-center gap-1">
-          <i data-lucide="check-circle" class="w-3 h-3"></i>조용히 잘 보이고 있어요
+          <i data-lucide="check-circle" class="w-3 h-3"></i>모두 그래프에 나타나고 있어요
         </span>
         {% endif %}
       </p>
