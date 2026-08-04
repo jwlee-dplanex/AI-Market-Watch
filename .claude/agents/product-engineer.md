@@ -74,6 +74,12 @@ model: sonnet
 
     ⚠️ Django는 에러를 내지 않고 조용히 렌더하므로 `manage.py check`도, 코드를 다시 읽는 것도 이걸 못 잡습니다. 커밋 d61c35f에서 한 번, 2026-08-04 하루에만 세 번 재발했고 **전부 사용자가 화면에서 먼저 발견했습니다.** 이 프로젝트는 템플릿에 설계 의도·반려 이력을 주석으로 길게 남기는 관행이 있어 특히 자주 걸립니다.
 
+12. **`USE_TZ=True`에서 aware datetime을 파이썬 `.strftime()`/`.date()`로 직접 다루지 마세요 — 표시 포맷은 템플릿 필터에 맡깁니다.** 이 프로젝트는 `TIME_ZONE = "Asia/Seoul"`, `USE_TZ = True`라 DB에는 UTC로 저장됩니다. aware datetime에 파이썬에서 직접 `.strftime()`이나 `.date()`를 부르면 Django의 자동 시간대 변환을 우회해 **UTC가 그대로 새어나옵니다** — 예외가 나지 않고 형태도 멀쩡한 날짜/시각이라 **틀렸다는 걸 알아채기 어렵습니다.** 실제로 사이드바 "마지막 수집" 표기가 이 버그로 9시간 어긋난 채 노출된 적이 있습니다(`apps/dashboard/context_processors.py`, 2026-08-04).
+   - 뷰에서 컨텍스트로 값을 넘길 때는 포맷 문자열을 만들지 말고 **datetime 객체 자체를 넘기고** 템플릿에서 `{{ value|date:"m/d H:i" }}`로 렌더하세요 — 템플릿 `date` 필터는 현재 타임존으로 자동 변환합니다.
+   - 부득이 파이썬 쪽에서 날짜 연산(버킷 라벨 등)이 필요하면, 그 datetime을 먼저 `timezone.localtime(dt).date()`로 로컬 `date`로 바꾼 **뒤에** `.strftime()`을 부르세요 — plain `date` 객체는 타임존 정보가 없어 그대로 안전합니다(`apps/dashboard/views.py`의 버킷 계산이 이 패턴).
+   - ORM에서 날짜만 뽑을 때(`TruncDate`, `__date` lookup)는 `USE_TZ=True`면 기본값이 이미 현재 타임존(`timezone.get_current_timezone()`)이므로 별도 `tzinfo=`를 안 줘도 안전합니다 — 다만 `timezone.activate()`로 타임존을 바꾸는 코드가 어딘가 생기면 이 가정이 깨지니 그런 코드를 추가하지 않는 한 안심해도 됩니다.
+   - `.isoformat()`, `.timestamp()`처럼 화면에 직접 노출되는 다른 datetime 직렬화 경로도 같은 함정이 있으니 새로 추가할 때 반드시 KST 기준인지 확인하세요.
+
 ## 작업 절차
 
 1. **모델을 건드렸다면 먼저** `makemigrations` → `migrate` → `makemigrations --check --dry-run` (패턴 10)
