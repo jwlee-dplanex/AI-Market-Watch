@@ -103,13 +103,42 @@ List Card (목록 행, 전체 클릭형) — NEWS-001·REPORT-001 등 목록 화
           hover    — shadow만 강해짐, border-color는 변경하지 않는다(Base와 동일 규칙)
           제목 강조 — 제목 자체에 hover를 걸지 않고 카드(그룹)의 group-hover:text-primary 사용
 
-          ⚠️ 구현 확인(2026-08-04): 위 border 규칙이 문서에는 있었지만 실제 템플릿
-             (reports/list.html, news/list.html, dashboard/index.html 등)에는 반영이
+          ✅ 구현 확인 완료(2026-08-04): 위 border 규칙이 문서에는 있었지만 실제 템플릿
+             (reports/list.html, news/_list.html, dashboard/index.html 등)에는 반영이
              안 돼 있었다 — "카드 구분이 잘 안 보인다"는 사용자 지적으로 발견.
-             REPORT-001에 border border-[#E5E5E5] 적용 완료(아래 REPORT-001 변경 이력
-             참고). NEWS-001·대시보드 카드는 동일 문제이나 범위를 넓히지 않고 후속으로
-             남긴다 — 각 화면 구조가 달라(Stretched Link, Accent 카드 등) 한 커밋에
-             묶기보다 화면별로 짧게 확인하는 편이 발표 전 리스크가 적다.
+             REPORT-001(border border-[#E5E5E5])에 우선 적용한 뒤, 같은 날 안에 List Card
+             표준 전체로 확대 적용 완료:
+               · REPORT-001 — templates/reports/list.html (카드 + 빈 상태)
+               · NEWS-001   — templates/news/_list.html (카드 + 빈 상태). 실제 카드 마크업은
+                 news/list.html이 아니라 이 파일(HTMX include 대상)에 있다 — 8행의
+                 bg-white shadow-sm는 검색·필터 바(툴바)이지 List Card가 아니라서 제외했다.
+                 Stretched Link 구조(absolute inset-0 앵커 + pointer-events-auto 삭제 버튼)를
+                 직접 확인했고, border는 padding box 밖에 추가돼 앵커의 클릭 영역·삭제 버튼
+                 z-index에 영향을 주지 않는다.
+               · ALL-001    — templates/dashboard/index.html 77·194·260·316·381행(뉴스 건수
+                 추이 / 기업별 Top10 / 기술 주제별 언급 건수 / 주요 이슈 / 최신 뉴스, 5개 전부).
+                 이 화면엔 Accent(그라디언트) 카드가 없어 제외 대상이 없었다 — 그라디언트 카드의
+                 실제 예시는 REPORT-002 상세 헤더(reports/detail.html:215)이며 그쪽은 원래도
+                 border 없이 맞는 처리라 손대지 않았다.
+             범위를 넓히지 않고 화면별로 나눠 확인한다는 원래 판단은, "레이아웃 리스크가
+             사실상 없다(border-box라 크기 불변)"는 근거로 뒤집혔다 — 반쯤만 적용된 디자인
+             시스템(보고서만 테두리 있고 뉴스는 없는 상태)이 오히려 화면을 오가며 같은 위화감을
+             재현하는 게 더 나쁘다고 판단, 사용자 승인 하에 같은 날 전체 적용으로 마무리했다.
+
+          **범위 밖(액션 안 함, 훑어보고 보고만)** — 아래는 동일하게 `bg-white rounded-[10px]
+          shadow-sm`을 쓰지만 목록 행(List Card)이 아니라 필터 바·테이블 래퍼·사이드 패널·
+          상세 화면 콘텐츠 블록 등 성격이 달라 이번 범위에서 제외했다. 실제로 border를 넣을지는
+          각 화면을 다시 보고 개별 판단이 필요하다:
+            · news/list.html:8(검색·필터 바), setting/base_setting.html:9(설정 사이드 네비),
+              setting/prompts.html:8·22(좌측 목록 패널 + 에디터), graph/index.html:37·83
+              (그래프 캔버스 + 기업 패널), setting/sources.html:5·_keywords.html:4,133·
+              _organizations.html:18·_tech_topics.html:1(전부 테이블 래퍼), setting/slack.html:8,55
+              (설정 폼 패널), setting/_schedule_list.html:5,58, setting/logs.html:101,116,170
+              (탭 바·테이블 래퍼 — 26행은 이미 stale 상태일 때 border-yellow-200이 조건부로 붙어
+              있어 대상에서 자연히 빠짐), news/detail.html:63,102,112,126,139(상세 화면 섹션
+              블록), reports/detail.html:247,259,321(보고서 상세 콘텐츠 블록). List Card와
+              달리 이들은 "개별 항목을 나열해 구분해야 하는" 화면이 아니라 단일 패널/테이블이라
+              같은 발견성 문제가 있는지 자체가 불확실하다.
           구현 원칙 (실제 코드는 product-engineer가 작성):
             · 경쟁 액션이 없는 카드(예: REPORT-001)
               → 카드 콘텐츠 전체를 <a href="..." class="block group">로 감싼다
@@ -471,6 +500,8 @@ hover: bg #F9F9F7
 3. **기술 주제별 언급 건수** — 순위 번호 + 주제명(truncate) + 가로 미니바(`bg-accent`, Accent Green) + 건수. 기업별 Top 10과 동일한 랭킹 리스트 톤(순위/이름/미니바/건수, 폭 규격까지 동일 `w-4`/`w-20`/`w-6`)을 재사용하되, 색상만 Accent Green으로 바꿔 "기업 축"과 "기술주제 축" 두 카드를 시각적으로 구분한다. **주제명 호버 시 관련 뉴스 팝오버**를 기업별 Top 10과 완전히 동일한 패턴으로 추가했다(2026-07-10, 아래 "기술 주제별 호버 팝오버" 절 참고) — 최초 배치 때는 스코프 최소화를 위해 제외했으나 사용자 피드백으로 기업별 카드와 인터랙션을 통일.
 
 세 카드 모두 데이터가 없을 때 기존 프로젝트 empty state 패턴(회색 아이콘 + 안내문, opacity-40)을 재사용한다.
+
+**카드 border 추가 (2026-08-04, PD)**: "핵심 지표" 3종("일별 뉴스 건수 추이"/"기업별 건수 Top 10"/"기술 주제별 언급 건수"), "주요 이슈", "최신 뉴스" — 5개 카드 전부에 `border border-[#E5E5E5]`를 추가했다(`templates/dashboard/index.html` 77·194·260·316·381행). REPORT-001에서 발견된 것과 동일 원인(List Card 표준 border가 문서에만 있고 구현에 빠짐)이며, 같은 날 List Card 표준 전체로 확대 적용하는 김에 함께 반영. 이 화면에는 Accent(그라디언트) 카드가 없어 전부 동일하게 적용했다 — 그라디언트 카드의 실제 예시는 REPORT-002 상세 헤더 하나뿐이고 그쪽은 원래도 border 없이 맞는 처리라 영향 없음. "주요 이슈"/"최신 뉴스" 카드 내부의 개별 항목(`border-gray-100`, hover 시 `border-primary/30`으로 색이 바뀌는 별도 규칙)은 이번 변경 대상이 아니다 — 흰 카드 위에 얹힌 중첩 카드라 배경 대비 문제 자체가 없다.
 
 **검증 게이트 도입에 따른 빈 상태 문구 — 변경 없음 확정 (2026-08-04, PD)**: `docs/planning.md` "검증 게이트" PD 인계 2번에 따라, 미검증 뉴스만 있어서 이 화면의 "핵심 지표" 3종·"주요 이슈"·"최신 뉴스"가 비는 상황에서도 **기존 empty state 문구를 그대로 쓴다.** "주요 이슈"의 `<i data-lucide="inbox">` + "수집된 이슈가 없습니다.", "최신 뉴스"의 `<i data-lucide="rss">` + "수집된 뉴스가 없습니다."(모두 `templates/dashboard/index.html`에 이미 구현돼 있음)는 애초에 "몇 건인지"를 말하지 않는 일반 문구라 별도 수정이 필요 없다고 확인했다. **"검증 대기 N건", "곧 업데이트돼요"처럼 미검증 뉴스의 존재를 암시하는 문구는 추가하지 않는다** — 사용자가 명시적으로 거부한 대기 표시가 문구로 되살아나는 걸 막기 위함이다. PE가 쿼리에 검증 게이트를 걸어 결과가 0건이 되면, 위 기존 `{% empty %}` 분기가 그대로 동작해 이 문구를 자연히 보여준다.
 
@@ -901,6 +932,9 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 전체 대시보드 �
 
 **검증 게이트 도입에 따른 빈 상태 문구 — 변경 없음 확정 (2026-08-04, PD)**: 미검증만 있어서 목록이 비면 `templates/news/_list.html`의 기존 `<i data-lucide="search-x">` + "검색 결과가 없습니다."(`docs/planning.md` PD 인계 2번 참고)를 그대로 쓴다. "총 N건" 카운트(`templates/news/list.html`의 `total_count`)도 이미 순수 숫자만 보여주고 있어 별도 수정 없이 그대로 0으로 표시되면 된다 — PE가 `total_count` 집계 쿼리에 검증 게이트를 걸기만 하면(`docs/planning.md` PE 인계 3번) 이 화면은 추가 작업 없이 올바르게 동작한다.
 
+**변경 이력**
+- 2026-08-04 — 카드에 `border border-[#E5E5E5]` 추가(빈 상태 카드 포함), `templates/news/_list.html`. REPORT-001과 동일 원인(List Card 표준 border가 문서에만 있고 구현에 빠짐)으로 발견돼 같은 날 함께 적용. 실제 카드 마크업은 `news/list.html`이 아니라 HTMX include 대상인 `news/_list.html`에 있다 — `news/list.html:8`의 검색·필터 바는 List Card가 아니라서 대상에서 제외. Stretched Link 구조(`absolute inset-0` 앵커 + `pointer-events-auto` 삭제 버튼)는 border가 padding box 밖에 붙는 성질상 클릭 영역·z-index에 영향이 없음을 확인.
+
 **Claude Artifacts 생성 프롬프트**
 
 ```
@@ -940,7 +974,7 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 뉴스 목록 화면�
 4. 페이지네이션 (1, 2, 3 ... 25)
 
 [스타일 규칙]
-- 카드 hover: shadow 강해짐 (border-color 변경 없음, REPORT-001과 동일 규칙)
+- 카드: border border-[#E5E5E5] 포함 (bg-gray-50 배경과 대비 확보), hover 시 shadow만 강해짐 (border-color 변경 없음, REPORT-001과 동일 규칙)
 - 카드 클릭 패턴: 전체 클릭형 List Card (1.5 컴포넌트 정의 참고) — 삭제 버튼이 경쟁 액션이므로 Stretched Link 기법 적용
 - 기업 배지: 기업 유형별 soft 색상 (금융사 blue, 보험사 green, AI violet)
 ```

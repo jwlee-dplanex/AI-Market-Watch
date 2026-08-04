@@ -4,8 +4,12 @@
 
 {% block content %}
 
-<!-- 검색 & 필터 바 -->
-<div class="bg-white rounded-[10px] shadow-sm p-4 mb-4" x-data="{ sourceOpen: false }">
+{% comment %}
+  검색 & 필터 바. List Card는 아니지만 border border-[#E5E5E5]를 함께 넣는다(2026-08-04) —
+  bg-gray-50 위에 놓인 흰 면이고 바로 아래 카드들과 mb-4로 맞붙어 있어, 카드에만 테두리가
+  생기면 이 바만 배경에 묻혀 어긋나 보인다. 대비 확보가 아니라 인접 요소와의 일관성 문제다.
+{% endcomment %}
+<div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-4 mb-4" x-data="{ sourceOpen: false }">
   <form method="get" class="flex items-center gap-3 flex-wrap">
     <!-- 검색 -->
     <div class="relative flex-1 min-w-60">
