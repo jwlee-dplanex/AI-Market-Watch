@@ -5,7 +5,8 @@ from django.core.paginator import Paginator
 from django.http import HttpResponse
 from django.urls import reverse
 from django.views.decorators.http import require_POST
-from .models import ExcludedURL, News
+from .models import DeletedNewsRecord, News
+from .services import delete_news_with_record
 
 
 ORG_TYPES = [
@@ -123,8 +124,9 @@ def news_delete(request, uid):
     source = request.POST.get("source", "list")
     next_news = _adjacent_news(news)[1] if source == "detail" else None
 
-    ExcludedURL.objects.get_or_create(url_hash=news.url_hash)
-    news.delete()
+    # 판정 기록 보존 정책(docs/planning.md, 2026-08-04): 기록 없는 삭제 경로를 남기지
+    # 않기 위해 헬퍼를 거친다. 화면 삭제는 사유 입력 UI가 없으므로 기준·사유는 빈 값.
+    delete_news_with_record(news, judged_by=DeletedNewsRecord.JUDGED_BY_USER)
 
     response = HttpResponse()
     if source == "detail":

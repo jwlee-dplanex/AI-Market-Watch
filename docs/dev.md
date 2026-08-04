@@ -85,7 +85,7 @@ bleach
 
 ---
 
-**ExcludedURL** — 삭제된 뉴스의 URL 해시 (재수집 방지)
+**ExcludedURL** — 삭제된 뉴스의 URL 해시 (재수집 방지, **스키마 동결**)
 
 | 필드 | 타입 | 설명 |
 |------|------|------|
@@ -93,7 +93,27 @@ bleach
 | url_hash | CharField(64, unique) | 삭제된 뉴스의 URL 해시 |
 | deleted_at | DateTimeField | 삭제 시각 |
 
-뉴스 삭제(`news_delete`) 시 `url_hash`를 여기에 기록. `collect_naver()`가 수집 시 이 테이블도 확인해서 한 번 삭제한 URL은 다시 저장하지 않음. 제목·URL 원문은 저장하지 않으므로 "언제 몇 건 삭제했는지"만 알 수 있고 무엇을 삭제했는지는 복원 불가.
+뉴스 삭제 시 `url_hash`를 여기에 기록. `collect_naver()`가 수집 시 이 테이블도 확인해서 한 번 삭제한 URL은 다시 저장하지 않음(재수집 차단 핫패스). **재수집 차단 전용이며 판정 근거는 담지 않는다 — 판정 근거는 아래 `DeletedNewsRecord`가 별도로 담당한다.** `services/collector.py`가 기사마다 조회하는 핫패스라 **필드·제약 추가를 일절 금지**한다(`docs/planning.md` "판정 기록 보존 정책" 3번, 2026-08-04 확정). `DeletedNewsRecord`와는 `url_hash`로만 느슨하게 연결되며 FK도 unique 제약도 없다.
+
+---
+
+**DeletedNewsRecord** — 삭제된 뉴스의 판정 기록 (2026-08-04 도입, `docs/planning.md` "판정 기록 보존 정책: 버린 것도 자산이다")
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| id | AutoField | PK |
+| title / url / url_hash / body / source_type / published_at / collected_at | - | 삭제 시점 `News` 필드를 그대로 복사한 원문 스냅샷. `body`는 수집 시점 크롤링본 그대로(요약·가공 안 함), 외부 공개·재발행 금지 |
+| criterion_code | CharField(20, blank) | 적용 판정 기준 코드. **고정 choices 아님** — `1-a`/`1-b`/`2`/`3`/`4`/`5`/`S-KLS`/`기타` 권장 어휘를 `help_text`로 안내(기준이 계속 개정되므로 enum으로 박지 않음) |
+| reason | TextField(blank) | 삭제 사유 1~2문장 자유 서술 |
+| judged_by | CharField(30) | 판정 주체. 권장 어휘: `RA`(default) / `사용자(화면 삭제)` / `소급 정비` / `자동 판정`(향후) |
+| organizations_snapshot / tech_topics_snapshot | JSONField(list) | 삭제 시점 연결돼 있던 `Organization.name`/`TechTopic.name` 목록. M2M은 `news.delete()`와 함께 사라지므로 이름을 복사해 둔 것 — collector 과다태깅 실패 사례가 삭제분에 몰려 있어 옵션 B 핵심주체 판별의 직접 재료 |
+| judged_at | DateTimeField(auto_now_add) | 기록 시각 |
+
+`url_hash`는 `ExcludedURL`과 달리 **unique가 아니다** — 같은 URL이 재수집·재판정되면 여러 건이 쌓일 수 있는 **이력**이기 때문이다. `ExcludedURL`(존재 여부만 의미 있는 재수집 차단 인덱스, 스키마 동결)과는 성격이 반대라 별도 모델로 분리했다.
+
+**비노출 계약(검증 게이트보다 강함)**: 어떤 뷰·컨텍스트 프로세서·집계에서도 조회하지 않는다. Django admin에도 등록하지 않는다. 조회 화면도 없다 — 유일한 소비자는 사람(RA·PE)과 옵션 B 착수 시점의 PE(ORM으로 직접 읽음)다. 무기한 보관하며 자동 정리 잡은 없다(재검토 시점은 "옵션 B 자동 판정이 로컬 검증을 통과한 시점").
+
+**786건 소급 백필 없음**: 2026-08-04 이전에 `ExcludedURL`만 남기고 삭제된 786건은 원문 역추적이 불가능해(URL 해시뿐) 복구하지 않는다. 확정 손실로 기록하고 넘어간다.
 
 ---
 
@@ -524,7 +544,19 @@ if News.objects.filter(url_hash=url_hash).exists():
 
 ### RA의 온디맨드 처리 흐름
 
-1. **노이즈 판정 + 삭제 + 검증 전환** — 갓 수집된 뉴스 배치를 직접 읽고 PM이 정의한 관련성 기준으로 판단, `product-engineer`의 안전 삭제 패턴(`ExcludedURL.objects.get_or_create()` 선기록 후 `news.delete()`, 건별 개별 처리)을 그대로 따라 직접 삭제까지 실행합니다. **기업 태깅 검증·교정도 이 단계에 편입**됩니다 — collector의 별칭 매칭이 "핵심 주체 vs 배경 언급"을 구분하지 못해 과다태깅되는 구조적 한계(5절 참고)가 있으므로, RA가 배치를 판정하면서 잘못 태깅된 `Organization`/`TechTopic` 연결도 함께 수동 검증·교정합니다.
+1. **노이즈 판정 + 삭제 + 검증 전환** — 갓 수집된 뉴스 배치를 직접 읽고 PM이 정의한 관련성 기준으로 판단합니다. 삭제는 손으로 3단계를 조합하지 않고 **`apps/news/services.py`의 `delete_news_with_record()`를 건별로 호출**합니다(일괄 `.filter(...).delete()` 금지는 그대로 유지). 이 함수가 한 트랜잭션 안에서 ① `DeletedNewsRecord` 생성 → ② `ExcludedURL.get_or_create()` → ③ `news.delete()`를 실행하며, ①이 실패하면 ②·③도 실행되지 않아 "기록 없는 삭제"가 원천적으로 불가능합니다(`docs/planning.md` "판정 기록 보존 정책" 2026-08-04 확정). **호출 시 `criterion_code`(권장 어휘: `1-a`/`1-b`/`2`/`3`/`4`/`5`/`S-KLS`/`기타`)와 `reason`(1~2문장)을 반드시 채웁니다** — 빈 값으로 지나가면 이 정책이 무력화됩니다.
+   ```python
+   from apps.news.models import DeletedNewsRecord
+   from apps.news.services import delete_news_with_record
+
+   delete_news_with_record(
+       news,
+       criterion_code="1-b",
+       reason="AI는 부차 요소로만 곁들여지고 지배적 주제는 실적 발표.",
+       judged_by=DeletedNewsRecord.JUDGED_BY_RA,
+   )
+   ```
+   **기업 태깅 검증·교정도 이 단계에 편입**됩니다 — collector의 별칭 매칭이 "핵심 주체 vs 배경 언급"을 구분하지 못해 과다태깅되는 구조적 한계(5절 참고)가 있으므로, RA가 배치를 판정하면서 잘못 태깅된 `Organization`/`TechTopic` 연결도 함께 수동 검증·교정합니다.
 
    **⚠️ 검증 게이트(2026-08-04 도입) — 이 단계의 필수 마지막 절차**: 예전에는 "남은 `News`는 삭제되지 않았다는 사실 자체가 관련 있음을 의미"했지만, 이 원칙은 대체됐습니다. 이제는 `News.status`가 `"검증됨"`으로 전환돼야 비로소 사용자 화면(ALL-001·NEWS-001·NEWS-002·GRAPH-001)에 노출됩니다(3절 `News` 표 참고). 삭제·태깅 교정을 배치 전체에 대해 마친 직후, 살아남은 뉴스 전부를 Django ORM으로 **한 번에** `"검증됨"`으로 전환하세요(`verified_at`도 함께 현재 시각으로 채웁니다). **부분 전환 금지(all-or-nothing)** — 배치를 끝까지 읽기 전에 일부만 공개하면 동일 사건 중복 보도 판정(관련성 기준 2번)이 뒤집혀 노출됐다 사라지는 깜빡임이 생깁니다. 세션이 중단돼 배치를 끝내지 못했다면 그 배치는 통째로 미검증 상태로 남겨 두고(= 화면에 아무것도 새로 뜨지 않음), 다음 세션에서 처음부터 다시 판정합니다. 이 전환이 빠지면 판정을 마친 뉴스도 영원히 화면에 뜨지 않습니다.
 2. **관련 기사 찾기 + Insight 작성** — 남은 배치의 제목·본문을 직접 읽고(pgvector 쿼리 미사용) 같은 사건을 다루는 기사를 식별해 Django ORM으로 `Insight`(`title`/`content`/`implication`)를 작성하고 `insight.news.set([...])`로 근거 `News`를 연결합니다. 별도 그룹 테이블(과거 `IssueGroup`) 없이 `Insight` 자체가 "이 기사들 + 이 분석"의 단위입니다.
