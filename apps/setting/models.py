@@ -75,17 +75,38 @@ class CollectionLog(models.Model):
         ("fail", "실패"),
     ]
 
+    # 수집 파이프라인 관측성 정책(docs/planning.md, 2026-08-04): 실행 주체를 구분해 기록한다.
+    # "자동 수집이 도는가"를 판단하려면 수동 실행분이 섞이면 안 되기 때문이다. 기존 로그는 전부
+    # _job_collect(스케줄) 경로에서만 남았던 것이 코드로 보증되므로, 아래 default(ACTOR_SCHEDULED)로
+    # 마이그레이션 시 그대로 백필한다.
+    ACTOR_SCHEDULED = "자동(스케줄)"
+    ACTOR_MANUAL = "수동(화면)"
+    # ⚠️ ACTOR_CATCHUP: 기동 시 당일 수집 보정(catch-up) 기능은 2026-08-04에 도입했다가 같은 날
+    # 철회됐다(개발 중 autoreload마다 실제 수집이 반복 실행되는 사고로 이어졌고, 상시 구동 서버로
+    # 가면 애초에 필요 없어지는 기능이라 임시 환경만을 위한 영구 훅을 두지 않기로 결정 — "서버가
+    # 꺼져 있으면 그날 수집이 안 되는 것"은 정상 동작으로 감수한다). 이 값을 실제로 만들어내는
+    # 코드는 현재 없다(services/scheduler.py에 catch_up() 없음) — DB에 남아 있을 수 있는 과거
+    # catch-up 로그를 조회·구분하기 위한 값만 남겨 둔다. 향후 옵션 B(상시 구동 서버) 착수 시
+    # catch-up이 다시 필요해지면 이 값을 재사용할 수 있다.
+    ACTOR_CATCHUP = "자동 복구(catch-up)"
+    ACTOR_CHOICES = [
+        (ACTOR_SCHEDULED, "자동(스케줄)"),
+        (ACTOR_MANUAL, "수동(화면)"),
+        (ACTOR_CATCHUP, "자동 복구(catch-up)"),
+    ]
+
     source = models.ForeignKey(DataSource, on_delete=models.SET_NULL, null=True, related_name="logs")
     started_at = models.DateTimeField()
     collected_count = models.IntegerField(default=0)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES)
     error_message = models.TextField(null=True, blank=True)
+    actor = models.CharField(max_length=20, choices=ACTOR_CHOICES, default=ACTOR_SCHEDULED)
 
     class Meta:
         ordering = ["-started_at"]
 
     def __str__(self):
-        return f"{self.started_at:%Y-%m-%d %H:%M} — {self.status}"
+        return f"{self.started_at:%Y-%m-%d %H:%M} — {self.status} ({self.actor})"
 
 
 class LLMLog(models.Model):

@@ -1,10 +1,13 @@
-from django.db.models import Count, Min, Max
+from django.db.models import Count, Min, Max, Exists, OuterRef
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 from apps.news.models import News
-from .models import DataSource, Keyword, Prompt, Schedule, CollectionLog, LLMLog, SlackConfig, Organization, TechTopic
+from .models import (
+    DataSource, Keyword, Prompt, Schedule, CollectionLog, LLMLog, SlackConfig,
+    Organization, TechTopic, OrgRelation,
+)
 
 # SET-006 검증 파이프라인 현황 "stale" 임계값(일). PD 판단값이며 고정 정책이 아니다
 # (docs/design.md SET-006 절 — 임계값 조정 시 이 상수만 바꾸면 된다).
@@ -41,8 +44,11 @@ def sources(request):
 
 @require_POST
 def collect_now(request):
-    from services.collector import collect_naver
-    stats = collect_naver()
+    from services.collector import run_collection
+    # 실행 주체 = 수동(화면). CollectionLog는 run_collection() 진입점 안에서 남는다 — 여기서
+    # 직접 CollectionLog.objects.create()를 부르지 않는다(docs/planning.md "수집 파이프라인
+    # 관측성 정책" 2번 — 호출부에 로그 책임을 맡기지 않는 구조 결정).
+    stats = run_collection(actor=CollectionLog.ACTOR_MANUAL)
     return render(request, "setting/_collect_result.html", {"stats": stats})
 
 
@@ -119,7 +125,7 @@ def prompts(request):
 def schedule(request):
     return render(request, "setting/schedule.html", {
         "setting_menu": _setting_menu("schedule"),
-        "schedules": Schedule.objects.all(),
+        **_schedule_context(),
     })
 
 
@@ -173,7 +179,33 @@ def _verification_pipeline_context():
         "unverified_days": unverified_days,
         "unverified_tier": unverified_tier,
         "last_verified_at": last_verified_at,
+        "orphan_relation_count": _orphan_relation_count(),
     }
+
+
+def _orphan_relation_count() -> int:
+    """SET-006 "고아 라벨 관계" 지표(docs/planning.md "지식그래프 엣지 노출 규칙 최종 확정:
+    라벨 AND 기간" 4번, docs/design.md SET-006 절 orphan_relation_count 계약).
+
+    정의: 전체 기간 기준으로도 두 기업이 함께 언급된 검증 뉴스가 0건인 OrgRelation(라벨 있는 관계)
+    건수. GRAPH-001의 엣지 노출 게이트(라벨 있음 AND 선택 기간 내 검증 뉴스 공동언급 ≥ 1건)를
+    "전체" 기간으로도 만족하지 못하는 관계라 — 어떤 기간을 선택해도 화면에 나타나지 않는다.
+
+    상관 서브쿼리(Exists)로 count() 호출 1번에 끝낸다 — OrgRelation을 순회하며 매번 쿼리를 날리지
+    않는다. 두 번 체이닝한 .filter()로 organizations 교집합(AND)을 구현하는 방식은
+    apps/graph/views.py의 _edge_news_queryset과 동일 패턴이다(organizations__in=[a, b] 같은
+    단일 필터는 합집합(OR)이 되어 오답을 낸다)."""
+    common_news = (
+        News.objects.verified()
+        .filter(organizations=OuterRef("org_a"))
+        .filter(organizations=OuterRef("org_b"))
+    )
+    return (
+        OrgRelation.objects
+        .annotate(has_common_news=Exists(common_news))
+        .filter(has_common_news=False)
+        .count()
+    )
 
 
 def logs(request):
@@ -281,7 +313,19 @@ def tech_topic_delete(request, pk):
 
 
 def _schedule_context():
-    return {"schedules": Schedule.objects.all().order_by("schedule_type")}
+    """SET-004(스케줄 관리) 공통 컨텍스트. schedule()(전체 화면)과 schedule_save/toggle/delete
+    (HTMX 프래그먼트 _schedule_list.html)가 이 함수 하나를 공유한다 — 예전엔 schedule()이 이 함수를
+    안 쓰고 자체적으로 Schedule.objects.all()을 조회해 정렬·부가 데이터가 어긋날 수 있었다.
+
+    각 Schedule 객체에 is_registered(실제로 스케줄러 잡이 걸려 있는가)를 얹는다. is_active(사용자
+    의도)와 별개 값으로 내려준다 — 두 값이 어긋나면 그 자체가 경보라는 것이 관측성 정책의 핵심이다
+    (docs/planning.md "수집 파이프라인 관측성 정책" 3-(c)). 표시 방식은 PD 몫이며 여기서는 값만
+    준비한다."""
+    from services import scheduler
+    schedules = list(Schedule.objects.all().order_by("schedule_type"))
+    for sched in schedules:
+        sched.is_registered = scheduler.is_registered(sched.pk)
+    return {"schedules": schedules}
 
 
 @require_POST

@@ -57,10 +57,13 @@ def graph(request):
     today = timezone.localtime(timezone.now()).date()
     start_date, today = period_bounds(period, today)
 
-    # 옵션 a(docs/planning.md "지식그래프 축 1 확정: 옵션 a", 2026-07-31): 엣지 존재 게이트 =
-    # OrgRelation(라벨) 존재. 공동언급만 있고 라벨이 없는 쌍은 엣지 딕셔너리 자체를 만들지 않는다
-    # (기존 itertools.combinations 전수 계산 → 사후 라벨 매핑 방식은 폐기). 양 끝이 모두 활성 기업이고
-    # ALLOWED_TYPE_PAIRS(금융-AI/보험-AI)를 통과하는 OrgRelation만 라벨 엣지 후보로 채택한다.
+    # 엣지 노출 규칙 최종 확정(2026-08-04, docs/planning.md "지식그래프 엣지 노출 규칙 최종 확정:
+    # 라벨 AND 기간"): 엣지 노출 = OrgRelation(라벨) 존재 AND 선택 기간 내 검증 뉴스 공동언급 ≥ 1건.
+    # 두 조건은 AND이고 기간별 예외는 없다("전체"도 예외 아님) — 2026-07-31 옵션 a의 "라벨만 있으면
+    # 기간 무관 상시 노출" 규칙은 폐기됐다. 다만 옵션 a의 1번(라벨 없는 공동언급 전용 엣지는 애초에
+    # 엣지 딕셔너리를 만들지 않는다 — 기존 itertools.combinations 전수 계산 → 사후 라벨 매핑 방식은
+    # 계속 폐기 상태)은 그대로 유지된다. 양 끝이 모두 활성 기업이고 ALLOWED_TYPE_PAIRS(금융-AI/보험-AI)를
+    # 통과하는 OrgRelation만 라벨 엣지 후보로 채택한다.
     relations = [
         rel for rel in OrgRelation.objects.select_related("org_a", "org_b").all()
         if rel.org_a.is_active and rel.org_b.is_active
@@ -69,15 +72,24 @@ def graph(request):
     # OrgRelation.save()가 org_a.pk < org_b.pk로 정규화해 저장하므로 (a, b) 키 순서가 항상 고정된다.
     labeled_pairs = {(rel.org_a_id, rel.org_b_id) for rel in relations}
     label_by_pair = {(rel.org_a_id, rel.org_b_id): rel.label for rel in relations}
+    # 아래 공동언급 집계 루프의 조기 필터로 계속 쓰인다(라벨 없는 조직은 애초에 집계 대상에서 제외).
     labeled_org_pks = {pk for pair in labeled_pairs for pk in pair}
 
-    # 노드 union: (선택 기간 내 news_count>0인 활성 기업) ∪ (라벨 엣지 양끝 조직, is_active=True 전제).
-    # 라벨 엣지는 기간 무관 상시 노출이므로, 그 상대편 조직이 선택 기간에 뉴스 0건이어도 노드로는 있어야
-    # 떠다니는 엣지(참조하는 노드가 없는 엣지)가 생기지 않는다.
+    # 노드: 선택 기간 내 검증 뉴스 news_count>0인 활성 기업만. 라벨 엣지 양끝을 강제로 포함시키던
+    # union 항(Q(pk__in=labeled_org_pks))은 2026-08-04 개정으로 삭제한다 — 재계산이 아니라 수학적으로
+    # 잉여이기 때문이다: 개정 후 엣지가 살아남았다는 것 자체가 "선택 기간에 두 기업이 함께 태깅된
+    # 검증 뉴스가 최소 1건 존재한다"는 뜻이므로, 그 뉴스는 양 끝 기업 각각의 news_count에도 잡혀
+    # 양 끝은 자동으로 news_count≥1이 된다. 떠다니는 엣지(참조 노드 없는 엣지)는 구조적으로 발생하지
+    # 않는다.
+    # ⚠️ 계약(반드시 유지): 이 잉여성은 아래 엣지 공동언급 집계와 이 news_count 집계가 완전히 같은
+    # 뉴스 집합(News.objects.verified() + 동일한 published_at 기간 경계)을 쓴다는 데 전적으로
+    # 의존한다. 한쪽에만 조건(검증 게이트·기간 경계 등)을 추가·변경하면 그 즉시 떠다니는 엣지가
+    # 에러 없이 조용히 되살아난다. 엣지/노드 집계 조건을 바꿀 때는 반드시 양쪽을 함께 바꿀 것
+    # (docs/planning.md 위 섹션 3번).
     orgs = list(
         Organization.objects.filter(is_active=True)
         .annotate(news_count=_period_news_count(start_date, today))
-        .filter(Q(news_count__gt=0) | Q(pk__in=labeled_org_pks))
+        .filter(news_count__gt=0)
     )
 
     nodes = [
@@ -110,16 +122,17 @@ def graph(request):
                 if (a, b) in labeled_pairs:
                     edge_weights[(a, b)] += 1
 
-    # labeled_pairs를 직접 순회해 edges를 만든다(edge_weights를 순회하지 않음) — 그래야 선택 기간에
-    # 공동언급이 0건인 라벨 엣지도 value=0으로 상시 노출된다(옵션 a 핵심 규칙).
+    # edge_weights를 직접 순회해 edges를 만든다(labeled_pairs 전체 순회 방식은 2026-08-04 폐기) —
+    # 라벨이 있어도 선택 기간에 공동언급이 0건이면 edge_weights에 키 자체가 없으므로 엣지가 만들어
+    # 지지 않는다. 그 결과 value=0인 엣지는 구조적으로 존재할 수 없다.
     edges = [
         {
             "source": str(a),
             "target": str(b),
-            "value": edge_weights.get((a, b), 0),
+            "value": weight,
             "label": label_by_pair[(a, b)],
         }
-        for (a, b) in labeled_pairs
+        for (a, b), weight in edge_weights.items()
     ]
 
     return render(request, "graph/index.html", {
