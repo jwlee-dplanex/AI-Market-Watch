@@ -103,42 +103,62 @@ List Card (목록 행, 전체 클릭형) — NEWS-001·REPORT-001 등 목록 화
           hover    — shadow만 강해짐, border-color는 변경하지 않는다(Base와 동일 규칙)
           제목 강조 — 제목 자체에 hover를 걸지 않고 카드(그룹)의 group-hover:text-primary 사용
 
-          ✅ 구현 확인 완료(2026-08-04): 위 border 규칙이 문서에는 있었지만 실제 템플릿
-             (reports/list.html, news/_list.html, dashboard/index.html 등)에는 반영이
-             안 돼 있었다 — "카드 구분이 잘 안 보인다"는 사용자 지적으로 발견.
-             REPORT-001(border border-[#E5E5E5])에 우선 적용한 뒤, 같은 날 안에 List Card
-             표준 전체로 확대 적용 완료:
-               · REPORT-001 — templates/reports/list.html (카드 + 빈 상태)
-               · NEWS-001   — templates/news/_list.html (카드 + 빈 상태). 실제 카드 마크업은
-                 news/list.html이 아니라 이 파일(HTMX include 대상)에 있다 — 8행의
-                 bg-white shadow-sm는 검색·필터 바(툴바)이지 List Card가 아니라서 제외했다.
-                 Stretched Link 구조(absolute inset-0 앵커 + pointer-events-auto 삭제 버튼)를
-                 직접 확인했고, border는 padding box 밖에 추가돼 앵커의 클릭 영역·삭제 버튼
-                 z-index에 영향을 주지 않는다.
-               · ALL-001    — templates/dashboard/index.html 77·194·260·316·381행(뉴스 건수
-                 추이 / 기업별 Top10 / 기술 주제별 언급 건수 / 주요 이슈 / 최신 뉴스, 5개 전부).
-                 이 화면엔 Accent(그라디언트) 카드가 없어 제외 대상이 없었다 — 그라디언트 카드의
-                 실제 예시는 REPORT-002 상세 헤더(reports/detail.html:215)이며 그쪽은 원래도
-                 border 없이 맞는 처리라 손대지 않았다.
-             범위를 넓히지 않고 화면별로 나눠 확인한다는 원래 판단은, "레이아웃 리스크가
-             사실상 없다(border-box라 크기 불변)"는 근거로 뒤집혔다 — 반쯤만 적용된 디자인
-             시스템(보고서만 테두리 있고 뉴스는 없는 상태)이 오히려 화면을 오가며 같은 위화감을
-             재현하는 게 더 나쁘다고 판단, 사용자 승인 하에 같은 날 전체 적용으로 마무리했다.
+          ✅ 구현 확인 완료(2026-08-04): 위 border 규칙이 문서에는 있었지만 실제 템플릿에는
+             반영이 안 돼 있었다 — "카드 구분이 잘 안 보인다"는 사용자 지적으로 발견. 처음엔
+             REPORT-001만 고치고 나머지는 화면별로 나눠 후속 처리한다는 판단이었으나, "레이아웃
+             리스크가 사실상 없다(border-box라 크기 불변)"는 근거와 "반쯤만 적용된 디자인시스템
+             (일부 화면만 테두리 있는 상태)이 화면을 오가며 같은 위화감을 재현하는 게 더 나쁘다"는
+             판단으로 뒤집혀, 같은 날 안에 프로젝트 전체 `bg-white rounded-[10px] shadow-sm` 면에
+             `border border-[#E5E5E5]`를 전수 적용했다(사용자 승인). 이 프로젝트에 공통 컴포넌트가
+             거의 없어(`templates/components/`엔 `_info_tooltip.html` 하나뿐) 같은 클래스 문자열이
+             화면마다 복사돼 있는 구조라, 컴포넌트화 이전까지는 이 마크업들이 "정답 샘플" 역할을
+             한다는 점도 전체 적용의 근거였다.
 
-          **범위 밖(액션 안 함, 훑어보고 보고만)** — 아래는 동일하게 `bg-white rounded-[10px]
-          shadow-sm`을 쓰지만 목록 행(List Card)이 아니라 필터 바·테이블 래퍼·사이드 패널·
-          상세 화면 콘텐츠 블록 등 성격이 달라 이번 범위에서 제외했다. 실제로 border를 넣을지는
-          각 화면을 다시 보고 개별 판단이 필요하다:
-            · news/list.html:8(검색·필터 바), setting/base_setting.html:9(설정 사이드 네비),
-              setting/prompts.html:8·22(좌측 목록 패널 + 에디터), graph/index.html:37·83
-              (그래프 캔버스 + 기업 패널), setting/sources.html:5·_keywords.html:4,133·
-              _organizations.html:18·_tech_topics.html:1(전부 테이블 래퍼), setting/slack.html:8,55
-              (설정 폼 패널), setting/_schedule_list.html:5,58, setting/logs.html:101,116,170
-              (탭 바·테이블 래퍼 — 26행은 이미 stale 상태일 때 border-yellow-200이 조건부로 붙어
-              있어 대상에서 자연히 빠짐), news/detail.html:63,102,112,126,139(상세 화면 섹션
-              블록), reports/detail.html:247,259,321(보고서 상세 콘텐츠 블록). List Card와
-              달리 이들은 "개별 항목을 나열해 구분해야 하는" 화면이 아니라 단일 패널/테이블이라
-              같은 발견성 문제가 있는지 자체가 불확실하다.
+             **적용 범위**: ALL-001(대시보드 5곳) / NEWS-001(목록 카드 + 검색·필터 바) /
+             REPORT-001(카드) / NEWS-002(헤더·이미지·이슈 시사점·본문·관련 기업 패널 5곳) /
+             REPORT-002(주요 동향·주요 이슈·빈 상태 3곳) / GRAPH-001(그래프 캔버스 + 기업 패널,
+             아래 별도 설명) / SET-001~008(좌측 설정 네비 1곳이 8개 화면 공통 + 화면별 테이블·
+             패널·탭 바). 전부 빈 상태 카드 포함. Stretched Link 구조(NEWS-001의
+             `absolute inset-0` 앵커 + `pointer-events-auto` 삭제 버튼)는 border가 padding box
+             밖에 붙는 성질상 클릭 영역·z-index에 영향이 없음을 확인했다.
+
+             **그래프 캔버스(GRAPH-001, `graph/index.html:37`) — border 추가로 결정**: 처음엔
+             "테두리가 그래프를 가두는 것처럼 보일 수 있다"는 우려가 있었다. 하지만 이 캔버스는
+             `overflow-hidden`으로 이미 사각형으로 잘려 있어 — border 유무와 무관하게 콘텐츠는
+             이미 그 사각형 안에 갇혀 있다. border는 이미 존재하는 경계를 "보이게" 할 뿐 새로운
+             제약을 만들지 않는다. 오히려 같은 화면의 기간 필터·범례·통계 pill이 전부 이미
+             `border-[#E5E5E5]`를 쓰고 있어서, 화면에서 가장 큰 면적인 캔버스만 테두리가 없으면
+             그게 더 불일치로 보인다고 판단했다.
+
+             **SET-006 조건부 테두리(`setting/logs.html:26`)**: 검증 파이프라인 카드는
+             `unverified_tier == 'stale'` 또는 `orphan_relation_count`일 때 노란 테두리
+             (`border-yellow-200`)로 "확인이 필요해요"를 알리는 유일한 신호라 강조가 죽으면 안
+             됐다. 기본 회색과 노랑을 동시에 클래스로 쌓으면(`border border-[#E5E5E5] ... border
+             border-yellow-200`) Tailwind 컴파일 순서에 따라 어느 색이 이기는지 HTML 클래스 순서와
+             무관하게 예측하기 어려워지므로, `{% if %}...{% else %}...{% endif %}`로 두 border를
+             **상호 배타적으로** 분기했다 — 평상시엔 회색, 강조 시엔 반드시 노랑만 적용된다.
+
+             **제외한 것 (이유와 함께)**:
+               · Accent(그라디언트) 카드 — 프로젝트 전체에서 실제 예시는 REPORT-002 상세 헤더
+                 (`reports/detail.html:215`) 하나뿐이고, 원래도 border 없이 맞는 처리라 그대로 뒀다.
+               · 흰 카드 위에 얹힌 중첩 항목 카드 — 대시보드 "주요 이슈"/"최신 뉴스" 내부 항목
+                 (`border-gray-100`, hover 시 `border-primary/30`로 색이 바뀜), REPORT-002의
+                 이슈 카드(`bg-gray-50/50 border border-[#E5E5E5]`, `issue-card`). 흰 배경 위
+                 중첩이라 애초에 대비 문제가 없고, hover 시 강조색으로 바뀌는 게 List Card와는
+                 다른 별도 규칙이라 손대지 않았다.
+               · 모달(`shadow-lg`/`shadow-xl`)·팝오버 — 대상 아님(기존 정의대로).
+               · 토글 스위치 손잡이(`rounded-full ... shadow-sm`), 기술 주제 건수 pill
+                 (`tech_topics.html:11`) — `rounded-[10px]` 카드가 아니라 작은 컨트롤/배지라
+                 List Card·Base Card 어디에도 해당하지 않는다.
+
+             **검증**: `templates/` 전체에서 `bg-white`·`rounded-[10px]`·`shadow-sm`이 함께 쓰인
+             면을 재검색해 border 누락 0곳을 확인했다(모달·토글·pill 등 정의상 제외 대상 제외).
+             `{# ... #}` 단독 사용(여러 줄 주석 사고) 여부도 `templates/` 전체에서 재검색했고,
+             실제 사고는 없음을 확인했다 — 유일한 매치는 `setting/logs.html:205`인데, 이는 이미
+             `{% comment %}...{% endcomment %}` 블록 **안에서** "`{# #}`는 한 줄 전용"이라고
+             설명하는 문장의 일부(글자 그대로의 텍스트)라 실제 렌더링에 영향이 없다.
+             ⚠️ PD는 코드 실행 도구가 없어 이 검증은 정적 분석(grep 전수 검색)으로 수행했다 —
+             Django 테스트 클라이언트로 실제 HTTP 응답을 렌더링해 재확인하는 건 PE 권한이 필요하다.
           구현 원칙 (실제 코드는 product-engineer가 작성):
             · 경쟁 액션이 없는 카드(예: REPORT-001)
               → 카드 콘텐츠 전체를 <a href="..." class="block group">로 감싼다
@@ -985,6 +1005,8 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 뉴스 목록 화면�
 
 **목적**: 개별 뉴스의 원문·요약·인사이트를 종합 확인
 
+**카드 border 추가 (2026-08-04, PD)**: 헤더·이미지·이슈 시사점·본문·관련 기업 패널 5곳(`templates/news/detail.html` 63·102·112·126·139행)에 `border border-[#E5E5E5]` 추가. 배경 이유는 "1.5 Card 컴포넌트 정의" 절 참고.
+
 **구성 요소**
 
 ```
@@ -1139,6 +1161,8 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 보고서 목록 화�
 ### REPORT-002 · 보고서 상세
 
 **목적**: 특정 주차 주간 AI 인사이트 보고서 전문 확인
+
+**카드 border 추가 (2026-08-04, PD)**: 주요 동향·주요 이슈·빈 상태 3곳(`templates/reports/detail.html` 247·259·321행)에 `border border-[#E5E5E5]` 추가. 그라디언트 헤더(215행)와 내부 이슈 카드(`issue-card`, 이미 자체 border 있음)는 대상이 아님. 배경 이유는 "1.5 Card 컴포넌트 정의" 절 참고.
 
 **구성 요소**
 
@@ -1331,6 +1355,8 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 보고서 상세 화�
 
 **목적**: 뉴스 수집 대상 소스의 활성/비활성 제어, 수동 수집 실행, 수동 AI 관련성 판단·요약 실행
 
+**카드 border 추가 (2026-08-04, PD)**: 좌측 설정 사이드 네비(`templates/setting/base_setting.html:9`, SET-001~008 8개 화면 공통)와 소스 테이블 래퍼(`setting/sources.html:5`)에 `border border-[#E5E5E5]` 추가. 이하 SET-002~008도 동일 작업이며, 각 절엔 화면별로 추가된 위치만 표기한다. 배경 이유는 "1.5 Card 컴포넌트 정의" 절 참고.
+
 **구성 요소**
 
 ```
@@ -1389,6 +1415,8 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 데이터 소스 관�
 ### SET-002 · 키워드 관리
 
 **목적**: Naver News API 검색 쿼리(수집 키워드)와 제외 키워드를 CRUD 관리
+
+**카드 border 추가 (2026-08-04, PD)**: 수집 키워드·제외 키워드 테이블 래퍼 2곳(`templates/setting/_keywords.html` 4·133행)에 `border border-[#E5E5E5]` 추가.
 
 **구성 요소**
 
@@ -1454,6 +1482,8 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 키워드 관리 화�
 
 **목적**: 요약·인사이트·보고서 생성에 사용하는 Claude 프롬프트를 편집 관리
 
+**카드 border 추가 (2026-08-04, PD)**: 좌측 프롬프트 목록 패널 + 우측 편집 패널 2곳(`templates/setting/prompts.html` 8·22행)에 `border border-[#E5E5E5]` 추가.
+
 **구성 요소**
 
 ```
@@ -1507,6 +1537,8 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 프롬프트 관리 �
 ### SET-004 · 스케줄 관리
 
 **목적**: 뉴스 자동 수집과 주간 보고서 생성의 실행 주기·시간을 설정
+
+**카드 border 추가 (2026-08-04, PD)**: 스케줄 카드(반복, `templates/setting/_schedule_list.html:5`) + 빈 상태(58행)에 `border border-[#E5E5E5]` 추가.
 
 **구성 요소**
 
@@ -1574,6 +1606,8 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 스케줄 관리 화�
 
 **목적**: 주간 보고서를 전송할 Slack 채널과 Webhook을 설정
 
+**카드 border 추가 (2026-08-04, PD)**: 설정 카드 + 전송 이력 카드 2곳(`templates/setting/slack.html` 8·55행)에 `border border-[#E5E5E5]` 추가.
+
 **정직성 주석 (2026-07-28)**: 아래 와이어프레임·프롬프트는 미래 구현 시 참조용으로 유지하되, 실제 발송 로직(Webhook POST)은 아직 구현되어 있지 않으며 사용자 확정에 따라 당분간 구현하지 않는다(REPORT-002 "Slack 전송" 버튼 제거 이력과 동일 맥락 — 원클릭 발송은 RA의 발송 전 검수 게이트를 우회할 위험이 있어 의도적으로 보류). "연결 테스트", "저장", 전송 이력 데이터도 실제 코드에 대응하는 뷰/모델이 없는 목업 상태다.
 
 **구성 요소**
@@ -1637,6 +1671,8 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" Slack 전송 설정 �
 ### SET-006 · 처리 이력 조회
 
 **목적**: 수집 실행 결과와 Claude API 호출 이력을 확인
+
+**카드 border 추가 (2026-08-04, PD)**: 탭 바(`templates/setting/logs.html:101`) + 수집 로그/LLM 이력 테이블 2곳(116·170행)에 `border border-[#E5E5E5]` 추가. 검증 파이프라인 카드(26행)는 `unverified_tier == 'stale'` 또는 `orphan_relation_count`일 때 `border-yellow-200`으로 "확인이 필요해요"를 알리는 유일한 신호라, 평상시엔 회색·강조 시엔 노랑만 적용되도록 `{% if %}...{% else %}...{% endif %}`로 두 border를 상호 배타적으로 분기했다(회색·노랑이 동시에 클래스로 쌓이면 어느 색이 이기는지 Tailwind 컴파일 순서에 좌우돼 예측할 수 없으므로).
 
 **구성 요소**
 
@@ -1772,6 +1808,8 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 처리 이력 조회 
 
 **목적**: 뉴스 자동 매핑(`services/collector.py`)에 쓰이는 기업(Organization) 마스터 데이터를 유형별(금융사/보험사/AI)로 관리하고, 기존에 수집된 뉴스에 대해 매핑을 수동으로 재실행
 
+**카드 border 추가 (2026-08-04, PD)**: 유형 탭 필터 바(`templates/setting/organizations.html:10`) + 유형별 기업 테이블(`_organizations.html:18`, 금융사/보험사/AI 그룹마다 반복 렌더)에 `border border-[#E5E5E5]` 추가.
+
 **구성 요소**
 
 ```
@@ -1851,6 +1889,8 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 기업 관리 화면�
 ### SET-008 · 기술 주제 관리
 
 **목적**: 뉴스 자동 매핑(`services/collector.py`의 `_link_tech_topics`)에 쓰이는 기술 주제(TechTopic) 마스터 데이터를 관리하고, 기존에 수집된 뉴스에 대해 매핑을 수동으로 재실행. `TechTopic`은 `org_type` 같은 하위 유형 구분이 없는 평면 어휘이므로, SET-007(기업 관리)의 유형별 탭·그룹핑 구조는 가져오지 않고 단일 목록으로 관리한다.
+
+**카드 border 추가 (2026-08-04, PD)**: 기술 주제 테이블 래퍼(`templates/setting/_tech_topics.html:1`)에 `border border-[#E5E5E5]` 추가. 헤더의 건수 pill(`rounded-full`)은 카드가 아니라 대상 아님.
 
 **모델 근거** (`apps/setting/models.py`, 이미 구현됨)
 ```python
@@ -1979,6 +2019,8 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 기술 주제 관리 
 ---
 
 ### GRAPH-001 · 지식그래프 (소급 문서화)
+
+**카드 border 추가 (2026-08-04, PD)**: 그래프 캔버스(`templates/graph/index.html:37`) + 기업 패널(`org-panel`, 83행)에 `border border-[#E5E5E5]` 추가. 캔버스는 테두리가 그래프를 "가두는" 느낌을 줄 수 있다는 우려가 있었지만, `overflow-hidden`으로 이미 사각형 클리핑이 적용돼 있어 border는 이미 존재하는 경계를 보이게 할 뿐 새 제약을 만들지 않는다고 판단해 추가했다 — 같은 화면의 기간 필터·범례·통계 pill이 전부 이미 이 border를 쓰고 있어, 가장 큰 면적인 캔버스만 비워두면 오히려 더 어색했다. 배경 이유는 "1.5 Card 컴포넌트 정의" 절 참고.
 
 > 이미 `apps/graph/`(`templates/graph/index.html`, `_org_panel.html`)로 구현·배포 중인 화면이다. 별도 설계 없이 구현부터 됐고 사이드바에도 정식 메뉴로 떠 있었지만 화면 ID·문서가 전혀 없어 코드-문서 정합성이 깨져 있었다. PM이 `docs/planning.md`("지식그래프 화면 ID 부여" 절)에서 신규 독립 카테고리 `GRAPH-001`을 확정함에 따라, SET-007/008 소급 문서화와 동일한 방식으로 실제 구현 기준으로 기록한다. 이후 이 화면을 변경할 때는 템플릿이 아니라 이 문서를 최신 기준으로 갱신할 것.
 >
