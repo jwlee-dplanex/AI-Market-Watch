@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load report_extras %}
+{% load report_extras static %}
 
 {% block page_title %}보고서 상세{% endblock %}
 
@@ -37,45 +37,189 @@
     background: #f3f4f6; padding: 0.1rem 0.3rem; border-radius: 4px;
     font-family: 'JetBrains Mono', monospace; font-size: 0.8125rem;
   }
+
+  /* PDF 다운로드 (인쇄 CSS + window.print(), 2026-08-04) — REPORT-002 전용.
+     화면에서는 참고뉴스가 앱 내부 상세(news_detail)로 링크되지만, 인쇄물을 받는
+     사람은 앱에 접근할 수 없으므로 인쇄에서만 news.url(원문 기사)로 바꿔 보여준다.
+     .news-link-print는 기본 숨김(화면) → @media print에서만 노출. */
+  .news-link-print { display: none; }
+
+  @media print {
+    /* 브라우저가 넣는 머리글/바닥글(URL·날짜·페이지 번호)과 "배경 그래픽" 기본 꺼짐은
+       CSS로 통제할 수 없다 — 사용자가 인쇄 대화상자에서 직접 조정해야 한다.
+       안내 툴팁을 뒀다가 제거했다(2026-08-04, 매번 보이는 안내가 방해가 됨).
+       아래는 우리가 통제 가능한 범위. */
+
+    @page {
+      size: A4;
+      /* 상하 18mm·좌우 16mm — Word/한글 문서의 통상 여백(20~25mm)보다 살짝 좁게 잡았다.
+         본문 폭을 화면과 동일하게 유지한 채(요구사항: 화면 밖 폭 제한 금지) 인쇄에서만
+         여백을 주는 것이라, 여백을 너무 넓히면 A4 폭 대비 실제 텍스트 폭이 좁아져
+         한 줄에 담기는 글자 수가 줄고 페이지 수가 늘어난다. 표지가 없는 실무 보고서
+         톤이라 좁은 편을 택했다. */
+      margin: 18mm 16mm;
+    }
+
+    /* 앱 셸(사이드바·헤더) 및 화면 전용 조작 요소 숨김 */
+    aside, header, .no-print { display: none !important; }
+
+    /* 앱 셸은 h-screen + overflow-hidden/auto 로 뷰포트 높이에 맞춰 잘리는 SPA 레이아웃이다.
+       그대로 인쇄하면 화면에 보이던 한 화면 분량만 찍히고 나머지가 잘린다. base.html을
+       건드리지 않고(REPORT-002 범위 밖) 이 페이지의 print 스타일에서만 구조적 선택자로
+       높이 제약을 풀어 문서 전체 길이만큼 자연스럽게 흐르게 한다. */
+    body, body > div, body > div > div, main {
+      display: block !important;
+      height: auto !important;
+      overflow: visible !important;
+    }
+    main { padding: 0 !important; }
+    body { background: white !important; }
+
+    /* 배경 그래픽이 꺼져 있어도 보라 그라디언트 헤더가 찍히도록 시도 — 브라우저 "배경
+       그래픽" 체크박스가 우선하는 환경도 있어 100% 보장은 못 하지만 해가 되지 않는다. */
+    * {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    /* 카드 잉크 절약 — 그림자·테두리만 제거(요구사항 그대로). 배경(bg-gray-50/50)·여백은
+       그대로 둔다 — 브라우저 "배경 그래픽"이 꺼져 있으면 어차피 안 찍히고(기본값), 사용자가
+       켜둔 경우엔 옅은 회색 배경이 남아 이슈 카드 사이 구분을 여전히 눈으로 도와준다. */
+    .report-card { box-shadow: none !important; }
+    /* 카드를 페이지 경계에서 쪼개지 않게 막으면(break-inside: avoid) 카드가 통째로 다음
+       장으로 밀려 앞 페이지 아래가 크게 빈다. 사용자가 "이어서 나오게" 를 택해(2026-08-04)
+       그 규칙을 뺐다 — 여백 없애기와 카드 안 갈리기는 동시에 만족할 수 없다.
+       제목 고아 방지(아래 break-after)는 여백을 거의 만들지 않으므로 유지한다. */
+    .issue-card { border: none !important; }
+
+    /* 제목만 페이지 끝에 홀로 남는 것(고아 제목) 방지 — "주요 이슈" 다음에 곧바로 페이지가
+       넘어가 1번 이슈가 다음 장에서 시작하던 문제(2026-08-04 사용자 보고).
+       break-after: avoid는 "이 요소 바로 뒤에서 페이지를 넘기지 말라"는 뜻이다.
+       break-inside를 함께 주는 이유: 제목 자체가 두 줄일 때 줄 사이에서 갈리는 것도 막는다.
+       .report-card h2는 "주요 동향"·"주요 이슈" 같은 섹션 제목, .issue-card h3은 개별 이슈 제목,
+       .markdown-content h1~h6은 RA가 본문에 쓴 소제목이다. */
+    .report-card h2,
+    .issue-card h3,
+    .markdown-content h1, .markdown-content h2, .markdown-content h3,
+    .markdown-content h4, .markdown-content h5, .markdown-content h6 {
+      break-after: avoid;
+      page-break-after: avoid;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    /* 참고뉴스: 화면용 앱 내부 링크는 숨기고 원문 링크 버전만 노출 */
+    .news-link-print { display: block !important; }
+
+    /* 본문 타이포그래피는 지면에 맞게 살짝 촘촘히 — 행간 1.9/문단간격 1.15rem은 "긴
+       화면 스크롤에서 눈이 줄 끝→다음 줄 앞으로 되돌아오기 쉽게" 하려는 화면 전용
+       근거였다. 종이는 페이지 전환 자체가 눈에 쉬는 지점을 주고, 인쇄물은 페이지 수가
+       늘어나는 게 오히려 읽는 흐름과 자원(용지)을 더 쓰게 하므로 인쇄에서만 줄인다.
+       word-break: keep-all(한국어 어절 단위 줄바꿈)은 화면과 동일하게 유지한다. */
+    .markdown-content { line-height: 1.6; }
+    .markdown-content p { margin-bottom: 0.85rem; }
+  }
 </style>
+
+{% comment %}
+  "PDF로 저장" 시 브라우저는 document.title을 기본 파일명으로 쓴다. 그런데 탭 제목도 같은
+  값이라, <title>을 바꾸면 평소 탭 제목까지 바뀐다(다른 화면은 전부 "AI Market Watch").
+  그래서 인쇄 직전에만 갈아끼우고 끝나면 되돌린다.
+
+  파일명에 저장일이 아니라 보고서가 다루는 기간을 넣는다 — 여러 보고서를 한 폴더에 모았을 때
+  식별 기준은 "언제 뽑았나"가 아니라 "어느 기간을 다루나"이기 때문이다. 같은 보고서를 두 번
+  뽑아도 파일명이 같아야 한다.
+{% endcomment %}
+{% with period=report.title|report_title_period %}
+<script>
+  (function () {
+    var original = document.title;
+    {% comment %}
+      기간 표기를 못 읽어낸 제목(형식이 다른 과거·미래 데이터)은 날짜로 대체한다 —
+      파일명이 전부 "[AI Market Watch] 주간 보고서"로 같아져 구분이 안 되는 걸 막는다.
+    {% endcomment %}
+    var printName = "[AI Market Watch] {% if period %}{{ period|escapejs }}{% else %}{{ report.date_from|date:"Ymd" }}{% endif %} {{ report.get_period_type_display|escapejs }} 보고서";
+    window.addEventListener('beforeprint', function () { document.title = printName; });
+    window.addEventListener('afterprint', function () { document.title = original; });
+  })();
+</script>
+{% endwith %}
 {% endblock %}
 
 {% block header_actions %}
+{% comment %}
+  Slack 발송 코드는 아직 없다(설정 저장만 구현, docs/dev.md 참고). 종전에는 "Slack 미전송"
+  이라는 상태 텍스트만 보여줬는데, 비활성 버튼으로 바꿔 "이 기능이 있지만 지금은 쓸 수 없다"를
+  드러낸다(2026-08-04 사용자 요청). 이미 전송된 보고서는 종전 표시를 유지한다 — 같은 보고서를
+  다시 보낼 일은 드물어 버튼이 필요 없다.
+{% endcomment %}
 {% if report.slack_sent_at %}
 <span class="text-xs text-gray-400 flex items-center gap-1">
   <i data-lucide="check-circle" class="w-4 h-4 text-green-500"></i>
   {{ report.slack_sent_at|date:"m.d H:i" }} 전송됨
 </span>
 {% elif report.status == 'done' %}
-<span class="text-xs text-gray-400 flex items-center gap-1">
-  <i data-lucide="send" class="w-4 h-4 text-gray-300"></i>
-  Slack 미전송
-</span>
+<button type="button" disabled
+        title="Slack 전송 기능은 준비 중이에요"
+        class="flex items-center gap-1.5 text-xs font-medium text-gray-300 border border-gray-200
+               rounded-[10px] px-3 py-1.5 cursor-not-allowed">
+  <i data-lucide="send" class="w-3.5 h-3.5"></i>
+  Slack 전송
+</button>
 {% endif %}
+
+{% comment %}
+PDF 다운로드 — 새 라이브러리 없이 인쇄 CSS(위 extra_head) + window.print()로 구현(2026-08-04).
+header_actions는 base.html에서 flex-shrink-0 헤더 안이라 본문을 스크롤해도 버튼이 사라지지
+않는다. Secondary 버튼(테두리형) — 보조 도구이므로 Primary 채움 버튼을 쓰지 않는다.
+헤더 자체가 인쇄에서 숨겨지므로 버튼도 자동으로 함께 사라진다.
+
+브라우저 통제 항목(머리글/바닥글, 배경 그래픽)을 설명하는 "?" 툴팁을 함께 뒀다가
+사용자 요청으로 제거했다(2026-08-04) — 매번 보이는 안내가 실익보다 방해가 컸다.
+{% endcomment %}
+<button type="button" onclick="window.print()"
+        class="flex items-center gap-1.5 text-xs font-medium text-primary border border-primary
+               rounded-[10px] px-3 py-1.5 hover:bg-primary/5 transition-colors">
+  <i data-lucide="download" class="w-3.5 h-3.5"></i>
+  PDF 다운로드
+</button>
 {% endblock %}
 
 {% block content %}
 
-<!-- 브레드크럼 -->
-<nav class="flex items-center justify-between gap-2 text-xs text-gray-400 mb-4">
+<!-- 브레드크럼 (인쇄 시 브레드크럼+상태 배지 함께 숨김: no-print) -->
+<nav class="no-print flex items-center justify-between gap-2 text-xs text-gray-400 mb-4">
   <div class="flex items-center gap-2">
     <a href="{% url 'report_list' %}" class="hover:text-primary">보고서</a>
     <i data-lucide="chevron-right" class="w-3 h-3"></i>
     <span class="text-gray-600">{{ report.get_period_type_display }} · {{ report.date_from|date:"Y.m.d" }}</span>
   </div>
-  <span class="text-xs font-medium px-2 py-0.5 rounded-full
-    {% if report.status == 'done' %}bg-green-100 text-green-700
-    {% elif report.status == 'generating' %}bg-yellow-100 text-yellow-700
-    {% else %}bg-red-100 text-red-600{% endif %}">
-    {{ report.get_status_display }}
-  </span>
+  {% comment %}
+    상태 배지("완료")를 제거했다(2026-08-04 사용자 요청) — 보고서가 열렸다는 건 이미 완료된
+    것이고, 생성 중·실패 상태는 본문 위쪽 안내 배너가 따로 알려주므로 중복이었다.
+  {% endcomment %}
 </nav>
 
 <!-- 보고서 헤더 (Violet 그라디언트) -->
-<div class="rounded-[10px] p-6 mb-5 text-white" style="background: linear-gradient(135deg, #60269E 0%, #401771 100%);">
-  <p class="text-sm font-semibold text-white/70 mb-1">{{ report.get_period_type_display }}</p>
-  <h1 class="text-xl font-bold font-serif mb-2">{{ report.title }}</h1>
-  <p class="text-sm text-white/70">{{ report.date_from|date:"Y.m.d" }} ~ {{ report.date_to|date:"Y.m.d" }}</p>
+{% comment %}
+  우측 상단 DPLANEX 워드마크 — 화면·인쇄 모두 노출한다(2026-08-04).
+  원본이 138x26px(가로 비율 5.31:1)라 표시 높이를 22px로 잡아 원본보다 작게 쓴다 —
+  키우면 래스터라 흐려진다. items-start로 제목이 길어 두 줄이 돼도 로고는 첫 줄에 붙어 있고,
+  min-w-0 + flex-shrink-0으로 제목이 길 때 로고가 찌그러지지 않고 제목 쪽이 줄어든다.
+
+  ⚠️ 인쇄에서 "배경 그래픽"이 꺼져 있으면 보라 배경이 안 찍히고 흰 로고도 함께 사라진다.
+  다만 그 경우 헤더 전체가 흰 바탕이 되므로 로고만 빠져 보이는 어색한 상태는 아니다.
+  컬러(어두운) 버전 로고가 생기면 @media print에서 교체하는 방식으로 바꾼다.
+{% endcomment %}
+<div class="rounded-[10px] p-6 mb-5 text-white flex items-start justify-between gap-6"
+     style="background: linear-gradient(135deg, #60269E 0%, #401771 100%);">
+  <div class="min-w-0">
+    <p class="text-sm font-semibold text-white/70 mb-1">{{ report.get_period_type_display }}</p>
+    <h1 class="text-xl font-bold font-serif mb-2">{{ report.title|report_title_body }}</h1>
+    <p class="text-sm text-white/70">{{ report.date_from|date:"Y.m.d" }} ~ {{ report.date_to|date:"Y.m.d" }}</p>
+  </div>
+  <img src="{% static 'img/logo_white.png' %}" alt="DPLANEX"
+       class="h-[22px] w-auto flex-shrink-0 mt-0.5">
 </div>
 
 <!-- 상태 안내: 생성 중 / 생성 실패 -->
@@ -93,7 +237,7 @@
 
 <!-- 주요 동향 개요 -->
 {% if report.overview %}
-<div class="bg-white rounded-[10px] shadow-sm p-6 mb-4">
+<div class="bg-white rounded-[10px] shadow-sm p-6 mb-4 report-card">
   <h2 class="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
     <i data-lucide="trending-up" class="w-4 h-4 text-primary"></i>
     주요 동향
@@ -105,7 +249,7 @@
 <!-- 주요 이슈 -->
 {% if report.content %}
 {% with parsed=report.content|report_issues %}
-<div class="bg-white rounded-[10px] shadow-sm p-6 mb-4">
+<div class="bg-white rounded-[10px] shadow-sm p-6 mb-4 report-card">
   <h2 class="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
     <i data-lucide="layers" class="w-4 h-4 text-primary"></i>
     주요 이슈
@@ -117,7 +261,7 @@
     {% endif %}
     <div class="space-y-4">
       {% for issue in parsed.issues %}
-      <div class="bg-gray-50/50 border border-[#E5E5E5] rounded-[10px] p-5">
+      <div class="bg-gray-50/50 border border-[#E5E5E5] rounded-[10px] p-5 issue-card">
         <h3 class="flex items-center gap-2.5 text-sm font-semibold text-gray-900 mb-3">
           <span class="w-6 h-6 flex-shrink-0 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">
             {{ forloop.counter }}
@@ -130,12 +274,25 @@
           <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">참고 뉴스</p>
           <ul class="space-y-1.5">
             {% for news in issue.news_list %}
-            <li class="flex items-baseline justify-between gap-3">
+            {% comment %}
+            화면: 앱 내부 상세(news_detail)로 링크. 인쇄: PDF를 받는 사람은 앱에 접근할 수
+            없으므로 원문 기사(news.url)로 링크를 바꾸고, 아래 줄에 URL 텍스트를 회색·작게
+            병기한다(Microsoft Print to PDF는 하이퍼링크가 죽어 URL 텍스트가 유일한 접근
+            경로가 된다). 프로토콜·www.는 정보 없이 자리만 차지해 cut 필터로 제거한다.
+            {% endcomment %}
+            <li>
               <a href="{% url 'news_detail' news.uid %}"
-                 class="text-xs text-gray-600 hover:text-primary transition-colors line-clamp-1">
-                {{ news.title }}
+                 class="no-print flex items-baseline justify-between gap-3 text-xs text-gray-600 hover:text-primary transition-colors">
+                <span class="line-clamp-1">{{ news.title }}</span>
+                <span class="text-[11px] text-gray-400 flex-shrink-0">{{ news.published_at|date:"m.d" }}</span>
               </a>
-              <span class="text-[11px] text-gray-400 flex-shrink-0">{{ news.published_at|date:"m.d" }}</span>
+              <a href="{{ news.url }}" class="news-link-print text-xs text-gray-600">
+                <span class="flex items-baseline justify-between gap-3">
+                  <span class="break-keep">{{ news.title }}</span>
+                  <span class="text-[11px] text-gray-400 flex-shrink-0">{{ news.published_at|date:"m.d" }}</span>
+                </span>
+                <span class="block text-[10px] text-gray-400 mt-0.5">{{ news.url|cut:"https://www."|cut:"http://www."|cut:"https://"|cut:"http://" }}</span>
+              </a>
             </li>
             {% endfor %}
           </ul>
@@ -154,7 +311,7 @@
 
 <!-- 빈 상태: 완료 상태인데 본문이 모두 비어있는 경우 -->
 {% if report.status == 'done' and not report.overview and not report.content %}
-<div class="bg-white rounded-[10px] shadow-sm p-12 text-center text-gray-400 mb-4">
+<div class="bg-white rounded-[10px] shadow-sm p-12 text-center text-gray-400 mb-4 report-card">
   <i data-lucide="inbox" class="w-10 h-10 mx-auto mb-3 opacity-40"></i>
   <p class="text-sm">표시할 보고서 내용이 없습니다.</p>
 </div>

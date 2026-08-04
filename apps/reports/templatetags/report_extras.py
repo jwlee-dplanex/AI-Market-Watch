@@ -35,6 +35,54 @@ ALLOWED_ATTRS = {
 ALLOWED_PROTOCOLS = ["http", "https", "mailto"]
 
 
+#: RA가 쓰는 보고서 제목은 "2026년 7월 5주차(7.25~7.31) — 실제 제목" 형태다.
+#: 화면 헤더에는 기간이 이미 별도 줄로 나오므로 앞부분이 중복이라 떼어내고,
+#: 그 앞부분은 PDF 파일명에 쓴다(같은 파싱을 두 군데서 재사용).
+#: em dash(—) 외에 en dash(–)·하이픈(-)도 받아주되, 하이픈은 제목 본문에도 흔히
+#: 쓰이므로 "앞부분에 '주차' 또는 '월'이 있을 때"만 구분자로 인정한다.
+_TITLE_SEPARATORS = ("—", "–", "-")
+
+
+def _split_report_title(title):
+    """보고서 제목을 (기간 표기, 본 제목)으로 나눈다.
+
+    형식을 지키지 않은 제목이면 ("", 원본 전체)를 돌려준다 — 화면에서 제목이 통째로
+    사라지는 사고를 막기 위한 방어다. RA가 형식을 바꾸거나 과거 데이터가 다를 수 있다.
+    """
+    if not title:
+        return "", ""
+    for sep in _TITLE_SEPARATORS:
+        head, found, tail = title.partition(sep)
+        if not found or not tail.strip():
+            continue
+        head = head.strip()
+        # 앞부분이 기간 표기처럼 보일 때만 분리한다(하이픈 오분리 방지).
+        if "주차" in head or "월" in head:
+            return head, tail.strip()
+    return "", title.strip()
+
+
+@register.filter(name="report_title_body")
+def report_title_body(title):
+    """헤더에 보여줄 본 제목(기간 표기 제외)."""
+    return _split_report_title(title)[1]
+
+
+@register.filter(name="report_title_period")
+def report_title_period(title):
+    """PDF 파일명에 쓸 기간 표기. 'YYYY년 M월 N주차(...)' → 'M월 N주차'로 줄인다.
+
+    파일명은 짧을수록 낫고, 연도는 파일 목록에서 대개 다른 파일과 함께 보여 맥락이 있다.
+    형식이 다르면 원본을 그대로 쓴다.
+    """
+    head = _split_report_title(title)[0]
+    if not head:
+        return ""
+    head = head.split("(")[0].strip()          # 괄호 안 날짜 범위 제거
+    head = re.sub(r"^\d{4}\s*년\s*", "", head)  # 앞의 연도 제거
+    return head.strip()
+
+
 @register.filter(name="markdown")
 def markdown_filter(text):
     """마크다운 텍스트를 안전한 HTML로 변환한다.

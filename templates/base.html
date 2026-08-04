@@ -3,6 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  {% comment %}
+    탭 제목은 모든 화면에서 동일하게 유지한다. "PDF로 저장" 시 브라우저가 이 값을 기본
+    파일명으로 쓰는데, 화면별로 바꾸면 탭 제목까지 함께 바뀐다 — REPORT-002는 탭 제목은
+    그대로 두고 파일명만 바꾸려고 beforeprint/afterprint에서 임시 교체하는 방식을 쓴다.
+  {% endcomment %}
   <title>AI Market Watch</title>
 
   <!-- 파비콘 (docs/design.md 1.6 로고 · 심볼 · 파비콘) -->
