@@ -4,6 +4,71 @@
 {% block setting_content %}
 <div x-data="{ tab: 'collection' }">
 
+  <!-- 검증 파이프라인 현황 (운영자 전용, 2026-08-04 검증 게이트 정책 PD 인계 —
+       docs/planning.md "검증 게이트: 미검증 뉴스는 화면에 노출하지 않는다" 5번,
+       docs/design.md SET-006 절 "검증 파이프라인 현황 블록" 참고).
+       미검증 뉴스는 사용자 화면에서 완전히 숨기므로, 이 화면(운영자 전용)에서만 "검증이 밀린 것"과
+       "수집 자체가 죽은 것"을 구분할 수 있어야 한다. 탭(수집 로그/LLM 이력) 밖, 두 탭 어느 쪽을 보고
+       있어도 항상 보이는 위치에 둔다 — 파이프라인 전체 상태 요약이라 특정 탭에 종속시키지 않는다.
+
+       PE 컨텍스트 변수 계약(News 상태 필드 미구현 — 아래 값은 PE가 필드 구현과 함께 채운다):
+       - unverified_count (int): 미검증 News 건수.
+       - oldest_unverified_at (date|None): 미검증 News 중 collected_at이 가장 오래된 건의 수집일.
+         unverified_count == 0이면 None.
+       - unverified_days (int|None): (오늘 - oldest_unverified_at).days. unverified_count == 0이면 None.
+       - unverified_tier (str): "clear"(0건) | "pending"(0<건, unverified_days<=1) | "stale"(0<건,
+         unverified_days>=2) — 임계값 근거는 docs/design.md SET-006 절 참고.
+       - last_verified_at (datetime|None): 검증됨 News 중 verified_at 최댓값. verified_at을 백필하지
+         않으므로(docs/planning.md 3번) 이 정책 도입 후 RA가 첫 배치를 검증 전환하기 전까지는 None. -->
+  <div class="bg-white rounded-[10px] shadow-sm mb-4 {% if unverified_tier == 'stale' %}border border-yellow-200{% endif %}">
+    <div class="px-5 py-4 flex items-center justify-between flex-wrap gap-4">
+      <div class="min-w-0">
+        <h2 class="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
+          검증 파이프라인 현황
+          <span class="text-[10px] font-normal text-gray-400">운영자 전용</span>
+        </h2>
+        <p class="text-xs text-gray-400 mt-0.5">RA가 아직 판정하지 않은 뉴스는 사용자 화면에 보이지 않아요. 여기서만 확인할 수 있어요.</p>
+      </div>
+      <div class="flex items-center gap-8 flex-wrap">
+        <!-- ① 미검증 건수 -->
+        <div>
+          <p class="text-xs text-gray-400 mb-1">미검증 뉴스</p>
+          <p class="text-lg font-semibold {% if unverified_tier == 'stale' %}text-yellow-700{% else %}text-gray-900{% endif %}">
+            {{ unverified_count|default:0 }}건
+          </p>
+          {% if unverified_tier == 'clear' %}
+          <p class="text-[11px] text-green-600 mt-0.5 flex items-center gap-1">
+            <i data-lucide="check-circle" class="w-3 h-3"></i>모두 검증을 마쳤어요
+          </p>
+          {% elif unverified_tier == 'stale' %}
+          <p class="text-[11px] text-yellow-700 mt-0.5 flex items-center gap-1">
+            <i data-lucide="alert-triangle" class="w-3 h-3"></i>확인이 필요해요
+          </p>
+          {% endif %}
+        </div>
+
+        <!-- ② 가장 오래된 미검증 뉴스 수집일 -->
+        <div>
+          <p class="text-xs text-gray-400 mb-1">가장 오래된 미검증 뉴스</p>
+          <p class="text-lg font-semibold {% if unverified_tier == 'stale' %}text-yellow-700{% else %}text-gray-900{% endif %}">
+            {% if oldest_unverified_at %}{{ oldest_unverified_at|date:"m.d" }}{% else %}—{% endif %}
+          </p>
+          {% if unverified_days %}
+          <p class="text-[11px] text-gray-400 mt-0.5">{{ unverified_days }}일째</p>
+          {% endif %}
+        </div>
+
+        <!-- ③ 마지막 검증 완료 시각 -->
+        <div>
+          <p class="text-xs text-gray-400 mb-1">마지막 검증 완료</p>
+          <p class="text-lg font-semibold {% if last_verified_at %}text-gray-900{% else %}text-sm text-gray-400{% endif %}">
+            {% if last_verified_at %}{{ last_verified_at|date:"m.d H:i" }}{% else %}기록 없어요{% endif %}
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 탭 -->
   <div class="flex gap-1 mb-4 bg-white rounded-[10px] shadow-sm p-1 w-fit">
     <button @click="tab = 'collection'"
