@@ -193,8 +193,12 @@
                 {% if log.news.is_verified %}
                 <a href="{% url 'news_detail' log.news.uid %}" class="hover:text-primary transition-colors">{{ log.news.title }}</a>
                 {% else %}
-                {# 미검증 뉴스는 상세가 404이므로 링크를 걸지 않는다. 제목은 운영자가
-                   무엇이 대기 중인지 알아야 하므로 그대로 보여준다. #}
+                {% comment %}
+                  미검증 뉴스는 상세가 404이므로 링크를 걸지 않는다. 제목은 운영자가
+                  무엇이 대기 중인지 알아야 하므로 그대로 보여준다.
+                  ⚠️ 여러 줄 주석은 반드시 {% comment %} 블록을 쓴다 — Django의 {# #}는
+                  한 줄 전용이라 여러 줄로 쓰면 주석으로 인식되지 않고 화면에 그대로 출력된다.
+                {% endcomment %}
                 <span class="text-gray-400 cursor-default" title="아직 검증하지 않은 뉴스라 상세를 열 수 없어요">{{ log.news.title }}</span>
                 {% endif %}
               {% else %}—{% endif %}
