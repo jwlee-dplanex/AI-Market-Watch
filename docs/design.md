@@ -97,8 +97,19 @@ hover   — shadow 강해짐
 
 List Card (목록 행, 전체 클릭형) — NEWS-001·REPORT-001 등 목록 화면 공용 표준
           카드 전체가 클릭 영역. 별도 "상세보기" 버튼은 두지 않는다.
-          hover — shadow 강해짐 (border-color 변경 없음, Base와 동일 규칙)
+          border   — 1px #E5E5E5 포함 (Base와 동일 규칙). 페이지 배경(bg-gray-50)과
+                     카드(bg-white)의 명도 차가 거의 없어 shadow-sm 혼자로는 경계가
+                     잘 안 보인다 — border가 카드 발견성을 담당하는 실질적 장치다.
+          hover    — shadow만 강해짐, border-color는 변경하지 않는다(Base와 동일 규칙)
           제목 강조 — 제목 자체에 hover를 걸지 않고 카드(그룹)의 group-hover:text-primary 사용
+
+          ⚠️ 구현 확인(2026-08-04): 위 border 규칙이 문서에는 있었지만 실제 템플릿
+             (reports/list.html, news/list.html, dashboard/index.html 등)에는 반영이
+             안 돼 있었다 — "카드 구분이 잘 안 보인다"는 사용자 지적으로 발견.
+             REPORT-001에 border border-[#E5E5E5] 적용 완료(아래 REPORT-001 변경 이력
+             참고). NEWS-001·대시보드 카드는 동일 문제이나 범위를 넓히지 않고 후속으로
+             남긴다 — 각 화면 구조가 달라(Stretched Link, Accent 카드 등) 한 커밋에
+             묶기보다 화면별로 짧게 확인하는 편이 발표 전 리스크가 적다.
           구현 원칙 (실제 코드는 product-engineer가 작성):
             · 경쟁 액션이 없는 카드(예: REPORT-001)
               → 카드 콘텐츠 전체를 <a href="..." class="block group">로 감싼다
@@ -1045,6 +1056,7 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 뉴스 상세 화면�
 **변경 이력**
 - 2026-07-28 — 상단 `[+ 보고서 생성]` Primary 버튼 제거. 클릭 핸들러가 없는 플레이스홀더였고, 보고서는 자동 생성이 아니라 RA(research-analyst)가 수동으로 표준 구조에 따라 작성하는 체제로 확정됨(`docs/planning.md` "주간 보고서(Report) 표준 구조" 참고). `templates/reports/list.html`에서 실제로 제거된 뒤 문서를 코드에 맞춰 정정.
 - 같은 날, 빈 상태 UI(`file-text` 아이콘 + 안내 문구 2줄) 반영. 기존 문서에는 빈 상태 서술이 없었음.
+- 2026-08-04 — 카드에 `border border-[#E5E5E5]` 추가(빈 상태 카드 포함). 문서상 List Card는 원래 border가 있어야 했는데(1.5 컴포넌트 정의 참고) 구현에서 빠져 있었고, `bg-gray-50` 페이지 배경과 `bg-white` 카드의 명도 차가 작아 카드 구분이 잘 안 보인다는 사용자 지적으로 발견. 연도 헤더 구분선(`h-px bg-gray-200`)과는 `mb-3` 여백으로 떨어져 있어 겹치지 않음을 확인.
 
 **Claude Artifacts 생성 프롬프트**
 
@@ -1085,7 +1097,7 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 보고서 목록 화�
 - Slack 전송됨: bg #F3EAFB, text #60269E
 - Slack 미전송: bg #F3F4F6, text #54565A
 - 카드 클릭 패턴: 전체 클릭형 List Card (1.5 컴포넌트 정의 참고) — 경쟁 액션 없음, <a class="block group">로 전체 콘텐츠를 감싼다
-- 카드 hover: shadow 강해짐 (NEWS-001과 동일 규칙)
+- 카드: border border-[#E5E5E5] 포함 (bg-gray-50 배경과 대비 확보), hover 시 shadow만 강해짐 (NEWS-001과 동일 규칙)
 ```
 
 ---
