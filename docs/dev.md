@@ -117,6 +117,27 @@ bleach
 
 ---
 
+**TagCorrectionRecord** — 살아남은 뉴스의 태깅 교정 이력 (2026-08-04 도입, `docs/planning.md` "판정 기록 보존 정책" 4번, P1)
+
+`DeletedNewsRecord`와 역할이 다르다 — 그건 "삭제된 뉴스가 삭제 시점에 갖고 있던 태그 스냅샷"이고, 이건 "삭제되지 않고 살아남은 뉴스에서 사람이 손으로 고친 태그 내역"이다. 대상 뉴스는 DB에 그대로 남으므로 "현재 태그"는 `News.organizations`/`News.tech_topics`로 언제든 조회 가능하고, 이 모델이 남기는 건 소실되는 "뗀/붙인 태그"라는 차분뿐이다.
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| id | AutoField | PK |
+| news | ForeignKey(News, on_delete=CASCADE) | 교정 대상 뉴스 (related_name="tag_corrections") |
+| axis | CharField(20, choices) | `organization` / `tech_topic` |
+| action | CharField(10, choices) | `add` / `remove` |
+| target_name | CharField(200) | 대상 `Organization.name`/`TechTopic.name`. FK가 아니라 이름 문자열 — `DeletedNewsRecord`의 태그 스냅샷과 같은 이유로, 대상이 나중에 개명·비활성화돼도 교정 당시 기록이 그대로 남는다 |
+| reason | TextField(blank) | 교정 사유, 짧게(1문장 권장) |
+| judged_by | CharField(30) | 판정 주체. `DeletedNewsRecord`와 동일 어휘(값을 직접 참조): `RA`(default) / `사용자(화면 삭제)` / `소급 정비` / `자동 판정`(향후) |
+| corrected_at | DateTimeField(auto_now_add) | 교정 시각 |
+
+**`correct_news_tag()`(`apps/news/services.py`) 헬퍼로만 생성한다** — `news.organizations.add()/remove()`를 직접 호출하지 않는다. `target`(Organization 또는 TechTopic 인스턴스)의 타입으로 축을 자동 판별해 M2M 변경과 기록 생성을 한 트랜잭션으로 묶는다. RA의 배치 처리(Django shell)뿐 아니라 NEWS-002 화면의 기업 태그 추가/제거 버튼(`apps/news/views.py: news_org_add`/`news_org_remove`)도 이 헬퍼를 거치도록 배선돼 있다(화면 경로는 `judged_by=사용자(화면 삭제)`, 사유는 빈 값 허용 — `DeletedNewsRecord`의 화면 삭제 경로와 동일한 취급).
+
+**비노출 계약(검증 게이트보다 강함)**: `DeletedNewsRecord`와 동일 — 어떤 뷰·컨텍스트 프로세서·집계에서도 조회하지 않는다. Django admin에도 등록하지 않는다. 유일한 소비자는 사람(RA·PE)과 옵션 B 착수 시점의 PE(핵심 주체 vs 배경 언급 판별 로직의 명세 재료로 사용).
+
+---
+
 **Embedding** — 뉴스 벡터
 
 | 필드 | 타입 | 설명 |
@@ -556,7 +577,17 @@ if News.objects.filter(url_hash=url_hash).exists():
        judged_by=DeletedNewsRecord.JUDGED_BY_RA,
    )
    ```
-   **기업 태깅 검증·교정도 이 단계에 편입**됩니다 — collector의 별칭 매칭이 "핵심 주체 vs 배경 언급"을 구분하지 못해 과다태깅되는 구조적 한계(5절 참고)가 있으므로, RA가 배치를 판정하면서 잘못 태깅된 `Organization`/`TechTopic` 연결도 함께 수동 검증·교정합니다.
+   **기업 태깅 검증·교정도 이 단계에 편입**됩니다 — collector의 별칭 매칭이 "핵심 주체 vs 배경 언급"을 구분하지 못해 과다태깅되는 구조적 한계(5절 참고)가 있으므로, RA가 배치를 판정하면서 잘못 태깅된 `Organization`/`TechTopic` 연결도 함께 수동 검증·교정합니다. **이 교정도 `news.organizations.add()/remove()`를 직접 호출하지 않고 `apps/news/services.py`의 `correct_news_tag()`를 씁니다**(2026-08-04 도입, `docs/planning.md` "판정 기록 보존 정책" 4번, P1) — 한 번 호출로 M2M 변경과 `TagCorrectionRecord`(3절 참고) 생성이 함께 일어나, "무엇을 왜 뗐는가"라는 차분이 소실되지 않습니다.
+   ```python
+   from apps.news.models import TagCorrectionRecord
+   from apps.news.services import correct_news_tag
+
+   correct_news_tag(
+       news, org,  # org: Organization 또는 TechTopic 인스턴스
+       action=TagCorrectionRecord.ACTION_REMOVE,
+       reason="한편... 경쟁사 비교 문단, 핵심 주체 아님",
+   )
+   ```
 
    **⚠️ 검증 게이트(2026-08-04 도입) — 이 단계의 필수 마지막 절차**: 예전에는 "남은 `News`는 삭제되지 않았다는 사실 자체가 관련 있음을 의미"했지만, 이 원칙은 대체됐습니다. 이제는 `News.status`가 `"검증됨"`으로 전환돼야 비로소 사용자 화면(ALL-001·NEWS-001·NEWS-002·GRAPH-001)에 노출됩니다(3절 `News` 표 참고). 삭제·태깅 교정을 배치 전체에 대해 마친 직후, 살아남은 뉴스 전부를 Django ORM으로 **한 번에** `"검증됨"`으로 전환하세요(`verified_at`도 함께 현재 시각으로 채웁니다). **부분 전환 금지(all-or-nothing)** — 배치를 끝까지 읽기 전에 일부만 공개하면 동일 사건 중복 보도 판정(관련성 기준 2번)이 뒤집혀 노출됐다 사라지는 깜빡임이 생깁니다. 세션이 중단돼 배치를 끝내지 못했다면 그 배치는 통째로 미검증 상태로 남겨 두고(= 화면에 아무것도 새로 뜨지 않음), 다음 세션에서 처음부터 다시 판정합니다. 이 전환이 빠지면 판정을 마친 뉴스도 영원히 화면에 뜨지 않습니다.
 2. **관련 기사 찾기 + Insight 작성** — 남은 배치의 제목·본문을 직접 읽고(pgvector 쿼리 미사용) 같은 사건을 다루는 기사를 식별해 Django ORM으로 `Insight`(`title`/`content`/`implication`)를 작성하고 `insight.news.set([...])`로 근거 `News`를 연결합니다. 별도 그룹 테이블(과거 `IssueGroup`) 없이 `Insight` 자체가 "이 기사들 + 이 분석"의 단위입니다.

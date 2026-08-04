@@ -5,8 +5,8 @@ from django.core.paginator import Paginator
 from django.http import HttpResponse
 from django.urls import reverse
 from django.views.decorators.http import require_POST
-from .models import DeletedNewsRecord, News
-from .services import delete_news_with_record
+from .models import DeletedNewsRecord, News, TagCorrectionRecord
+from .services import correct_news_tag, delete_news_with_record
 
 
 ORG_TYPES = [
@@ -143,7 +143,13 @@ def news_org_add(request, uid):
     if org_pk:
         try:
             org = Organization.objects.get(pk=org_pk, is_active=True)
-            news.organizations.add(org)
+            # 판정 기록 보존 정책 4번(P1, docs/planning.md): 태깅 교정도 기록 없는
+            # 경로를 남기지 않는다. 화면 조작은 사유 입력 UI가 없으므로 사유는 빈 값.
+            correct_news_tag(
+                news, org,
+                action=TagCorrectionRecord.ACTION_ADD,
+                judged_by=TagCorrectionRecord.JUDGED_BY_USER,
+            )
         except Organization.DoesNotExist:
             pass
     linked_orgs = news.organizations.all()
@@ -157,7 +163,11 @@ def news_org_remove(request, uid, org_pk):
     from apps.setting.models import Organization
     try:
         org = Organization.objects.get(pk=org_pk)
-        news.organizations.remove(org)
+        correct_news_tag(
+            news, org,
+            action=TagCorrectionRecord.ACTION_REMOVE,
+            judged_by=TagCorrectionRecord.JUDGED_BY_USER,
+        )
     except Organization.DoesNotExist:
         pass
     linked_orgs = news.organizations.all()

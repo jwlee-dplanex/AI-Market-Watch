@@ -157,6 +157,66 @@ class DeletedNewsRecord(models.Model):
         return f"DeletedNewsRecord({self.title!r}, {self.criterion_code or '기타'})"
 
 
+class TagCorrectionRecord(models.Model):
+    """docs/planning.md "판정 기록 보존 정책: 버린 것도 자산이다" 4번(P1) 구현.
+
+    RA가 배치를 처리하며 collector 과다태깅(핵심 주체 vs 배경 언급을 구분하지 못하는
+    구조적 한계)을 손으로 교정할 때 그 차분을 남긴다. `DeletedNewsRecord`와 역할이
+    다르다 — 그건 "삭제된 뉴스가 삭제 시점에 갖고 있던 태그 스냅샷"이고, 이건 "살아남은
+    뉴스에서 사람이 손으로 고친 내역"이다. 대상 뉴스는 삭제되지 않고 DB에 남으므로
+    "현재 태그"는 `News.organizations`/`News.tech_topics`로 언제든 조회 가능하다 —
+    이 모델이 붙잡아 두는 건 그래서 사라지는 "뗀/붙인 태그"라는 차분 자체다.
+
+    `correct_news_tag()`(apps/news/services.py)를 거쳐서만 생성한다.
+    `news.organizations.add()/remove()`를 직접 호출하지 않는다.
+
+    ⚠️ 비노출 계약: `DeletedNewsRecord`와 동일 — 어떤 뷰·컨텍스트 프로세서·집계에서도
+    조회하지 않는다. Django admin에도 등록하지 않는다. 유일한 소비자는 사람(RA·PE)과
+    향후 옵션 B 코드화 작업("핵심 주체 vs 배경 언급" 판별 로직의 명세 재료).
+    """
+
+    AXIS_ORGANIZATION = "organization"
+    AXIS_TECH_TOPIC = "tech_topic"
+    AXIS_CHOICES = [
+        (AXIS_ORGANIZATION, "기업"),
+        (AXIS_TECH_TOPIC, "기술 주제"),
+    ]
+
+    ACTION_ADD = "add"
+    ACTION_REMOVE = "remove"
+    ACTION_CHOICES = [
+        (ACTION_ADD, "추가"),
+        (ACTION_REMOVE, "제거"),
+    ]
+
+    # 판정 주체 어휘는 DeletedNewsRecord와 동일 개념이라 값을 그대로 참조한다(드리프트 방지).
+    JUDGED_BY_RA = DeletedNewsRecord.JUDGED_BY_RA
+    JUDGED_BY_USER = DeletedNewsRecord.JUDGED_BY_USER
+    JUDGED_BY_RETRO = DeletedNewsRecord.JUDGED_BY_RETRO
+    JUDGED_BY_AUTO = DeletedNewsRecord.JUDGED_BY_AUTO
+
+    news = models.ForeignKey(News, on_delete=models.CASCADE, related_name="tag_corrections")
+    axis = models.CharField(max_length=20, choices=AXIS_CHOICES)
+    action = models.CharField(max_length=10, choices=ACTION_CHOICES)
+    # FK가 아니라 이름 문자열 — DeletedNewsRecord의 태그 스냅샷(organizations_snapshot 등)과
+    # 같은 이유. 대상(Organization/TechTopic)이 나중에 개명·비활성화돼도 교정 당시 기록은
+    # 그대로 남아야 한다.
+    target_name = models.CharField(max_length=200)
+    reason = models.TextField(blank=True, help_text="교정 사유, 짧게(1문장 권장)")
+    judged_by = models.CharField(
+        max_length=30,
+        default=JUDGED_BY_RA,
+        help_text=f"권장 어휘: {JUDGED_BY_RA} / {JUDGED_BY_USER} / {JUDGED_BY_RETRO} / {JUDGED_BY_AUTO}",
+    )
+    corrected_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-corrected_at"]
+
+    def __str__(self):
+        return f"TagCorrectionRecord(news={self.news_id}, {self.action} {self.target_name!r})"
+
+
 class Embedding(models.Model):
     news = models.OneToOneField(News, on_delete=models.CASCADE, related_name="embedding")
     vector = VectorField(dimensions=1024)
