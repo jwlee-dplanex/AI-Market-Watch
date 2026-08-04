@@ -19,8 +19,11 @@ ORG_TYPES = [
 def news_list(request):
     order = request.GET.get("order", "newest")
     order_fields = ("published_at", "pk") if order == "oldest" else ("-published_at", "-pk")
+    # 검증 게이트(docs/planning.md): NEWS-001 목록·total_count는 직접 조회 경로이므로
+    # 검증분만 노출한다.
     qs = (
         News.objects
+        .verified()
         .prefetch_related("organizations")
         .annotate(local_date=TruncDate("published_at"))
         .order_by(*order_fields)
@@ -67,9 +70,12 @@ def news_list(request):
 
 
 def _adjacent_news(news):
-    """최신순(News.Meta.ordering) 기준 이전(더 최신)/다음(더 오래된) 뉴스"""
+    """최신순(News.Meta.ordering) 기준 이전(더 최신)/다음(더 오래된) 뉴스.
+    검증 게이트: 이전/다음 이동도 검증분 안에서만 움직인다 — 그렇지 않으면 목록에는
+    없는 미검증 뉴스로 이동하는 경로가 생긴다."""
     prev_news = (
         News.objects
+        .verified()
         .filter(Q(published_at__gt=news.published_at) |
                 Q(published_at=news.published_at, pk__gt=news.pk))
         .order_by("published_at", "pk")
@@ -78,6 +84,7 @@ def _adjacent_news(news):
     )
     next_news = (
         News.objects
+        .verified()
         .filter(Q(published_at__lt=news.published_at) |
                 Q(published_at=news.published_at, pk__lt=news.pk))
         .order_by("-published_at", "-pk")
@@ -89,7 +96,9 @@ def _adjacent_news(news):
 
 def news_detail(request, uid):
     from apps.setting.models import Organization
-    news = get_object_or_404(News, uid=uid)
+    # 검증 게이트: 미검증 뉴스는 URL 직접 접근 시 404. 목록에서 숨기는 의미가 없어지므로
+    # 상세도 반드시 게이트를 공유한다.
+    news = get_object_or_404(News.objects.verified(), uid=uid)
 
     insights = news.insights.all()
 

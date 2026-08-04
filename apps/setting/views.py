@@ -1,8 +1,14 @@
-from django.db.models import Count
+from django.db.models import Count, Min, Max
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.http import require_POST
+from apps.news.models import News
 from .models import DataSource, Keyword, Prompt, Schedule, CollectionLog, LLMLog, SlackConfig, Organization, TechTopic
+
+# SET-006 검증 파이프라인 현황 "stale" 임계값(일). PD 판단값이며 고정 정책이 아니다
+# (docs/design.md SET-006 절 — 임계값 조정 시 이 상수만 바꾸면 된다).
+UNVERIFIED_STALE_DAYS = 2
 
 
 def _setting_menu(active):
@@ -135,11 +141,47 @@ def slack(request):
     })
 
 
+def _verification_pipeline_context():
+    """SET-006 "검증 파이프라인 현황" 카드용 운영 관측 값 3종
+    (docs/planning.md "검증 게이트" 5번, docs/design.md SET-006 절 PE 컨텍스트 변수 계약).
+    unverified_tier의 임계값 판단은 여기(뷰)에 두고 템플릿에는 문자열만 내려준다 —
+    나중에 임계값을 조정할 때 템플릿을 건드리지 않기 위해서(PD 설계 의도)."""
+    unverified_qs = News.objects.filter(status=News.STATUS_UNVERIFIED)
+    unverified_count = unverified_qs.count()
+
+    oldest_collected_at = unverified_qs.aggregate(Min("collected_at"))["collected_at__min"]
+    oldest_unverified_at = (
+        timezone.localtime(oldest_collected_at).date() if oldest_collected_at else None
+    )
+    today = timezone.localtime(timezone.now()).date()
+    unverified_days = (today - oldest_unverified_at).days if oldest_unverified_at else None
+
+    if unverified_count == 0:
+        unverified_tier = "clear"
+    elif unverified_days is not None and unverified_days >= UNVERIFIED_STALE_DAYS:
+        unverified_tier = "stale"
+    else:
+        unverified_tier = "pending"
+
+    last_verified_at = News.objects.filter(
+        status=News.STATUS_VERIFIED
+    ).aggregate(Max("verified_at"))["verified_at__max"]
+
+    return {
+        "unverified_count": unverified_count,
+        "oldest_unverified_at": oldest_unverified_at,
+        "unverified_days": unverified_days,
+        "unverified_tier": unverified_tier,
+        "last_verified_at": last_verified_at,
+    }
+
+
 def logs(request):
     return render(request, "setting/logs.html", {
         "setting_menu": _setting_menu("logs"),
         "collection_logs": CollectionLog.objects.select_related("source").order_by("-started_at")[:50],
         "llm_logs": LLMLog.objects.select_related("news").order_by("-created_at")[:50],
+        **_verification_pipeline_context(),
     })
 
 

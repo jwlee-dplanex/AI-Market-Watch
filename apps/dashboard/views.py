@@ -35,7 +35,8 @@ def _daily_counts_map(start_date, today):
     start_date가 None이면 "전체" 기간 — 하한·상한 어느 쪽도 걸지 않고 전량을 집계한다
     (그래프 앱의 _apply_period_filter와 동일한 "전체=필터 없음" 계약, services/periods.py 참고)."""
     current_tz = timezone.get_current_timezone()
-    qs = News.objects.all()
+    # 검증 게이트(docs/planning.md): 핵심 지표는 직접 조회 경로이므로 검증분만 집계한다.
+    qs = News.objects.verified()
     if start_date is not None:
         qs = qs.filter(published_at__date__gte=start_date, published_at__date__lte=today)
     rows = (
@@ -160,7 +161,10 @@ def _date_filter(field_prefix, start_date, today):
 
 
 def _build_org_ranking(start_date, today):
-    date_filter = _date_filter("news__published_at", start_date, today)
+    # 검증 게이트: 기업별 건수 Top 10은 ALL-001 핵심 지표 3종 중 하나(직접 조회 경로)이므로
+    # 검증분만 센다. Count(filter=...)는 annotate 앞에서 JOIN 자체를 거르지 않으므로
+    # 별도 Q(news__status=...)를 date_filter에 AND로 얹는다.
+    date_filter = _date_filter("news__published_at", start_date, today) & Q(news__status=News.STATUS_VERIFIED)
     news_filter = _date_filter("published_at", start_date, today)
     orgs = list(
         Organization.objects
@@ -175,6 +179,7 @@ def _build_org_ranking(start_date, today):
     for rank, org in enumerate(orgs, start=1):
         recent_news = list(
             org.news
+            .verified()
             .filter(news_filter)
             .order_by("-published_at", "-pk")[:5]
         )
@@ -191,7 +196,8 @@ def _build_org_ranking(start_date, today):
 
 
 def _build_tech_topic_counts(start_date, today):
-    date_filter = _date_filter("news__published_at", start_date, today)
+    # 검증 게이트: 기술 주제별 언급 건수도 ALL-001 핵심 지표 3종 중 하나(직접 조회 경로).
+    date_filter = _date_filter("news__published_at", start_date, today) & Q(news__status=News.STATUS_VERIFIED)
     news_filter = _date_filter("published_at", start_date, today)
     topics = list(
         TechTopic.objects
@@ -206,6 +212,7 @@ def _build_tech_topic_counts(start_date, today):
     for rank, topic in enumerate(topics, start=1):
         recent_news = list(
             topic.news
+            .verified()
             .filter(news_filter)
             .order_by("-published_at", "-pk")[:5]
         )
@@ -227,7 +234,8 @@ def dashboard(request):
 
     earliest_date = None
     if period == "all":
-        earliest = News.objects.aggregate(Min("published_at"))["published_at__min"]
+        # 검증 게이트: 트렌드 차트 범위도 핵심 지표 소속이므로 검증분 기준으로 잡는다.
+        earliest = News.objects.verified().aggregate(Min("published_at"))["published_at__min"]
         earliest_date = timezone.localtime(earliest).date() if earliest else today
         total_days = (today - earliest_date).days + 1
         bucket_unit = "week" if total_days <= WEEK_BUCKET_MAX_DAYS else "month"
@@ -262,7 +270,7 @@ def dashboard(request):
     # 최신 뉴스는 기간 필터와 무관하게 항상 전체에서 최신 10건을 보여준다. 기간 셀렉터
     # (7d/30d/전체)는 "핵심 지표" 섹션 전용이며, 주요 이슈·최신 뉴스는 기간과 별개로 항상
     # 현재 기준을 노출한다(사용자 확정 2026-07-31 — 기간 = 핵심 지표 전용).
-    latest_news = News.objects.order_by("-published_at")[:30]
+    latest_news = News.objects.verified().order_by("-published_at")[:30]
 
     return render(request, "dashboard/index.html", {
         "period": period,

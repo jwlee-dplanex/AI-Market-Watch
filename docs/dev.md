@@ -74,8 +74,14 @@ bleach
 | source_type | CharField | 자유 텍스트 (choices 제약 없음, 현재는 `naver_news`만 사용) |
 | published_at | DateTimeField | 발행일 |
 | collected_at | DateTimeField | 수집일 |
+| status | CharField(10, choices) | 검증 게이트 상태(2026-08-04 도입). `"미검증"`(default) / `"검증됨"` 2단계뿐, "보류" 없음. **default는 반드시 `"미검증"`** — `"검증됨"`으로 두면 신규 수집분이 자동으로 게이트를 통과해 정책이 무력화된다. |
+| verified_at | DateTimeField(null) | RA가 배치를 `"검증됨"`으로 전환한 시각. 기존 데이터는 백필하지 않음(모르는 값을 지어내지 않는 원칙) — `None`이면 "아직 검증 전환된 적 없음"을 뜻하는 정확한 값. |
 | organizations | ManyToManyField(Organization) | 수집 시 별칭 매칭으로 자동 연결되는 기업 (related_name="news") |
 | tech_topics | ManyToManyField(TechTopic) | 수집 시 별칭 매칭으로 자동 연결되는 기술 주제 (related_name="news") |
+
+**검증 게이트 — `News.objects.verified()`**: `status="검증됨"`만 반환하는 QuerySet 메서드(`NewsQuerySet.verified()`, `apps/news/models.py`). ALL-001 핵심 지표 3종·최신 뉴스, NEWS-001 목록(`total_count` 포함), NEWS-002 상세(미검증은 직접 접근 시 404), GRAPH-001 노드·엣지·양쪽 패널 — `News`를 뷰가 스스로 쿼리하는 "직접 조회" 경로는 전부 이 메서드를 거친다. 반대로 `Insight.news`·`Report.news`·`OrgRelation.news`(RA가 근거로 직접 골라 연결한 명시 M2M), `report_extras`의 `참고: <uid>` 해석 경로, 사이드바 "마지막 수집"(`apps/dashboard/context_processors.py`, 뉴스 노출이 아니라 파이프라인 생존 신호)은 게이트를 의도적으로 적용하지 않는다. 상세는 `docs/planning.md` "검증 게이트: 미검증 뉴스는 화면에 노출하지 않는다" 절 참고.
+
+**대체된 종전 원칙(중요)**: 이 정책 도입 전까지는 "삭제되지 않고 남아 있다 = 관련 있음"이 설계 원칙이었다(그래서 `is_relevant` 같은 상태 플래그가 없었다). 이 원칙은 "판정 이후"의 정적 상태만 보고 "수집됐지만 아직 RA가 판정하지 않은" 시간 구간을 놓쳐, 그 구간의 뉴스가 판정 완료 뉴스와 DB에서 완전히 동일하게 보이는 문제가 있었다(실제 사례: 2026-08-04 수집 60건 중 52건이 노이즈였는데 RA 처리 전까지 60건 전부가 노출됨). 지금은 **"검증 완료로 표시됐다 = 관련 있음"**으로 대체됐다 — 삭제는 여전히 노이즈 제거의 실행 수단이지만, 남아 있다는 사실만으로는 관련 있음을 뜻하지 않는다.
 
 ---
 
@@ -518,7 +524,9 @@ if News.objects.filter(url_hash=url_hash).exists():
 
 ### RA의 온디맨드 처리 흐름
 
-1. **노이즈 판정 + 삭제** — 갓 수집된 뉴스 배치를 직접 읽고 PM이 정의한 관련성 기준으로 판단, `product-engineer`의 안전 삭제 패턴(`ExcludedURL.objects.get_or_create()` 선기록 후 `news.delete()`, 건별 개별 처리)을 그대로 따라 직접 삭제까지 실행합니다. 남은 `News`는 삭제되지 않았다는 사실 자체가 "관련 있음"을 의미하므로 별도 플래그(`is_relevant`)가 필요 없습니다. **기업 태깅 검증·교정도 이 단계에 편입**됩니다 — collector의 별칭 매칭이 "핵심 주체 vs 배경 언급"을 구분하지 못해 과다태깅되는 구조적 한계(5절 참고)가 있으므로, RA가 배치를 판정하면서 잘못 태깅된 `Organization`/`TechTopic` 연결도 함께 수동 검증·교정합니다.
+1. **노이즈 판정 + 삭제 + 검증 전환** — 갓 수집된 뉴스 배치를 직접 읽고 PM이 정의한 관련성 기준으로 판단, `product-engineer`의 안전 삭제 패턴(`ExcludedURL.objects.get_or_create()` 선기록 후 `news.delete()`, 건별 개별 처리)을 그대로 따라 직접 삭제까지 실행합니다. **기업 태깅 검증·교정도 이 단계에 편입**됩니다 — collector의 별칭 매칭이 "핵심 주체 vs 배경 언급"을 구분하지 못해 과다태깅되는 구조적 한계(5절 참고)가 있으므로, RA가 배치를 판정하면서 잘못 태깅된 `Organization`/`TechTopic` 연결도 함께 수동 검증·교정합니다.
+
+   **⚠️ 검증 게이트(2026-08-04 도입) — 이 단계의 필수 마지막 절차**: 예전에는 "남은 `News`는 삭제되지 않았다는 사실 자체가 관련 있음을 의미"했지만, 이 원칙은 대체됐습니다. 이제는 `News.status`가 `"검증됨"`으로 전환돼야 비로소 사용자 화면(ALL-001·NEWS-001·NEWS-002·GRAPH-001)에 노출됩니다(3절 `News` 표 참고). 삭제·태깅 교정을 배치 전체에 대해 마친 직후, 살아남은 뉴스 전부를 Django ORM으로 **한 번에** `"검증됨"`으로 전환하세요(`verified_at`도 함께 현재 시각으로 채웁니다). **부분 전환 금지(all-or-nothing)** — 배치를 끝까지 읽기 전에 일부만 공개하면 동일 사건 중복 보도 판정(관련성 기준 2번)이 뒤집혀 노출됐다 사라지는 깜빡임이 생깁니다. 세션이 중단돼 배치를 끝내지 못했다면 그 배치는 통째로 미검증 상태로 남겨 두고(= 화면에 아무것도 새로 뜨지 않음), 다음 세션에서 처음부터 다시 판정합니다. 이 전환이 빠지면 판정을 마친 뉴스도 영원히 화면에 뜨지 않습니다.
 2. **관련 기사 찾기 + Insight 작성** — 남은 배치의 제목·본문을 직접 읽고(pgvector 쿼리 미사용) 같은 사건을 다루는 기사를 식별해 Django ORM으로 `Insight`(`title`/`content`/`implication`)를 작성하고 `insight.news.set([...])`로 근거 `News`를 연결합니다. 별도 그룹 테이블(과거 `IssueGroup`) 없이 `Insight` 자체가 "이 기사들 + 이 분석"의 단위입니다.
 3. **주간 보고서 편집** — `Report.title`/`overview`/`content`를 편집하고 `ReportNews`로 근거 `News`를 직접 연결합니다.
 

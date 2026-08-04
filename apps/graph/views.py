@@ -40,12 +40,15 @@ def _apply_period_filter(news_qs, start_date, today):
 def _period_news_count(start_date, today):
     """Organization.annotate(news_count=...)에 쓰는 조건부 Count.
     그냥 .filter()를 annotate 앞에 걸면 JOIN 자체가 필터링돼 다른 집계에 영향을 줄 수 있어
-    반드시 Count(..., filter=Q(...)) 형태로 조건부 집계해야 한다."""
+    반드시 Count(..., filter=Q(...)) 형태로 조건부 집계해야 한다.
+    검증 게이트(docs/planning.md): GRAPH-001 노드 크기는 직접 조회 경로이므로
+    검증분만 센다 — 기간 유무와 무관하게 항상 Q(news__status=검증됨)을 함께 건다."""
+    status_q = Q(news__status=News.STATUS_VERIFIED)
     if start_date is None:
-        return Count("news")
+        return Count("news", filter=status_q)
     return Count(
         "news",
-        filter=Q(news__published_at__date__gte=start_date, news__published_at__date__lte=today),
+        filter=status_q & Q(news__published_at__date__gte=start_date, news__published_at__date__lte=today),
     )
 
 
@@ -90,7 +93,8 @@ def graph(request):
     # 굵기(value) = 선택 기간 공동언급 건수. 라벨 엣지 쌍에 한정해 기존 combinations 집계 로직을
     # 재사용한다(전수 계산이 아니라 labeled_pairs 멤버십 체크로 한정).
     edge_weights = defaultdict(int)
-    news_qs = _apply_period_filter(News.objects.all(), start_date, today)
+    # 검증 게이트: 엣지 굵기(공동언급 집계)도 직접 조회 경로.
+    news_qs = _apply_period_filter(News.objects.verified(), start_date, today)
     for news in (
         news_qs
         .prefetch_related("organizations")
@@ -133,7 +137,8 @@ def graph_org_panel(request, pk):
     today = timezone.localtime(timezone.now()).date()
     start_date, today = period_bounds(period, today)
 
-    news_qs = _apply_period_filter(org.news.all(), start_date, today).order_by("-published_at", "-pk")
+    # 검증 게이트: 노드 패널의 뉴스 리스트도 직접 조회 경로.
+    news_qs = _apply_period_filter(org.news.verified(), start_date, today).order_by("-published_at", "-pk")
     total_count = news_qs.count()
     news_list = news_qs.prefetch_related("organizations")[:10]
 
@@ -163,7 +168,12 @@ def _edge_news_queryset(org_a, org_b, period):
     공유한다 — 패널에 실제로 보이는 news_list와 OrgRelation.news로 저장되는 값이 항상
     같은 쿼리에서 나오도록 강제하기 위해서다(docs/planning.md 근거뉴스 범위 확정 정책:
     "패널의 news_list와 저장되는 relation.news는 항상 동일해야 한다", 기간 필터 없는 전체
-    교집합을 저장하지 않는다)."""
+    교집합을 저장하지 않는다).
+
+    검증 게이트: .verified()를 여기 한 곳에만 걸어 두 가지를 동시에 만족시킨다 —
+    (A) 엣지 패널의 뉴스 리스트는 직접 조회 경로라 검증분만 보여야 하고,
+    (B) graph_edge_label_save가 relation.news.set()에 넘기는 값도 이 함수를 그대로 쓰므로
+    "미검증 뉴스를 OrgRelation에 연결하지 않는다"는 (B) 계약이 필터 한 줄로 함께 지켜진다."""
     today = timezone.localtime(timezone.now()).date()
     start_date, today = period_bounds(period, today)
 
@@ -171,6 +181,7 @@ def _edge_news_queryset(org_a, org_b, period):
     # 단일 필터는 합집합(OR)이 되어 "둘 중 하나만 있어도 걸리는" 오답을 낸다.
     news_qs = (
         News.objects
+        .verified()
         .filter(organizations=org_a)
         .filter(organizations=org_b)
     )
