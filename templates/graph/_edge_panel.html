@@ -78,7 +78,7 @@
     {% csrf_token %}
     <div>
       <input type="text" name="label" x-model="label" list="relation-label-hints"
-             placeholder="예: 기술협업, 투자, 공급계약..." required maxlength="50"
+             placeholder="예: 기술협업, 투자, 공급계약" required maxlength="50"
              class="w-full text-xs border border-[#E5E5E5] rounded-[10px] px-2.5 py-1.5 focus:outline-none focus:border-primary focus:ring-2 focus:ring-[rgba(96,38,158,0.14)]">
       <datalist id="relation-label-hints">
         <option value="기술협업"></option>
@@ -101,7 +101,7 @@
       </div>
     </div>
     <textarea name="description" x-model="description" rows="2" maxlength="300"
-              placeholder="관계 설명 (선택)"
+              placeholder="관계를 설명해주세요 (선택)"
               class="w-full text-xs border border-[#E5E5E5] rounded-[10px] px-2.5 py-1.5 focus:outline-none focus:border-primary focus:ring-2 focus:ring-[rgba(96,38,158,0.14)] resize-none"></textarea>
     <div class="flex gap-2 justify-end">
       <button type="button"
@@ -137,7 +137,7 @@
     <p class="text-xs text-gray-400 mt-0.5">{{ news.published_at|date:"m.d" }}</p>
   </a>
   {% empty %}
-  <p class="text-xs text-gray-400 text-center py-6">함께 언급된 뉴스가 없습니다.</p>
+  <p class="text-xs text-gray-400 text-center py-6">함께 언급된 뉴스가 없어요.</p>
   {% endfor %}
 </div>
 <script>lucide.createIcons();</script>

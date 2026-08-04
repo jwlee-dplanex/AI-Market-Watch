@@ -48,7 +48,7 @@
                     hx-post="{% url 'setting_tech_topic_delete' topic.pk %}"
                     hx-target="#tech-topic-table" hx-swap="innerHTML"
                     hx-include="[name=csrfmiddlewaretoken]"
-                    hx-confirm="'{{ topic.name }}' 기술 주제를 삭제하시겠습니까? 뉴스와의 연결도 함께 해제됩니다."
+                    hx-confirm="'{{ topic.name }}' 기술 주제를 삭제하시겠어요? 뉴스와의 연결도 함께 해제돼요."
                     class="text-gray-300 hover:text-red-500 transition-colors">
               <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
             </button>
@@ -59,7 +59,7 @@
     </tbody>
   </table>
   {% else %}
-  <p class="px-5 py-6 text-center text-xs text-gray-400">등록된 기술 주제가 없습니다.</p>
+  <p class="px-5 py-6 text-center text-xs text-gray-400">등록된 기술 주제가 없어요. 위 '주제 추가' 버튼으로 추가해보세요.</p>
   {% endif %}
 </div>
 <script>lucide.createIcons();</script>

@@ -45,7 +45,7 @@
       <!-- 삭제 버튼 (HTMX) -->
       <form hx-post="{% url 'setting_schedule_delete' sched.pk %}"
             hx-target="#schedule-list" hx-swap="innerHTML"
-            hx-confirm="{{ sched.get_schedule_type_display }} 스케줄을 삭제하시겠습니까?">
+            hx-confirm="{{ sched.get_schedule_type_display }} 스케줄을 삭제하시겠어요?">
         {% csrf_token %}
         <button type="submit" class="text-xs text-gray-400 hover:text-red-500 transition-colors flex items-center gap-1">
           <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
@@ -57,7 +57,7 @@
 {% empty %}
 <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-12 text-center text-gray-400">
   <i data-lucide="clock" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
-  <p class="text-sm">등록된 스케줄이 없습니다.</p>
+  <p class="text-sm">등록된 스케줄이 없어요. 위에서 추가해보세요.</p>
 </div>
 {% endfor %}
 <script>lucide.createIcons();</script>
