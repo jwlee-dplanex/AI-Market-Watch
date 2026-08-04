@@ -214,7 +214,14 @@ header_actions는 base.html에서 flex-shrink-0 헤더 안이라 본문을 스�
 <div class="rounded-[10px] p-6 mb-5 text-white flex items-start justify-between gap-6"
      style="background: linear-gradient(135deg, #60269E 0%, #401771 100%);">
   <div class="min-w-0">
-    <p class="text-sm font-semibold text-white/70 mb-1">{{ report.get_period_type_display }}</p>
+    {% comment %}
+      기간 종류 옆에 주차 표기를 붙인다(2026-08-04) — REPORT-001 목록 카드가 "주간 · 7월 5주차"로
+      보여주므로 상세도 같아야 한다. 목록·상세·PDF 파일명이 전부 report_title_period 한 출처를 쓴다.
+      제목 형식을 안 지킨 보고서는 빈 값이라 "주간"만 남는다(아래 날짜 줄이 기간을 말해준다).
+    {% endcomment %}
+    <p class="text-sm font-semibold text-white/70 mb-1">
+      {{ report.get_period_type_display }}{% with week=report.title|report_title_period %}{% if week %} · {{ week }}{% endif %}{% endwith %}
+    </p>
     <h1 class="text-xl font-bold font-serif mb-2">{{ report.title|report_title_body }}</h1>
     <p class="text-sm text-white/70">{{ report.date_from|date:"Y.m.d" }} ~ {{ report.date_to|date:"Y.m.d" }}</p>
   </div>
