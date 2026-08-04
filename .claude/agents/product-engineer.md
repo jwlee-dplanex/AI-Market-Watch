@@ -41,6 +41,15 @@ model: sonnet
    ```
    (Bash라면 `PYTHONPATH=. venv/Scripts/python 스크립트경로`) 이러면 실행 시점의 현재 디렉토리 기준이라 어느 환경에서든 동일하게 작동합니다.
 
+8. **검증 게이트 — `News` 직접 조회는 항상 `.verified()`** — 뷰가 `News`를 스스로 쿼리하는 모든 경로는 `News.objects.verified()`(또는 역참조에서 `org.news.verified()`)를 거칩니다. RA가 관련성 판정을 마치지 않은 뉴스를 화면에 노출하지 않기 위한 정책입니다(2026-08-04 도입, `docs/planning.md` "검증 게이트" 절). **이 규칙은 빼먹어도 예외가 나지 않고 조용히 미검증 뉴스가 노출되므로**, 새로 뉴스 조회 코드를 짤 때마다 의식적으로 확인해야 합니다. `Organization.annotate(Count("news", filter=...))`처럼 조건부 집계를 쓰는 곳은 `Q(news__status=News.STATUS_VERIFIED)`를 filter에 AND로 얹으세요(`.filter()`를 annotate 앞에 걸면 JOIN 자체가 걸러져 다른 집계에 영향을 줍니다).
+
+   **게이트를 걸지 않는 곳은 세 가지뿐이며, 전부 의도된 예외입니다** — 여기에 "일관성"을 이유로 게이트를 추가하지 마세요:
+   - `Insight.news`·`Report.news`·`OrgRelation.news`와 `report_extras`의 `참고: <uid>` 해석 경로 — RA가 근거로 직접 골라 연결한 명시 M2M이라 연결 행위 자체가 검증 완료를 전제합니다. 이중으로 걸면 상태가 어긋나는 순간 보고서 근거가 조용히 사라집니다.
+   - `apps/dashboard/context_processors.py`의 사이드바 "마지막 수집" — 뉴스 노출이 아니라 수집 파이프라인 생존 신호입니다. 여기에 게이트를 걸면 수집이 죽은 것과 검증이 밀린 것을 구분할 수 없게 됩니다.
+   - `services/collector.py`의 중복 체크(`url_hash`) — 미검증분까지 봐야 이미 수집한 기사의 재수집을 막습니다.
+
+   템플릿에서 상태를 물을 때는 `'검증됨'` 문자열을 하드코딩하지 말고 `news.is_verified` 프로퍼티를 쓰세요.
+
 ## 작업 절차
 
 1. `venv\Scripts\python manage.py check --settings=config.settings.local`로 항상 마무리 검증

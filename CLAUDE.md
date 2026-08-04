@@ -37,6 +37,7 @@ venv\Scripts\python manage.py shell --settings=config.settings.local
 
 - **HTMX** — 부분 업데이트: Django view가 HTML fragment를 반환 (JSON 최소화)
 - **Alpine.js** — 클라이언트 UI 상태만 담당 (드롭다운, 토글 등)
+- **검증 게이트** — 뷰가 `News`를 **직접 조회할 때는 반드시 `News.objects.verified()`를 거친다**(2026-08-04 도입). RA가 관련성 판정을 마치지 않은 뉴스는 화면에 노출하지 않는다는 정책이며, 빼먹어도 에러가 나지 않고 조용히 미검증 뉴스가 노출되므로 새 조회 코드를 짤 때마다 확인해야 한다. 예외는 세 가지뿐 — `Insight.news`/`Report.news`/`OrgRelation.news`(명시 연결 M2M, 연결 자체가 검증 완료를 전제), 사이드바 "마지막 수집"(파이프라인 생존 신호), collector의 중복 체크(미검증까지 봐야 재수집을 막음). 상세는 `docs/planning.md` "검증 게이트" 절.
 - **pgvector** — `Embedding` 모델·코사인 유사도 인프라는 구축돼 있으나(임계값 0.82), 현재 관련 기사 판별은 research-analyst가 배치를 직접 읽어서 수행하며 pgvector는 사용하지 않는다. 수집량 증가로 병목이 되면 PE가 상시 자동 클러스터링으로 재구현하는 걸 검토한다.
 
 ## 프로젝트 구조
