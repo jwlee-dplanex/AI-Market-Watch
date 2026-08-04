@@ -19,8 +19,11 @@
        - unverified_tier (str): "clear"(0건) | "pending"(0<건, unverified_days<=1) | "stale"(0<건,
          unverified_days>=2) — 임계값 근거는 docs/design.md SET-006 절 참고.
        - last_verified_at (datetime|None): 검증됨 News 중 verified_at 최댓값. verified_at을 백필하지
-         않으므로(docs/planning.md 3번) 이 정책 도입 후 RA가 첫 배치를 검증 전환하기 전까지는 None. -->
-  <div class="bg-white rounded-[10px] shadow-sm mb-4 {% if unverified_tier == 'stale' %}border border-yellow-200{% endif %}">
+         않으므로(docs/planning.md 3번) 이 정책 도입 후 RA가 첫 배치를 검증 전환하기 전까지는 None.
+       - orphan_relation_count (int): 신규(2026-08-04, docs/design.md SET-006 절 "고아 라벨 관계" 지표 참고).
+         라벨은 있지만 전체 기간 기준으로도 검증 공동언급이 0건이라 지식그래프 어느 기간에도 나타나지
+         않는 OrgRelation 건수. -->
+  <div class="bg-white rounded-[10px] shadow-sm mb-4 {% if unverified_tier == 'stale' or orphan_relation_count %}border border-yellow-200{% endif %}">
     <div class="px-5 py-4 flex items-center justify-between flex-wrap gap-4">
       <div class="min-w-0">
         <h2 class="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
@@ -66,6 +69,25 @@
           </p>
         </div>
       </div>
+    </div>
+
+    <!-- ④ 고아 라벨 관계 (지식그래프) — 기존 3개 지표 아래, 같은 카드 안에 구분선으로 얹는다.
+         docs/design.md SET-006 절 "고아 라벨 관계 지표 추가" 참고. 시간축이 없는 지표라 미검증
+         지표처럼 2일 임계값을 두지 않고 0건/그 외 2단계(clear/attention)로만 강조한다. -->
+    <div class="px-5 py-3 border-t border-gray-100">
+      <p class="text-xs text-gray-400 mb-1">고아 라벨 관계 <span class="text-gray-300">(지식그래프)</span></p>
+      <p class="text-lg font-semibold flex items-center gap-2 {% if orphan_relation_count %}text-yellow-700{% else %}text-gray-900{% endif %}">
+        {{ orphan_relation_count|default:0 }}건
+        {% if orphan_relation_count %}
+        <span class="text-[11px] font-normal text-yellow-700 flex items-center gap-1">
+          <i data-lucide="alert-triangle" class="w-3 h-3"></i>확인이 필요해요
+        </span>
+        {% else %}
+        <span class="text-[11px] font-normal text-green-600 flex items-center gap-1">
+          <i data-lucide="check-circle" class="w-3 h-3"></i>조용히 잘 보이고 있어요
+        </span>
+        {% endif %}
+      </p>
     </div>
   </div>
 
