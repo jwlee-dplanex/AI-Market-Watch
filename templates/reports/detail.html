@@ -298,7 +298,12 @@ header_actions는 base.html에서 flex-shrink-0 헤더 안이라 본문을 스�
                   <span class="break-keep">{{ news.title }}</span>
                   <span class="text-[11px] text-gray-400 flex-shrink-0">{{ news.published_at|date:"m.d" }}</span>
                 </span>
-                <span class="block text-[10px] text-gray-400 mt-0.5">{{ news.url|cut:"https://www."|cut:"http://www."|cut:"https://"|cut:"http://" }}</span>
+                {% comment %}
+                  break-all 필수 — base.html이 전역으로 word-break: keep-all을 걸어서(한국어
+                  어절 단위 줄바꿈) 띄어쓰기 없는 긴 URL이 아예 안 끊긴다. 그대로 두면 종이
+                  폭을 넘어 잘린다. 여기가 전역 규칙의 유일한 예외다.
+                {% endcomment %}
+                <span class="block text-[10px] text-gray-400 mt-0.5 break-all">{{ news.url|cut:"https://www."|cut:"http://www."|cut:"https://"|cut:"http://" }}</span>
               </a>
             </li>
             {% endfor %}

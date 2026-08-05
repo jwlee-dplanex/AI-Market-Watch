@@ -96,7 +96,18 @@
 
   {% block extra_head %}{% endblock %}
 </head>
-<body class="bg-gray-50 font-sans text-gray-800 antialiased">
+{% comment %}
+  break-keep(word-break: keep-all) — 한국어는 어절(띄어쓰기) 단위로 끊어야 읽힌다.
+  브라우저 기본값은 어절 중간에서도 줄을 끊어서 "기술 주 / 제 관리에서"처럼 갈라진다.
+  보고서·뉴스 상세에만 있던 규칙을 2026-08-05에 전역으로 올렸다 — 빈 상태 안내문이
+  길어지며 3열 대시보드 카드에서 감기기 시작했고, 뉴스 목록의 긴 제목도 같은 문제였다.
+
+  word-break는 상속되므로 body 한 곳이면 전 화면에 적용된다. ⚠️ 다만 띄어쓰기가 없는
+  긴 문자열(URL 등)은 keep-all에서 아예 안 끊겨 컨테이너 밖으로 넘친다 — 그런 자리에는
+  요소 단위로 break-all을 따로 준다(현재 예외는 REPORT-002 인쇄용 원문 URL 한 곳뿐이며,
+  데이터소스 URL은 truncate, Slack 웹훅은 input이라 애초에 줄바꿈이 없다).
+{% endcomment %}
+<body class="bg-gray-50 font-sans text-gray-800 antialiased break-keep">
 
 <div class="flex h-screen overflow-hidden">
 
