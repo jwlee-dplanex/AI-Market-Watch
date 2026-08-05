@@ -38,6 +38,7 @@ venv\Scripts\python manage.py shell --settings=config.settings.local
 - **HTMX** — 부분 업데이트: Django view가 HTML fragment를 반환 (JSON 최소화)
 - **Alpine.js** — 클라이언트 UI 상태만 담당 (드롭다운, 토글 등)
 - **검증 게이트** — 뷰가 `News`를 **직접 조회할 때는 반드시 `News.objects.verified()`를 거친다**(2026-08-04 도입). RA가 관련성 판정을 마치지 않은 뉴스는 화면에 노출하지 않는다는 정책이며, 빼먹어도 에러가 나지 않고 조용히 미검증 뉴스가 노출되므로 새 조회 코드를 짤 때마다 확인해야 한다. 예외는 세 가지뿐 — `Insight.news`/`Report.news`/`OrgRelation.news`(명시 연결 M2M, 연결 자체가 검증 완료를 전제), 사이드바 "마지막 수집"(파이프라인 생존 신호), collector의 중복 체크(미검증까지 봐야 재수집을 막음). 상세는 `docs/planning.md` "검증 게이트" 절.
+- **수집 실행 (환경별)** — 뉴스 수집은 **로컬에서는 스케줄러로 돌지 않는다**(2026-08-05 확정, `Schedule` pk=1 `is_active=False`). 로컬은 사람이 SET-001 "지금 수집"으로 수동 실행하고, **프로덕션 배포 시 SET-004에서 스케줄을 재활성화**한다. APScheduler가 `runserver` 프로세스 안에 있어서 서버가 09:00에 떠 있지 않으면 그날 실행이 **예약조차 되지 않으며**(등록 시점 기준으로 다음 실행을 계산하므로 misfire가 아니고, 따라서 유예 시간도 무의미), 이것이 2026-07-30~08-05 5회 연속 미실행의 원인이다. **로컬에서 수집이 안 됐다면 버그가 아니라 정상이다.** 상세·재활성화 체크리스트는 `docs/planning.md` "수집 실행 방식: 로컬 = 수동, 프로덕션 = 스케줄" 절.
 - **pgvector** — `Embedding` 모델·코사인 유사도 인프라는 구축돼 있으나(임계값 0.82), 현재 관련 기사 판별은 research-analyst가 배치를 직접 읽어서 수행하며 pgvector는 사용하지 않는다. 수집량 증가로 병목이 되면 PE가 상시 자동 클러스터링으로 재구현하는 걸 검토한다.
 
 ## 템플릿 주석 — `{# #}`는 한 줄 전용 (반복 재발 중, 반드시 지킬 것)
@@ -70,7 +71,7 @@ services/
   collector.py  # 뉴스 수집 파이프라인
   llm.py        # Claude API 연동
   embedder.py   # 임베딩 생성 + 유사 기사 그룹핑
-  scheduler.py  # APScheduler 작업 등록
+  scheduler.py  # APScheduler 작업 등록 (로컬은 비활성, 프로덕션에서만 가동)
   periods.py    # 대시보드·지식그래프 공통 기간 필터 유틸
 config/settings/
   base.py       # 공통 설정 (django-environ으로 .env 로딩)
