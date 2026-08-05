@@ -99,6 +99,14 @@ _PROMO_PATTERNS = [
     re.compile(r"^▶(카카오톡|뉴스\s*홈페이지|이메일)\s*[:：]"),
 ]
 
+# 사진 크레딧이 대괄호 없이 "회사명 제공" 단독으로 오는 경우.
+#   예: "티오리 제공"
+# 쉼표·조사 없이 회사명 한 덩어리 + "제공"으로만 끝나는 아주 짧은 줄만 잡는다.
+# 실제 본문 문장도 "...제공"으로 끝나는 경우가 있어(예: "◆카카오뱅크, 제휴
+# 금융사와 함께 우대금리 제공") 앞에 쉼표·조사가 없고 전체가 10자 이내인
+# 경우로 좁혀 그런 문장과 겹치지 않게 한다.
+_PHOTO_CREDIT_ALONE_RE = re.compile(r"^[가-힣A-Za-z0-9]{1,10}\s*제공$")
+
 # 신문사 마스트헤드(사업자등록번호·주소·Tel/Fax 등 자기소개 각주) 블록.
 #   예: "인터넷신문 등록번호 : 서울, 아02546 ㅣ 등록일 : 2013년 3월 20일 ㅣ 제호 : 메트로신문"
 #       "주식회사 메트로미디어 · 서울특별시 종로구 자하문로17길 18 ㅣ Tel : 02. 721. 9800 / Fax : 02. 730. 2882"
@@ -106,10 +114,14 @@ _PROMO_PATTERNS = [
 # ⚠️ 단순히 "등록번호"만으로 매칭하면 "주민등록번호"(개인정보보호 관련 기사
 # 본문에 실제로 등장하는 단어) 문장을 통째로 날리는 사고가 난다(pk=607에서
 # 실측 확인). 반드시 매체 자기소개 문맥의 구체적인 접두어와 함께 매칭한다.
+#   예: "대한민국 보험과 은행, 금융을 읽는 [한국보험신문]" (기사 맨 끝, 바이라인
+#       바로 뒤에 붙는 매체 태그라인. pk=550에서 소제목 판정 규칙 검증 중 발견 —
+#       쉼표를 포함한 짧고 비종결형 문장이라 소제목으로 잘못 커질 뻔했다.)
 _MASTHEAD_PATTERNS = [
     re.compile(r"(인터넷신문|사업자|신문사업)\s*등록번호"),
     re.compile(r"청소년\s*보호\s*책임자"),
     re.compile(r"Tel\s*[:：].*Fax\s*[:：]", re.IGNORECASE),
+    re.compile(r"읽는\s*\[[^\[\]]{1,20}\]\s*$"),
 ]
 
 # 추천/관련 기사 위젯 헤더. 이 줄부터 본문 끝까지는 언제나 위젯이므로(103건
@@ -130,6 +142,14 @@ _BYLINE_PREFIX_RE = re.compile(r"^(?:\S{1,15}\s+)?[가-힣]{2,4}\s*기자\s*[|·
 #   예: "이미지 확대보기케이뱅크는 한국과 유럽 은행권이 공동 추진하는..."
 _IMAGE_BUTTON_PREFIX_RE = re.compile(r"^이미지\s*확대보기")
 
+# "[매체=이름 기자]"가 본문 문단 맨 앞에 구분자 없이 붙어버린 경우.
+#   예: "[미디어펜=류준현 기자] 금융권이 '인공지능 에이전트(AI agent)' 도입으로..."
+#       "[헤럴드경제=배문숙 기자]정부가 성장 잠재력이 높은..." (공백 없이 바로 붙음)
+# 이 접두어만 있고 뒤에 문장이 없는 줄(예: "[소비자가만드는신문=장경진 기자]")은
+# 접두어를 잘라내면 빈 문자열이 남아 아래 공통 처리(strip 후 빈 값이면 버림)로
+# 자연히 사라진다.
+_MEDIA_BYLINE_PREFIX_RE = re.compile(r"^\[[^\[\]]{1,20}=[^\[\]]{1,20}(기자|특파원)\]\s*")
+
 
 def _clean_line(stripped_line):
     """한 줄(이미 strip된 상태)에서 스크랩 잔여물을 제거한다.
@@ -149,6 +169,8 @@ def _clean_line(stripped_line):
         return None
     if _LONE_DASH_RE.match(s):
         return None
+    if _PHOTO_CREDIT_ALONE_RE.match(s):
+        return None
     for pat in (
         _COPYRIGHT_PATTERNS
         + _PHOTO_CAPTION_PATTERNS
@@ -160,23 +182,129 @@ def _clean_line(stripped_line):
             return None
 
     s = _BYLINE_PREFIX_RE.sub("", s)
+    s = _MEDIA_BYLINE_PREFIX_RE.sub("", s)
     s = _IMAGE_BUTTON_PREFIX_RE.sub("", s)
     s = s.strip()
     return s or None
 
 
+# ---------------------------------------------------------------------------
+# 소제목(subtitle) 판정 규칙 (NEWS-002 본문 표시, 2026-08-05)
+#
+# News.body는 소제목도 본문 문단과 구분 없이 같은 한 줄로 저장돼 있어(줄바꿈
+# 하나) 문단 여백만으로는 "어디서 화제가 바뀌는지"가 보이지 않는다. 잔여물
+# 필터를 통과한 뒤 남은 줄에 실측(검증 뉴스 103건)으로 뽑은 두 규칙을 적용해
+# 소제목을 가려낸다.
+#
+# 원칙은 위 잔여물 필터와 같다 — "의심스러우면 본문으로 둔다". 소제목을
+# 놓쳐서 평범한 문단으로 남는 것은 지금과 다를 게 없지만, 본문 문장이
+# 소제목으로 잘못 커지면 화면에서 바로 눈에 띈다. 그래서 아래 두 규칙 모두
+# "확실한 경우만" 잡도록 좁혔다.
+#
+#   (1) MARKER  — 줄 맨 앞에 ◆/■/◼/□ 같은 시각적 구분 기호가 붙은 경우.
+#                 언론사가 브리핑형 기사(◆ 항목1 ◆ 항목2 ...)에서 즐겨 쓰는
+#                 형식이라 신뢰도가 가장 높다. 위치와 무관하게 항상 소제목으로
+#                 본다.
+#   (2) GENERIC — 마커 없이 짧고(45자 이하) 말줄임표(…)나 쉼표를 포함하면서
+#                 문장 종결(. ! ? 또는 ~다/~요로 끝남)이 아닌 줄. 단, 기사
+#                 맨 앞에 "진짜 본문 문장"이 한 번도 나오지 않은 구간(부제
+#                 묶음 deck)에서는 적용하지 않는다.
+# ---------------------------------------------------------------------------
+
+# (1) 마커. ▲/▶는 일부러 뺐다 — 실측 결과 ▲는 인사발령 기사에서 "▲부서명
+# 이름" 형태로 한 줄에 여러 번 반복되는 목록에 압도적으로 많이 쓰여(pk=715,
+# 한 줄에 ▲가 10개 넘게 반복) 마커로 넣으면 그 기사 전체가 소제목으로
+# 도배된다. ▶는 이미 _PROMO_PATTERNS로 걸러지는 홍보 CTA(카카오톡 제보 안내
+# 등)에서만 관측됐다.
+# ◇는 오히려 반대 사례다 — pk=715 안에서도 ▲이름 목록을 "◇ 부행장 승진"
+# "◇ 부행장 전보"처럼 상위 구간으로 묶는 용도로 쓰여(한 줄에 하나씩만 등장),
+# 마커로 추가하면 그 인사발령 기사 안에서 승진/전보 구간이 갈라져 오히려
+# 가독성이 좋아진다.
+_SUBTITLE_MARKER_RE = re.compile(r"^([◆◇■◼□])︎?\s*")
+
+# (2) 문장 종결 판정. 끝에 붙은 따옴표·괄호를 먼저 벗겨낸 뒤 마지막 글자를
+# 본다. "필요"처럼 종결어미가 아닌데 우연히 다/요로 끝나는 단어도 있지만(예:
+# pk=1279의 "편리해진 주문, 충동매매로 이어지지 않도록 통제 필요"), 이 경우
+# "종결로 판정 → 소제목 아님(본문 취급)"으로 안전한 방향으로 넘어가므로
+# 그대로 둔다.
+_TRAILING_QUOTE_RE = re.compile(r"[\"'“”‘’()\[\]『』「」《》]+$")
+_TERMINAL_CHARS = (".", "!", "?", "다", "요")
+_SUBTITLE_MAX_LEN = 45
+
+
+def _ends_with_terminal_punct(s):
+    t = _TRAILING_QUOTE_RE.sub("", s).rstrip()
+    return bool(t) and t[-1] in _TERMINAL_CHARS
+
+
+def _is_generic_subtitle_candidate(s):
+    """마커 없는 줄이 GENERIC 규칙(길이+말줄임표 또는 쉼표+비종결)에 맞는지 본다.
+
+    쉼표를 요구하는 이유: 한국 기사 소제목은 "<주체>, <서술>"처럼 쉼표로
+    주체와 내용을 나누는 관행이 뚜렷하다(예: "카카오뱅크, 제휴 금융사와
+    함께 우대금리 제공"). 인사발령 기사의 "▲부서명 이름" 목록(pk=715)은
+    쉼표가 없어 이 조건만으로 자연히 제외된다.
+
+    "-"로 시작하는 줄은 제외한다: pk=751에서 실측한 결과, 기사 맨 끝에
+    "- 카카오페이증권, ..." 식으로 이어지는 하이픈 목록은 이 기사와 무관한
+    다른 헤드라인을 나열한 "관련기사" 위젯이었다(내용 문단 없이 헤드라인만
+    연속). 이걸 소제목으로 키우면 이 기사 내부의 절 구분처럼 보여 오해를
+    준다. 하이픈 목록이 이 기사 자체의 화제 전환인 경우도 있을 수 있지만
+    구분할 신호가 없어, 의심스러우면 본문으로 두는 원칙에 따라 일괄 제외한다.
+    """
+    if s.startswith(("-", "–", "—")):
+        return False
+    if len(s) > _SUBTITLE_MAX_LEN:
+        return False
+    if _ends_with_terminal_punct(s):
+        return False
+    return "…" in s or ".." in s or "," in s
+
+
+def _classify_paragraphs(paragraphs):
+    """문단 리스트를 (표시할 텍스트, 소제목 여부) 튜플 리스트로 바꾼다.
+
+    body_started: 기사 맨 앞 "부제 묶음(deck)" 구간을 지났는지 여부. 부제
+    묶음(예: pk=1173, 1149)은 제목을 보조하는 짧은 문구가 기사 맨 앞에 여러
+    줄 연속으로 붙는 형태로, 화제 전환을 나타내는 소제목과 성격이 다르다
+    (섹션을 나누는 게 아니라 제목 보강). 마커 없이는 이 둘을 문자 패턴만으로
+    구분할 수 없어, "문장 종결로 끝나는 문단을 한 번이라도 만났는가"로
+    위치를 가른다 — 그 전까지는 GENERIC 규칙을 적용하지 않고 그대로 본문
+    문단으로 렌더링한다. MARKER 규칙은 위치와 무관하게 항상 적용한다
+    (실측 결과 deck에 마커가 붙은 사례는 없었다).
+    """
+    body_started = False
+    result = []
+    for p in paragraphs:
+        m = _SUBTITLE_MARKER_RE.match(p)
+        if m:
+            result.append((p[m.end():].strip(), True))
+            continue
+        if body_started and _is_generic_subtitle_candidate(p):
+            result.append((p, True))
+            continue
+        result.append((p, False))
+        if _ends_with_terminal_punct(p):
+            body_started = True
+    return result
+
+
 @register.filter(name="news_body")
 def news_body_filter(text):
-    """News.body 원문을 스크랩 잔여물 제거 + 줄 단위 문단 분리해 안전한 HTML로 바꾼다.
+    """News.body 원문을 스크랩 잔여물 제거 + 줄 단위 문단 분리 + 소제목 판정해
+    안전한 HTML로 바꾼다.
 
     - News.body는 문단이 줄바꿈 하나(\\n)로 구분돼 있어(검증 뉴스 103건 중
       87건이 단일 개행만, 빈 줄 없음) 표준 `linebreaks` 필터(빈 줄 기준으로
       <p> 생성)를 쓰면 본문 전체가 <p> 하나가 된다. 여기서는 "줄 하나 =
       문단 하나"로 렌더링한다. 빈 줄이 있는 경우도 같은 처리로 자연히
       흡수된다(빈 줄은 버려짐).
+    - 소제목으로 판정된 문단은 `news-subtitle` 클래스를 붙여 렌더링한다.
+      시각 표현(크기·굵기·여백)은 templates/news/detail.html의 CSS가 맡는다.
     - XSS 방지: 각 줄은 escape()를 거친 뒤 <p> 태그로만 감싼다(마크다운이
       아니라 평문이므로 이스케이프만으로 충분, apps/reports/templatetags의
-      markdown 필터와 달리 bleach는 불필요).
+      markdown 필터와 달리 bleach는 불필요). 마커 문자를 잘라내는 처리는
+      escape 이전에 순수 문자열 슬라이싱으로만 이뤄진다.
     """
     if not text:
         return ""
@@ -192,5 +320,8 @@ def news_body_filter(text):
         if cleaned:
             paragraphs.append(cleaned)
 
-    html = "".join(f"<p>{escape(p)}</p>" for p in paragraphs)
-    return mark_safe(html)
+    parts = []
+    for para_text, is_subtitle in _classify_paragraphs(paragraphs):
+        cls = ' class="news-subtitle"' if is_subtitle else ""
+        parts.append(f"<p{cls}>{escape(para_text)}</p>")
+    return mark_safe("".join(parts))

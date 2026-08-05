@@ -18,6 +18,24 @@
   .markdown-spacing ul { list-style: disc; }
   .markdown-spacing ol { list-style: decimal; }
   .markdown-spacing li { margin-bottom: 0.45rem; }
+
+  {% comment %}
+  news_body 필터(apps/news/templatetags/news_extras.py)가 판정한 소제목
+  (news-subtitle 클래스) 스타일. 사용자가 본문 글자 크기(14px = 0.875rem)
+  유지를 요청해 폰트 크기는 본문과 동일하게 두고 font-weight로만 구분한다.
+  reports/detail.html의 .markdown-content h1~h6과 같은 톤(0.875rem,
+  font-weight 600, color #111827).
+  위/아래 여백을 다르게 줘 "덩어리"를 시각적으로 가른다 — 위 문단과는
+  넉넉히 띄우고 바로 아래 문단과는 가깝게 붙여, 이 소제목이 다음에 오는
+  문단들의 표제라는 걸 여백만으로 드러낸다.
+  {% endcomment %}
+  .markdown-spacing p.news-subtitle {
+    font-weight: 600;
+    color: #111827;
+    margin-top: 1.75rem;
+    margin-bottom: 0.5rem;
+  }
+  .markdown-spacing p.news-subtitle:first-child { margin-top: 0; }
 </style>
 {% endblock %}
 
