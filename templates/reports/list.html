@@ -32,18 +32,14 @@
       <a href="{% url 'report_detail' report.uid %}" class="block group bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm hover:shadow-md transition-shadow p-5">
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 mb-1.5">
-            <span class="text-xs font-semibold text-primary">{{ report.get_period_type_display }}</span>
             {% comment %}
-              주차 표기는 제목에서 뽑는다(PDF 파일명과 같은 필터) — 목록·상세·파일명이 한 출처를
-              써야 어긋나지 않는다. 제목 형식을 안 지킨 보고서는 빈 값이 나오므로 칩 자체를 숨긴다.
-              바로 옆 날짜 범위가 이미 기간을 말하고 있어 정보 손실은 없다.
+              기간 종류·주차 표기("주간 · 7월 5주차")를 칩 줄에서 제거했다(2026-08-05 사용자 지시).
+              RA가 보고서 제목 본문에 "N월 N주차 AI 인사이트 주간 보고서"를 직접 넣기로 해서,
+              여기에 두면 바로 아랫줄 제목과 같은 정보가 두 번 나온다.
+
+              날짜 범위는 남긴다 — 연도 그룹 헤더가 연도를, 이 줄이 정확한 기간을 담당한다.
+              ⚠️ report_title_period 필터는 계속 쓰인다(PDF 저장 파일명). 안 쓰인다고 지우지 말 것.
             {% endcomment %}
-            {% with week=report.title|report_title_period %}
-            {% if week %}
-            <span class="text-xs text-gray-300">·</span>
-            <span class="text-xs font-semibold text-gray-700">{{ week }}</span>
-            {% endif %}
-            {% endwith %}
             <span class="text-xs text-gray-400">{{ report.date_from|date:"m.d" }} ~ {{ report.date_to|date:"m.d" }}</span>
             {% comment %}
               "완료" 배지는 숨긴다(2026-08-04) — 목록에 상태 필터가 없어 모든 상태가 함께

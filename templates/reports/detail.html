@@ -215,13 +215,13 @@ header_actions는 base.html에서 flex-shrink-0 헤더 안이라 본문을 스�
      style="background: linear-gradient(135deg, #60269E 0%, #401771 100%);">
   <div class="min-w-0">
     {% comment %}
-      기간 종류 옆에 주차 표기를 붙인다(2026-08-04) — REPORT-001 목록 카드가 "주간 · 7월 5주차"로
-      보여주므로 상세도 같아야 한다. 목록·상세·PDF 파일명이 전부 report_title_period 한 출처를 쓴다.
-      제목 형식을 안 지킨 보고서는 빈 값이라 "주간"만 남는다(아래 날짜 줄이 기간을 말해준다).
+      기간 종류·주차 표기("주간 · 7월 5주차")를 헤더에서 제거했다(2026-08-05 사용자 지시).
+      RA가 보고서 제목 본문에 "N월 N주차 AI 인사이트 주간 보고서"를 직접 넣기로 해서, 여기에
+      두면 같은 정보가 두 번 나온다. 아래 날짜 줄은 그대로 둔다 — 정확한 기간은 제목의 주차
+      표기만으로는 안 보인다.
+
+      ⚠️ report_title_period 필터는 계속 쓰인다(PDF 저장 파일명). 안 쓰인다고 지우지 말 것.
     {% endcomment %}
-    <p class="text-sm font-semibold text-white/70 mb-1">
-      {{ report.get_period_type_display }}{% with week=report.title|report_title_period %}{% if week %} · {{ week }}{% endif %}{% endwith %}
-    </p>
     <h1 class="text-xl font-bold font-serif mb-2">{{ report.title|report_title_body }}</h1>
     <p class="text-sm text-white/70">{{ report.date_from|date:"Y.m.d" }} ~ {{ report.date_to|date:"Y.m.d" }}</p>
   </div>
