@@ -14,10 +14,19 @@ from datetime import timedelta
 VALID_PERIODS = {"all", "30d", "7d"}
 
 
+#: 기본 기간. 2026-08-05 사용자 요청으로 "7d" → "all"로 변경했다.
+#: 사유는 사용법 선호("그냥 전체가 기본인 게 편하다")이며, 종전에 7일로 정할 때 든
+#: 근거("성긴 7일 뷰는 왜곡이 아니라 사실이다 — 기본값을 넓혀 화면을 채우면 데이터가
+#: 적다는 신호를 UI로 가린다", docs/planning.md 지식그래프 5번)를 반박한 것이 아니다.
+#: 그 근거는 여전히 유효하므로, "데이터가 적어 보인다"를 이유로 기본값을 다시 손대려는
+#: 제안은 그 조항을 먼저 읽을 것.
+DEFAULT_PERIOD = "all"
+
+
 def resolve_period(request):
-    """request.GET의 period 값을 검증한다. 없거나 유효하지 않으면 "7d"로 폴백."""
-    period = request.GET.get("period", "7d")
-    return period if period in VALID_PERIODS else "7d"
+    """request.GET의 period 값을 검증한다. 없거나 유효하지 않으면 DEFAULT_PERIOD로 폴백."""
+    period = request.GET.get("period", DEFAULT_PERIOD)
+    return period if period in VALID_PERIODS else DEFAULT_PERIOD
 
 
 def period_bounds(period, today):
