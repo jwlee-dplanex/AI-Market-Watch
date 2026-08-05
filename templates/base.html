@@ -113,9 +113,20 @@
 
   <!-- 사이드바 -->
   <aside class="w-60 bg-[#401771] flex flex-col flex-shrink-0">
-    <!-- 로고 -->
+    {% comment %}
+      로고 블록 — DPLANEX 워드마크(회사) 위, 제품 이름 아래로 쌓는다(2026-08-05).
+
+      가로 배치는 폭이 안 나온다: 사이드바 240px − 좌우 여백 48px = 192px인데,
+      로고를 h-4(85px)로 줄여도 "AI Market Watch"(약 130px)와 나란히 두면 넘친다.
+      원본이 138x26이라 h-3 이하로 줄이면 워드마크 글자가 뭉개진다.
+
+      opacity-60은 의도적이다 — 제품 이름이 주인공이어야 한다. 둘 다 또렷하면
+      어디를 봐야 할지 헷갈린다. 회사 마크는 "누구 제품인지" 알려주는 배경 정보다.
+    {% endcomment %}
     <div class="px-6 py-5 border-b border-white/10">
-      <a href="{% url 'dashboard' %}" class="flex items-center gap-2">
+      <a href="{% url 'dashboard' %}" class="block">
+        <img src="{% static 'img/logo_white.png' %}" alt="DPLANEX"
+             class="h-4 w-auto opacity-60 mb-1.5">
         <span class="text-white font-bold text-base leading-tight whitespace-nowrap">AI Market Watch</span>
       </a>
     </div>
