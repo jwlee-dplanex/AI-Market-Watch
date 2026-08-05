@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load report_extras %}
+{% load news_extras %}
 
 {% block page_title %}뉴스 상세{% endblock %}
 
@@ -127,7 +128,7 @@
       <!-- leading-[1.9]: 장문 본문의 세로 리듬 (2026-08-04). 폭은 그대로 두고 행간만 넓혔다 —
            한 줄이 길수록 줄 끝에서 다음 줄 첫 글자로 눈이 돌아올 때 헤매는데, 행간이 넓으면
            그 되돌아오기가 쉬워진다. 본문 폭을 좁히는 안은 여백이 너무 많이 생겨 반려됐다. -->
-      <div class="text-sm text-gray-700 leading-[1.9] markdown-spacing">{{ news.body|linebreaks }}</div>
+      <div class="text-sm text-gray-700 leading-[1.9] markdown-spacing">{{ news.body|news_body }}</div>
     </div>
 
   </article>
