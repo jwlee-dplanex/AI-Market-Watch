@@ -14,6 +14,7 @@ from django.utils import timezone
 from apps.news.models import ExcludedURL, News
 from apps.setting.models import CollectionLog, DataSource, Keyword, Organization, TechTopic
 from services.crawler import fetch_article_body
+from services.text_cleaning import clean_text_for_matching
 
 logger = logging.getLogger(__name__)
 
@@ -208,8 +209,18 @@ def collect_naver() -> dict:
             else:
                 stats["crawl_failed"] += 1
 
-            _link_organizations(news, full_body or body, orgs)
-            _link_tech_topics(news, full_body or body, topics)
+            # 태깅 대상 텍스트는 News.body(저장값)와 다르다 — 별칭 매칭 직전에만
+            # services/text_cleaning.py의 잔여물 필터를 태워, 매체 템플릿(하단
+            # "관련기사" 링크 목록, 시리즈 목차 줄 등)에 걸린 회사명이 태그로
+            # 잘못 붙는 걸 막는다(2026-08-05, News pk=751 등에서 실측 확인).
+            # 제목(title)은 필터 대상이 아니다 — 잔여물은 본문에서만 발생하고,
+            # 제목의 시리즈 목차 접두어("[금융권 인공지능 활용①] ...")는 정당한
+            # 매칭 대상이라 잘라내면 안 된다.
+            article_content = full_body if full_body else desc
+            matching_text = f"{title} {clean_text_for_matching(article_content)}"
+
+            _link_organizations(news, matching_text, orgs)
+            _link_tech_topics(news, matching_text, topics)
             stats["collected"] += 1
 
     return stats
@@ -273,7 +284,7 @@ def remap_organizations() -> int:
     count = 0
     for news in News.objects.prefetch_related("organizations").all():
         before = set(news.organizations.values_list("pk", flat=True))
-        _link_organizations(news, f"{news.title} {news.body}", orgs)
+        _link_organizations(news, f"{news.title} {clean_text_for_matching(news.body)}", orgs)
         after = set(news.organizations.values_list("pk", flat=True))
         if after != before:
             count += 1
@@ -285,7 +296,7 @@ def remap_tech_topics() -> int:
     count = 0
     for news in News.objects.prefetch_related("tech_topics").all():
         before = set(news.tech_topics.values_list("pk", flat=True))
-        _link_tech_topics(news, f"{news.title} {news.body}", topics)
+        _link_tech_topics(news, f"{news.title} {clean_text_for_matching(news.body)}", topics)
         after = set(news.tech_topics.values_list("pk", flat=True))
         if after != before:
             count += 1
