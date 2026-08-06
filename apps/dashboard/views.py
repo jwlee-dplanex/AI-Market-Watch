@@ -227,7 +227,14 @@ def _build_tech_topic_counts(start_date, today):
     return tech_topic_counts
 
 
-def dashboard(request):
+def _build_metrics_context(request):
+    """"핵심 지표" 섹션(추이 차트 + 기업별/기술주제별 랭킹) 컨텍스트를 만든다.
+
+    전체 페이지 뷰(dashboard)와 HTMX 부분 갱신 뷰(dashboard_metrics)가 이 함수를
+    공유한다 — 기간 필터 버튼을 눌렀을 때 핵심 지표 3카드만 갈아끼우기 위해
+    fragment 전용 경로를 새로 만들면서, 집계 로직이 두 뷰로 복붙되어 갈라지지
+    않도록 여기 한 곳으로 모았다(2026-08-06, PE, 사용자 요청).
+    """
     period = resolve_period(request)
     today = timezone.localtime(timezone.now()).date()
     start_date, _ = period_bounds(period, today)
@@ -256,6 +263,23 @@ def dashboard(request):
     org_ranking = _build_org_ranking(start_date, today)
     tech_topic_counts = _build_tech_topic_counts(start_date, today)
 
+    return {
+        "period": period,
+        "bucket_unit": bucket_unit,
+        "trend_points": trend_points,
+        "trend_max_count": trend_max_count,
+        "has_trend_data": has_trend_data,
+        "trend_line_path": trend_line_path,
+        "trend_area_path": trend_area_path,
+        "trend_dense": trend_dense,
+        "org_ranking": org_ranking,
+        "tech_topic_counts": tech_topic_counts,
+    }
+
+
+def dashboard(request):
+    context = _build_metrics_context(request)
+
     # "RA가 Insight를 만든 시각"이 아니라 "근거 기사가 실제로 최신인가"를 기준으로 정렬한다
     # (사용자 확정 요구사항) — latest_news_at은 근거 뉴스(M2M)의 published_at 중 최댓값.
     # 근거 뉴스가 0건이면 NULL이 되는데, PostgreSQL은 기본적으로 내림차순에서 NULL을 앞에
@@ -272,17 +296,18 @@ def dashboard(request):
     # 현재 기준을 노출한다(사용자 확정 2026-07-31 — 기간 = 핵심 지표 전용).
     latest_news = News.objects.verified().order_by("-published_at")[:30]
 
-    return render(request, "dashboard/index.html", {
-        "period": period,
-        "bucket_unit": bucket_unit,
-        "trend_points": trend_points,
-        "trend_max_count": trend_max_count,
-        "has_trend_data": has_trend_data,
-        "trend_line_path": trend_line_path,
-        "trend_area_path": trend_area_path,
-        "trend_dense": trend_dense,
-        "org_ranking": org_ranking,
-        "tech_topic_counts": tech_topic_counts,
-        "insights": insights,
-        "latest_news": latest_news,
-    })
+    context["insights"] = insights
+    context["latest_news"] = latest_news
+    return render(request, "dashboard/index.html", context)
+
+
+def dashboard_metrics(request):
+    """핵심 지표 3카드만 렌더링하는 HTMX 부분 갱신 경로(fragment).
+
+    기간 필터 버튼(hx-get)이 이 뷰를 호출해 #dashboard-metrics를 outerHTML로
+    교체한다 — 전체 페이지가 다시 로드되지 않으므로 <main>의 스크롤 위치가
+    그대로 유지된다. 집계 로직은 dashboard()와 _build_metrics_context()를
+    공유한다(위 함수 docstring 참고).
+    """
+    context = _build_metrics_context(request)
+    return render(request, "dashboard/_metrics.html", context)
