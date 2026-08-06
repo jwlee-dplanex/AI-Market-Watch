@@ -249,10 +249,43 @@ class Embedding(models.Model):
 
 
 class Insight(models.Model):
+    # 승격 위계 등급(1급/2급/3급) — docs/planning.md "승격 위계 등급(1급/2급/3급)을
+    # Insight에 저장한다"(2026-08-06 확정). 목적은 등급을 매기는 것 자체가 아니라 1급이
+    # 실제 몇 건인지 관측하는 것과 RA 판단(헤드라이너 지정 등)의 입력이다.
+    # ⚠️ 화면은 이 값을 표시하지도, 이 값으로 화면 내용을 고르지도 않는다(정책 2번) —
+    # 등급이 화면 내용을 바꾸면 제품 데이터, 안 바꾸면 내부 도구라는 것이 판별선이다.
+    # 조회는 SET 화면군(예약만, 미설계) / 배치 보고서 / ORM에서만 한다.
+    GRADE_UNSPECIFIED = "unspecified"
+    GRADE_1 = "1"
+    GRADE_2 = "2"
+    GRADE_3 = "3"
+    GRADE_CHOICES = [
+        (GRADE_UNSPECIFIED, "미지정"),
+        (GRADE_1, "1급"),
+        (GRADE_2, "2급"),
+        (GRADE_3, "3급"),
+    ]
+
     title = models.CharField(max_length=500)
     news = models.ManyToManyField(News, through="InsightNews", related_name="insights")
     content = models.TextField()
     implication = models.TextField()
+    # ⚠️ default는 반드시 GRADE_UNSPECIFIED여야 한다. 3급을 기본값으로 두면 도입 직후
+    # 집계가 "3급 34건"으로 나와 관측이 아니라 기본값을 세는 꼴이 되고, 이 필드를 만든
+    # 유일한 이유(미지정과 판정된 3급의 구분, 정책 1번)가 사라진다.
+    # 사유 필드·이력 테이블은 두지 않는다(정책 4번) — 변경은 덮어쓰기, 변경 사실은 배치
+    # 보고서(research/batches/YYYY-MM-DD.md)에 남긴다. Insight 삭제·병합과 함께 이력이
+    # 사라지는 TagCorrectionRecord류 실패를 반복하지 않기 위함이다.
+    grade = models.CharField(
+        max_length=20, choices=GRADE_CHOICES, default=GRADE_UNSPECIFIED, db_index=True,
+    )
+    # 대시보드 헤드라이너(docs/planning.md "대시보드 헤드라이너" 2026-08-06 신설) — "헤드라이너
+    # 여부 + 그 안에서의 순서"를 값 하나로 담는다(정책 7번, 불리언 하나로는 부족하다는 것이
+    # 명시 근거). null = 헤드라이너 아님(기본값). 1 이상 정수 = 헤드라이너이며 그 표시 순서
+    # (1번이 가장 중요). 상한 3건은 DB 제약으로 강제하지 않는다 — RA가 실수로 4건 이상
+    # 지정해도 화면이 상위 3건까지만 렌더하는 안전장치로 충분하다(정책 2번).
+    # 배치마다 전량 교체(자동 만료, 정책 6번)이므로 별도 만료 시각 필드는 두지 않는다.
+    headliner_order = models.PositiveSmallIntegerField(null=True, blank=True, default=None)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
