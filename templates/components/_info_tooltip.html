@@ -4,11 +4,36 @@
 apps/dashboard/templatetags/dashboard_extras.py의 info_tooltip inclusion_tag가 이 파일을 렌더링한다.
 여러 줄 주석은 comment 블록 태그로 감싼다 — 한 줄 주석 문법은 여러 줄로 쓰면
 주석으로 인식되지 않고 화면에 그대로 출력된다(Django 템플릿 렉서 제약).
-context: text(문구), label(aria-label용 안내 대상 이름)
+
+context:
+  text          문구(항상 있음)
+  label         aria-label용 안내 대상 이름
+  steps         선택. [{label, desc}, ...] — 단계별 설명이 필요할 때만(2026-08-06 추가,
+                "검증을 어떻게 하는지 1,2,3,4단계로 보여달라"는 요청). 없으면(빈 리스트)
+                기존과 동일하게 문구 한 문단만 보여준다 — 하위 호환.
+  trigger_text  선택. 있으면 "?" 아이콘 대신 이 텍스트 자체가 트리거가 된다(2026-08-06 추가,
+                "금융사/보험사/AI 단어 자체에 호버하면 뜨게 해달라"는 요청). 시각적 단서로
+                점선 밑줄을 쓴다(아이콘이 하던 "여기 더 볼 게 있다" 신호 역할을 대신).
+                호버(@mouseenter/leave, 래퍼)·클릭(터치)·키보드(Tab으로 포커스 후 네이티브
+                <button>의 Enter/Space가 @click을 그대로 발동, Esc로 닫기)는 아이콘 모드와
+                완전히 동일한 메커니즘을 그대로 재사용한다 — 새 인터랙션을 만들지 않았다.
 {% endcomment %}
-<span class="relative inline-flex" x-data="{ open: false }"
+<span class="relative inline-flex items-center" x-data="{ open: false }"
       @mouseenter="open = true" @mouseleave="open = false"
       @click.outside="open = false">
+  {% if trigger_text %}
+  <button type="button"
+          @click="open = !open"
+          @keydown.escape="open = false"
+          aria-label="{{ label }} 안내"
+          :aria-expanded="open"
+          class="appearance-none bg-transparent border-0 border-b border-dashed border-gray-300
+                 p-0 m-0 cursor-pointer hover:border-gray-500 hover:text-gray-600
+                 focus:outline-none focus:ring-1 focus:ring-primary/30 rounded-sm transition-colors"
+          style="font: inherit; color: inherit; line-height: inherit;">
+    {{ trigger_text }}
+  </button>
+  {% else %}
   <button type="button"
           @click="open = !open"
           @keydown.escape="open = false"
@@ -19,9 +44,21 @@ context: text(문구), label(aria-label용 안내 대상 이름)
                  transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30">
     ?
   </button>
+  {% endif %}
   <div x-show="open" x-cloak
-       class="absolute left-0 top-full z-30 w-64 bg-white border border-gray-200
+       class="absolute left-0 top-full z-30 w-72 bg-white border border-gray-200
               rounded-[10px] shadow-lg p-3">
     <p class="text-sm text-gray-700 leading-relaxed">{{ text }}</p>
+    {% if steps %}
+    <ol class="mt-2 pt-2 border-t border-gray-100 space-y-1.5">
+      {% for step in steps %}
+      <li class="text-xs text-gray-600 leading-snug">
+        <span class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-100
+                     text-gray-500 text-[10px] font-semibold mr-1 align-text-top flex-shrink-0">{{ forloop.counter }}</span>
+        <span class="font-medium text-gray-800">{{ step.label }}</span> — {{ step.desc }}
+      </li>
+      {% endfor %}
+    </ol>
+    {% endif %}
   </div>
 </span>
