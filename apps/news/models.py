@@ -60,6 +60,19 @@ class News(models.Model):
         blank=True,
         related_name="news",
     )
+    # 2026-08-06 도입(PM P1). 수집 시 Naver API 호출에 쓴 Keyword.keyword 문자열 목록(당시
+    # 표기 그대로) — 사후 재매칭이 아니라 "그 키워드로 검색해서 들어왔다"는 실측 사실이다.
+    # FK가 아니라 문자열인 이유는 organizations_snapshot과 동일: Keyword가 나중에 수정·
+    # 비활성화돼도 수집 당시 어떤 키워드였는지가 그대로 남아야 한다. 한 기사가 여러 키워드에
+    # 걸리는 경우가 흔해(2026-08-06 실측 21건, 4개 이상도 4건) 전부 담는다 — 최초 1건만
+    # 남기면 그 분석을 다시 할 수 없다.
+    # ⚠️ 이 필드 도입 이전(2026-08-06 이전) 수집분은 소급 채움 없이 빈 리스트로 남는다 —
+    # 재매칭으로 채우면 실측과 근사가 한 필드에 섞여 나중에 구분할 수 없어진다.
+    matched_keywords = models.JSONField(
+        default=list, blank=True,
+        help_text="수집 시 매칭된 Keyword.keyword 문자열 목록. 2026-08-06 이전 수집분은 "
+                   "이 필드 도입 전이라 빈 리스트(소급 채움 없음).",
+    )
 
     objects = NewsQuerySet.as_manager()
 
@@ -146,6 +159,14 @@ class DeletedNewsRecord(models.Model):
     )
     tech_topics_snapshot = models.JSONField(
         default=list, blank=True, help_text="삭제 시점 연결돼 있던 TechTopic.name 목록",
+    )
+    # 2026-08-06 도입(PM P1) — News.matched_keywords를 삭제 시점 그대로 복사한 스냅샷.
+    # "오늘 필요했던 건 살아남은 쪽이 아니라 버려진 쪽"(PM)이라 DeletedNewsRecord에도
+    # 반드시 함께 남긴다. 이 필드 도입 이전 삭제 이력은 소급 채움 없이 빈 리스트.
+    matched_keywords_snapshot = models.JSONField(
+        default=list, blank=True,
+        help_text="삭제 시점 News.matched_keywords 그대로. 2026-08-06 이전 삭제 이력은 "
+                   "이 필드 도입 전이라 빈 리스트(소급 채움 없음).",
     )
 
     judged_at = models.DateTimeField(auto_now_add=True)

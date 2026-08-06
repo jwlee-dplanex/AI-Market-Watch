@@ -43,6 +43,24 @@ class DeleteNewsWithRecordTests(TestCase):
         self.assertEqual(record.criterion_code, "1-b")
         self.assertEqual(record.judged_by, DeletedNewsRecord.JUDGED_BY_RA)
 
+    def test_deletion_copies_matched_keywords_snapshot(self):
+        """2026-08-06 도입(PM P1) — News.matched_keywords가 삭제 시점 그대로
+        DeletedNewsRecord.matched_keywords_snapshot에 복사되는지 확인한다."""
+        news = _make_news(matched_keywords=["키워드A", "키워드B"])
+
+        record = delete_news_with_record(news, judged_by=DeletedNewsRecord.JUDGED_BY_RA)
+
+        self.assertEqual(record.matched_keywords_snapshot, ["키워드A", "키워드B"])
+
+    def test_deletion_with_empty_matched_keywords_leaves_empty_snapshot(self):
+        """도입 이전 수집분처럼 matched_keywords가 빈 리스트인 경우 소급 채움 없이
+        스냅샷도 빈 리스트로 남아야 한다."""
+        news = _make_news()
+
+        record = delete_news_with_record(news, judged_by=DeletedNewsRecord.JUDGED_BY_RA)
+
+        self.assertEqual(record.matched_keywords_snapshot, [])
+
     def test_record_failure_aborts_whole_deletion(self):
         news = _make_news()
         url_hash = news.url_hash

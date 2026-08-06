@@ -78,6 +78,7 @@ bleach
 | verified_at | DateTimeField(null) | RA가 배치를 `"검증됨"`으로 전환한 시각. 기존 데이터는 백필하지 않음(모르는 값을 지어내지 않는 원칙) — `None`이면 "아직 검증 전환된 적 없음"을 뜻하는 정확한 값. |
 | organizations | ManyToManyField(Organization) | 수집 시 별칭 매칭으로 자동 연결되는 기업 (related_name="news") |
 | tech_topics | ManyToManyField(TechTopic) | 수집 시 별칭 매칭으로 자동 연결되는 기술 주제 (related_name="news") |
+| matched_keywords | JSONField(list) | 수집 시 Naver API 호출에 쓴 `Keyword.keyword` 문자열 목록(2026-08-06 도입, PM P1). FK가 아니라 문자열 — `Keyword`가 나중에 수정·비활성화돼도 수집 당시 키워드가 그대로 남아야 하는 이유는 `organizations_snapshot`과 동일. 한 기사가 여러 키워드에 걸리면 전부 담는다(사후 재매칭이 아니라 API 호출 시점의 실측). 도입 이전 수집분은 소급 채움 없이 빈 리스트 |
 
 **검증 게이트 — `News.objects.verified()`**: `status="검증됨"`만 반환하는 QuerySet 메서드(`NewsQuerySet.verified()`, `apps/news/models.py`). ALL-001 핵심 지표 3종·최신 뉴스, NEWS-001 목록(`total_count` 포함), NEWS-002 상세(미검증은 직접 접근 시 404), GRAPH-001 노드·엣지·양쪽 패널 — `News`를 뷰가 스스로 쿼리하는 "직접 조회" 경로는 전부 이 메서드를 거친다. 반대로 `Insight.news`·`Report.news`·`OrgRelation.news`(RA가 근거로 직접 골라 연결한 명시 M2M), `report_extras`의 `참고: <uid>` 해석 경로, 사이드바 "마지막 수집"(`apps/dashboard/context_processors.py`, 뉴스 노출이 아니라 파이프라인 생존 신호)은 게이트를 의도적으로 적용하지 않는다. 상세는 `docs/planning.md` "검증 게이트: 미검증 뉴스는 화면에 노출하지 않는다" 절 참고.
 
@@ -107,6 +108,7 @@ bleach
 | reason | TextField(blank) | 삭제 사유 1~2문장 자유 서술 |
 | judged_by | CharField(30) | 판정 주체. 권장 어휘: `RA`(default) / `사용자(화면 삭제)` / `소급 정비` / `자동 판정`(향후) |
 | organizations_snapshot / tech_topics_snapshot | JSONField(list) | 삭제 시점 연결돼 있던 `Organization.name`/`TechTopic.name` 목록. M2M은 `news.delete()`와 함께 사라지므로 이름을 복사해 둔 것 — collector 과다태깅 실패 사례가 삭제분에 몰려 있어 옵션 B 핵심주체 판별의 직접 재료 |
+| matched_keywords_snapshot | JSONField(list) | 삭제 시점 `News.matched_keywords` 그대로 복사(2026-08-06 도입, PM P1). "버려진 쪽"도 키워드 귀속 분석이 가능해야 한다는 요구로 추가됨 — 도입 이전 삭제 이력은 소급 채움 없이 빈 리스트 |
 | judged_at | DateTimeField(auto_now_add) | 기록 시각 |
 
 `url_hash`는 `ExcludedURL`과 달리 **unique가 아니다** — 같은 URL이 재수집·재판정되면 여러 건이 쌓일 수 있는 **이력**이기 때문이다. `ExcludedURL`(존재 여부만 의미 있는 재수집 차단 인덱스, 스키마 동결)과는 성격이 반대라 별도 모델로 분리했다.

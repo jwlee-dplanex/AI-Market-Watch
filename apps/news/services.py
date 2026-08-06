@@ -83,6 +83,7 @@ def delete_news_with_record(
             tech_topics_snapshot=list(
                 news.tech_topics.order_by("name").values_list("name", flat=True)
             ),
+            matched_keywords_snapshot=list(news.matched_keywords),
         )
 
         # ② 재수집 차단 인덱스 — 기존 RA 안전 삭제 패턴과 동일, 어떤 경우에도 건너뛰지 않는다.

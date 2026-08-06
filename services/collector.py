@@ -180,7 +180,15 @@ def collect_naver() -> dict:
                 continue
 
             url_hash = _make_url_hash(url)
-            if News.objects.filter(url_hash=url_hash).exists():
+            existing = News.objects.filter(url_hash=url_hash).first()
+            if existing is not None:
+                # 같은 기사가 다른 키워드로도 걸린 경우 — 생성 경로는 이미 지나갔지만
+                # (앞선 키워드 순회에서 News가 만들어졌으므로) "이 키워드로도 매칭됐다"는
+                # 사실 자체는 기존 레코드에 이어 붙인다. 최초 1개만 남기면 복수 매칭 분석을
+                # 다시 할 수 없다(2026-08-06 실측: 2개 이상 21건, 4개 이상 4건).
+                if kw.keyword not in existing.matched_keywords:
+                    existing.matched_keywords = existing.matched_keywords + [kw.keyword]
+                    existing.save(update_fields=["matched_keywords"])
                 stats["skipped_dup"] += 1
                 continue
 
@@ -199,6 +207,7 @@ def collect_naver() -> dict:
                 body=body,
                 source_type="naver_news",
                 published_at=published_at,
+                matched_keywords=[kw.keyword],
             )
 
             full_body = fetch_article_body(original_url, naver_link)
