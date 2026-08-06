@@ -198,14 +198,24 @@ bleach
 | date_from | DateField | 해당 기간 시작일 |
 | date_to | DateField | 해당 기간 종료일 |
 | title | CharField(500) | 보고서 제목 |
-| overview | TextField(blank) | 주요 동향 개요 |
-| content | TextField(blank) | 주요 이슈 + 시사점 |
+| overview | TextField(blank) | 주요 동향 개요 (버전 없음 — 정본·축약본 공용) |
+| content | TextField(blank) | 정본(긴 버전). 주요 이슈 + 시사점. 작성·검사의 기준 |
+| content_short | TextField(blank) | 축약본(짧은 버전, 2026-08-06 추가). 화면 기본값이지만 정본이 아니다 — "기본값"과 "정본"은 다른 개념(`docs/planning.md` "보고서 길이 버전" 2번) |
 | status | CharField(20) | `generating`(생성중, default) / `done`(완료) / `failed`(실패) — RA가 작성 완료 시 `done`으로 명시 전환 |
 | slack_sent_at | DateTimeField(null) | Slack 발송 시각 |
-| news | ManyToManyField(News, through=ReportNews) | 근거 News |
+| news | ManyToManyField(News, through=ReportNews) | 근거 News. **정본 기준 하나**이며 버전별로 나뉘지 않는다 |
 | created_at | DateTimeField | |
 
 `Meta.unique_together = ("period_type", "date_from")`, `ordering = ["-date_from"]`.
+
+**`content_short`(축약본) — 왜 생겼고 어떻게 다뤄야 하는가** (`docs/planning.md` "보고서 길이 버전", 2026-08-06 PM 결론·사용자 승인):
+
+- **버전은 두 개뿐**(짧은/긴), 중간 버전 없음 — 중간은 "덜 뺀 것"이라는 상대 정의밖에 없어 RA가 매주 선을 새로 긋게 되고, 그러면 주차 간 비교 가능성이 깨진다.
+- **정본은 `content`(긴 버전), 화면 기본값은 `content_short`(짧은 버전)** — 반대여도 되는 이유: 늘리는 방향에는 "부연을 채우라"는 날조 압력이 있지만 줄이는 방향엔 없고, 출처 무결성 점검이 "본문 → 근거" 단방향이라 서술이 많은 쪽(정본)만 점검하면 적은 쪽은 자동으로 그 부분집합이라 통과한다.
+- ⚠️ **축약은 정본 문장을 골라 빼는 것만 허용된다 — 고쳐 쓰지 않는다.** 두 문장을 합치거나 같은 사실을 짧게 다시 쓰면 그건 대조를 통과한 적 없는 "새 문장"이 된다. 허용되는 유일한 손질은 앞 문장이 빠져 지시 대상·접속이 끊겼을 때 지시어·접속어만 고치는 것이며, 그 손질로 뜻이 바뀌면 사실 변경으로 취급해 출처 무결성 점검을 다시 거쳐야 한다.
+- 이 제약 덕분에 **출처 무결성 점검은 정본(`content`)에서 1회만** 돈다 — 축약본의 모든 문장이 정본에서 이미 점검을 통과한 원문 그대로이기 때문. `참고:` 규약 줄과 `Report.news` M2M도 정본 기준 하나로 유지되고 두 버전에 동일하게 적용된다(축약본 전용 M2M·검증 로직을 만들지 않는다).
+- 축약 대상은 **흐름 분석뿐**이다. `title`/`overview`/이슈 개수·순서/시사점/`참고:` 줄은 두 버전이 동일하다.
+- **폴백**: `content_short`가 비어 있으면(과거 보고서·작성 중) 화면은 조용히 `content`로 대체해야 하며 500이 나면 안 된다. 모델의 `Report.display_content` 프로퍼티(`content_short or content`)가 이 폴백을 제공한다 — 단, 이 프로퍼티를 실제 화면(REPORT-002 버전 전환 UI)에 연결하는 것은 PD·PE의 후속 작업이며 2026-08-06 시점엔 아직 어느 템플릿도 이 프로퍼티를 쓰지 않는다(기존 템플릿은 여전히 `report.content`를 직접 렌더).
 
 ---
 
