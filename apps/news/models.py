@@ -270,6 +270,15 @@ class Insight(models.Model):
     news = models.ManyToManyField(News, through="InsightNews", related_name="insights")
     content = models.TextField()
     implication = models.TextField()
+    # 축약본 2종 (2026-08-06, Report.content_short와 동일 패턴 — docs/planning.md "보고서
+    # 길이 버전" 정책을 그대로 적용). 정본(content/implication)은 작성·검사의 기준이고, 이
+    # 필드들은 정본에서 문장을 골라 빼기만 해 만든 표현이다(고쳐 쓰지 않음). 별도 문서가
+    # 아니라 같은 인사이트의 두 번째 표현이므로 title/news는 버전 구분 없이 공유한다.
+    # 축약은 정본 문장을 그대로 남기거나 빼는 것만 허용되므로 출처 무결성 점검은 정본에서
+    # 1회만 돈다. RA가 아직 채우지 않은 기존 34건은 빈 문자열로 남으며, display_content /
+    # display_implication이 정본으로 조용히 폴백한다(500 금지).
+    content_short = models.TextField(blank=True)
+    implication_short = models.TextField(blank=True)
     # ⚠️ default는 반드시 GRADE_UNSPECIFIED여야 한다. 3급을 기본값으로 두면 도입 직후
     # 집계가 "3급 34건"으로 나와 관측이 아니라 기본값을 세는 꼴이 되고, 이 필드를 만든
     # 유일한 이유(미지정과 판정된 3급의 구분, 정책 1번)가 사라진다.
@@ -293,6 +302,20 @@ class Insight(models.Model):
 
     def __str__(self):
         return self.title
+
+    @property
+    def display_content(self):
+        """화면에 기본으로 보여줄 흐름 분석(축약본, 없으면 정본으로 폴백).
+
+        Report.display_content와 동일 근거: 기본은 축약본이지만 비어 있을 수 있는 기존
+        34건을 위해 조용히 정본으로 대체한다(500 금지).
+        """
+        return self.content_short or self.content
+
+    @property
+    def display_implication(self):
+        """화면에 기본으로 보여줄 시사점(축약본, 없으면 정본으로 폴백). display_content와 동일 근거."""
+        return self.implication_short or self.implication
 
 
 class InsightNews(models.Model):

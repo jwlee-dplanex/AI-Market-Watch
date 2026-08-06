@@ -165,8 +165,10 @@ bleach
 | id | AutoField | PK |
 | title | CharField(500) | 이슈를 대표하는 제목 |
 | news | ManyToManyField(News, through=InsightNews) | 근거로 삼은 News 전체 (출처 표기 역할 겸함) |
-| content | TextField | 주요 흐름 분석 |
-| implication | TextField | 시사점 (필드명이 `implication`이며 `dplanex_implication`이 아님) |
+| content | TextField | 주요 흐름 분석 정본(긴 버전). 작성·검사의 기준 |
+| content_short | TextField(blank) | 흐름 분석 축약본(짧은 버전, 2026-08-06 추가). 화면 기본값이지만 정본이 아니다 |
+| implication | TextField | 시사점 정본(긴 버전). 필드명이 `implication`이며 `dplanex_implication`이 아님 |
+| implication_short | TextField(blank) | 시사점 축약본(짧은 버전, 2026-08-06 추가) |
 | grade | CharField, choices | 승격 위계 등급. `unspecified`(미지정, 기본값)/`1`(1급)/`2`(2급)/`3`(3급) |
 | headliner_order | PositiveSmallIntegerField, null 허용 | 헤드라이너 여부 + 순서를 겸하는 값. `null`=헤드라이너 아님(기본값), 1 이상 정수=헤드라이너이며 그 표시 순서 |
 | created_at | DateTimeField | |
@@ -176,6 +178,14 @@ bleach
 **⚠️ 계약: `grade`는 사용자 대상 화면에 표시되지 않으며, 사용자 대상 화면의 내용을 결정하지도 않는다.** 판별선은 "등급이 화면 내용을 바꾸면 제품 데이터, 안 바꾸면 내부 도구"다. 조회는 SET 화면군(예약만, 아직 미설계)·배치 보고서·ORM에서만 한다. 대시보드 헤드라이너를 이 필드로 자동 선별하지 않는 이유도 동일 — 헤드라이너는 RA가 두 물음(파급 범위·실행 단계)으로 직접 지정한다.
 
 **왜 `headliner_order`가 생겼는가** (`docs/planning.md` "대시보드 헤드라이너", 2026-08-06 신설) — 불리언 하나로는 부족했다. 불리언만 두면 헤드라이너 3건의 화면 표시 순서가 pk나 `latest_news_at` 같은 기계 순서로 떨어져 "1번 자리는 RA 판단이 갖는다"가 화면에서만 무효가 된다. 그래서 "여부 + 순서"를 값 하나(`null`/정수)로 합쳤다. 상한 3건은 DB 제약으로 강제하지 않는다 — RA가 실수로 4건 이상 지정해도 화면이 상위 3건까지만 렌더하는 안전장치로 충분하다는 것이 정책이다. 지정은 RA가 배치마다 전량 교체(자동 만료)하며 별도 만료 시각 필드는 두지 않는다.
+
+**`content_short`/`implication_short`(축약본) — 왜 생겼고 어떻게 다뤄야 하는가** (사용자 승인, `Report.content_short`와 동일 패턴을 그대로 적용, 2026-08-06):
+
+- 대시보드 헤드라인·주요 이슈가 `line-clamp-2`로 문장 중간을 기계적으로 잘라 읽기 어렵다는 피드백에서 시작됐다. RA가 직접 쓴 축약본이면 문장이 온전하다.
+- **정본은 `content`/`implication`(긴 버전), 화면 기본값은 `content_short`/`implication_short`(짧은 버전)** — `Report`와 동일한 이유: 정본만 출처 무결성 점검을 거치면 되고, 축약본은 정본의 부분집합이라 자동으로 통과한다.
+- ⚠️ **축약은 정본 문장을 골라 빼는 것만 허용된다 — 고쳐 쓰지 않는다.** `Report.content_short`와 동일 제약(문장 합치기·재서술 금지, 지시어·접속어 손질까지만 허용). 이 제약 덕분에 **출처 무결성 점검은 정본에서 1회만** 돈다 — 축약본 전용 검증 로직을 별도로 만들지 않는다.
+- `title`/`news` M2M은 버전 구분 없이 공유한다.
+- **폴백**: `content_short`/`implication_short`가 비어 있으면(기존 34건 등) 화면은 조용히 `content`/`implication`으로 대체해야 하며 500이 나면 안 된다. `Insight.display_content`/`Insight.display_implication` 프로퍼티(`content_short or content`, `implication_short or implication`)가 이 폴백을 제공한다 — 단, 대시보드 템플릿을 이 프로퍼티로 전환하는 것은 PD·PE의 후속 작업이며 2026-08-06 시점엔 아직 템플릿이 이 프로퍼티를 쓰지 않는다.
 
 ---
 
