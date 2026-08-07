@@ -198,34 +198,57 @@
 
     <!-- 개별 기관별 건수 랭킹 Top 10 -->
     <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-5">
-      <h3 class="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-1.5">
-        기업별 건수 Top 10
-        {% info_tooltip "dashboard.org_ranking" label="기업별 건수 Top 10" %}
-      </h3>
-      {% if org_ranking %}
-      <!-- 색상 범례: 미니바 색이 기업 카테고리(org_type)를 뜻함을 안내. 금융사/보험사/AI
-           "단어 자체"에 호버하면 각각이 무슨 뜻인지 뜬다(2026-08-06, PD, 사용자 요청 —
-           애초엔 "?" 아이콘 트리거였으나 "텍스트 자체에 호버했을 때 나타나게" 해달라는
-           후속 요청으로 트리거를 옮겼다). Info Tooltip 컴포넌트에 trigger_text 모드를 새로
-           추가해 재사용했다(아이콘 대신 라벨 텍스트가 트리거, 점선 밑줄이 "여기 더 볼 게
-           있다"는 시각 신호를 대신함) — hover(마우스)·click(터치)·keyboard(Tab+Enter/Space,
-           Esc로 닫기)는 아이콘 모드와 동일한 메커니즘 그대로라 접근성 요건은 그대로 유지된다.
-           자세한 판단 근거는 docs/design.md ALL-001 절 "기업별 Top 10 색상 범례에 분류 설명
-           툴팁 추가" 참고. -->
-      <div class="flex items-center gap-3 mb-3">
-        <span class="flex items-center gap-1 text-[10px] text-gray-400">
-          <span class="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>
-          {% info_tooltip "dashboard.org_type_financial" label="금융사" trigger_text="금융사" %}
-        </span>
-        <span class="flex items-center gap-1 text-[10px] text-gray-400">
-          <span class="w-1.5 h-1.5 rounded-full bg-teal flex-shrink-0"></span>
-          {% info_tooltip "dashboard.org_type_insurer" label="보험사" trigger_text="보험사" %}
-        </span>
-        <span class="flex items-center gap-1 text-[10px] text-gray-400">
-          <span class="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0"></span>
-          {% info_tooltip "dashboard.org_type_ai" label="AI" trigger_text="AI" %}
-        </span>
+      {% comment %}
+        범례 위치·크기 조정 (2026-08-07, PD, 사용자 요청 — "금융사/보험사/AI 글자가 너무
+        작아 안 보인다, 카드 오른쪽 상단 쓰면서 키울 수 없나"). docs/design.md ALL-001 절
+        "기업별 Top10 범례 재배치·확대" 참고.
+
+        배치: 제목 아래 별도 행 → 제목과 같은 행 오른쪽(justify-between)으로 이동. 확인
+        결과 제목 행엔 h3 텍스트 + Info Tooltip("?" 트리거) 하나뿐이라 범례 3개가 들어갈
+        여유가 있었다(3열 그리드 카드 폭 기준). flex-wrap을 안전장치로 뒀다 — 아주 좁은
+        뷰포트에서 안 들어가면 범례가 다음 줄로 자연스럽게 내려간다(레이아웃 깨짐 없이
+        열화, 별도 분기 코드 없이 CSS만으로 처리).
+
+        크기: text-[10px]→text-xs(12px), 점 w-1.5→w-2(6px→8px, 글자와 비슷한 비율로 확대),
+        text-gray-400→text-gray-500(대비도 함께 개선 — "안 보인다"는 크기만의 문제가
+        아니었다).
+
+        옆 카드("기술 주제별")와의 정렬(⚠️ 사용자 우려 사항) — 이 카드만 범례 때문에 제목
+        아래 별도 행이 있어 리스트 시작 y좌표가 옆 카드보다 낮았다. 범례를 제목과 같은
+        행으로 옮기면 그 별도 행 자체가 없어져 오히려 두 카드의 리스트 시작 위치가 더
+        가까워진다(정렬 개선이지 악화가 아니다) — 제목 행 높이는 여전히 h3(text-sm)가
+        지배해 범례를 text-xs로 키워도 행 높이가 사실상 늘지 않는다.
+
+        인터랙션(⚠️ 사용자 지적)은 그대로다 — info_tooltip 태그 호출 3개(trigger_text
+        그대로)를 옮기기만 했다. 호버·클릭·키보드·Esc·점선 밑줄은 컴포넌트 내부 구현이라
+        배치와 무관하게 유지된다.
+
+        HTMX — 이 파일은 초기 렌더·기간 필터 응답이 완전히 같은 템플릿을 공유하므로(파일
+        상단 주석 참고) 이 변경 하나로 두 경로 모두 동일하게 반영된다.
+      {% endcomment %}
+      <div class="flex items-center justify-between gap-3 mb-4 flex-wrap">
+        <h3 class="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
+          기업별 건수 Top 10
+          {% info_tooltip "dashboard.org_ranking" label="기업별 건수 Top 10" %}
+        </h3>
+        {% if org_ranking %}
+        <div class="flex items-center gap-3">
+          <span class="flex items-center gap-1.5 text-xs text-gray-500">
+            <span class="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0"></span>
+            {% info_tooltip "dashboard.org_type_financial" label="금융사" trigger_text="금융사" %}
+          </span>
+          <span class="flex items-center gap-1.5 text-xs text-gray-500">
+            <span class="w-2 h-2 rounded-full bg-teal flex-shrink-0"></span>
+            {% info_tooltip "dashboard.org_type_insurer" label="보험사" trigger_text="보험사" %}
+          </span>
+          <span class="flex items-center gap-1.5 text-xs text-gray-500">
+            <span class="w-2 h-2 rounded-full bg-primary flex-shrink-0"></span>
+            {% info_tooltip "dashboard.org_type_ai" label="AI" trigger_text="AI" %}
+          </span>
+        </div>
+        {% endif %}
       </div>
+      {% if org_ranking %}
       <div class="space-y-2">
         {% for org in org_ranking %}
         <div class="relative flex items-center gap-2 cursor-default"
