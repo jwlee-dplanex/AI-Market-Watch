@@ -285,8 +285,27 @@ def dashboard(request):
     # 근거 뉴스가 0건이면 NULL이 되는데, PostgreSQL은 기본적으로 내림차순에서 NULL을 앞에
     # 놓으므로 nulls_last=True로 뒤로 보낸다. 동률(tie) 대비 -pk를 tie-breaker로 포함
     # (검증된 구현 패턴 5번).
+    # 헤드라인 — RA가 배치마다 직접 지정한 최대 2건(2026-08-06 신설, 08-07 상한 3→2).
+    # ⚠️ 슬라이스는 정책 상한과 항상 같이 움직인다 — 조항만 고치고 여기를 두면
+    # "RA가 4건 지정하는 사고"를 막는 안전장치가 조용히 무력해진다.
+    # 후보는 1급 이슈로 한정되고 그 안에서 두 물음(파급 범위 / 실행 단계)으로 고른다.
+    # ⚠️ 여기서 grade로 거르지 않는다 — 판정은 RA가 지정 시점에 이미 끝냈고, 화면이
+    # 등급으로 다시 고르면 "등급이 화면 내용을 결정한다"가 되어 조항에 걸린다.
+    # headliner_order가 곧 표시 순서다. 기간 필터를 따르지 않는다(기간 = 핵심 지표 전용).
+    headliners = (
+        Insight.objects
+        .filter(headliner_order__isnull=False)
+        .annotate(news_count=Count("news"))
+        .prefetch_related("news")
+        .order_by("headliner_order")[:2]
+    )
+
+    # ⚠️ 헤드라이너로 뽑힌 건 아래 목록에서 뺀다 — 같은 이슈를 두 번 읽게 하지 않는다
+    # (사용자 확정 2026-08-06). 제외를 슬라이스보다 먼저 걸어야 목록이 짧아지지 않고
+    # 빠진 자리만큼 다음 순위가 올라온다.
     insights = (
         Insight.objects
+        .filter(headliner_order__isnull=True)
         .annotate(news_count=Count("news"), latest_news_at=Max("news__published_at"))
         .prefetch_related("news")
         .order_by(F("latest_news_at").desc(nulls_last=True), "-pk")[:20]
@@ -296,6 +315,7 @@ def dashboard(request):
     # 현재 기준을 노출한다(사용자 확정 2026-07-31 — 기간 = 핵심 지표 전용).
     latest_news = News.objects.verified().order_by("-published_at")[:30]
 
+    context["headliners"] = headliners
     context["insights"] = insights
     context["latest_news"] = latest_news
     return render(request, "dashboard/index.html", context)

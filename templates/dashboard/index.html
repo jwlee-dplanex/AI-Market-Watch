@@ -37,10 +37,205 @@
 {% block content %}
 
 
+{% comment %}
+  헤드라인 (2026-08-06, PD 신설, 같은 날 화면 표시 명칭을 "헤드라이너"→"헤드라인"으로 변경) —
+  docs/planning.md "대시보드 헤드라이너" 절, docs/design.md ALL-001 "헤드라인 상세"/"화면 표시
+  명칭 변경" 절 참고. RA가 headliner_order를 지정한 Insight 최대 3건을 "주요 이슈" 영역 위에
+  별도 섹션으로 보여준다.
+
+  ⚠️ 화면에 렌더되는 문구는 "헤드라인"이지만, 코드 식별자(headliners 컨텍스트, headliner_order
+  필드, dashboard.headliner 툴팁 키)는 변경하지 않는다 — 이 주석·코드에서 그 식별자를 가리킬 때는
+  계속 "헤드라이너"라는 옛 이름을 쓴다. 화면 문구와 코드 식별자가 다른 이유는 docs/design.md
+  ALL-001 "화면 표시 명칭 변경" 절 참고.
+
+  ⚠️ 지정 0건이면 이 블록 전체를 렌더하지 않는다(빈 카드·안내 문구 금지, PM 정책 4번) —
+  {% if headliners %}로 바깥을 통째로 감싼다.
+
+  ⚠️ 카드 제목은 아래 "주요 이슈" 카드 제목과 완전히 동일한 클래스(text-sm font-semibold
+  text-gray-900 truncate)를 쓴다(2026-08-06 사용자 지시 — "헤드라이너 타이틀도 주요 이슈의
+  타이틀과 동일한 패턴으로"). 섹션 헤더(h2 + Info Tooltip)도 "주요 이슈" 섹션 헤더와 완전히
+  동일한 마크업 패턴을 쓴다(h2 폰트 크기·굵기·색상 변경 없음, 2026-08-06 두 번째 사용자 지시로
+  섹션 헤더까지 포함해 확정) — 즉 "주요 이슈"와 구분되는 지점은 **제목 서식이 절대 아니다.**
+
+  ⚠️ 2026-08-06 세 번째 사용자 요청 — "확실히 눈에 잘 들어오게 해달라"(첫 화면에서 시선이
+  여기로 먼저 가야 한다). 제목 서식·등급 배지·순위 숫자를 전부 쓸 수 없는 상태에서 시각적
+  우위를 만들어야 해서, 아래 두 층으로 나눠 처리했다.
+
+  (A) **섹션 전체(면) 처리 — "이 구역 전체가 다른 층위"라는 신호.** 3장의 카드를 옅은
+  바이올렛→그린 그라디언트 워시 "트레이"(`bg-gradient-to-r from-primary/5 via-white
+  to-accent/5`, `border-primary/15`) 위에 얹었다. 디자인 시스템의 Accent(그라디언트) 카드
+  (`docs/design.md` "1.5 컴포넌트 정의 › Card › Accent")가 쓰는 것과 동일한 브랜드 그라디언트
+  DNA(Violet→Green)를 재사용하되, **채도를 5% 알파로 낮춰 워시로만 썼다** — Accent 카드의
+  실제 예시는 REPORT-002 상세 헤더 하나뿐이고 거긴 카드 1장짜리 히어로 자리다. 대시보드는
+  이미 카드가 여럿(주요 이슈·최신 뉴스·핵심 지표 3장)이라 진한 Accent 카드를 그대로 3장
+  반복하면 "한 곳만 튀는 게 아니라 다 튀어서 서로 상쇄되는" 역효과가 난다고 판단해 채택하지
+  않았다 — 옅은 워시 트레이 위에 흰 카드를 얹는 절충으로 "떠 보이는" 효과만 취했다. 페이지
+  배경(`#F9F9F7`)과의 명도차가 흰 카드 단독보다 커서, 스크롤 없이 보이는 첫 화면에서 이
+  구역이 가장 먼저 눈에 들어온다.
+  (B) **여백·구분선 — 아래 섹션과의 위계 차이.** 트레이 안쪽 패딩을 다른 카드(`p-5`)보다
+  넉넉한 `p-6`로 주고, 트레이 바깥 하단 여백을 `mb-6`(다른 섹션 간 표준 간격)이 아니라
+  `mb-8`로 넓혀 "주요 이슈 + 최신 뉴스"와 확실히 분리되는 한 호흡을 만들었다. 섹션 제목
+  옆에 Lucide `flame` 아이콘(`w-4 h-4 text-primary`)을 추가했다 — 기존 아이콘 규칙(카드
+  내부 18px 이내, 모노톤 라인)을 그대로 따르는 시각 신호이며, "가장 중요한" 같은 문구가
+  아니라 "이 구역이 하이라이트 구역"이라는 걸 도상으로만 전달한다("분석" 라벨 옆
+  `trending-up` 아이콘, "시사점" 옆 `lightbulb` 아이콘과 동일한 기존 관례).
+  (C) **최상단 배치 자체가 가장 강력한 우위 수단.** 페이지 최상단(헤더 바로 아래, 스크롤
+  0에서 항상 보이는 자리)에 위치하는 것만으로 이미 "가장 먼저 보는 영역"이라는 목적은
+  절반 이상 달성된다 — (A)(B)는 그 위에 더하는 보강이다.
+
+  "주요 이슈"와 구분되는 나머지 지점은 배치·크기다 — (1) "주요 이슈" 리스트 안에 중첩된
+  항목이 아니라 그 자체로 최상위 카드(주요 이슈/최신 뉴스 카드와 동급의 `p-5` 컨테이너,
+  리스트 항목의 `p-4`가 아님), (2) 3장이 나란히 놓인 별도 행으로 "주요 이슈 + 최신 뉴스"
+  2단 그리드 위에 위치, (3) 카드 왼쪽에 Primary Violet 강조 보더(`border-l-4`, 디자인
+  시스템 Callout "Info" 스펙 재사용 — 새 시각 요소를 만들지 않음).
+
+  순서(1·2·3)는 등급 배지·순위 숫자 없이 "위치로만" 드러낸다(headliner_order 오름차순,
+  좌→우 배치, PM 정책 7번) — 3장 모두 동일 크기(flex-1)이며 1번 카드를 더 크게 만들지
+  않는다. **이번 "눈에 띄게" 요청에 대응한 (A)(B)(C)는 전부 헤드라이너 영역 전체에 균등하게
+  적용했다** — 3장 중 특정 카드에만 강조를 주지 않았다. 영역은 도드라지되 그 안의 1·2·3은
+  경쟁하지 않아야 한다는 조건(2026-08-06 네 번째 사용자 요청)을 지키기 위함이며, 크기
+  차등을 두면 "1등 라벨"의 시각적 우회가 될 수 있다는 우려(PM 판단 요청 사항)를 원천
+  차단하는 기존 판단과도 일치한다.
+
+  아코디언 인터랙션(펼침/접힘, 분석·시사점·관련 기사)은 "주요 이슈" 카드와 100% 동일한 마크업을
+  그대로 복제했다 — 새 인터랙션을 만들지 않고, x-cloak도 동일하게 각 x-show 엘리먼트에 그대로
+  붙였다(FOUC 방지, CLAUDE.md 인터랙션 패턴 준수).
+
+  좁은 화면 대응: flex-col md:flex-row로 768px 미만에서는 세로 스택된다. 이 프로젝트에 다른
+  반응형 breakpoint가 없다는 것은 확인했으나(templates/ 전수 검색), 데스크톱 렌더링에는 전혀
+  영향이 없고(md: 접두사는 768px 이상에서 아무 효과가 없다) 좁은 화면에서 카드 3장이 짓눌리는
+  것만 막는 안전장치라 추가했다.
+{% endcomment %}
+{% comment %}
+  ⚠️ 2026-08-07 갱신 (PD, 사용자 확정) — 바로 위 2026-08-06 이력 블록의 아래 서술은
+  이번 변경으로 대체됐다(과거 기록은 그대로 두고 이 블록이 최신 상태를 덮어쓴다).
+  docs/design.md ALL-001 "헤드라인 1열 2행 전환 + 등급 배지 + 시사점 제거 (2026-08-07)"
+  절 참고.
+
+  1. **레이아웃 — 가로 3열 → 세로 2행.** "드롭다운 열었을 때 세로가 너무 길고 불편하다"는
+     사용자 지적으로 `flex-col md:flex-row`(데스크톱 3열)를 전 구간 `flex-col`(항상 1열
+     세로 스택)로 바꿨다. 위 "좁은 화면 대응" 단락이 설명하는 `md:flex-row` 분기는 더 이상
+     없다 — 이제 모든 화면 폭에서 세로다.
+  2. **표시 건수 — 3건 → 2건.** `slice:":3"` → `slice:":2"`. **PM이 "상한(headliner_order
+     지정 상한)과 렌더 상한은 항상 같이 움직인다"고 명문화**했다 — 조항만 고치고 렌더 상한을
+     그대로 두면 안전장치가 조용히 무력해진다. 현재 지정 2건(Insight 46·13)이라 이번
+     변경으로 잘려나가는 카드는 없다.
+  3. **가로 stretch 버그가 자동으로 사라진다.** 위 "높이 정렬은 별도 처리가 필요 없다"
+     서술이 근거로 들었던 flex 기본 cross-axis stretch(가로 배치일 때 제목이 가장 긴
+     카드에 맞춰 나머지가 같은 높이로 늘어나는 현상, 빈 상자를 만드는 원인)는 주축이
+     세로로 바뀌면서 애초에 성립하지 않는다 — cross-axis(가로)는 폭 stretch일 뿐이고
+     그건 카드가 컨테이너 전체 폭을 쓰길 원하는 정상 동작이라 문제가 아니다. 별도 CSS
+     처리를 추가하지 않았다.
+  4. **시사점 블록 제거.** "관련 기사 제외하고 내용만 300자 말하는 거야" — 대시보드는
+     "무슨 일이 있었나"만, 시사점은 REPORT-002 몫으로 역할을 나눴다. `implication`/
+     `display_implication` 조건 분기를 통째로 지웠다. 관련 기사 목록은 그대로 유지한다
+     (건수를 줄이지 않는다 — 14건짜리 이슈도 그대로).
+  5. **펼침 본문 — 정본(`content`) → 축약본(`display_content`).** 접힌 상태 미리보기
+     (`line-clamp-2`)는 이번에도 손대지 않았다 — 사용자가 "펼치기 전은 괜찮다"고 명시했다.
+  6. **등급 배지 — 오늘 두 번 뒤집힌 결정.** 신설 당시엔 "배지 없음"이었다가(위
+     "개별 카드에 등급 배지... 붙이지 않는다" 서술), 사용자가 "헤드라인에 넣는 거면
+     주요 이슈에도 넣어야 하는 거 아니야?"로 뒤집어 **헤드라인·주요 이슈 양쪽 모두**에
+     동일한 배지를 추가했다(`docs/planning.md` 정책 ② 폐기). `grade`가
+     `unspecified`이면 렌더하지 않는다 — "미지정" 배지로 내부 상태값을 노출하지 않기
+     위함(PM 요청). 색상: 1급 `bg-primary/10 text-primary`, 2급 `bg-teal/10 text-teal`,
+     3급 `bg-gray-100 text-gray-500` — 등급이 내려갈수록 채도를 낮춰 "1급이 가장
+     강한 신호"라는 위계를 색으로도 드러낸다.
+{% endcomment %}
+{% if headliners %}
+<div class="mb-8 p-6 rounded-[10px] border border-primary/15 bg-gradient-to-r from-primary/5 via-white to-accent/5">
+  <div class="flex items-center gap-1.5 mb-3">
+    <i data-lucide="flame" class="w-4 h-4 text-primary"></i>
+    <h2 class="text-sm font-semibold text-gray-900">헤드라인</h2>
+    {% info_tooltip "dashboard.headliner" label="헤드라인" %}
+  </div>
+  <div class="flex flex-col gap-4">
+    {% for headliner in headliners|slice:":2" %}
+    <div class="flex-1 min-w-0 bg-white rounded-[10px] border border-[#E5E5E5] border-l-4 border-l-primary shadow-sm p-5"
+         x-data="{ open: false }">
+      <button type="button" @click="open = !open" class="flex items-start justify-between gap-3 w-full text-left">
+        <div class="flex-1 min-w-0">
+          {% comment %}
+            제목 truncate 제거(2026-08-06, PD, 사용자 요청) — docs/design.md ALL-001
+            "헤드라인 카드 제목 말줄임 제거" 절 참고. 폰트 서식(text-sm font-semibold
+            text-gray-900)은 "주요 이슈" 카드 제목과 여전히 완전히 동일하다 — 뺀 건
+            truncate(줄바꿈 처리)뿐이고 이건 "제목 서식"이 아니므로 위 "제목 서식 통일"
+            결정과 충돌하지 않는다. `...`을 쓰지 않고 자연 줄바꿈으로 전문을 보여준다
+            (핵심 지표 기업명·기술주제명에 적용한 것과 동일한 처방, truncate 제거 이후
+            추가 CSS 없음). 부모 컨테이너가 flex 기본 cross-axis stretch라 3장 중 제목이
+            가장 긴 카드에 맞춰 나머지 카드도 자동으로 같은 높이로 늘어난다(정렬 어긋남
+            없음, 별도 처리 불필요). "주요 이슈" 리스트 항목 제목은 이번 변경 대상이
+            아니다(범위·근거는 위 design.md 절 참고) — truncate를 그대로 유지한다.
+          {% endcomment %}
+          <p class="text-sm font-semibold text-gray-900">{{ headliner.title }}</p>
+          <span x-show="open" x-cloak class="flex items-center gap-2 mt-3 mb-3">
+            <i data-lucide="trending-up" class="w-4 h-4 text-teal"></i>
+            <span class="text-sm font-semibold text-gray-900">분석</span>
+          </span>
+          <p x-show="!open" class="mt-2 text-xs text-gray-500 line-clamp-2">{{ headliner.content }}</p>
+          {% comment %}
+            펼침 본문 축약본 전환 (2026-08-07, PD, 사용자 확정) — docs/design.md ALL-001
+            "펼침 내용 축약본 전환 + 시사점 제거" 절 참고. display_content는 축약본, 없으면
+            정본으로 자동 폴백하는 모델 프로퍼티(apps/news/models.py Insight.display_content).
+            접힌 상태 미리보기(바로 위 줄, line-clamp-2)는 이번 변경 대상이 아니다 — 여전히
+            원본 content 필드를 그대로 쓴다(사용자가 "펼치기 전은 괜찮다"고 명시).
+          {% endcomment %}
+          <div x-show="open" x-cloak class="mt-3 text-sm text-gray-700 leading-relaxed markdown-spacing">{{ headliner.display_content|markdown }}</div>
+        </div>
+        <div class="flex items-center gap-2 flex-shrink-0">
+          {% comment %}
+            등급 배지 (2026-08-07, PD, 사용자 확정 — "헤드라인에 넣으면 주요 이슈에도 넣어야
+            하는 거 아니야?"). "주요 이슈" 카드의 동일 배지와 완전히 같은 마크업 — 색상은
+            1급=Primary Violet, 2급=Blue Green(teal), 3급=중립 회색으로 등급이 내려갈수록
+            채도를 낮췄다. grade가 unspecified면 배지를 아예 렌더하지 않는다(내부 상태값을
+            "미지정" 배지로 노출하지 않기 위함, PM 요청).
+          {% endcomment %}
+          {% if headliner.grade != 'unspecified' %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold whitespace-nowrap
+            {% if headliner.grade == '1' %}bg-primary/10 text-primary
+            {% elif headliner.grade == '2' %}bg-teal/10 text-teal
+            {% else %}bg-gray-100 text-gray-500{% endif %}">
+            {{ headliner.get_grade_display }}
+          </span>
+          {% endif %}
+          <span class="text-xs text-gray-400 whitespace-nowrap">관련 기사 {{ headliner.news_count }}건</span>
+          <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-gray-400 transition-transform" :class="open ? 'rotate-180' : ''"></i>
+        </div>
+      </button>
+
+      {% comment %}
+        시사점 블록 제거 (2026-08-07, PD, 사용자 확정) — "관련 기사 제외하고 내용만 300자
+        말하는 거야." 대시보드는 "무슨 일이 있었나"만 보여주고 시사점은 보고서(REPORT-002)
+        몫으로 역할을 나눴다. display_implication은 이 화면에서 더 이상 쓰지 않는다.
+        관련 기사 목록은 그대로 유지 — 건수를 줄이지 않는다.
+      {% endcomment %}
+      <div x-show="open" x-cloak class="mt-4 pt-4 border-t border-gray-100 space-y-4">
+
+        <div>
+          <span class="text-xs font-semibold text-gray-900">관련 기사</span>
+          <div class="mt-3 space-y-1.5">
+            {% for news in headliner.news.all %}
+            <a href="{% url 'news_detail' news.uid %}" class="block text-xs text-gray-600 hover:text-primary hover:underline truncate">
+              {{ news.title }}
+            </a>
+            {% empty %}
+            <p class="text-xs text-gray-400">연결된 관련 기사가 없어요.</p>
+            {% endfor %}
+          </div>
+        </div>
+
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+
 <!-- 주요 이슈 + 최신 뉴스 (2026-08-06, PD, 사용자 확정으로 "핵심 지표" 위로 이동 —
-     헤드라이너 도입 전까지는 "이번 주 무슨 일이 있었나"를 지표보다 먼저 보여준다.
-     docs/design.md ALL-001 절 "핵심 지표 섹션을 최하단으로 이동" 참고. 마크업 자체는
-     변경 없음 — 이 파일 안에서 위치만 "핵심 지표" 블록과 맞바꿨다. -->
+     "이번 주 무슨 일이 있었나"를 지표보다 먼저 보여준다. 같은 날 이 위에 "헤드라인"(신설 당시
+     명칭 "헤드라이너", 같은 날 화면 표시만 개칭) 섹션이 추가로 신설됐다(위 헤드라인 블록 참고)
+     — 최종 순서는 헤드라인 → 이 블록 → 핵심 지표. docs/design.md ALL-001 절 "핵심 지표 섹션을
+     최하단으로 이동"/"헤드라인 상세" 참고. 이 블록 마크업 자체는 변경 없음. -->
 <div class="grid grid-cols-3 gap-4 mb-6">
 
   <!-- 주요 이슈 (2/3) -->
@@ -61,29 +256,39 @@
                 <span class="text-sm font-semibold text-gray-900">분석</span>
               </span>
               <p x-show="!open" class="mt-2 text-xs text-gray-500 line-clamp-2">{{ insight.content }}</p>
-              <div x-show="open" x-cloak class="mt-3 text-sm text-gray-700 leading-relaxed markdown-spacing">{{ insight.content|markdown }}</div>
+              {% comment %}
+                펼침 본문 축약본 전환 (2026-08-07, PD) — 헤드라인 카드와 동일 근거·동일 규칙.
+                display_content는 축약본, 없으면 정본으로 자동 폴백(Insight.display_content).
+                접힌 상태 미리보기(바로 위 줄)는 원본 content 그대로 유지한다.
+              {% endcomment %}
+              <div x-show="open" x-cloak class="mt-3 text-sm text-gray-700 leading-relaxed markdown-spacing">{{ insight.display_content|markdown }}</div>
             </div>
             <div class="flex items-center gap-2 flex-shrink-0">
+              {% comment %}
+                등급 배지 (2026-08-07, PD) — 헤드라인 카드와 완전히 동일한 마크업·색상 규칙.
+                grade가 unspecified면 렌더하지 않는다("미지정" 배지 노출 금지, PM 요청).
+              {% endcomment %}
+              {% if insight.grade != 'unspecified' %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold whitespace-nowrap
+                {% if insight.grade == '1' %}bg-primary/10 text-primary
+                {% elif insight.grade == '2' %}bg-teal/10 text-teal
+                {% else %}bg-gray-100 text-gray-500{% endif %}">
+                {{ insight.get_grade_display }}
+              </span>
+              {% endif %}
               <span class="text-xs text-gray-400 whitespace-nowrap">관련 기사 {{ insight.news_count }}건</span>
               <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-gray-400 transition-transform" :class="open ? 'rotate-180' : ''"></i>
             </div>
           </button>
 
+          {% comment %}
+            시사점 블록 제거 (2026-08-07, PD, 사용자 확정) — 헤드라인 카드와 동일 근거.
+            display_implication은 이 화면에서 더 이상 쓰지 않는다. 관련 기사 목록은
+            그대로 유지(건수 줄이지 않음).
+          {% endcomment %}
           <div x-show="open" x-cloak class="mt-4 pt-4 border-t border-gray-100 space-y-4">
 
-            {% if insight.implication %}
             <div>
-              <div class="flex items-center gap-2 mb-3">
-                <i data-lucide="lightbulb" class="w-4 h-4 text-accent"></i>
-                <span class="text-sm font-semibold text-gray-900">시사점</span>
-              </div>
-              <div class="bg-purple-50 border-l-4 border-primary rounded-r-[10px] p-3">
-                <div class="text-sm text-gray-700 markdown-spacing">{{ insight.implication|markdown }}</div>
-              </div>
-            </div>
-            {% endif %}
-
-            <div{% if insight.implication %} class="pt-4 border-t border-gray-100"{% endif %}>
               <span class="text-xs font-semibold text-gray-900">관련 기사</span>
               <div class="mt-3 space-y-1.5">
                 {% for news in insight.news.all %}

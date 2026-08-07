@@ -253,72 +253,72 @@ header_actions는 base.html에서 flex-shrink-0 헤더 안이라 본문을 스�
 </div>
 {% endif %}
 
-<!-- 주요 이슈 -->
+{% comment %}
+  주요 이슈 — 보고서 버전 전환 UI (2026-08-07, PD 신설) — docs/design.md REPORT-002
+  "보고서 버전 전환 UI" 절 참고. 정책(docs/planning.md "보고서 길이 버전"): 2버전(긴/짧은),
+  긴 버전(content)이 정본, 짧은 버전(content_short)이 기본값(먼저 보이는 것). 주차당 Report는
+  하나 — 같은 보고서의 두 표현이지 두 문서가 아니다. 전환해도 이슈별 "참고:" 근거 리스트는
+  report_issues 필터를 그대로 통과하므로 동일한 방식으로 렌더된다. 화면에 "정본"/"원본" 같은
+  표기는 하지 않는다 — 버튼 라벨은 순수하게 길이만 가리키는 "짧은 버전"/"긴 버전".
+
+  카드 본문 마크업은 templates/reports/_issues_body.html로 분리했다(긴/짧은 두 벌을 같은
+  화면에 렌더해야 해서 중복을 피하기 위함) — {% with parsed=... %}로 파싱 결과만 바꿔 넘기고
+  include 두 번으로 재사용한다. Alpine x-show + x-cloak으로 클라이언트 토글(서버 재조회 없음
+  — 두 버전 모두 이미 페이지에 있는 데이터라 HTMX 왕복이 불필요, CLAUDE.md 인터랙션 패턴 중
+  Alpine은 "클라이언트 UI 상태만" 담당한다는 원칙과 일치). 토글 버튼 행은 no-print — 인쇄 시
+  현재 선택된 버전만 자연스럽게 찍힌다(숨겨진 쪽은 이미 display:none이라 별도 인쇄 CSS 불필요).
+
+  ⚠️ content_short가 비어 있으면(RA가 아직 안 쓴 경우, 2026-08-07 현재 전 보고서 해당)
+  토글 자체를 렌더하지 않는다 — 두 버전이 사실상 같은 글자를 두 번 보여주는 혼란을 막기
+  위함이다. 이 경우 기존과 완전히 동일한 단일 렌더링으로 폴백해, RA가 아직 축약본을 쓰지
+  않은 보고서는 오늘 이 변경 이전과 화면이 100% 동일하다.
+
+  ⚠️ "짧은 버전에서는 시사점을 뺀다"는 정책은 RA가 content_short를 작성할 때 직접 반영하는
+  저작 규칙이다 — Report에는 Insight.implication 같은 별도 필드가 없고, 시사점은 각 이슈
+  body 안 마지막 문단으로 자유 서술되는 구조(REPORT-002 "변경 이력 2026-07-29" 절)라
+  템플릿이 "이 문단이 시사점이다"를 구조적으로 판별할 수 없다. RA가 content_short를 쓸 때
+  이슈 body 마지막 시사점 문단을 생략하면 그대로 반영된다.
+{% endcomment %}
 {% if report.content %}
-{% with parsed=report.content|report_issues %}
+{% if report.content_short %}
+<div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-6 mb-4 report-card" x-data="{ version: 'short' }">
+  <div class="flex items-center justify-between gap-3 mb-4">
+    <h2 class="text-sm font-semibold text-gray-900 flex items-center gap-2">
+      <i data-lucide="layers" class="w-4 h-4 text-primary"></i>
+      주요 이슈
+    </h2>
+    <div class="no-print flex items-center gap-1 bg-gray-100 rounded-[10px] p-0.5">
+      <button type="button" @click="version = 'short'"
+              :class="version === 'short' ? 'bg-white text-primary shadow-sm' : 'text-gray-500'"
+              class="text-xs font-medium rounded-[8px] px-3 py-1 transition-colors">짧은 버전</button>
+      <button type="button" @click="version = 'long'"
+              :class="version === 'long' ? 'bg-white text-primary shadow-sm' : 'text-gray-500'"
+              class="text-xs font-medium rounded-[8px] px-3 py-1 transition-colors">긴 버전</button>
+    </div>
+  </div>
+
+  <div x-show="version === 'short'" x-cloak>
+    {% with parsed=report.content_short|report_issues %}
+      {% include "reports/_issues_body.html" %}
+    {% endwith %}
+  </div>
+  <div x-show="version === 'long'" x-cloak>
+    {% with parsed=report.content|report_issues %}
+      {% include "reports/_issues_body.html" %}
+    {% endwith %}
+  </div>
+</div>
+{% else %}
 <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-6 mb-4 report-card">
   <h2 class="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
     <i data-lucide="layers" class="w-4 h-4 text-primary"></i>
     주요 이슈
   </h2>
-
-  {% if parsed.issues %}
-    {% if parsed.preamble %}
-    <div class="markdown-content mb-4">{{ parsed.preamble|markdown }}</div>
-    {% endif %}
-    <div class="space-y-4">
-      {% for issue in parsed.issues %}
-      <div class="bg-gray-50/50 border border-[#E5E5E5] rounded-[10px] p-5 issue-card">
-        <h3 class="flex items-center gap-2.5 text-sm font-semibold text-gray-900 mb-3">
-          <span class="w-6 h-6 flex-shrink-0 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">
-            {{ forloop.counter }}
-          </span>
-          {{ issue.title }}
-        </h3>
-        <div class="markdown-content">{{ issue.body|markdown }}</div>
-        {% if issue.news_list %}
-        <div class="mt-4 pt-3 border-t border-gray-200">
-          <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">참고 뉴스</p>
-          <ul class="space-y-1.5">
-            {% for news in issue.news_list %}
-            {% comment %}
-            화면: 앱 내부 상세(news_detail)로 링크. 인쇄: PDF를 받는 사람은 앱에 접근할 수
-            없으므로 원문 기사(news.url)로 링크를 바꾸고, 아래 줄에 URL 텍스트를 회색·작게
-            병기한다(Microsoft Print to PDF는 하이퍼링크가 죽어 URL 텍스트가 유일한 접근
-            경로가 된다). 프로토콜·www.는 정보 없이 자리만 차지해 cut 필터로 제거한다.
-            {% endcomment %}
-            <li>
-              <a href="{% url 'news_detail' news.uid %}"
-                 class="no-print flex items-baseline justify-between gap-3 text-xs text-gray-600 hover:text-primary transition-colors">
-                <span class="line-clamp-1">{{ news.title }}</span>
-                <span class="text-[11px] text-gray-400 flex-shrink-0">{{ news.published_at|date:"m.d" }}</span>
-              </a>
-              <a href="{{ news.url }}" class="news-link-print text-xs text-gray-600">
-                <span class="flex items-baseline justify-between gap-3">
-                  <span class="break-keep">{{ news.title }}</span>
-                  <span class="text-[11px] text-gray-400 flex-shrink-0">{{ news.published_at|date:"m.d" }}</span>
-                </span>
-                {% comment %}
-                  break-all 필수 — base.html이 전역으로 word-break: keep-all을 걸어서(한국어
-                  어절 단위 줄바꿈) 띄어쓰기 없는 긴 URL이 아예 안 끊긴다. 그대로 두면 종이
-                  폭을 넘어 잘린다. 여기가 전역 규칙의 유일한 예외다.
-                {% endcomment %}
-                <span class="block text-[10px] text-gray-400 mt-0.5 break-all">{{ news.url|cut:"https://www."|cut:"http://www."|cut:"https://"|cut:"http://" }}</span>
-              </a>
-            </li>
-            {% endfor %}
-          </ul>
-        </div>
-        {% endif %}
-      </div>
-      {% endfor %}
-    </div>
-  {% else %}
-    <!-- content에 "### " 구분자가 없는 과거 데이터: 기존 통짜 렌더링으로 폴백 -->
-    <div class="markdown-content">{{ report.content|markdown }}</div>
-  {% endif %}
+  {% with parsed=report.content|report_issues %}
+    {% include "reports/_issues_body.html" %}
+  {% endwith %}
 </div>
-{% endwith %}
+{% endif %}
 {% endif %}
 
 <!-- 빈 상태: 완료 상태인데 본문이 모두 비어있는 경우 -->
