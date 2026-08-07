@@ -31,6 +31,32 @@
     border-radius: 9999px;
   }
   .dashboard-scroll::-webkit-scrollbar-thumb:hover { background-color: #D4D4D4; }
+
+  /* 아코디언 펼침/접힘 애니메이션 (2026-08-07, PD, 사용자 요청 — "부드럽게 열리고 닫히게").
+     헤드라인·주요 이슈 카드에서만 쓴다(이 프로젝트의 다른 x-show는 모달/드롭다운/탭/호버
+     툴팁이라 이 문제와 패턴이 달라 범위에 넣지 않았다 — 판단 근거는 이 블록을 도입한 커밋의
+     PD 응답 참고).
+
+     grid-template-rows: 0fr → 1fr 트릭. 플러그인 없이 순수 CSS로 높이를 애니메이션한다
+     (Alpine x-collapse 플러그인 대신 선택한 이유: base.html은 전체 페이지 공용이라 블라스트
+     반경이 크고, CDN 의존성을 하나 더 늘리고 싶지 않았다). fr 단위 보간을 지원하지 않는
+     구형 브라우저에서는 애니메이션만 없고 즉시 토글로 정상 동작한다(안전한 열화).
+
+     3겹 구조가 필요한 이유: .accordion-collapse(트랙 크기 애니메이션) 안의 실제 콘텐츠에
+     border-top이 있으면(관련 기사 구분선), 그 요소 "자신"의 overflow:hidden으로는 자기
+     테두리가 클리핑되지 않는다(border는 그 요소를 그리는 overflow가 아니라 "부모"의
+     overflow에만 잘린다) — 그래서 border를 가진 콘텐츠는 항상 overflow:hidden인
+     .accordion-collapse__clip의 자식으로 넣어야 접힌 상태에서 1px 테두리가 남지 않는다. */
+  .accordion-collapse {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 200ms ease-out;
+  }
+  .accordion-collapse.is-open { grid-template-rows: 1fr; }
+  .accordion-collapse__clip { overflow: hidden; min-height: 0; }
+  @media (prefers-reduced-motion: reduce) {
+    .accordion-collapse { transition: none; }
+  }
 </style>
 {% endblock %}
 
@@ -112,14 +138,20 @@
   docs/design.md ALL-001 "헤드라인 1열 2행 전환 + 등급 배지 + 시사점 제거 (2026-08-07)"
   절 참고.
 
+  ⚠️ 같은 날 두 번째 갱신 — 아래 2번 "3건 → 2건"은 사용자가 되돌렸다. 세로 스택 전환으로
+  빈 상자 문제가 사라지고 축약본 도입으로 훑기 부담도 줄어, 2건으로 줄인 이유가 모두
+  해소됐다는 판단. `slice:":3"`으로 복귀했고(뷰의 `[:3]` 슬라이스는 PE가 이미 맞춤),
+  이 이력 블록 자체는 "표시 건수 2→3 복귀" 절 이후 서술을 참고. 세로 스택 레이아웃은
+  그대로 유지 — 되돌리지 않는다(1번 항목은 계속 유효).
+
   1. **레이아웃 — 가로 3열 → 세로 2행.** "드롭다운 열었을 때 세로가 너무 길고 불편하다"는
      사용자 지적으로 `flex-col md:flex-row`(데스크톱 3열)를 전 구간 `flex-col`(항상 1열
      세로 스택)로 바꿨다. 위 "좁은 화면 대응" 단락이 설명하는 `md:flex-row` 분기는 더 이상
      없다 — 이제 모든 화면 폭에서 세로다.
-  2. **표시 건수 — 3건 → 2건.** `slice:":3"` → `slice:":2"`. **PM이 "상한(headliner_order
-     지정 상한)과 렌더 상한은 항상 같이 움직인다"고 명문화**했다 — 조항만 고치고 렌더 상한을
-     그대로 두면 안전장치가 조용히 무력해진다. 현재 지정 2건(Insight 46·13)이라 이번
-     변경으로 잘려나가는 카드는 없다.
+  2. **표시 건수 — 3건 → 2건 → 3건(같은 날 재확정, 위 "두 번째 갱신" 참고).** 최종은
+     `slice:":3"`이다. 3→2 전환 당시 근거였던 "PM이 상한과 렌더 상한은 항상 같이 움직인다"
+     명문화는 여전히 유효하며, 이번 3건 복귀에 맞춰 PE가 뷰의 헤드라인 상한도 함께 `[:3]`으로
+     맞췄다.
   3. **가로 stretch 버그가 자동으로 사라진다.** 위 "높이 정렬은 별도 처리가 필요 없다"
      서술이 근거로 들었던 flex 기본 cross-axis stretch(가로 배치일 때 제목이 가장 긴
      카드에 맞춰 나머지가 같은 높이로 늘어나는 현상, 빈 상자를 만드는 원인)는 주축이
@@ -140,6 +172,27 @@
      위함(PM 요청). 색상: 1급 `bg-primary/10 text-primary`, 2급 `bg-teal/10 text-teal`,
      3급 `bg-gray-100 text-gray-500` — 등급이 내려갈수록 채도를 낮춰 "1급이 가장
      강한 신호"라는 위계를 색으로도 드러낸다.
+  7. **표시 건수 — 2건 → 3건 복귀(같은 날 세 번째 갱신).** 위 파일 상단 이력 블록의
+     "두 번째 갱신" 참고 — 세로 스택 전환으로 빈 상자 문제가 사라졌고 축약본 도입으로
+     3건이어도 훑기 부담이 줄어, 애초 2건으로 줄인 이유가 모두 해소됐다는 사용자 판단.
+     `slice:":2"` → `slice:":3"`.
+  8. **헤드라인·주요 이슈 메타 줄에 날짜 표기 추가.** "헤드라인과 주요 이슈 생성 날짜
+     표기하는 게 좋을 것 같아" — 단 표기값은 `Insight.created_at`(RA가 그 이슈를 쓴
+     시각, 배치 재구성 시 전부 같은 날짜가 돼 정보값이 0)이 아니라 `latest_news_at`
+     (근거뉴스 중 최신 발행일, 뷰에서 annotate) 사용. "이 이슈가 언제 일인가"에 답하고,
+     주요 이슈 목록이 이미 이 값 내림차순으로 정렬돼 있어 표시하면 정렬 근거도 함께
+     드러난다. 형식은 최신 뉴스 카드가 이미 쓰는 `m/d`로 통일(상대 표기 "n일 전"은
+     캐시·시점 문제로 배제). 위치는 등급 배지와 "관련 기사 N건" 사이 — 이미 메타
+     정보가 모이는 자리라 새 시각 영역을 만들지 않는다. 접힌 상태에도 항상 보인다 —
+     이 메타 줄(`div.flex.items-center.gap-2.flex-shrink-0`) 자체가 `x-show` 없이
+     버튼 안에 상시 노출되는 요소이기 때문(펼침 여부와 무관, 기존 구조 그대로).
+     ⚠️ **헤드라인은 순서(headliner_order)가 날짜순이 아니다** — 1번 카드가 2번보다
+     날짜가 늦을 수 있다. 이미 등급 배지·순위 숫자 없이 "위치로만" 순서를 드러내는
+     설계라 화면에 숫자 랭킹 표기 자체가 없으므로, 날짜를 더한다고 "1번인데 왜
+     오래됐지"라고 읽힐 새 모순이 생기지 않는다고 판단해 헤드라인·주요 이슈 양쪽에
+     동일한 마크업·스타일(`text-xs text-gray-400`, 기존 "관련 기사 N건"과 같은 톤)을
+     썼다 — 별도로 더 절제된 스타일을 만들지 않음. `latest_news_at`이 없을 때(근거
+     뉴스가 아직 연결 안 된 예외 상황)를 대비해 `{% if %}`로 감싼다.
 {% endcomment %}
 {% if headliners %}
 <div class="mb-8 p-6 rounded-[10px] border border-primary/15 bg-gradient-to-r from-primary/5 via-white to-accent/5">
@@ -149,7 +202,7 @@
     {% info_tooltip "dashboard.headliner" label="헤드라인" %}
   </div>
   <div class="flex flex-col gap-4">
-    {% for headliner in headliners|slice:":2" %}
+    {% for headliner in headliners|slice:":3" %}
     <div class="flex-1 min-w-0 bg-white rounded-[10px] border border-[#E5E5E5] border-l-4 border-l-primary shadow-sm p-5"
          x-data="{ open: false }">
       <button type="button" @click="open = !open" class="flex items-start justify-between gap-3 w-full text-left">
@@ -167,19 +220,57 @@
             아니다(범위·근거는 위 design.md 절 참고) — truncate를 그대로 유지한다.
           {% endcomment %}
           <p class="text-sm font-semibold text-gray-900">{{ headliner.title }}</p>
-          <span x-show="open" x-cloak class="flex items-center gap-2 mt-3 mb-3">
-            <i data-lucide="trending-up" class="w-4 h-4 text-teal"></i>
-            <span class="text-sm font-semibold text-gray-900">분석</span>
-          </span>
-          <p x-show="!open" class="mt-2 text-xs text-gray-500 line-clamp-2">{{ headliner.content }}</p>
           {% comment %}
-            펼침 본문 축약본 전환 (2026-08-07, PD, 사용자 확정) — docs/design.md ALL-001
-            "펼침 내용 축약본 전환 + 시사점 제거" 절 참고. display_content는 축약본, 없으면
-            정본으로 자동 폴백하는 모델 프로퍼티(apps/news/models.py Insight.display_content).
-            접힌 상태 미리보기(바로 위 줄, line-clamp-2)는 이번 변경 대상이 아니다 — 여전히
-            원본 content 필드를 그대로 쓴다(사용자가 "펼치기 전은 괜찮다"고 명시).
+            펼침 애니메이션 전환 (2026-08-07, PD, 사용자 요청 — "부드럽게 열리고 닫히게").
+            x-show(즉시 display 토글)를 grid-template-rows 0fr→1fr CSS 트릭(.accordion-collapse,
+            이 파일 상단 style 블록에 정의)으로 교체했다. x-cloak은 그대로 유지한다(하이드레이션
+            전에는 static class만 있어 이미 collapse 상태라 엄밀히는 불필요하지만, 방어적으로
+            남겨둔다 — 다른 x-show와의 관례 일치).
           {% endcomment %}
-          <div x-show="open" x-cloak class="mt-3 text-sm text-gray-700 leading-relaxed markdown-spacing">{{ headliner.display_content|markdown }}</div>
+          {% comment %}
+            크로스페이드 추가 (2026-08-08, PD, 사용자 피드백 — "컨텐츠가 변경되는 과정에서
+            뚝뚝 끊긴다"). 원인: 높이(accordion-collapse)는 200ms로 움직이는데 미리보기(이
+            <p>)와 본문(분석+display_content)은 여전히 raw x-show/평문이라 전환 없이 즉시
+            교체됐다. 양쪽에 동일한 opacity 전환(200ms)을 걸어 높이 애니메이션과 타이밍을
+            맞춘다 — "같은 자리 겹침" 크로스페이드는 겹치는 동안 grid 트랙 높이가 두 콘텐츠
+            중 더 큰 쪽에 맞춰 요동칠 위험이 있어 배제하고, 미리보기는 그대로 위, 본문은 그
+            아래 자리를 유지한 채 각자 독립적으로 페이드만 추가했다. 접힘 상태 자체
+            (line-clamp-2 등)는 바꾸지 않았다 — 전환 과정만 손댔다. Alpine 코어 내장
+            x-transition:enter/leave(플러그인 아님, 이 프로젝트 모달들이 이미 쓰는 기능)를
+            썼고, motion-reduce:duration-0으로 prefers-reduced-motion에서는 즉시 전환된다.
+          {% endcomment %}
+          <p x-show="!open"
+             x-transition:enter="transition-opacity duration-200 ease-out motion-reduce:duration-0"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition-opacity duration-200 ease-out motion-reduce:duration-0"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="mt-2 text-xs text-gray-500 line-clamp-2">{{ headliner.content }}</p>
+          <div class="accordion-collapse" :class="open ? 'is-open' : ''" x-cloak>
+            <div class="accordion-collapse__clip">
+              <div x-show="open" x-cloak
+                   x-transition:enter="transition-opacity duration-200 ease-out motion-reduce:duration-0"
+                   x-transition:enter-start="opacity-0"
+                   x-transition:enter-end="opacity-100"
+                   x-transition:leave="transition-opacity duration-200 ease-out motion-reduce:duration-0"
+                   x-transition:leave-start="opacity-100"
+                   x-transition:leave-end="opacity-0">
+                <span class="flex items-center gap-2 mt-3 mb-3">
+                  <i data-lucide="trending-up" class="w-4 h-4 text-teal"></i>
+                  <span class="text-sm font-semibold text-gray-900">분석</span>
+                </span>
+                {% comment %}
+                  펼침 본문 축약본 전환 (2026-08-07, PD, 사용자 확정) — docs/design.md ALL-001
+                  "펼침 내용 축약본 전환 + 시사점 제거" 절 참고. display_content는 축약본, 없으면
+                  정본으로 자동 폴백하는 모델 프로퍼티(apps/news/models.py Insight.display_content).
+                  접힌 상태 미리보기(위 line-clamp-2)는 이번 변경 대상이 아니다 — 여전히
+                  원본 content 필드를 그대로 쓴다(사용자가 "펼치기 전은 괜찮다"고 명시).
+                {% endcomment %}
+                <div class="mt-3 text-sm text-gray-700 leading-relaxed markdown-spacing">{{ headliner.display_content|markdown }}</div>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="flex items-center gap-2 flex-shrink-0">
           {% comment %}
@@ -197,6 +288,19 @@
             {{ headliner.get_grade_display }}
           </span>
           {% endif %}
+          {% comment %}
+            날짜 표기 (2026-08-07, PD, 사용자 확정) — Insight.created_at(RA가 이슈를 쓴
+            시각, 배치 재구성 시 전부 동일 날짜라 정보값 0)이 아니라 latest_news_at(근거뉴스
+            중 최신 발행일, 뷰 annotate)을 쓴다. "이 이슈가 언제 일인가"에 답한다. 형식은
+            최신 뉴스 카드와 동일한 m/d. latest_news_at이 없을 수 있어(근거뉴스 미연결
+            예외 상황) {% if %}로 감싼다. ⚠️ 헤드라인 순서는 날짜순이 아니다 — 위치로만
+            우선순위를 드러내는 기존 설계이며 화면에 숫자 랭킹 표기가 없어, 날짜를 더해도
+            "왜 오래된 게 위인가" 류 모순이 새로 생기지 않는다고 판단해 "관련 기사 N건"과
+            동일한 절제된 스타일(text-xs text-gray-400)을 그대로 썼다.
+          {% endcomment %}
+          {% if headliner.latest_news_at %}
+          <span class="text-xs text-gray-400 whitespace-nowrap">{{ headliner.latest_news_at|date:"m/d" }}</span>
+          {% endif %}
           <span class="text-xs text-gray-400 whitespace-nowrap">관련 기사 {{ headliner.news_count }}건</span>
           <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-gray-400 transition-transform" :class="open ? 'rotate-180' : ''"></i>
         </div>
@@ -208,21 +312,32 @@
         몫으로 역할을 나눴다. display_implication은 이 화면에서 더 이상 쓰지 않는다.
         관련 기사 목록은 그대로 유지 — 건수를 줄이지 않는다.
       {% endcomment %}
-      <div x-show="open" x-cloak class="mt-4 pt-4 border-t border-gray-100 space-y-4">
+      {% comment %}
+        펼침 애니메이션 전환 (2026-08-07, PD) — 위 "분석" 블록과 동일 이유·동일 트릭
+        (.accordion-collapse). 이 블록은 border-t가 있어 clip 레이어를 한 겹 더 둔다 — border는
+        그걸 그리는 요소 자신의 overflow로는 클리핑되지 않고 "부모"의 overflow에만 잘리기
+        때문에, border를 가진 실제 콘텐츠를 overflow:hidden인 .accordion-collapse__clip의
+        자식으로 넣어야 접힌 상태에서 1px 테두리가 남지 않는다(이 파일 상단 style 블록 주석 참고).
+      {% endcomment %}
+      <div class="accordion-collapse" :class="open ? 'is-open' : ''" x-cloak>
+        <div class="accordion-collapse__clip">
+          <div class="mt-4 pt-4 border-t border-gray-100 space-y-4">
 
-        <div>
-          <span class="text-xs font-semibold text-gray-900">관련 기사</span>
-          <div class="mt-3 space-y-1.5">
-            {% for news in headliner.news.all %}
-            <a href="{% url 'news_detail' news.uid %}" class="block text-xs text-gray-600 hover:text-primary hover:underline truncate">
-              {{ news.title }}
-            </a>
-            {% empty %}
-            <p class="text-xs text-gray-400">연결된 관련 기사가 없어요.</p>
-            {% endfor %}
+            <div>
+              <span class="text-xs font-semibold text-gray-900">관련 기사</span>
+              <div class="mt-3 space-y-1.5">
+                {% for news in headliner.news.all %}
+                <a href="{% url 'news_detail' news.uid %}" class="block text-xs text-gray-600 hover:text-primary hover:underline truncate">
+                  {{ news.title }}
+                </a>
+                {% empty %}
+                <p class="text-xs text-gray-400">연결된 관련 기사가 없어요.</p>
+                {% endfor %}
+              </div>
+            </div>
+
           </div>
         </div>
-
       </div>
     </div>
     {% endfor %}
@@ -251,17 +366,46 @@
           <button type="button" @click="open = !open" class="flex items-start justify-between gap-3 w-full text-left">
             <div class="flex-1 min-w-0">
               <p class="text-sm font-semibold text-gray-900 truncate">{{ insight.title }}</p>
-              <span x-show="open" x-cloak class="flex items-center gap-2 mt-3 mb-3">
-                <i data-lucide="trending-up" class="w-4 h-4 text-teal"></i>
-                <span class="text-sm font-semibold text-gray-900">분석</span>
-              </span>
-              <p x-show="!open" class="mt-2 text-xs text-gray-500 line-clamp-2">{{ insight.content }}</p>
               {% comment %}
-                펼침 본문 축약본 전환 (2026-08-07, PD) — 헤드라인 카드와 동일 근거·동일 규칙.
-                display_content는 축약본, 없으면 정본으로 자동 폴백(Insight.display_content).
-                접힌 상태 미리보기(바로 위 줄)는 원본 content 그대로 유지한다.
+                펼침 애니메이션 전환 (2026-08-07, PD, 사용자 요청 — "부드럽게 열리고 닫히게").
+                헤드라인 카드와 동일한 .accordion-collapse 트릭(이 파일 상단 style 블록 참고,
+                근거는 헤드라인 카드 쪽 주석과 동일해 여기서는 반복하지 않는다). x-cloak 유지.
               {% endcomment %}
-              <div x-show="open" x-cloak class="mt-3 text-sm text-gray-700 leading-relaxed markdown-spacing">{{ insight.display_content|markdown }}</div>
+              {% comment %}
+                크로스페이드 추가 (2026-08-08, PD) — 헤드라인 카드와 동일 원인·동일 처방
+                (미리보기·본문 양쪽에 opacity 전환 200ms, motion-reduce:duration-0). 근거는
+                헤드라인 카드 쪽 주석 참고, 여기서는 반복하지 않는다.
+              {% endcomment %}
+              <p x-show="!open"
+                 x-transition:enter="transition-opacity duration-200 ease-out motion-reduce:duration-0"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 x-transition:leave="transition-opacity duration-200 ease-out motion-reduce:duration-0"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
+                 class="mt-2 text-xs text-gray-500 line-clamp-2">{{ insight.content }}</p>
+              <div class="accordion-collapse" :class="open ? 'is-open' : ''" x-cloak>
+                <div class="accordion-collapse__clip">
+                  <div x-show="open" x-cloak
+                       x-transition:enter="transition-opacity duration-200 ease-out motion-reduce:duration-0"
+                       x-transition:enter-start="opacity-0"
+                       x-transition:enter-end="opacity-100"
+                       x-transition:leave="transition-opacity duration-200 ease-out motion-reduce:duration-0"
+                       x-transition:leave-start="opacity-100"
+                       x-transition:leave-end="opacity-0">
+                    <span class="flex items-center gap-2 mt-3 mb-3">
+                      <i data-lucide="trending-up" class="w-4 h-4 text-teal"></i>
+                      <span class="text-sm font-semibold text-gray-900">분석</span>
+                    </span>
+                    {% comment %}
+                      펼침 본문 축약본 전환 (2026-08-07, PD) — 헤드라인 카드와 동일 근거·동일 규칙.
+                      display_content는 축약본, 없으면 정본으로 자동 폴백(Insight.display_content).
+                      접힌 상태 미리보기(위 line-clamp-2)는 원본 content 그대로 유지한다.
+                    {% endcomment %}
+                    <div class="mt-3 text-sm text-gray-700 leading-relaxed markdown-spacing">{{ insight.display_content|markdown }}</div>
+                  </div>
+                </div>
+              </div>
             </div>
             <div class="flex items-center gap-2 flex-shrink-0">
               {% comment %}
@@ -276,6 +420,14 @@
                 {{ insight.get_grade_display }}
               </span>
               {% endif %}
+              {% comment %}
+                날짜 표기 (2026-08-07, PD) — 헤드라인 카드와 동일 근거·동일 규칙(latest_news_at,
+                m/d 형식, "관련 기사 N건"과 같은 톤). 이 목록이 이미 latest_news_at 내림차순
+                으로 정렬돼 있어(뷰 order_by), 날짜를 표시하면 정렬 근거도 함께 드러난다.
+              {% endcomment %}
+              {% if insight.latest_news_at %}
+              <span class="text-xs text-gray-400 whitespace-nowrap">{{ insight.latest_news_at|date:"m/d" }}</span>
+              {% endif %}
               <span class="text-xs text-gray-400 whitespace-nowrap">관련 기사 {{ insight.news_count }}건</span>
               <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-gray-400 transition-transform" :class="open ? 'rotate-180' : ''"></i>
             </div>
@@ -286,21 +438,30 @@
             display_implication은 이 화면에서 더 이상 쓰지 않는다. 관련 기사 목록은
             그대로 유지(건수 줄이지 않음).
           {% endcomment %}
-          <div x-show="open" x-cloak class="mt-4 pt-4 border-t border-gray-100 space-y-4">
+          {% comment %}
+            펼침 애니메이션 전환 (2026-08-07, PD) — 헤드라인 카드의 "관련 기사" 블록과 동일한
+            3겹 구조(.accordion-collapse > __clip > border-t 콘텐츠). 이유는 이 파일 상단
+            style 블록 주석과 헤드라인 카드 쪽 주석 참고(border 클리핑 문제).
+          {% endcomment %}
+          <div class="accordion-collapse" :class="open ? 'is-open' : ''" x-cloak>
+            <div class="accordion-collapse__clip">
+              <div class="mt-4 pt-4 border-t border-gray-100 space-y-4">
 
-            <div>
-              <span class="text-xs font-semibold text-gray-900">관련 기사</span>
-              <div class="mt-3 space-y-1.5">
-                {% for news in insight.news.all %}
-                <a href="{% url 'news_detail' news.uid %}" class="block text-xs text-gray-600 hover:text-primary hover:underline truncate">
-                  {{ news.title }}
-                </a>
-                {% empty %}
-                <p class="text-xs text-gray-400">연결된 관련 기사가 없어요.</p>
-                {% endfor %}
+                <div>
+                  <span class="text-xs font-semibold text-gray-900">관련 기사</span>
+                  <div class="mt-3 space-y-1.5">
+                    {% for news in insight.news.all %}
+                    <a href="{% url 'news_detail' news.uid %}" class="block text-xs text-gray-600 hover:text-primary hover:underline truncate">
+                      {{ news.title }}
+                    </a>
+                    {% empty %}
+                    <p class="text-xs text-gray-400">연결된 관련 기사가 없어요.</p>
+                    {% endfor %}
+                  </div>
+                </div>
+
               </div>
             </div>
-
           </div>
         </div>
         {% empty %}

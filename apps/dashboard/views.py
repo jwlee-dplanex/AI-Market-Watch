@@ -285,7 +285,10 @@ def dashboard(request):
     # 근거 뉴스가 0건이면 NULL이 되는데, PostgreSQL은 기본적으로 내림차순에서 NULL을 앞에
     # 놓으므로 nulls_last=True로 뒤로 보낸다. 동률(tie) 대비 -pk를 tie-breaker로 포함
     # (검증된 구현 패턴 5번).
-    # 헤드라인 — RA가 배치마다 직접 지정한 최대 2건(2026-08-06 신설, 08-07 상한 3→2).
+    # 헤드라인 — RA가 배치마다 직접 지정한 최대 3건(2026-08-06 신설. 08-07에 3→2로
+    # 내렸다가 같은 날 3으로 되돌렸다 — 2로 줄인 이유가 "가로 3열에서 하나를 펼치면
+    # 나머지가 빈 상자가 된다"였는데 세로 배치로 바뀌며 사라졌고, 축약본 300자 도입으로
+    # 훑기 부담도 작아졌다).
     # ⚠️ 슬라이스는 정책 상한과 항상 같이 움직인다 — 조항만 고치고 여기를 두면
     # "RA가 4건 지정하는 사고"를 막는 안전장치가 조용히 무력해진다.
     # 후보는 1급 이슈로 한정되고 그 안에서 두 물음(파급 범위 / 실행 단계)으로 고른다.
@@ -295,9 +298,12 @@ def dashboard(request):
     headliners = (
         Insight.objects
         .filter(headliner_order__isnull=False)
-        .annotate(news_count=Count("news"))
+        # latest_news_at은 화면에 "이 이슈가 언제 일인가"를 표기하려고 함께 뽑는다
+        # (2026-08-07). ⚠️ Insight.created_at이 아니다 — 그건 RA가 쓴 시각이라
+        # 재구성·재작성 때 전부 같은 날로 몰려 독자에게 정보가 없다.
+        .annotate(news_count=Count("news"), latest_news_at=Max("news__published_at"))
         .prefetch_related("news")
-        .order_by("headliner_order")[:2]
+        .order_by("headliner_order")[:3]
     )
 
     # ⚠️ 헤드라이너로 뽑힌 건 아래 목록에서 뺀다 — 같은 이슈를 두 번 읽게 하지 않는다
