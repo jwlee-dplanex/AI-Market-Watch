@@ -112,7 +112,8 @@
 <div class="flex h-screen overflow-hidden">
 
   <!-- 사이드바 -->
-  <aside class="w-60 bg-[#401771] flex flex-col flex-shrink-0">
+  <aside class="w-60 bg-[#401771] flex flex-col flex-shrink-0"
+         x-data="{ aboutOpen: false }">
     {% comment %}
       로고 블록 — DPLANEX 워드마크(회사) 위, 제품 이름 아래로 쌓는다(2026-08-05).
 
@@ -169,11 +170,34 @@
       </a>
     </nav>
 
+    {% comment %}
+      서비스 소개 버튼 (2026-08-08, PD, 사용자 요청 — 사이드바 하단 "마지막 수집" 영역
+      위/오른쪽에 버튼). "마지막 수집"(파이프라인 생존 신호, 검증 게이트 예외 3개 중
+      하나 — 그 로직은 이 변경에서 전혀 건드리지 않았다)과 성격이 다른 정적 문서라
+      "붙여 두되 같은 것으로 안 읽히게" 나눴다: ① 별도 border-t로 감싸 독립된 블록으로
+      분리, ② 아이콘+라벨이 있는 클릭 가능한 버튼 스타일(네비게이션 항목과 같은 hover
+      톤)을 써서 "마지막 수집"의 순수 텍스트 상태 표시와 시각적으로 구분. 위치는
+      "마지막 수집" 아래가 아니라 위로 뒀다 — 아래에 두면 "마지막 수집에 달린 부연
+      링크"처럼 읽힐 위험이 더 크다고 판단했다.
+
+      모달 문안·구조는 templates/components/_about_modal.html 참고(별도 파일로 분리한
+      이유도 그 파일 주석에 있다). aboutOpen은 이 <aside>에 새로 연 x-data 스코프.
+    {% endcomment %}
+    <div class="px-3 py-3 border-t border-white/10">
+      <button type="button" @click="aboutOpen = true"
+              class="flex items-center gap-3 px-3 py-2 rounded-[10px] text-xs font-medium text-white/70 hover:bg-white/10 hover:text-white transition-colors w-full">
+        <i data-lucide="info" class="w-4 h-4"></i>
+        서비스 소개
+      </button>
+    </div>
+
     <!-- 하단 수집 상태 -->
     <div class="px-4 py-4 border-t border-white/10">
       <p class="text-xs text-white/40">마지막 수집</p>
       <p class="text-xs text-white/70 mt-0.5">{{ last_collected_at|date:"m/d H:i"|default:"수집 기록 없음" }}</p>
     </div>
+
+    {% include "components/_about_modal.html" %}
   </aside>
 
   <!-- 메인 영역 -->

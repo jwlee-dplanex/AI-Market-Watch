@@ -32,10 +32,11 @@
   }
   .dashboard-scroll::-webkit-scrollbar-thumb:hover { background-color: #D4D4D4; }
 
-  /* 아코디언 펼침/접힘 애니메이션 (2026-08-07, PD, 사용자 요청 — "부드럽게 열리고 닫히게").
-     헤드라인·주요 이슈 카드에서만 쓴다(이 프로젝트의 다른 x-show는 모달/드롭다운/탭/호버
-     툴팁이라 이 문제와 패턴이 달라 범위에 넣지 않았다 — 판단 근거는 이 블록을 도입한 커밋의
-     PD 응답 참고).
+  /* 아코디언 펼침/접힘 애니메이션 — "관련 기사" 블록 전용 (2026-08-07, PD, 사용자 요청 —
+     "부드럽게 열리고 닫히게"). 헤드라인·주요 이슈 본문은 세 번째 구조 변경(2026-08-08,
+     "더보기" 전환, 이 파일 아래 마크업 쪽 주석 참고)으로 이 클래스를 더 이상 쓰지 않는다 —
+     "관련 기사"는 접힘이 진짜 0(관련 기사 유무와 무관하게 버튼을 안 누르면 아예 없는 영역)
+     이라 이 트릭이 여전히 맞는 대상이다.
 
      grid-template-rows: 0fr → 1fr 트릭. 플러그인 없이 순수 CSS로 높이를 애니메이션한다
      (Alpine x-collapse 플러그인 대신 선택한 이유: base.html은 전체 페이지 공용이라 블라스트
@@ -46,7 +47,13 @@
      border-top이 있으면(관련 기사 구분선), 그 요소 "자신"의 overflow:hidden으로는 자기
      테두리가 클리핑되지 않는다(border는 그 요소를 그리는 overflow가 아니라 "부모"의
      overflow에만 잘린다) — 그래서 border를 가진 콘텐츠는 항상 overflow:hidden인
-     .accordion-collapse__clip의 자식으로 넣어야 접힌 상태에서 1px 테두리가 남지 않는다. */
+     .accordion-collapse__clip의 자식으로 넣어야 접힌 상태에서 1px 테두리가 남지 않는다.
+
+     ⚠️ duration·easing을 200ms ease-out으로 되돌렸다(250ms ease-in-out은 폐기) — 250ms
+     ease-in-out은 헤드라인/주요 이슈 본문이 미리보기와 "반대 방향으로 동시에" 움직이던
+     시절, 그 급출발을 완화하려던 임시 처방이었다. 그 구조 자체가 없어졌으니 "관련 기사"가
+     원래 매끄럽다고 검증됐던 값(200ms ease-out)으로 되돌리는 게 맞다 — 오히려 이 값 쪽이
+     더 먼저 검증된 값이라 안전하다. */
   .accordion-collapse {
     display: grid;
     grid-template-rows: 0fr;
@@ -54,6 +61,7 @@
   }
   .accordion-collapse.is-open { grid-template-rows: 1fr; }
   .accordion-collapse__clip { overflow: hidden; min-height: 0; }
+
   @media (prefers-reduced-motion: reduce) {
     .accordion-collapse { transition: none; }
   }
@@ -204,8 +212,10 @@
   <div class="flex flex-col gap-4">
     {% for headliner in headliners|slice:":3" %}
     <div class="flex-1 min-w-0 bg-white rounded-[10px] border border-[#E5E5E5] border-l-4 border-l-primary shadow-sm p-5"
-         x-data="{ open: false }">
-      <button type="button" @click="open = !open" class="flex items-start justify-between gap-3 w-full text-left">
+         x-data="{ open: false, fullHeight: 0, closedHeight: 28, clamped: true }">
+      <button type="button"
+              @click="open = !open; if (open) { clamped = false } else if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { clamped = true }"
+              class="flex items-start justify-between gap-3 w-full text-left">
         <div class="flex-1 min-w-0">
           {% comment %}
             제목 truncate 제거(2026-08-06, PD, 사용자 요청) — docs/design.md ALL-001
@@ -221,54 +231,151 @@
           {% endcomment %}
           <p class="text-sm font-semibold text-gray-900">{{ headliner.title }}</p>
           {% comment %}
-            펼침 애니메이션 전환 (2026-08-07, PD, 사용자 요청 — "부드럽게 열리고 닫히게").
-            x-show(즉시 display 토글)를 grid-template-rows 0fr→1fr CSS 트릭(.accordion-collapse,
-            이 파일 상단 style 블록에 정의)으로 교체했다. x-cloak은 그대로 유지한다(하이드레이션
-            전에는 static class만 있어 이미 collapse 상태라 엄밀히는 불필요하지만, 방어적으로
-            남겨둔다 — 다른 x-show와의 관례 일치).
+            펼침 애니메이션 — "더보기" 구조로 전환 (2026-08-08, PD, 사용자 결정). docs/design.md
+            ALL-001 "펼침 애니메이션" 절 참고.
+
+            이전 두 구조(① content 미리보기 vs display_content 본문을 opacity로 교체, ②
+            .accordion-collapse-reverse 역방향 트랙으로 교체)는 "서로 다른 두 글을 맞바꾸는"
+            구조라 트랙 두 개가 동시에 반대 방향으로 움직여야 했다 — 그게 "속이 울렁거린다"는
+            피드백의 원인이었다. RA가 55건 전체 축약본(content_short)을 채운 지금은 미리보기·
+            본문을 같은 display_content 하나로 통일할 수 있어, 접힘=1줄·펼침=전체를 보여주는
+            진짜 "더보기"로 바꿨다 — 트랙이 하나, 방향도 하나(자라기만 함)라 반대 방향 동시
+            진행 자체가 구조적으로 없다.
+
+            구현 — grid-template-rows 0fr→1fr는 이번엔 못 쓴다: 접힘이 0이 아니라 "1줄"이라
+            fr 단위와 길이 단위가 서로 보간되지 않는다(전환 없이 순간 전환됨). 대신 max-height
+            전환을 쓰되, 카드마다 다른 본문 길이에 맞춰 Alpine이 x-init에서
+            $refs.body.scrollHeight로 "펼친 실제 높이"를 한 번 측정해 fullHeight에 저장한다
+            (정적 서버 렌더 콘텐츠라 재계산 불필요 — 이 블록은 HTMX로 다시 그려지지 않는다).
+            고정 상한값(예: 500px) 방식은 채택하지 않았다 — 실제 높이보다 훨씬 크면 애니메이션이
+            중간에 목표 높이에 먼저 도달해버려 나머지 구간 동안 아무 변화 없이 "뚝 멈춘 것처럼"
+            보인다. 접힘 높이는 text-sm leading-relaxed 1줄의 실제 라인하이트(14px × 1.625 ≈
+            22.75px)에 여유를 둔 24px(Tailwind max-h-6)로 고정한다.
+            ⚠️ 정정(2026-08-08, 코디네이터 지적) — 이 24px 값은 static class(max-h-6, 하이드레이션
+            전 기본값)와 :style 바인딩(24, 하이드레이션 후 값) 두 자리에 나뉘어 있다 — "한
+            군데만 갖고 있다"는 이전 서술은 틀렸다. 두 자리가 항상 같은 숫자를 가리켜야
+            하고, 그 숫자가 정확히 "1줄 높이"이려면 이 값이 걸린 요소 안에 패딩·테두리가
+            전혀 없어야 한다(border-box라 패딩·테두리가 24px 예산을 갉아먹는다) — 실제로
+            한 번 이 규칙이 깨져 회귀가 났다(아래 "회귀 수정" 주석 참고). 새 스타일을 추가할
+            때는 반드시 아래 2단 구조(바깥 고정 여백/테두리, 안쪽은 콘텐츠만)를 유지한다.
+
+            duration·easing은 200ms ease-out(motion-reduce에서 transition-none)으로 뒀다 —
+            반대 방향 동시 진행이라는 울렁임의 구조적 원인이 사라졌으므로, 원래 요청 범위
+            (150~250ms)로 되돌렸다.
+
+            x-cloak을 붙이지 않았다 — 하이드레이션 전에도 static class(overflow-hidden
+            max-h-6)가 이미 "닫힘" 상태와 정확히 같은 모습이라 display:none으로 통째로 숨길
+            필요가 없다(오히려 x-cloak을 붙이면 하이드레이션 전 미리보기가 아예 안 보이는
+            더 나쁜 상태가 된다). 이 판단은 이 요소에 한정된다 — x-show를 쓰는 다른 요소
+            ("관련 기사" 등)의 x-cloak은 손대지 않았다.
+
+            ⚠️ 알려진 한계 — fullHeight 측정은 페이지 로드 시 1회뿐이고, 이 세션에는 브라우저
+            실행 도구가 없어 실측 확인은 못 했다. 이론상 Tailwind Play CDN의 스타일 주입이
+            Alpine 초기화보다 늦게 끝나면 측정값이 살짝 어긋날 수 있어(폰트/줄높이 미적용
+            상태에서 측정) $nextTick으로 한 틱 늦춰 위험을 낮췄다 — 완전한 보장은 아니다.
           {% endcomment %}
           {% comment %}
-            크로스페이드 추가 (2026-08-08, PD, 사용자 피드백 — "컨텐츠가 변경되는 과정에서
-            뚝뚝 끊긴다"). 원인: 높이(accordion-collapse)는 200ms로 움직이는데 미리보기(이
-            <p>)와 본문(분석+display_content)은 여전히 raw x-show/평문이라 전환 없이 즉시
-            교체됐다. 양쪽에 동일한 opacity 전환(200ms)을 걸어 높이 애니메이션과 타이밍을
-            맞춘다 — "같은 자리 겹침" 크로스페이드는 겹치는 동안 grid 트랙 높이가 두 콘텐츠
-            중 더 큰 쪽에 맞춰 요동칠 위험이 있어 배제하고, 미리보기는 그대로 위, 본문은 그
-            아래 자리를 유지한 채 각자 독립적으로 페이드만 추가했다. 접힘 상태 자체
-            (line-clamp-2 등)는 바꾸지 않았다 — 전환 과정만 손댔다. Alpine 코어 내장
-            x-transition:enter/leave(플러그인 아님, 이 프로젝트 모달들이 이미 쓰는 기능)를
-            썼고, motion-reduce:duration-0으로 prefers-reduced-motion에서는 즉시 전환된다.
+            간격·구분·말줄임 재조정 (2026-08-08, PD, 사용자 확정 3건 — 코디네이터가 "②③④는
+            한 원리"로 묶어 전달). docs/design.md ALL-001 절 참고.
+
+            ② 간격을 더 좁게 + ③ 제목-본문을 더 구분되게 — 두 요청은 "거리"만으로 풀면
+            정면 충돌한다(좁히면서 동시에 벌릴 수 없다). 그래서 축을 분리했다: 거리는
+            mt-5(20px) → mt-2(8px)로 확실히 좁히고, 구분은 거리 대신 "관련 기사" 블록이
+            이미 쓰는 기존 패턴(pt-* + border-t border-gray-100 얇은 구분선, 0-1 확인 완료
+            — 새 시각 요소를 만들지 않음)을 재사용했다. 제목 서식은 "주요 이슈"와 완전히
+            동일해야 한다는 기존 확정(2026-08-06)이 있어 손대지 않았다 — 구분 축을 본문
+            쪽(구분선)에 둔 이유가 이것이다. border-top은 이 wrapper 자신의 위쪽 가장자리에
+            고정돼 있어(max-height가 아래쪽만 늘고 주는 방식이라 위 가장자리는 애초에
+            움직이지 않는다) 접힘 높이 0 근처에서만 문제였던 "자기 overflow로는 자기 테두리가
+            안 잘린다" 이슈가 여기선 발생하지 않는다.
+
+            ① 말줄임을 네이티브로 전환 — 코디네이터 지적대로 우하단 고정 배지(전 라운드)는
+            "박스의 끝"에 있어 "글의 끝"과 안 맞았다. 네이티브 -webkit-line-clamp(이 프로젝트
+            다른 line-clamp 자리와 동일 메커니즘, 0-1 확인 완료)로 교체해 원천적으로 글 끝에
+            붙게 했다 — 대신 배지(그라디언트+···)는 완전히 제거했다(네이티브가 이미 하는 일을
+            중복할 이유가 없음).
+
+            리플로우 우려(코디네이터 지적) — line-clamp 자체는 애니메이션이 안 되지만, "접힘
+            상태에서만 존재하면 된다"는 지적대로 clamped 상태를 열림 애니메이션 구간 밖에
+            뒀다: 펼칠 때는 open과 같은 틱에 clamped=false(라인클램프 즉시 해제) → 이 순간
+            wrapper의 max-height는 아직 24px 그대로라 해제로 인한 리플로우가 24px 클립 안에
+            숨어 안 보인다. 접을 때는 clamped를 즉시 true로 되돌리지 않고 max-height 축소
+            트랜지션이 끝나는 @transitionend까지 기다린다(이미 24px로 다 줄어든 뒤에
+            reflow하므로 박스 크기 변화가 없다) — $event.propertyName으로 max-height
+            전환에만 반응하도록 필터링했다(같은 wrapper 안 다른 transition과 섞이지 않게).
+            reduced-motion에서는 transitionend가 아예 안 튄다(전환 자체가 없어서) — 그래서
+            버튼 클릭 핸들러에서 matchMedia로 감지해 그 경우엔 닫는 즉시 동기적으로
+            clamped=true를 되돌린다(코디네이터 지적을 계기로 발견, 별도 요청은 아니었지만
+            리듀스드모션에서 "…" 표시가 영영 안 돌아오는 걸 막기 위한 보정).
+
+            x-show/x-transition을 새로 추가하지 않았다 — line-clamp 토글은 :class 객체
+            바인딩(정적 기본 클래스 유지 + Alpine이 true/false로 존재 여부만 관리)이라 별도
+            enter/leave 라이프사이클이 없다.
           {% endcomment %}
-          <p x-show="!open"
-             x-transition:enter="transition-opacity duration-200 ease-out motion-reduce:duration-0"
-             x-transition:enter-start="opacity-0"
-             x-transition:enter-end="opacity-100"
-             x-transition:leave="transition-opacity duration-200 ease-out motion-reduce:duration-0"
-             x-transition:leave-start="opacity-100"
-             x-transition:leave-end="opacity-0"
-             class="mt-2 text-xs text-gray-500 line-clamp-2">{{ headliner.content }}</p>
-          <div class="accordion-collapse" :class="open ? 'is-open' : ''" x-cloak>
-            <div class="accordion-collapse__clip">
-              <div x-show="open" x-cloak
-                   x-transition:enter="transition-opacity duration-200 ease-out motion-reduce:duration-0"
-                   x-transition:enter-start="opacity-0"
-                   x-transition:enter-end="opacity-100"
-                   x-transition:leave="transition-opacity duration-200 ease-out motion-reduce:duration-0"
-                   x-transition:leave-start="opacity-100"
-                   x-transition:leave-end="opacity-0">
-                <span class="flex items-center gap-2 mt-3 mb-3">
-                  <i data-lucide="trending-up" class="w-4 h-4 text-teal"></i>
-                  <span class="text-sm font-semibold text-gray-900">분석</span>
-                </span>
-                {% comment %}
-                  펼침 본문 축약본 전환 (2026-08-07, PD, 사용자 확정) — docs/design.md ALL-001
-                  "펼침 내용 축약본 전환 + 시사점 제거" 절 참고. display_content는 축약본, 없으면
-                  정본으로 자동 폴백하는 모델 프로퍼티(apps/news/models.py Insight.display_content).
-                  접힌 상태 미리보기(위 line-clamp-2)는 이번 변경 대상이 아니다 — 여전히
-                  원본 content 필드를 그대로 쓴다(사용자가 "펼치기 전은 괜찮다"고 명시).
-                {% endcomment %}
-                <div class="mt-3 text-sm text-gray-700 leading-relaxed markdown-spacing">{{ headliner.display_content|markdown }}</div>
-              </div>
+          {% comment %}
+            ⚠️ 회귀 수정 1 (2026-08-08, PD, 코디네이터 지적) — border-t·pt-2를 max-h-6이
+            걸린 "애니메이션 상자"와 같은 요소에 뒀더니, Tailwind의 box-sizing:border-box
+            때문에 max-height가 그 패딩·테두리까지 포함해버려 실제 글자 몫이 줄어 접힘 1줄이
+            잘려 보이는 회귀가 났다. mt-7을 바깥으로 뺐던 것과 같은 원인·같은 처방 —
+            **규칙①: 접힘 예산(max-height)을 쓰는 상자 안에는 여백·테두리를 절대 넣지
+            않는다(이 유형 두 번째 — mt-7에 이어 pt-2/border-t).** 새 스타일을 추가할 땐
+            반드시 "바깥(고정 여백·테두리) / 안(애니메이션 전용, 콘텐츠만)" 2단 구조를
+            유지한다. mt-2/pt-2/border-t는 바깥의 항상-고정 wrapper로 뺐다.
+
+            ⚠️ 회귀 수정 2 (2026-08-08, PD, 코디네이터 재지적) — 패딩을 빼도 24px 자체가
+            아슬아슬했다: text-sm leading-relaxed 1줄의 계산값 22.75px와 24px의 여유가
+            1.25px뿐이라 폰트 로딩 타이밍·줄높이 반올림·브라우저 차이만 어긋나도 다시
+            잘린다. **규칙②: 접힘 높이를 계산으로 맞히지 않는다 — "22.75px이니 24px면
+            되겠지"가 실제로 틀렸다.** fullHeight(펼침)를 scrollHeight로 실측하는 것과
+            같은 이유로 closedHeight(접힘)도 실측한다.
+
+            ⚠️ 회귀 수정 3 (2026-08-08, PD, 코디네이터 재지적) — 처음엔 접힘도 scrollHeight로
+            재서 "펼침=전체가 그대로 보이는" 회귀가 또 났다. 원인 정정: -webkit-line-clamp는
+            "보이는" 높이만 줄이고, scrollHeight는 클램프 여부와 무관하게 항상 잘리기 전
+            전체 콘텐츠 높이를 돌려준다 — 그래서 클램프를 붙인 채로 재도 fullHeight와 같은
+            값이 나왔다(바로 위 문단의 "scrollHeight가 클램프된 높이를 보고한다"는 서술은
+            틀렸다, 정정함). 올바른 속성은 clientHeight다 — 이건 실제 레이아웃 박스의
+            렌더링된 높이라 클램프가 걸리면 진짜로 줄어든다. 그래서 fullHeight는
+            scrollHeight(클램프 해제 상태, 손대지 않음)로, closedHeight는
+            clientHeight(클램프 적용 상태)로 서로 다른 속성을 쓴다. ⚠️ clientHeight는
+            패딩을 포함하고 테두리는 제외한다 — 지금 x-ref="body"엔 패딩·테두리가 전혀
+            없어(둘 다 바깥 wrapper로 뺐다, 위 "회귀 수정 1") 그대로 맞지만, 나중에 이
+            요소 자체에 패딩이 생기면 다시 어긋난다. $nextTick 콜백 한 번 안에서
+            라인클램프를 뗐다 붙이므로 중간 상태가 화면에 별도로 그려지지 않는다.
+
+            static 기본 클래스는 max-h-6(24px)에서 max-h-7(28px)로 살짝 넉넉하게 올렸다 —
+            측정값이 들어오기 전(하이드레이션~$nextTick 사이) "잘려도 되니 일단 닫혀
+            보이게" 하는 최소 보험이다. clientHeight 실측값(대략 22~24px대)보다 28이 더
+            크므로, 실측 전 잠깐 보이는 순간은 "1줄보다 살짝 여유 있게"이지 "잘림"은 아니다
+            — 안전한 방향의 오차만 남는다. x-data 초기값 closedHeight도 28로 맞춰 static
+            class와 :style이 하이드레이션 직후 같은 숫자를 가리키게 했다(측정 완료 즉시
+            실제 값으로 갱신).
+          {% endcomment %}
+          {% comment %}
+            간격 재조정 2차·3차 (2026-08-08, PD, 사용자 피드백). 2차: "조금만 더 넓게" —
+            17px(mt-2+border 1px+pt-2)에서 mt-3(총 21px)로 올렸었다. 3차: "아주 조금만
+            더"라며 21px도 과하다는 정정 — 20px을 넘기지 말라는 기준으로 mt-2.5(Tailwind
+            0.625rem=10px)로 다시 낮췄다. 최종 총합 10+1+8=19px. 8/7 "붙어있다"(12px)와
+            8/8 "멀다"(28px) 사이, 그리고 "괜찮았던" mt-5(20px) 바로 아래 착지점이다.
+            위/아래 배분은 그대로 위쪽(제목→구분선)에 살짝 더 여유(10px)를, 아래쪽
+            (구분선→본문)은 타이트하게(8px) 유지했다 — 제목이 굵은 글자라 그 아래 숨
+            쉴 공간이 좀 더 필요하다는 판단, 본문은 구분선에 가깝게 둬 "가까운 건
+            가깝게"(②) 기조 유지. 이 wrapper는 overflow-hidden이 걸린 애니메이션 상자
+            밖에 있어(위 "회귀 수정 1" 참고) 이번 조정도 접힘 예산에 영향을 주지 않는다.
+          {% endcomment %}
+          <div class="mt-2.5 pt-2 border-t border-gray-100">
+            <div class="overflow-hidden max-h-7 transition-[max-height] duration-200 ease-out motion-reduce:transition-none"
+                 x-init="$nextTick(() => {
+                   const el = $refs.body;
+                   el.classList.remove('line-clamp-1');
+                   fullHeight = el.scrollHeight;
+                   el.classList.add('line-clamp-1');
+                   closedHeight = el.clientHeight;
+                 })"
+                 :style="{ maxHeight: (open ? fullHeight : closedHeight) + 'px' }"
+                 @transitionend="if ($event.propertyName === 'max-height' && !open) clamped = true">
+              <div x-ref="body" class="text-sm text-gray-700 leading-relaxed markdown-spacing line-clamp-1"
+                   :class="{ 'line-clamp-1': clamped }">{{ headliner.display_content|markdown }}</div>
             </div>
           </div>
         </div>
@@ -360,50 +467,73 @@
         <h2 class="text-sm font-semibold text-gray-900">주요 이슈</h2>
         {% info_tooltip "dashboard.insights" label="주요 이슈" %}
       </div>
+      {% comment %}
+        이슈 간 구분 강화 (2026-08-08, PD, 사용자 요청 — "이슈별로 구분이 잘 안 가 가독성이
+        안 좋다"). 항목마다 이미 자체 border가 있었지만 border-gray-100(#F3F4F6)이 너무
+        옅어 스크롤 목록(20건)에서 경계가 잘 안 읽혔다. 새 시각 요소를 만들지 않고 이 프로젝트
+        디자인 시스템에 이미 있는 두 토큰만 썼다(0-1 확인) — ① 카드 표준 테두리 색
+        border-[#E5E5E5](이 페이지 다른 흰 카드들과 동일 토큰, gray-100보다 진함), ②
+        "카드는 bg-white shadow-sm" 컴포넌트 규칙(지금까지 이 항목엔 shadow가 없었다). 헤드라인
+        (그라디언트 트레이+p-6+mb-8+좌측 색 보더)보다 훨씬 약한 신호라 위계는 유지된다.
+      {% endcomment %}
+      {% comment %}
+        헤드라인 카드 비율 이식 (2026-08-08, PD, 사용자 확정 — 헤드라인 카드를 유일하게
+        "좋다"고 명시). 기준은 값이 아니라 비율(바깥 패딩 : 제목-본문 간격 : 카드 간
+        여백) — 헤드라인은 p-5(20px) : 19px(mt-2.5+border+pt-2) : gap-4(16px). 제목-본문
+        간격(19px)과 카드 간 여백(space-y-4=16px, 아래 참고)은 이미 헤드라인과 정확히
+        같은 값이라 손댈 게 없었다 — 이번에 남은 건 바깥 패딩 하나(p-4→p-5)뿐이다.
+        border-l-4 border-l-primary·그라디언트 트레이는 헤드라인 전용 위계 신호라 옮기지
+        않았다(그대로 유지 지시).
+
+        "좁은 열이라 숫자를 그대로 복사하는 게 최선이 아닐 수 있다"는 점을 검토했다 —
+        하지만 폰트 크기·줄높이(text-sm/text-xs, leading-relaxed)는 컬럼 폭과 무관하게
+        고정값이라, 폭이 좁다고 해서 "제목-본문 간격 19px"이 상대적으로 더 커 보이거나
+        하지 않는다(칼럼이 좁아지는 건 가로 방향뿐, 세로 여백감은 그대로 비교 가능).
+        그래서 값을 줄이지 않고 그대로 이식했다.
+
+        스크롤 밀도 손실 — p-4→p-5로 항목당 세로 높이가 약 8px(위+아래 각 4px) 늘어난다.
+        max-h-[40rem](640px) 스크롤 영역 기준 대략 한 화면에 보이는 항목 수가 1건 정도
+        줄어드는 수준(약 6~7%)으로 추정된다 — 크지 않다고 판단해 진행했지만, 체감이
+        다르면 알려달라.
+
+        space-y-4(항목 간 바깥 여백)는 이번에도 건드리지 않았다 — 이미 헤드라인의
+        gap-4와 같은 값이라 이식할 게 없다.
+      {% endcomment %}
       <div class="flex-1 min-h-0 overflow-y-auto dashboard-scroll space-y-4 pr-1">
         {% for insight in insights %}
-        <div class="border border-gray-100 rounded-[10px] p-4 hover:border-primary/30 transition-colors" x-data="{ open: false }">
-          <button type="button" @click="open = !open" class="flex items-start justify-between gap-3 w-full text-left">
+        <div class="bg-white border border-[#E5E5E5] shadow-sm rounded-[10px] p-5 hover:border-primary/30 transition-colors" x-data="{ open: false, fullHeight: 0, closedHeight: 28, clamped: true }">
+          <button type="button"
+                  @click="open = !open; if (open) { clamped = false } else if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { clamped = true }"
+                  class="flex items-start justify-between gap-3 w-full text-left">
             <div class="flex-1 min-w-0">
               <p class="text-sm font-semibold text-gray-900 truncate">{{ insight.title }}</p>
               {% comment %}
-                펼침 애니메이션 전환 (2026-08-07, PD, 사용자 요청 — "부드럽게 열리고 닫히게").
-                헤드라인 카드와 동일한 .accordion-collapse 트릭(이 파일 상단 style 블록 참고,
-                근거는 헤드라인 카드 쪽 주석과 동일해 여기서는 반복하지 않는다). x-cloak 유지.
+                펼침 애니메이션 — "더보기" 구조로 전환 (2026-08-08, PD) — 헤드라인 카드와
+                동일한 원인·동일 처방(display_content 하나로 통일, max-height + Alpine
+                scrollHeight 측정). 근거는 헤드라인 카드 쪽 주석 참고, 여기서는 반복하지
+                않는다. x-cloak을 붙이지 않은 이유도 동일.
               {% endcomment %}
               {% comment %}
-                크로스페이드 추가 (2026-08-08, PD) — 헤드라인 카드와 동일 원인·동일 처방
-                (미리보기·본문 양쪽에 opacity 전환 200ms, motion-reduce:duration-0). 근거는
-                헤드라인 카드 쪽 주석 참고, 여기서는 반복하지 않는다.
+                간격·구분·말줄임 재조정 + 회귀 수정 1·2·3 + 간격 재조정 2·3차 (2026-08-08, PD)
+                — 헤드라인 카드와 동일 근거·동일 값(mt-2.5 pt-2 border-t 구분선 —
+                overflow-hidden 박스 밖으로 뺀 고정 wrapper, closedHeight는 clientHeight로
+                실측 — scrollHeight는 line-clamp를 무시하고 항상 전체 높이를 돌려줘 접힘이
+                안 먹는 회귀가 났었다, static max-h-7). 근거는 헤드라인 카드 쪽 주석 참고,
+                여기서는 반복하지 않는다.
               {% endcomment %}
-              <p x-show="!open"
-                 x-transition:enter="transition-opacity duration-200 ease-out motion-reduce:duration-0"
-                 x-transition:enter-start="opacity-0"
-                 x-transition:enter-end="opacity-100"
-                 x-transition:leave="transition-opacity duration-200 ease-out motion-reduce:duration-0"
-                 x-transition:leave-start="opacity-100"
-                 x-transition:leave-end="opacity-0"
-                 class="mt-2 text-xs text-gray-500 line-clamp-2">{{ insight.content }}</p>
-              <div class="accordion-collapse" :class="open ? 'is-open' : ''" x-cloak>
-                <div class="accordion-collapse__clip">
-                  <div x-show="open" x-cloak
-                       x-transition:enter="transition-opacity duration-200 ease-out motion-reduce:duration-0"
-                       x-transition:enter-start="opacity-0"
-                       x-transition:enter-end="opacity-100"
-                       x-transition:leave="transition-opacity duration-200 ease-out motion-reduce:duration-0"
-                       x-transition:leave-start="opacity-100"
-                       x-transition:leave-end="opacity-0">
-                    <span class="flex items-center gap-2 mt-3 mb-3">
-                      <i data-lucide="trending-up" class="w-4 h-4 text-teal"></i>
-                      <span class="text-sm font-semibold text-gray-900">분석</span>
-                    </span>
-                    {% comment %}
-                      펼침 본문 축약본 전환 (2026-08-07, PD) — 헤드라인 카드와 동일 근거·동일 규칙.
-                      display_content는 축약본, 없으면 정본으로 자동 폴백(Insight.display_content).
-                      접힌 상태 미리보기(위 line-clamp-2)는 원본 content 그대로 유지한다.
-                    {% endcomment %}
-                    <div class="mt-3 text-sm text-gray-700 leading-relaxed markdown-spacing">{{ insight.display_content|markdown }}</div>
-                  </div>
+              <div class="mt-2.5 pt-2 border-t border-gray-100">
+                <div class="overflow-hidden max-h-7 transition-[max-height] duration-200 ease-out motion-reduce:transition-none"
+                     x-init="$nextTick(() => {
+                       const el = $refs.body;
+                       el.classList.remove('line-clamp-1');
+                       fullHeight = el.scrollHeight;
+                       el.classList.add('line-clamp-1');
+                       closedHeight = el.clientHeight;
+                     })"
+                     :style="{ maxHeight: (open ? fullHeight : closedHeight) + 'px' }"
+                     @transitionend="if ($event.propertyName === 'max-height' && !open) clamped = true">
+                  <div x-ref="body" class="text-sm text-gray-700 leading-relaxed markdown-spacing line-clamp-1"
+                       :class="{ 'line-clamp-1': clamped }">{{ insight.display_content|markdown }}</div>
                 </div>
               </div>
             </div>
@@ -484,10 +614,23 @@
         </h2>
         <a href="{% url 'news_list' %}" class="text-xs text-primary hover:underline">전체 보기</a>
       </div>
-      <div class="flex-1 min-h-0 overflow-y-auto dashboard-scroll space-y-3 pr-1">
+      {% comment %}
+        토큰 정리 (2026-08-08, PD, 사용자 확정 이식의 연장) — 주요 이슈 항목과 같은 옛
+        토큰(border-gray-100·그림자 없음·p-3·space-y-3)을 쓰고 있었다. 표준 테두리
+        border-[#E5E5E5]·shadow-sm·bg-white(카드 컴포넌트 규칙, 0-1 재확인)로 맞추고,
+        space-y-3→space-y-4로 카드 간 여백도 헤드라인·주요 이슈와 통일했다(이 축은
+        늘려도 항목 "안" 높이가 아니라 항목 "사이" 간격만 커져 스크롤 밀도에 미치는
+        영향이 작다 — 4px×19건 ≈ 76px, 화면 기준 1건이 안 되는 손실).
+
+        패딩은 p-3→p-5(헤드라인과 동일)를 쓰지 않고 p-3→p-4(한 단계)만 올렸다 — 이
+        항목은 제목 2줄(line-clamp-2) + 날짜 한 줄뿐이라 주요 이슈(제목+구분선+본문)
+        보다 정보량이 가볍다. 두 단계를 다 올리면 내용에 비해 여백만 헐거워 보일
+        위험이 있어, 내용량에 비례해 보수적으로 한 단계만 올렸다.
+      {% endcomment %}
+      <div class="flex-1 min-h-0 overflow-y-auto dashboard-scroll space-y-4 pr-1">
         {% for news in latest_news %}
         <a href="{% url 'news_detail' news.uid %}"
-           class="block border border-gray-100 rounded-[10px] p-3 hover:border-primary/30 hover:bg-gray-50 transition-colors">
+           class="block bg-white border border-[#E5E5E5] shadow-sm rounded-[10px] p-4 hover:border-primary/30 hover:bg-gray-50 transition-colors">
           <p class="text-xs font-medium text-gray-900 line-clamp-2">{{ news.title }}</p>
           <p class="text-xs text-gray-400 mt-1.5">{{ news.published_at|date:"m/d" }}</p>
         </a>

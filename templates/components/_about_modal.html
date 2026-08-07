@@ -1,0 +1,113 @@
+{% comment %}
+  서비스 소개 모달 (전역 컴포넌트, 별도 화면 ID 없음 — 2026-08-08, PD, 사용자 요청).
+  base.html의 <aside>(x-data="{ aboutOpen: false }")에서 include된다 — 이 파일은
+  x-data를 새로 열지 않고 부모 스코프의 aboutOpen을 그대로 쓴다.
+
+  기존 모달 패턴 재사용(0-1 확인) — 두 계열을 합쳤다. 오버레이 뼈대(fixed inset-0
+  bg-black/40 z-50 flex items-center justify-center, x-show+x-cloak+x-transition,
+  @click.stop으로 내부 클릭 버블링 차단)는 setting/organizations.html 등 추가/수정
+  모달 3곳과 동일. 배경 클릭으로 닫히는 것은 news/_list.html·news/detail.html의 삭제
+  확인 모달과 동일 — 이 모달은 내용이 길어 "어떻게든 쉽게 닫을 수 있어야" 해서 배경
+  클릭·Esc·X 버튼 세 가지를 다 지원한다.
+
+  형태 판단 — 모달(중앙 오버레이 + 본문 내부 스크롤)을 골랐다. 슬라이드 패널(graph
+  엣지 패널이 후보였음)은 그래프 화면 자체의 고정 우측 컬럼 레이아웃에 종속돼 있어
+  전 화면 공용 컴포넌트로 그대로 옮길 수 없다 — 새 전역 레이아웃 골격을 만드는 대신
+  이미 3번 검증된 모달 패턴을 재사용하는 쪽이 base.html 변경을 최소화한다. 본문에
+  max-h-[85vh] + overflow-y-auto를 준 이유는 호버 툴팁을 배제한 이유와 같다 — 스크롤과
+  텍스트 선택이 가능해야 한다.
+
+  절 이동 — 절 제목 5개 각각에 id를 달고, 상단에 같은 순서·문구의 앵커 링크 5개를
+  뒀다. 스크롤 컨테이너 안에서도 <a href="#...">는 브라우저 네이티브 동작으로 그대로
+  작동해 별도 JS가 필요 없다.
+
+  ⚠️ 문안 톤 정정 (2026-08-08, PD, 코디네이터 재지시) — 최초 버전은 사용자가 준 원문
+  (보고서 초안 형태: "추진배경"·"서비스 개요" 같은 절 이름, "~함"/"~어려움" 개조식
+  종결)을 그대로 옮겼었다. 사용자가 뒤집었다 — "톤앤보이스 지켜주세요, 요체를 넣어야지
+  ... 주간 보고서 형태로 작성하면 어떡해, 사용자들에게 설명하는 서비스 소개인데." 그
+  원문은 소개서 완성본이 아니라 내용 출처(주간보고 초안)였다는 뜻이다.
+
+  다시 쓰며 지킨 것 — ① 톤: 이 프로젝트 톤&보이스(친절하고 다정한 해요체)로 전환,
+  절 제목도 보고서식("추진배경" 등)이 아니라 소개서가 독자에게 말을 거는 질문형("왜
+  만들었나요" 등)으로 바꿨다. ② 정보량: 다섯 덩어리(왜 만들었는지/어떻게 동작하는지/
+  무엇이 좋은지/어떤 화면이 있는지/어떤 에이전트가 일하는지)의 내용을 하나도 줄이지
+  않았다 — 어투 전환이지 요약이 아니다("서비스 소개서는 내용이 구체적이어야 한다"는
+  지적이 이 문서에 대한 것이었다, 반복 지적). ③ 고유·기술 용어는 원문 그대로 보존
+  했다 — 1·2·3급, research analyst/product manager/product designer/product
+  engineer(직함), DPLANEX 관점(제품 설명 맥락이라 보고서 본문 금지 규칙과 다르게
+  허용됨), "매일 수집"(로컬 수동 실행 예외를 넣지 않음, 프로덕션 기준 문구 유지) —
+  사용자 확정: "AI 용어는 그대로 사용해줘, 나머지는 풀어서 사용해도."
+
+  문안 위치 판단 — 여전히 이 템플릿에 하드코딩했다. apps/dashboard/tooltips.py 전례는
+  "여러 화면에서 키로 참조하는 다수의 짧은 문구"를 위한 구조인데, 이건 참조 지점이
+  이 모달 하나뿐인 긴 문서 한 덩어리라 파이썬 쪽 조회 테이블을 새로 만들 실익이 없다.
+{% endcomment %}
+<div x-show="aboutOpen" x-cloak x-transition
+     class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-6"
+     @click="aboutOpen = false"
+     @keydown.escape.window="aboutOpen = false">
+  <div class="bg-white rounded-[10px] shadow-lg border border-[#E5E5E5] w-full max-w-2xl max-h-[85vh] flex flex-col"
+       @click.stop>
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
+      <h3 class="text-sm font-semibold text-gray-900">서비스 소개</h3>
+      <button type="button" @click="aboutOpen = false"
+              class="text-gray-400 hover:text-gray-600 transition-colors">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+
+    {% comment %} 절 이동 앵커 — 절 제목과 정확히 같은 순서·문구. {% endcomment %}
+    <div class="flex flex-wrap gap-x-3 gap-y-1 px-6 py-3 border-b border-gray-100 flex-shrink-0">
+      <a href="#about-background" class="text-xs text-primary hover:underline">왜 만들었나요</a>
+      <a href="#about-overview" class="text-xs text-primary hover:underline">어떻게 동작하나요</a>
+      <a href="#about-values" class="text-xs text-primary hover:underline">무엇이 좋은가요</a>
+      <a href="#about-scope" class="text-xs text-primary hover:underline">어떤 화면이 있나요</a>
+      <a href="#about-agents" class="text-xs text-primary hover:underline">어떤 에이전트가 함께 일하나요</a>
+    </div>
+
+    <div class="px-6 py-5 overflow-y-auto space-y-6">
+      <p class="text-base font-serif font-bold text-gray-900">AI Market Watch</p>
+
+      <div id="about-background">
+        <h4 class="text-sm font-semibold text-gray-900 mb-2">왜 만들었나요</h4>
+        <p class="text-sm text-gray-700 leading-relaxed">금융권의 AI/AX 동향을 지속적으로 파악해 전략 수립에 참고해야 하는데, 기존 방식으로는 검색·정리·판단에 사람의 리소스가 계속 투입돼야 했어요. 게다가 조사하는 사람마다 관점이 미세하게 달라서 일관된 결과를 유지하기도 어려웠고요.</p>
+      </div>
+
+      <div id="about-overview">
+        <h4 class="text-sm font-semibold text-gray-900 mb-2">어떻게 동작하나요</h4>
+        <p class="text-sm text-gray-700 leading-relaxed">설정해 둔 키워드로 금융·보험권 AI 뉴스를 매일 수집해요. 그러면 research analyst 에이전트가 관련성을 하나하나 판정해서 노이즈를 걸러내고, 같은 사안끼리 이슈로 묶어 1·2·3급으로 분류해요. 여기에 DPLANEX 관점의 시사점을 더해 주간 인사이트 보고서로 발행하고, 기업 간 접점은 지식그래프에 관계로 차곡차곡 쌓아가요.</p>
+      </div>
+
+      <div id="about-values">
+        <h4 class="text-sm font-semibold text-gray-900 mb-2">무엇이 좋은가요</h4>
+        <ul class="list-disc pl-5 space-y-1.5 text-sm text-gray-700 leading-relaxed">
+          <li>리서치에 들어가던 인력 리소스를 AI 에이전트가 대신해줘요.</li>
+          <li>수집·판정·이슈·시사점 데이터가 자산으로 쌓여서 나중에 다시 활용할 수 있어요.</li>
+          <li>기업 간 실제 접점(협업·공급계약·인수·투자)을 관계망으로 시각화해서 한눈에 빠르게 파악할 수 있어요.</li>
+          <li>DPLANEX 관점에 맞춘 판단 기준을 문서로 고정해 뒀기 때문에 항상 일관된 결과를 얻을 수 있어요.</li>
+        </ul>
+      </div>
+
+      <div id="about-scope">
+        <h4 class="text-sm font-semibold text-gray-900 mb-2">어떤 화면이 있나요</h4>
+        <ul class="list-disc pl-5 space-y-1.5 text-sm text-gray-700 leading-relaxed">
+          <li>대시보드에서는 헤드라인(가장 중요한 1급 이슈 3건), 등급이 표시된 주요 이슈, 핵심 지표(뉴스 추이, 기업별·기술 주제별 노출 순위)를 볼 수 있어요.</li>
+          <li>보고서에서는 이슈별 분석과 시사점을 담은 주간 인사이트 보고서를 짧은 버전과 긴 버전 두 가지로 확인할 수 있어요.</li>
+          <li>지식그래프에서는 금융사·보험사와 AI 기업 간 실제 관계(기술 협업, 공급계약, 인수, 투자)를 관계망으로 볼 수 있어요.</li>
+          <li>뉴스에서는 관련성 판정을 거쳐 검증된 기사만 목록과 상세로 제공해요.</li>
+          <li>설정에서는 데이터 소스, 수집 키워드, 스케줄, 기업·기술 주제를 관리할 수 있어요.</li>
+        </ul>
+      </div>
+
+      <div id="about-agents">
+        <h4 class="text-sm font-semibold text-gray-900 mb-2">어떤 에이전트가 함께 일하나요</h4>
+        <ul class="list-disc pl-5 space-y-1.5 text-sm text-gray-700 leading-relaxed">
+          <li>product manager는 기능 우선순위와 제품 정책을 정의해요.</li>
+          <li>product designer는 화면을 설계하고 디자인 시스템을 관리해요.</li>
+          <li>product engineer는 화면 구현, 데이터 모델, 수집 파이프라인 등 풀스택 구현을 맡아요.</li>
+          <li>research analyst는 수집된 뉴스를 검증하고 인사이트 보고서를 발행해요.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
