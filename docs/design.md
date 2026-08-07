@@ -83,6 +83,39 @@ DPLANEX Design System v1.0을 기반으로 합니다. 아래 토큰은 DPLANEX V
 - ⚠️ **예외 — 띄어쓰기 없는 긴 문자열(URL 등)은 `break-all`을 따로 준다.** `keep-all`에서는 아예 안 끊겨 컨테이너 밖으로 넘친다. 현재 예외는 **REPORT-002 인쇄용 원문 URL 한 곳뿐**이다(`templates/reports/detail.html`). 데이터소스 URL은 `truncate`, Slack 웹훅은 `<input>`이라 애초에 줄바꿈이 없어 예외가 필요 없다.
 - **새로 URL·해시·토큰처럼 띄어쓰기 없는 값을 텍스트로 노출할 때는 `break-all`을 함께 줄 것.** 안 주면 넘치는데, 넘치는 건 렌더된 HTML로는 안 보이고 브라우저 폭 계산에서만 드러나므로 눈으로 확인해야 한다.
 
+**제목 태그(h1~h4) 층위 규칙 (2026-08-08, PD, 사용자 확정 — 전 화면 정리)**
+
+위 표의 "Heading 1=페이지 제목/Heading 2=섹션 제목/Heading 3=카드 제목"은 원래 폰트 크기로 구분하려던 의도였으나, 실제 구현은 거의 전부 `text-sm font-semibold text-gray-900`로 시각적으로 동일하다 — **지금 이 프로젝트에서 제목 레벨은 시각이 아니라 `<hN>` 태그 자체가 유일하게 나르는 정보**다(스크린리더 등 접근성 도구가 outline을 읽을 때 이 태그만 본다). 클래스는 그대로 두고 태그만 정리한 이유가 이것이다 — "시각 변화 0"이면서도 실질적인 수정이 된다.
+
+- **h1 — 화면 전체에 한 번.** `templates/base.html`의 `{% block page_title %}`(헤더)이 유일한 공식 자리다. **예외**: NEWS-002(`news/detail.html`)·REPORT-002(`reports/detail.html`)는 그 화면이 보여주는 대상 자체(기사/보고서)의 제목을 본문 안에 별도 h1으로 갖는다 — 헤더의 h1("뉴스 상세"류 고정 텍스트가 아니라 화면 헤더 규칙에 따른 문구)과는 별개 관심사라 공존한다. 새 h1을 함부로 늘리지 않는다.
+- **h2 — 섹션, 또는 섹션이 없는 화면의 최상위 카드.** "섹션"은 여러 카드/항목을 하나의 제목 아래 묶고, 그 제목이 흔히 카드들에 공통으로 걸리는 컨트롤(기간 필터, "+ 추가" 버튼 등)을 함께 갖는 경우다 — 예: 대시보드 "핵심 지표"(기간 셀렉터가 카드 3장을 함께 지배), 설정 "수집 스케줄"(+ 추가 버튼이 스케줄 타입별 카드 여러 장을 통할). **⚠️ 섹션이 없는 화면(설정 대부분, 그래프 기업/엣지 패널)에서는 그 화면의 첫 카드 제목이 h2다 — "카드는 무조건 h3"가 아니다.** 판별법: 위로 올라가도 같은 제목 아래 형제 카드가 없고 공용 컨트롤도 없으면(예: `setting/sources.html` "데이터 소스 관리", `setting/slack.html`의 "Slack 전송 설정"과 "전송 이력" 각각) 그 카드 제목이 h2다.
+- **h3 — 섹션 안에 나열되는 개별 카드 제목, 또는 모달 다이얼로그 제목.** 대시보드 "핵심 지표" 아래 3장(일별 추이/기업별 Top10/기술주제별), 설정 "수집 스케줄" 아래 스케줄 타입별 카드가 여기 해당한다. 모달 제목(`기업 추가`, `스케줄 수정` 등)은 이미 전 화면에서 h3로 통일돼 있었다 — 유지. 그래프 기업 패널(org_panel)처럼 섹션은 없지만 카드 "안"에 다시 하위 라벨(예: "관련 뉴스")이 있으면 그 라벨이 h3(카드 제목인 org 이름은 h2).
+- **h4 — h3 카드/패널 안의 하위 라벨.** 예: 뉴스 상세 "관련 기업", 그래프 엣지 패널 "관계"·"근거 뉴스".
+- **헤딩이 아닌 것 — 반복 리스트의 그룹 구분자.** 연도·날짜별로 리스트를 쪼개는 구분자(`reports/list.html`의 연도, `news/_list.html`의 날짜)는 글자 스타일은 소제목처럼 보여도 "이 아래 내용을 대표하는 제목"이 아니라 리스트를 나누는 구분선 역할이다 — heading 태그를 쓰지 않는다(`<p>`로 교체, 클래스는 그대로).
+- **⚠️ HTMX fragment는 삽입되는 자리 기준으로 정한다.** `_metrics.html`·`_list.html`·`_issues_body.html`·`_keywords.html`·`_schedule_list.html`·`_org_panel.html`·`_edge_panel.html`은 전부 다른 템플릿에 include되거나 HTMX로 특정 DOM 슬롯에 스왑된다 — fragment 파일 자체만 보고 레벨을 정하면 틀린다(예: `_metrics.html`의 h3 3개는 파일만 보면 최상위처럼 보이지만, 실제로는 `dashboard/index.html`의 h2 "핵심 지표" 섹션 안에 include된다).
+- **Info Tooltip 배치 — "제목 태그 안" 형태로 통일.** 도입 초기 두 곳(헤드라인/주요 이슈)만 `<h2>제목</h2>` + `{% info_tooltip %}`를 형제로 뒀고, 나머지 네 곳(최신 뉴스·핵심 지표 카드 3장)은 `<h2>제목 {% info_tooltip %}</h2>`처럼 제목 태그 안에 넣었다 — 이미 4:2로 "안쪽" 배치가 우세해 그쪽으로 통일했다. `{% info_tooltip %}`가 렌더하는 `aria-label`·`aria-expanded`·Esc 닫기(위 "Info Tooltip" 절, 인터랙션 계약)는 배치 위치와 무관하게 컴포넌트 내부에 있어 옮겨도 그대로 유지된다.
+
+**적용 현황 (2026-08-08, PD) — 12개 파일·30여 곳, 배치로 나눠 진행. class 문자열은 전부 그대로(시각 변화 0), 태그·구조만 정리.**
+
+| 배치 | 파일 | 조치 | 상태 |
+|---|---|---|---|
+| 1 | `dashboard/index.html` | 헤드라인·주요 이슈 Info Tooltip을 `<h2>` 형제 → 안쪽 배치로 이동(위 규칙) | ✅ 완료 |
+| 1 | `dashboard/index.html`, `dashboard/_metrics.html`, `components/_about_modal.html` | 나머지 헤딩(섹션 h2/카드 h3/모달 h3+h4) 검토 — 이미 규칙과 일치, **태그 변경 없음** | ✅ 확인 완료(변경 없음) |
+| 1 | `news/detail.html` | "관련 기업" h3 → h2(h1 다음 첫 heading, 섹션 층 없음, 레벨 스킵 정정) | ✅ 완료 |
+| 1 | `news/_list.html` | 날짜 구분자 h3 → `<p>`(heading 아님) | ✅ 완료 |
+| 1 | `reports/list.html` | 연도 구분자 h2 → `<p>`(heading 아님). 보고서 제목(`report.title`)은 h2로 유지 — 근거뉴스가 없어 헤딩 자격을 재검토할 이유가 없고, 이 목록의 유일한 heading이 되어 레벨 스킵도 없다 | ✅ 완료 |
+| 1 | `reports/detail.html`, `reports/_issues_body.html` | h1(보고서 제목)·h2 카드 3장(주요 동향/주요 이슈) 검토 — 섹션 층 없음, 이미 h2가 맞는 레벨. `_issues_body.html`의 h3(이슈별 제목)는 h2 카드 "안"에 include돼 이미 올바르게 한 단계 아래 — **태그 변경 없음** | ✅ 확인 완료(변경 없음) |
+| 2 | `setting/schedule.html` + `setting/_schedule_list.html` | "수집 스케줄"(h2)이 "+ 추가" 버튼으로 스케줄 타입별 카드 여러 장을 함께 지배하는 섹션이라, `_schedule_list.html`의 스케줄 타입 카드 제목 h2 → h3로 낮춤(fragment는 `#schedule-list`에 include·HTMX 스왑되는 자리 기준) | ✅ 완료 |
+| 2 | `graph/_org_panel.html` | `#org-panel`(그래프 우측 패널, 섹션 층 없음)에 스왑되는 자리 기준 — 기업명 h3 → h2(첫 heading), "관련 뉴스" h4 → h3(카드 "안" 하위 라벨) | ✅ 완료 |
+| 2 | `graph/_edge_panel.html` | 같은 `#org-panel` 슬롯에 스왑 — 상단 기업 쌍 제목은 원래 `<p>`(heading 아님, 새로 heading화하지 않음). "관계"·"근거 뉴스" h4 → h3(org_panel의 "관련 뉴스"와 같은 상대 깊이로 통일) | ✅ 완료 |
+| — | `setting/sources.html`, `setting/tech_topics.html`, `setting/organizations.html`, `setting/slack.html`, `setting/logs.html`, `setting/prompts.html`, `setting/_keywords.html` | 검토 완료 — 전부 섹션 층 없이 독립된 최상위 카드(h2)이거나 이미 규칙과 일치하는 모달(h3) | ✅ 확인 완료(변경 없음) |
+
+**전 12개 파일·30여 곳 검토·적용 완료(2026-08-08).** 배치 1·2 전부 반영, class 문자열은 어디도 손대지 않았다(시각 변화 0 확인 방법: 정적 코드 대조 — `runserver` 금지라 실렌더 확인은 못 했다, 아래 참고).
+
+⚠️ **손대지 않은 잔여 갭 2건(새 heading 추가는 이번 스코프 밖이라 그대로 둠)**:
+- `graph/_edge_panel.html`이 `#org-panel`에 단독으로 스왑될 때, 이 fragment의 최상단 "기업 쌍" 제목이 heading이 아니라 `<p>`라서(의도적으로 heading화하지 않음, 위 표 참고) 그 상태에서는 전역 h1 다음 h2 없이 바로 h3(관계/근거 뉴스)로 넘어간다 — `_org_panel.html`이 스왑돼 있을 때(h1→h2→h3)와 그 시점만 다르다. 두 fragment가 같은 슬롯을 배타적으로 오가는 특성상 발생하며, 고치려면 `<p>` 제목을 heading으로 바꿔야 하는데 이는 "새 heading을 추가하지 않는다"는 이번 스코프 경계를 넘는 결정이라 보류했다.
+- `setting/organizations.html`은 페이지 전체에 heading이 모달의 h3(48행) 하나뿐이다 — "기업 관리" 같은 페이지 레벨 h2가 아예 없다. 잘못된 레벨이 아니라 애초에 없는 것이라 이번 "레벨 정정" 스코프가 아니다.
+
 ### 1.3 Surface & Shape
 
 - **Border Radius**: 10px (버튼·인풋·카드·패널 공통)

@@ -38,7 +38,15 @@
      x-data="{ editing: false,
                label: '{{ relation.label|default:""|escapejs }}',
                description: '{{ relation.description|default:""|escapejs }}' }">
-  <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">관계</h4>
+  {% comment %}
+    제목 태그 층위 정정 (2026-08-08, PD, 사용자 확정 — 전 화면 제목 태그 정리).
+    docs/design.md "제목 태그 층위 규칙" 참고. 이 fragment도 #org-panel(섹션 층 없음)에
+    스왑되며, org_panel.html과 같은 슬롯을 번갈아 쓴다 — 최상단 기업 쌍 제목(위)은
+    heading이 아닌 <p>라 새로 heading화하지 않았고, 그 아래 라벨들은 org_panel.html의
+    "관련 뉴스"(h3, 카드 "안" 하위 라벨)와 같은 상대 깊이로 맞춰 h4 → h3로 정정. class는
+    그대로 — 시각 변화 없음.
+  {% endcomment %}
+  <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">관계</h3>
 
   <!-- 보기 상태 -->
   <div x-show="!editing" x-cloak>
@@ -115,7 +123,11 @@
 
 <!-- 근거 뉴스 — 컷오프 없이 전량 노출(쌍 교집합은 대개 소수라 부담 없음). 목록 스크롤은 상위 컨테이너
      (index.html의 .overflow-y-auto)가 담당하므로 이 프래그먼트 안에서 별도 스크롤 처리는 하지 않는다. -->
-<h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">근거 뉴스</h4>
+{% comment %}
+  제목 태그 층위 정정 (2026-08-08, PD) — 위 "관계"와 동일 근거(org_panel.html "관련 뉴스"와
+  같은 상대 깊이). h4 → h3. class는 그대로 — 시각 변화 없음.
+{% endcomment %}
+<h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">근거 뉴스</h3>
 <div class="space-y-3">
   {% for news in news_list %}
   <a href="{% url 'news_detail' news.uid %}" class="block group">

@@ -10,7 +10,14 @@
     <span class="text-xs text-gray-400">(비활성)</span>
     {% endif %}
   </div>
-  <h3 class="text-sm font-bold text-gray-900">{{ org.name }}</h3>
+  {% comment %}
+    제목 태그 층위 정정 (2026-08-08, PD, 사용자 확정 — 전 화면 제목 태그 정리).
+    docs/design.md "제목 태그 층위 규칙" 참고. 이 fragment는 graph/index.html의 #org-panel
+    (섹션 층 없는 헤딩리스 카드 슬롯, _edge_panel.html과 같은 자리에 교대로 스왑됨)에
+    삽입된다 — 이 카드 제목이 첫 heading이라 h3 → h2로 정정. class는 그대로
+    (text-sm font-bold text-gray-900) — 시각 변화 없음.
+  {% endcomment %}
+  <h2 class="text-sm font-bold text-gray-900">{{ org.name }}</h2>
   {% if org.aliases %}
   <p class="text-xs text-gray-400 mt-1">{{ org.aliases|join:", " }}</p>
   {% endif %}
@@ -20,8 +27,12 @@
      (엣지 쌍 패널은 컷오프 없이 전량 노출하는 것과 의도적으로 다름 — 단일 기업의 누적 뉴스는 기간에 따라
      수십~수백 건일 수 있어 좁은 패널에 전량을 넣으면 오히려 스캔하기 어려워지지만, 쌍 교집합은 대개
      소수라 전량 노출 부담이 없다). -->
+{% comment %}
+  제목 태그 층위 정정 (2026-08-08, PD) — 위 org.name이 h2가 되며 이 하위 라벨은 카드
+  "안"의 라벨이라 h4 → h3로 정정(한 단계 아래). class는 그대로 — 시각 변화 없음.
+{% endcomment %}
 <div class="flex items-center justify-between mb-3">
-  <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">관련 뉴스</h4>
+  <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">관련 뉴스</h3>
   {% if total_count > 10 %}
   <span class="text-xs text-gray-400">전체 {{ total_count }}건 중 10건</span>
   {% endif %}

@@ -4,7 +4,13 @@
 {% for group in day_groups %}
 <div class="flex items-center gap-2 mb-3 {% if not forloop.first %}mt-6{% endif %}">
   <i data-lucide="calendar" class="w-4 h-4 text-primary"></i>
-  <h3 class="text-sm font-semibold text-gray-700">{{ group.grouper|date:"Y년 m월 d일" }}</h3>
+  {% comment %}
+    heading에서 제외 (2026-08-08, PD, 사용자 확정 — 전 화면 제목 태그 정리). docs/design.md
+    "제목 태그 층위 규칙" 참고 — 날짜 구분자는 "이 아래 내용을 대표하는 제목"이 아니라
+    반복 리스트를 나누는 구분선이라 heading 태그 대상이 아니다. h3 → p, class는 그대로
+    (text-sm font-semibold text-gray-700) — 시각 변화 없음.
+  {% endcomment %}
+  <p class="text-sm font-semibold text-gray-700">{{ group.grouper|date:"Y년 m월 d일" }}</p>
   <div class="flex-1 h-px bg-gray-200"></div>
 </div>
 <div class="space-y-3">

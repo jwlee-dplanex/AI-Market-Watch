@@ -5,8 +5,16 @@
 <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-5">
   <div class="flex items-start justify-between">
     <div class="flex-1">
+      {% comment %}
+        제목 태그 층위 정정 (2026-08-08, PD, 사용자 확정 — 전 화면 제목 태그 정리).
+        docs/design.md "제목 태그 층위 규칙" 참고. 이 fragment는 setting/schedule.html의
+        #schedule-list에 include·HTMX 스왑되는 자리 기준으로 판단한다 — "수집 스케줄"(h2,
+        같은 파일)이 "+ 추가" 버튼으로 스케줄 타입별 카드 여러 장을 함께 지배하는 섹션이라,
+        이 카드 제목은 그 섹션 "안"의 개별 카드다. h2 → h3로 정정. class는 그대로
+        (text-sm font-semibold text-gray-900) — 시각 변화 없음.
+      {% endcomment %}
       <div class="flex items-center gap-3 mb-3">
-        <h2 class="text-sm font-semibold text-gray-900">{{ sched.get_schedule_type_display }}</h2>
+        <h3 class="text-sm font-semibold text-gray-900">{{ sched.get_schedule_type_display }}</h3>
         <!-- 토글 (HTMX) -->
         <form hx-post="{% url 'setting_schedule_toggle' sched.pk %}"
               hx-target="#schedule-list" hx-swap="innerHTML">
