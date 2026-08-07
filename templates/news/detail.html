@@ -79,42 +79,23 @@
   <article class="flex-1 min-w-0 space-y-4">
 
     <!-- 헤더 -->
-    <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-6" x-data="{ delOpen: false }">
+    {% comment %}
+      삭제 버튼과 확인 모달을 제거했다(2026-08-07, PD, 사용자 지시 — "사용자들이 뉴스를
+      삭제하면 안 된다"). NEWS-001 목록과 같은 라운드에 함께 제거해 화면상의 삭제 경로를 없앴다.
+      헤더의 x-data="{ delOpen: false }"도 이 모달이 유일한 사용처라 함께 제거했다
+      (관련 기업 태그 교정 UI는 _orgs.html이 자체 x-data를 갖고 있어 영향 없음).
+      우측 액션이 "원문 보기" 하나만 남아 감싸던 div(ml-auto flex gap-3)는 의미를 잃었으므로
+      ml-auto를 링크 자체로 옮기고 래퍼를 걷어냈다 — 정렬·간격 결과는 동일하다.
+    {% endcomment %}
+    <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-6">
       <div class="flex items-center gap-2 mb-3">
         <span class="text-xs text-gray-400">{{ news.published_at|date:"Y년 m월 d일" }}</span>
-        <div class="ml-auto flex items-center gap-3">
-          <a href="{{ news.url }}" target="_blank" rel="noopener"
-             class="flex items-center gap-1 text-xs text-primary hover:underline">
-            원문 보기 <i data-lucide="external-link" class="w-3 h-3"></i>
-          </a>
-          <button @click="delOpen = true"
-                  class="flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 transition-colors">
-            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> 삭제
-          </button>
-        </div>
+        <a href="{{ news.url }}" target="_blank" rel="noopener"
+           class="ml-auto flex items-center gap-1 text-xs text-primary hover:underline">
+          원문 보기 <i data-lucide="external-link" class="w-3 h-3"></i>
+        </a>
       </div>
       <h1 class="text-xl font-bold text-gray-900 font-serif leading-snug">{{ news.title }}</h1>
-
-      <!-- 삭제 확인 모달 -->
-      <div x-show="delOpen" x-cloak class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center"
-           @click="delOpen = false" @keydown.escape.window="delOpen = false">
-        <div class="bg-white rounded-[10px] p-6 shadow-xl w-[90%] max-w-sm" @click.stop>
-          <p class="text-sm font-semibold text-gray-900 mb-1">뉴스를 삭제하시겠어요?</p>
-          <p class="text-xs text-gray-500 mb-5">삭제한 뉴스는 복구할 수 없어요.</p>
-          <div class="flex gap-3 justify-end">
-            <button @click="delOpen = false"
-                    class="px-4 py-2 text-sm text-gray-500 border border-gray-200 rounded-[10px] hover:bg-gray-50 transition-colors">
-              취소
-            </button>
-            <button hx-post="{% url 'news_delete' news.uid %}"
-                    hx-include="[name=csrfmiddlewaretoken]"
-                    hx-vals='{"source": "detail"}'
-                    class="px-4 py-2 text-sm text-white bg-red-500 rounded-[10px] hover:bg-red-600 transition-colors">
-              삭제
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
 
     {% if news.image_url %}
