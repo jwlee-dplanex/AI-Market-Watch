@@ -175,7 +175,15 @@ bleach
 
 **왜 `grade`가 생겼는가** (`docs/planning.md` "승격 위계 등급(1급/2급/3급)을 `Insight`에 저장한다", 2026-08-06 확정) — 1급/2급/3급 위계는 그전까지 RA 머릿속과 배치 보고서에만 있었다. 목적은 **등급을 매기는 것 자체가 아니라 1급이 실제 몇 건인지 관측하는 것**과 RA 판단(헤드라이너 지정 등)의 입력이다. `unspecified`가 `1`/`2`/`3`과 반드시 구분되는 별도 상태인 이유: 미지정을 3급으로 접으면 도입 직후 집계가 "3급 34건"으로 나와 관측이 아니라 기본값을 세는 꼴이 되고 필드를 만든 이유가 사라진다. 사유 필드·이력 테이블은 만들지 않는다 — `TagCorrectionRecord`가 겪은 것과 같은 CASCADE 손실을 피하려고 변경 이력은 DB가 아니라 배치 보고서(`research/batches/YYYY-MM-DD.md`)에 남긴다.
 
-**⚠️ 계약: `grade`는 사용자 대상 화면에 표시되지 않으며, 사용자 대상 화면의 내용을 결정하지도 않는다.** 판별선은 "등급이 화면 내용을 바꾸면 제품 데이터, 안 바꾸면 내부 도구"다. 조회는 SET 화면군(예약만, 아직 미설계)·배치 보고서·ORM에서만 한다. 대시보드 헤드라이너를 이 필드로 자동 선별하지 않는 이유도 동일 — 헤드라이너는 RA가 두 물음(파급 범위·실행 단계)으로 직접 지정한다.
+**⚠️ 계약(2026-08-07 개정) — 종전 "화면에 표시되지 않는다"는 폐기됐다. 지금 경계는 "등급이 화면에 보이는가"가 아니라 "등급이 화면 정렬·선별을 결정하는가"다.**
+
+~~종전 계약(2026-08-06 신설): `grade`는 사용자 대상 화면에 표시되지 않으며, 사용자 대상 화면의 내용을 결정하지도 않는다. 판별선은 "등급이 화면 내용을 바꾸면 제품 데이터, 안 바꾸면 내부 도구"였다.~~ (`docs/planning.md` "화면은 개별 이슈가 몇 급인지 드러내지 않는다" 절 — 신설 당일에도 한 차례, 2026-08-07에 다시 뒤집힘)
+
+**현재 경계 — 판별선을 두 가지로 쪼갠다** (같은 절 "판별선(개정)"):
+1. **화면 쿼리가 `grade`를 읽어 정렬·선별하는가 — 읽으면 여전히 금지.** 헤드라이너 쿼리(`apps/dashboard/views.py`, 아래 "대시보드 헤드라이너" 절)는 `grade`를 필터·정렬 조건으로 쓰지 않는다. 무엇을 보여줄지는 전부 RA가 지정한 `headliner_order`와 근거뉴스 최신순만 결정한다 — "등급이 화면 내용을 결정한다"는 여전히 유효한 금지다.
+2. **화면이 특정 이슈 하나의 등급을 화면에 '주장'하는가 — 지금은 허용.** 헤드라인·주요 이슈 카드 양쪽에 개별 이슈 등급 배지가 렌더된다(`templates/dashboard/index.html`, `grade`가 `unspecified`가 아닐 때만 — "미지정" 배지로 내부 상태값을 노출하지 않기 위함). `apps/dashboard/tooltips.py`의 `INFO_TOOLTIP_STEPS["dashboard.headliner"]`는 더 이상 "등급을 꺼내는 유일한 자리"가 아니라 **그 배지를 읽는 데 필요한 범례**다(주요 이슈 카드도 같은 딕셔너리를 재사용 — `INFO_TOOLTIP_STEPS["dashboard.insights"] = INFO_TOOLTIP_STEPS["dashboard.headliner"]`).
+
+조회 전용 경로(SET 화면군은 예약만·아직 미설계, 배치 보고서, ORM)는 그대로 유지된다. 대시보드 헤드라이너를 `grade`로 자동 선별하지 않는다는 원칙도 그대로다 — 다만 후보 좁히기에 쓰는 두 물음의 내용이 바뀌었다. **헤드라이너 후보는 1급 이슈로 한정**되고(`docs/planning.md` "대시보드 헤드라이너" 절 1번), 그 안에서 **(ii) 변화의 구체성 → (i) 파급 범위 → 서사** 순으로 RA가 직접 순위를 매긴다(종전 "(ii) 실행 단계"를 대체하고 (i)보다 우선하도록 뒤집힘 — `docs/planning.md` "1-A" 절, 2026-08-07. 1급 한정 후보 자리에서만 적용되는 순서이며, "판단의 형식" 절의 두 물음 정본 문구 자체는 바뀌지 않았다).
 
 **왜 `headliner_order`가 생겼는가** (`docs/planning.md` "대시보드 헤드라이너", 2026-08-06 신설) — 불리언 하나로는 부족했다. 불리언만 두면 헤드라이너 3건의 화면 표시 순서가 pk나 `latest_news_at` 같은 기계 순서로 떨어져 "1번 자리는 RA 판단이 갖는다"가 화면에서만 무효가 된다. 그래서 "여부 + 순서"를 값 하나(`null`/정수)로 합쳤다. 상한 3건은 DB 제약으로 강제하지 않는다 — RA가 실수로 4건 이상 지정해도 화면이 상위 3건까지만 렌더하는 안전장치로 충분하다는 것이 정책이다. 지정은 RA가 배치마다 전량 교체(자동 만료)하며 별도 만료 시각 필드는 두지 않는다.
 
@@ -185,7 +193,7 @@ bleach
 - **정본은 `content`/`implication`(긴 버전), 화면 기본값은 `content_short`/`implication_short`(짧은 버전)** — `Report`와 동일한 이유: 정본만 출처 무결성 점검을 거치면 되고, 축약본은 정본의 부분집합이라 자동으로 통과한다.
 - ⚠️ **축약은 정본 문장을 골라 빼는 것만 허용된다 — 고쳐 쓰지 않는다.** `Report.content_short`와 동일 제약(문장 합치기·재서술 금지, 지시어·접속어 손질까지만 허용). 이 제약 덕분에 **출처 무결성 점검은 정본에서 1회만** 돈다 — 축약본 전용 검증 로직을 별도로 만들지 않는다.
 - `title`/`news` M2M은 버전 구분 없이 공유한다.
-- **폴백**: `content_short`/`implication_short`가 비어 있으면(기존 34건 등) 화면은 조용히 `content`/`implication`으로 대체해야 하며 500이 나면 안 된다. `Insight.display_content`/`Insight.display_implication` 프로퍼티(`content_short or content`, `implication_short or implication`)가 이 폴백을 제공한다 — 단, 대시보드 템플릿을 이 프로퍼티로 전환하는 것은 PD·PE의 후속 작업이며 2026-08-06 시점엔 아직 템플릿이 이 프로퍼티를 쓰지 않는다.
+- **폴백**: `content_short`/`implication_short`가 비어 있으면(축약본을 아직 못 채운 이슈) 화면은 조용히 `content`/`implication`으로 대체해야 하며 500이 나면 안 된다. `Insight.display_content`/`Insight.display_implication` 프로퍼티(`content_short or content`, `implication_short or implication`)가 이 폴백을 제공한다. **2026-08-07 기준 대시보드 템플릿(`templates/dashboard/index.html`)이 헤드라인·주요 이슈 카드 양쪽에서 `display_content`를 쓰도록 전환됐다** — 접힘 미리보기(`line-clamp-1`)와 펼침 본문 모두 `display_content` 하나로 통일해 렌더링한다(종전엔 미리보기/본문이 서로 다른 필드를 opacity로 맞바꾸는 구조라 애니메이션이 "울렁인다"는 피드백이 있었는데, 한 필드로 통일하면서 해소됐다). `display_implication`은 이 화면에서 쓰지 않는다 — 시사점 블록 자체가 대시보드에서 빠지고 REPORT-002 몫으로 역할이 나뉘었다(`implication`/`display_implication` 조건 분기를 통째로 제거). **`Report.display_content`는 이 전환에 포함되지 않는다** — REPORT-002 상세 화면은 여전히 `report.content`(정본)를 직접 렌더링하며, 버전 전환 UI는 아직 PD·PE의 후속 작업이다(아래 `Report` 절 "`content_short`(축약본)" 참고, 대칭이 아니라 의도된 비대칭).
 
 ---
 
@@ -338,7 +346,7 @@ bleach
 |------|------|------|
 | id | AutoField | PK |
 | name | CharField(100, unique) | 기업명 |
-| org_type | CharField(20) | `금융사` / `보험사` / `AI` |
+| org_type | CharField(20) | `금융사` / `보험사` / `AI` — **업종 분류가 아니라 스코프의 두 축**(당사자 vs 상대)이다. 정의는 `docs/planning.md` "`Organization.org_type` 3분류의 정의" 절(2026-08-07 신설)이 정본 — `금융사`는 은행·증권·카드 등 국내 금융권 당사자(금융 IT 인프라 기관 포함, 예: 코스콤), `보험사`는 국내 생명·손해보험사, `AI`는 그 금융사·보험사에게 AI 기술을 제공하거나 투자·협업하는 상대(AI 전문기업뿐 아니라 빅테크 AI 부문·데이터/클라우드 기업·AI 연구기관 포함, 마이그레이션 `0004_merge_it_into_ai`로 옛 `IT` 분류가 여기 병합됨). GRAPH-001의 `ALLOWED_TYPE_PAIRS`(`{금융사, AI}`/`{보험사, AI}`)가 이 축을 이미 강제하고 있어 재분류는 신중해야 한다(엣지가 허용 쌍에서 탈락하면 지식그래프에서 사라짐). |
 | aliases | JSONField(default=list) | 별칭 목록 (수집 시 본문 매칭에 사용) |
 | is_active | BooleanField | 활성 여부 |
 
@@ -420,10 +428,13 @@ ai_market_watch/
 │   │   └── _list.html       # HTMX 파션
 │   ├── reports/
 │   ├── setting/
-│   └── graph/
-│       ├── index.html       # GRAPH-001 D3.js 관계도
-│       ├── _org_panel.html  # 기업 노드 클릭 시 HTMX 패널
-│       └── _edge_panel.html # 엣지(기업 쌍) 클릭 시 근거뉴스 HTMX 패널
+│   ├── graph/
+│   │   ├── index.html       # GRAPH-001 D3.js 관계도
+│   │   ├── _org_panel.html  # 기업 노드 클릭 시 HTMX 패널
+│   │   └── _edge_panel.html # 엣지(기업 쌍) 클릭 시 근거뉴스 HTMX 패널
+│   └── components/          # 여러 화면이 공유하는 재사용 컴포넌트 (2026-08-06~)
+│       ├── _info_tooltip.html  # "Info Tooltip" — 카드 제목 옆 데이터·기준 설명 팝오버
+│       └── _about_modal.html   # 서비스 소개 모달 (2026-08-08 신설, base.html 사이드바에서 호출)
 │
 ├── static/
 │   ├── css/
@@ -501,7 +512,36 @@ ai_market_watch/
 
 **주요 이슈·최신 뉴스 카드(기간 필터 미적용)**: "핵심 지표" 3개 카드와 달리 주요 이슈·최신 뉴스 카드는 상단 기간 필터(전체/최근 30일/최근 7일)의 영향을 받지 않습니다 — 기간 선택은 핵심 지표 전용이며, 주요 이슈·최신 뉴스는 항상 전체 데이터 기준 최신 상태를 보여줍니다. 주요 이슈는 `Insight`를 근거 뉴스 최신 발행일(`latest_news_at = Max("news__published_at")`, `nulls_last=True`, `-pk` tie-breaker) 내림차순으로 최대 20건(`[:20]`), 최신 뉴스는 `News`를 `published_at` 내림차순으로 최대 30건(`[:30]`) 가져옵니다. 두 카드 모두 `max-h-[40rem]`으로 카드 높이를 제한하고 내부 리스트에 `.dashboard-scroll`(커스텀 스크롤바 스타일) 클래스로 스크롤을 겁니다.
 
-**정보 툴팁**: 뉴스 건수 추이·기업별 건수 Top 10·기술 주제별 언급 건수·주요 이슈·최신 뉴스 각 카드 제목 옆에 `{% info_tooltip %}` 커스텀 템플릿 태그(`apps/dashboard/templatetags/dashboard_extras.py`)로 "데이터·기준" 설명 툴팁을 붙입니다. 문구는 `apps/dashboard/tooltips.py`의 `INFO_TOOLTIPS` 딕셔너리(키 예: `"dashboard.trend"`, `"dashboard.insights"`)에서 관리하며, `templates/components/_info_tooltip.html`을 `inclusion_tag`로 렌더링합니다.
+**대시보드 헤드라이너 — "헤드라인" 영역**(2026-08-06 신설, `docs/planning.md` "대시보드 헤드라이너" 절): 주요 이슈 영역 위에 RA가 `Insight.headliner_order`를 지정한 이슈를 최대 3건, 지정 순서대로 렌더링합니다(화면 표시 문구는 "헤드라인"이지만 코드 식별자는 `headliners`/`headliner_order`). `apps/dashboard/views.py`의 쿼리는 대략 다음과 같습니다.
+
+```python
+headliners = (
+    Insight.objects
+    .filter(headliner_order__isnull=False)
+    .annotate(news_count=Count("news"), latest_news_at=Max("news__published_at"))
+    .prefetch_related("news")
+    .order_by("headliner_order")[:3]
+)
+insights = (
+    Insight.objects
+    .filter(headliner_order__isnull=True)
+    .annotate(news_count=Count("news"), latest_news_at=Max("news__published_at"))
+    .prefetch_related("news")
+    .order_by(F("latest_news_at").desc(nulls_last=True), "-pk")[:20]
+)
+```
+
+- **`grade`를 필터·정렬 조건으로 쓰지 않습니다** — 선별은 RA가 지정 시점에 이미 끝냈고, 화면 쿼리가 등급으로 다시 고르면 위 `Insight.grade` 계약(3절)이 깨집니다.
+- **⚠️ 발행일(`published_at`) 조건도 쿼리에 넣지 않습니다.** 헤드라이너 후보의 "최신성 창"(근거뉴스 최신 발행일이 기준점에서 7일 이내, 1급이 3건 미만이면 14일까지 확장)은 `docs/planning.md` "1-B. 후보 최신성 요건" 절이 정의하지만, **이 판정은 전부 RA의 배치 처리 몫이며 코드가 강제하지 않습니다** — 화면은 RA가 지정한 `headliner_order`만 그대로 읽습니다(PM이 명시한 PE 주의사항).
+- `headliner_order__isnull=True` 조건으로 주요 이슈 목록에서 헤드라이너로 뽑힌 건을 제외해, 같은 이슈를 두 영역에서 두 번 보여주지 않습니다. 목록 정렬 로직 자체는 건드리지 않고 제외만 합니다.
+- 헤드라이너·주요 이슈 두 쿼리 모두 상단 기간 필터의 영향을 받지 않습니다 — 위 "주요 이슈·최신 뉴스 카드" 절과 같은 원칙을 상속합니다.
+- 카드 본문은 `Insight.display_content`(축약본, 없으면 정본 폴백)를 렌더링하며 `grade`가 `unspecified`가 아닐 때만 등급 배지를 함께 표시합니다(위 `Insight.grade` 계약 참고). `display_implication`은 이 화면에서 쓰지 않습니다.
+
+**정보 툴팁**: 뉴스 건수 추이·기업별 건수 Top 10·기술 주제별 언급 건수·헤드라이너·주요 이슈·최신 뉴스 각 카드 제목 옆에 `{% info_tooltip %}` 커스텀 템플릿 태그(`apps/dashboard/templatetags/dashboard_extras.py`)로 "데이터·기준" 설명 툴팁을 붙입니다. 문구는 `apps/dashboard/tooltips.py`의 `INFO_TOOLTIPS` 딕셔너리(키 예: `"dashboard.trend"`, `"dashboard.headliner"`, `"dashboard.insights"`)에서 관리하며, `templates/components/_info_tooltip.html`을 `inclusion_tag`로 렌더링합니다. 태그는 `key`/`label`(필수)과 `trigger_text`(선택)를 인자로 받습니다.
+
+- **`INFO_TOOLTIPS`**(문구 한 문단, 항상 있음)와 **`INFO_TOOLTIP_STEPS`**(단계별 설명 리스트 `[{"label", "desc"}, ...]`, 2026-08-06 추가)는 **서로 다른 별도 딕셔너리**입니다 — 키는 공유하지만 `INFO_TOOLTIP_STEPS`에 없는 키는 단계 없이 문구 한 문단만 렌더링됩니다(하위 호환). `dashboard.headliner`/`dashboard.insights`는 같은 등급 범례(1급/2급/3급 설명)를 공유합니다(`INFO_TOOLTIP_STEPS["dashboard.insights"] = INFO_TOOLTIP_STEPS["dashboard.headliner"]` — 사본을 만들지 않고 참조를 공유해 두 곳의 설명이 갈라지지 않게 합니다).
+- **`trigger_text`**(2026-08-06 추가): 주면 "?" 아이콘 트리거 대신 그 텍스트 자체가 트리거가 됩니다(점선 밑줄로 시각 표시). 기업별 Top 10 범례의 "금융사"/"보험사"/"AI" 단어에 호버해도 각 분류 설명(`dashboard.org_type_financial` 등)이 뜨도록 이 옵션으로 배선돼 있습니다. 안 주면 기존 "?" 아이콘 모드입니다.
+- **서비스 소개 모달**(`templates/components/_about_modal.html`, 2026-08-08 신설): 정보 툴팁과 별개 컴포넌트입니다 — 카드 단위 데이터 설명이 아니라 서비스 전체 소개 문구를 담으며, `base.html` 사이드바 버튼으로 열립니다.
 
 ---
 
