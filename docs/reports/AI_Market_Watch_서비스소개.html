@@ -116,37 +116,81 @@ svg text{font-family:var(--font);}
 /* ============================================================
    Cover
    ============================================================ */
+/* ------------------------------------------------------------
+   표지 = 한 문장짜리 도해다.  격자 = 시장(데이터가 깔린 판)
+                              렌즈 = 그 위를 지켜보는 눈
+   렌즈가 격자를 훑고, 지나간 자리가 잠깐 밝아진다.
+   ⚠️ 이 움직임이 없으면 부제 "지속적으로 수집·요약합니다"가 글자로만 남는다.
+   --lens / --scan 두 값이 렌즈와 훑는 자리의 크기를 함께 잡는다 —
+   키프레임이 이 변수로 좌표를 계산하므로 크기를 바꿔도 둘이 어긋나지 않는다.
+   ------------------------------------------------------------ */
 .cover{
+  --lens:400px; --scan:660px;
   position:relative; overflow:hidden; isolation:isolate;
   background:
     radial-gradient(1100px 620px at 76% 18%, rgba(107,52,168,.55), transparent 68%),
     linear-gradient(160deg,var(--violet-950) 8%, var(--violet-900) 52%, var(--violet-850) 100%);
   color:#fff;
 }
+/* 시장 — 데이터가 깔린 판 */
 .cover-grid{
   position:absolute; inset:0; z-index:0; pointer-events:none;
   background-image:
-    linear-gradient(rgba(255,255,255,.09) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,.09) 1px, transparent 1px);
+    linear-gradient(rgba(255,255,255,.075) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.075) 1px, transparent 1px);
   background-size:64px 64px;
-  mask-image:radial-gradient(900px 500px at 55% 40%,#000,transparent 75%);
-  -webkit-mask-image:radial-gradient(900px 500px at 55% 40%,#000,transparent 75%);
+  mask-image:radial-gradient(1150px 640px at 50% 50%,#000,transparent 78%);
+  -webkit-mask-image:radial-gradient(1150px 640px at 50% 50%,#000,transparent 78%);
 }
-.cover-orb{position:absolute;right:-90px;top:-70px;width:620px;height:620px;z-index:0;pointer-events:none;}
-.orb-core{
-  position:absolute;left:50%;top:50%;width:250px;height:250px;margin:-125px 0 0 -125px;border-radius:50%;
-  background:radial-gradient(circle at 38% 34%, rgba(214,191,239,.85), rgba(96,38,158,.38) 52%, rgba(34,16,58,0) 72%);
-  animation:orbBreathe 13s ease-in-out infinite;
+/* 훑고 지나간 자리 — 같은 64px 격자를 더 밝게 깔고 마스크만 렌즈를 따라 움직인다.
+   ⚠️ 격자 자체는 절대 움직이지 않는다. 움직이면 아래 격자와 어긋나 이중선이 보인다. */
+.cover-scan{
+  position:absolute; inset:0; z-index:0; pointer-events:none;
+  background-image:
+    linear-gradient(rgba(214,191,239,.4) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(214,191,239,.4) 1px, transparent 1px);
+  background-size:64px 64px;
+  mask-image:radial-gradient(circle closest-side,#000 8%,rgba(0,0,0,.6) 42%,transparent 74%);
+  -webkit-mask-image:radial-gradient(circle closest-side,#000 8%,rgba(0,0,0,.6) 42%,transparent 74%);
+  mask-size:var(--scan) var(--scan); -webkit-mask-size:var(--scan) var(--scan);
+  mask-repeat:no-repeat; -webkit-mask-repeat:no-repeat;
+  animation:mwScan 20s ease-in-out infinite;
 }
-.orb-ring{
-  position:absolute;left:50%;top:50%;border-radius:50%;border:1px solid rgba(214,191,239,.26);
-  border-top-color:rgba(214,191,239,.72); border-left-color:rgba(147,213,0,.30);
+/* 렌즈 — 로고(정지된 돋보기)의 움직이는 버전 */
+.cover-lens{
+  position:absolute; left:0; top:50%; z-index:0; pointer-events:none;
+  width:var(--lens); height:var(--lens); margin-top:calc(var(--lens) / -2);
+  animation:mwLens 20s ease-in-out infinite;
 }
-.orb-ring.r1{width:400px;height:400px;margin:-200px 0 0 -200px;animation:orbSpin 34s linear infinite;}
-.orb-ring.r2{width:518px;height:518px;margin:-259px 0 0 -259px;animation:orbSpin 24s linear infinite reverse;}
-.orb-ring.r3{width:616px;height:616px;margin:-308px 0 0 -308px;animation:orbSpin 46s linear infinite;}
-@keyframes orbBreathe{0%,100%{transform:scale(1);opacity:.88}50%{transform:scale(1.09);opacity:1}}
-@keyframes orbSpin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+.lens-glass{
+  position:absolute; left:50%; top:50%; width:71%; height:71%; border-radius:50%;
+  transform:translate(-50%,-50%);
+  background:radial-gradient(circle at 38% 34%, rgba(147,213,0,.17), rgba(147,213,0,.05) 54%, rgba(34,16,58,0) 74%);
+  animation:lensBreathe 13s ease-in-out infinite;
+}
+.lens-ring{position:absolute; left:50%; top:50%; border-radius:50%; transform:translate(-50%,-50%);}
+.lens-ring.r1{width:71%;height:71%;border:1.5px solid rgba(255,255,255,.5);}   /* 렌즈 테 — 돌지 않는다 */
+.lens-ring.r2{width:86%;height:86%;border:1px dashed rgba(214,191,239,.3);animation:lensSpin 46s linear infinite;}
+.lens-ring.r3{width:100%;height:100%;border:1px solid rgba(214,191,239,.14);
+  border-top-color:rgba(214,191,239,.58);animation:lensSpin 24s linear infinite reverse;}
+.lens-cross{position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;}
+.lens-cross::before,.lens-cross::after{content:"";position:absolute;background:rgba(147,213,0,.5);}
+.lens-cross::before{left:50%;top:0;width:1px;height:100%;margin-left:-.5px;}
+.lens-cross::after{top:50%;left:0;height:1px;width:100%;margin-top:-.5px;}
+
+/* 20초 한 바퀴 — 양 끝에서 잠깐 멈춘다(§4.7 ⑤ : 훑은 자리를 읽을 시간) */
+@keyframes mwLens{
+  0%,4%    {transform:translateX(calc(10px - var(--lens) / 2))}
+  46%,54%  {transform:translateX(calc(100vw - 10px - var(--lens) / 2))}
+  96%,100% {transform:translateX(calc(10px - var(--lens) / 2))}
+}
+@keyframes mwScan{
+  0%,4%    {-webkit-mask-position:calc(10px - var(--scan) / 2) 50%;mask-position:calc(10px - var(--scan) / 2) 50%}
+  46%,54%  {-webkit-mask-position:calc(100vw - 10px - var(--scan) / 2) 50%;mask-position:calc(100vw - 10px - var(--scan) / 2) 50%}
+  96%,100% {-webkit-mask-position:calc(10px - var(--scan) / 2) 50%;mask-position:calc(10px - var(--scan) / 2) 50%}
+}
+@keyframes lensBreathe{0%,100%{transform:translate(-50%,-50%) scale(1);opacity:.86}50%{transform:translate(-50%,-50%) scale(1.07);opacity:1}}
+@keyframes lensSpin{from{transform:translate(-50%,-50%) rotate(0)}to{transform:translate(-50%,-50%) rotate(360deg)}}
 
 .cover-inner{
   position:relative; z-index:1;
@@ -175,20 +219,11 @@ svg text{font-family:var(--font);}
 .cover-foot .dot{width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,.32);}
 
 /* ============================================================
-   CONTENTS
+   본문 폭
+   ⚠️ CONTENTS 섹션은 삭제했다 — 상단 sticky nav에 같은 다섯 항목이 있어
+      같은 목록이 두 번 나오고 있었다. .intro / .toc 계열 CSS도 함께 지웠다.
    ============================================================ */
-.intro{padding:56px 0 8px;background:var(--bg-soft);border-bottom:1px solid var(--line);}
 .wrap{max-width:var(--maxw);margin:0 auto;padding:0 40px;}
-.toc{padding:24px 30px 20px;border-radius:var(--radius);background:#fff;border:1px solid var(--line);max-width:940px;box-shadow:var(--shadow-s);}
-.toc .lbl{display:block;font-size:11px;font-weight:800;letter-spacing:.18em;color:var(--muted);}
-.toc-list{margin-top:8px;}
-.toc-list li{border-bottom:1px solid var(--line);}
-.toc-list li:last-child{border-bottom:0;}
-.toc-list a{display:flex;align-items:baseline;gap:14px;padding:13px 2px;font-size:16.5px;font-weight:700;color:var(--ink-2);transition:color .18s;}
-.toc-list a span{flex:none;min-width:26px;font-size:13px;font-weight:800;color:var(--violet-800);letter-spacing:.04em;}
-.toc-list a em{font-style:normal;margin-left:auto;font-size:10.5px;font-weight:800;letter-spacing:.1em;color:var(--line-2);}
-.toc-list a:hover{color:var(--violet-800);}
-.toc-list a:hover em{color:var(--violet-500);}
 
 /* ============================================================
    Chapter / Section 골격
@@ -629,7 +664,7 @@ svg text{font-family:var(--font);}
 @keyframes rcBox{0%,64%{opacity:.14;transform:translateX(7px)}76%{opacity:1;transform:none}100%{opacity:1;transform:none}}
 
 /* ============================================================
-   CH 04 — 협업 및 추진 과제
+   CH 04 — 추진 과제
    ============================================================ */
 .role .bd{transform-box:fill-box;transform-origin:center;
   animation:rlSolid 12s steps(1,end) infinite both, rlZoom 12s ease-in-out infinite both;}
@@ -677,6 +712,7 @@ code{font-family:ui-monospace,SFMono-Regular,"SF Mono",Consolas,"Liberation Mono
 }
 @media (max-width:1180px){
   body{font-size:15.5px;}
+  .cover{--lens:340px;--scan:560px;}
   .cover-inner{padding-top:88px;padding-bottom:80px;}
   .cover h1{font-size:44px;}
   .cover-subtitle{font-size:19px;}
@@ -695,7 +731,7 @@ code{font-family:ui-monospace,SFMono-Regular,"SF Mono",Consolas,"Liberation Mono
   .cover h1{font-size:37px;}
   .cover-subtitle{font-size:17px;}
   .cover-desc{font-size:15px;}
-  .cover-orb{right:-190px;top:-140px;opacity:.6;}
+  .cover{--lens:270px;--scan:450px;}
   .chap-head{gap:16px;}
   .chap-no{font-size:44px;}
   .chap-title{font-size:26px;}
@@ -708,14 +744,13 @@ code{font-family:ui-monospace,SFMono-Regular,"SF Mono",Consolas,"Liberation Mono
 }
 @media (max-width:760px){
   body{font-size:15px;}
+  .cover{--lens:210px;--scan:350px;}
   .wrap,.topbar-inner,.cover-inner{padding-left:16px;padding-right:16px;}
   .cover h1{font-size:31px;letter-spacing:-.02em;}
   .cover-subtitle{font-size:15.5px;}
   .cover-foot{flex-wrap:wrap;gap:8px;}
   .chap-title{font-size:23px;}
   .sec-title{font-size:19.5px;}
-  .toc-list a{font-size:15px;}
-  .toc-list a em{display:none;}
   .tbl{font-size:13px;}
   .tbl th,.tbl td{padding:10px 11px;}
   .footer .fname{font-size:29px;}
@@ -732,12 +767,17 @@ code{font-family:ui-monospace,SFMono-Regular,"SF Mono",Consolas,"Liberation Mono
   .topbar{display:none !important;}
   .rv{opacity:1 !important;transform:none !important;}          /* ★없으면 백지로 인쇄된다 */
   .ksd-ctl,.ksd-hint{display:none !important;}
-  .cover-orb,.cover-grid{display:none !important;}
-  .fig,.card,.keymsg,.note,.toc{box-shadow:none !important;}
+  /* 종이에서도 "렌즈가 판 위에 놓인" 완성된 장면으로 세워 둔다.
+     훑고 지나간 자리(.cover-scan)만 뺀다 — 마스크가 인쇄 엔진마다 결과가 갈린다. */
+  .cover-scan{display:none !important;}
+  .cover-lens{animation:none !important;transform:translateX(calc(62vw - var(--lens) / 2)) !important;}
+  .lens-glass{animation:none !important;transform:translate(-50%,-50%) !important;}
+  .lens-ring{animation:none !important;}
+  .fig,.card,.keymsg,.note{box-shadow:none !important;}
   .chapter{break-before:page;}
   .chapter:first-of-type{break-before:auto;}
-  .sec-head,.keymsg,.note,.card,.fig,.toc,.ksd{break-inside:avoid;}
-  .orb-core,.orb-ring,.fig svg *,.ksd-app *,.ksd-ctl-bar i,.flow{animation:none !important;transition:none !important;}
+  .sec-head,.keymsg,.note,.card,.fig,.ksd{break-inside:avoid;}
+  .lens-ring,.lens-glass,.fig svg *,.ksd-app *,.ksd-ctl-bar i,.flow{animation:none !important;transition:none !important;}
   .ksd{max-width:640px;}
   .fig svg .flow,.fig svg .pk,.fig svg .drift,
   .fig svg .pass,.fig svg .stop,.fig svg .ring{opacity:0 !important;}
@@ -752,7 +792,13 @@ code{font-family:ui-monospace,SFMono-Regular,"SF Mono",Consolas,"Liberation Mono
     animation-delay:0ms !important; transition-duration:.001ms !important; transition-delay:0ms !important;
   }
   .rv{opacity:1 !important;transform:none !important;}
-  .orb-core,.orb-ring,
+  /* ⚠️ 훑는 도중에 멈추면 이상하다 — 렌즈를 판 가운데에 세워 "지켜보는 장면"으로 완성시킨다 */
+  .cover-lens{animation:none !important;transform:translateX(calc(62vw - var(--lens) / 2)) !important;}
+  .cover-scan{animation:none !important;
+    -webkit-mask-position:calc(62vw - var(--scan) / 2) 50% !important;
+    mask-position:calc(62vw - var(--scan) / 2) 50% !important;}
+  .lens-glass{animation:none !important;transform:translate(-50%,-50%) !important;}
+  .lens-ring,
   .fig svg *,.f11 *,.f12 *,.fan *,.stem8 *,.hl *,.rel *,.ef *,.rc *,.role *,
   .ksd-app,.ksd-app *,.ksd-ctl-bar i{animation:none !important;}
   .fig svg .flow,.fig svg .pk,.fig svg .drift,
@@ -780,7 +826,7 @@ code{font-family:ui-monospace,SFMono-Regular,"SF Mono",Consolas,"Liberation Mono
       <a href="#ch1">01 추진 배경</a>
       <a href="#ch2">02 서비스 설명</a>
       <a href="#ch3">03 기대 효과</a>
-      <a href="#ch4">04 협업 및 추진 과제</a>
+      <a href="#ch4">04 추진 과제</a>
       <a href="#apx">별첨 A</a>
     </nav>
   </div>
@@ -789,11 +835,13 @@ code{font-family:ui-monospace,SFMono-Regular,"SF Mono",Consolas,"Liberation Mono
 
 <section class="cover" aria-labelledby="cover-title">
   <div class="cover-grid" aria-hidden="true"></div>
-  <div class="cover-orb" aria-hidden="true">
-    <span class="orb-core"></span>
-    <span class="orb-ring r1"></span>
-    <span class="orb-ring r2"></span>
-    <span class="orb-ring r3"></span>
+  <div class="cover-scan" aria-hidden="true"></div>
+  <div class="cover-lens" aria-hidden="true">
+    <span class="lens-glass"></span>
+    <span class="lens-ring r3"></span>
+    <span class="lens-ring r2"></span>
+    <span class="lens-ring r1"></span>
+    <span class="lens-cross"></span>
   </div>
 
   <div class="cover-inner">
@@ -812,21 +860,6 @@ code{font-family:ui-monospace,SFMono-Regular,"SF Mono",Consolas,"Liberation Mono
       <span class="dot" aria-hidden="true"></span>
       <span>2026.08.14</span>
     </div>
-  </div>
-</section>
-
-<section class="intro" aria-label="목차">
-  <div class="wrap">
-    <nav class="toc" aria-label="보고서 목차">
-      <span class="lbl">CONTENTS</span>
-      <ul class="toc-list">
-        <li><a href="#ch1"><span>01</span>추진 배경<em>BACKGROUND</em></a></li>
-        <li><a href="#ch2"><span>02</span>서비스 설명<em>2.1 — 2.7</em></a></li>
-        <li><a href="#ch3"><span>03</span>기대 효과<em>EXPECTED VALUE</em></a></li>
-        <li><a href="#ch4"><span>04</span>협업 및 추진 과제<em>COLLABORATION</em></a></li>
-        <li><a href="#apx"><span>A</span>별첨 · 기술 구성<em>APPENDIX</em></a></li>
-      </ul>
-    </nav>
   </div>
 </section>
 
@@ -1991,8 +2024,8 @@ code{font-family:ui-monospace,SFMono-Regular,"SF Mono",Consolas,"Liberation Mono
     <header class="chap-head rv">
       <div class="chap-no" aria-hidden="true">04</div>
       <div>
-        <span class="chap-label">COLLABORATION</span>
-        <h2 class="chap-title">협업 및 추진 과제</h2>
+        <span class="chap-label">NEXT STEPS</span>
+        <h2 class="chap-title">추진 과제</h2>
         <p class="chap-desc">
           지금 누가 무엇을 맡고 있는지, 그리고 앞으로 무엇을 정해야 하는지를 적습니다.<br>
           협의 전에 결론을 미리 써 두지 않았습니다.
