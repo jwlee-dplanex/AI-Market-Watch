@@ -117,80 +117,67 @@ svg text{font-family:var(--font);}
    Cover
    ============================================================ */
 /* ------------------------------------------------------------
-   표지 = 한 문장짜리 도해다.  격자 = 시장(데이터가 깔린 판)
-                              렌즈 = 그 위를 지켜보는 눈
-   렌즈가 격자를 훑고, 지나간 자리가 잠깐 밝아진다.
-   ⚠️ 이 움직임이 없으면 부제 "지속적으로 수집·요약합니다"가 글자로만 남는다.
-   --lens / --scan 두 값이 렌즈와 훑는 자리의 크기를 함께 잡는다 —
-   키프레임이 이 변수로 좌표를 계산하므로 크기를 바꿔도 둘이 어긋나지 않는다.
+   표지 = 한 문장짜리 도해다.
+     격자  = 시장(데이터가 깔린 판)
+     렌즈  = 그 위를 지켜보는 관측점
+   ⚠️ 표지에는 움직임을 두지 않는다. 정지 그림 하나로 끝낸다.
+      네 번 시도해 네 번 다 반려됐다 —
+        1차 회전 링 3개    : 아무 주장도 하지 않는 원본 장식
+        2차 좌우로 훑는 렌즈 : 정신없고 제목·부제 위를 가로지른다
+        3차 흐르는 격자     : 배경이 통째로 움직여 울렁거린다
+        4차 렌즈 안 격자 흐름 : 면적만 줄었을 뿐 성질이 같다
+      ⚠️ 속도를 낮춰 해결되는 문제가 아니었다. "배경이 흐른다"는 성질의 문제다.
+   ⚠️ 증명할 주장이 없으면 정지가 맞다. 여기서는 정지가 읽기를 돕는다.
+      대신 렌즈 안 격자의 대비를 올려 "렌즈 안이 또렷하다"를 정지 상태로 만든다.
+   ▶ 나중에 되살린다면 : 배경이 아니라 렌즈면 하나의 아주 느린 밝기 변화까지만.
+      격자와 그라디언트는 다시 움직이지 않는다.
    ------------------------------------------------------------ */
 .cover{
-  --lens:400px; --scan:660px;
+  --lens:400px;
   position:relative; overflow:hidden; isolation:isolate;
   background:
     radial-gradient(1100px 620px at 76% 18%, rgba(107,52,168,.55), transparent 68%),
     linear-gradient(160deg,var(--violet-950) 8%, var(--violet-900) 52%, var(--violet-850) 100%);
   color:#fff;
 }
-/* 시장 — 데이터가 깔린 판 */
+/* 시장 — 데이터가 깔린 판. 정지. 오른쪽으로 치우쳐 텍스트 뒤를 비운다 */
 .cover-grid{
   position:absolute; inset:0; z-index:0; pointer-events:none;
   background-image:
-    linear-gradient(rgba(255,255,255,.075) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,.075) 1px, transparent 1px);
+    linear-gradient(rgba(255,255,255,.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.07) 1px, transparent 1px);
   background-size:64px 64px;
-  mask-image:radial-gradient(1150px 640px at 50% 50%,#000,transparent 78%);
-  -webkit-mask-image:radial-gradient(1150px 640px at 50% 50%,#000,transparent 78%);
+  mask-image:radial-gradient(1000px 600px at 70% 50%,#000,transparent 76%);
+  -webkit-mask-image:radial-gradient(1000px 600px at 70% 50%,#000,transparent 76%);
 }
-/* 훑고 지나간 자리 — 같은 64px 격자를 더 밝게 깔고 마스크만 렌즈를 따라 움직인다.
-   ⚠️ 격자 자체는 절대 움직이지 않는다. 움직이면 아래 격자와 어긋나 이중선이 보인다. */
-.cover-scan{
-  position:absolute; inset:0; z-index:0; pointer-events:none;
-  background-image:
-    linear-gradient(rgba(214,191,239,.4) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(214,191,239,.4) 1px, transparent 1px);
-  background-size:64px 64px;
-  mask-image:radial-gradient(circle closest-side,#000 8%,rgba(0,0,0,.6) 42%,transparent 74%);
-  -webkit-mask-image:radial-gradient(circle closest-side,#000 8%,rgba(0,0,0,.6) 42%,transparent 74%);
-  mask-size:var(--scan) var(--scan); -webkit-mask-size:var(--scan) var(--scan);
-  mask-repeat:no-repeat; -webkit-mask-repeat:no-repeat;
-  animation:mwScan 20s ease-in-out infinite;
-}
-/* 렌즈 — 로고(정지된 돋보기)의 움직이는 버전 */
+/* 렌즈 — 오른쪽에 가만히 있는다. 로고(정지된 돋보기)와 같은 자리의 은유 */
 .cover-lens{
-  position:absolute; left:0; top:50%; z-index:0; pointer-events:none;
-  width:var(--lens); height:var(--lens); margin-top:calc(var(--lens) / -2);
-  animation:mwLens 20s ease-in-out infinite;
+  position:absolute; right:6vw; top:50%; transform:translateY(-50%);
+  width:var(--lens); height:var(--lens); z-index:0; pointer-events:none;
 }
-.lens-glass{
+/* 렌즈 안 — 같은 64px 격자를 바깥(.07)보다 훨씬 진하게(.5) 깐다.
+   ⚠️ 움직이지 않는다. "렌즈 안이 또렷하다"를 대비로만 만든다.
+   유리 느낌은 안쪽 그림자로 낸다 — 움직임 없이 깊이를 준다. */
+.lens-grid{
   position:absolute; left:50%; top:50%; width:71%; height:71%; border-radius:50%;
-  transform:translate(-50%,-50%);
-  background:radial-gradient(circle at 38% 34%, rgba(147,213,0,.17), rgba(147,213,0,.05) 54%, rgba(34,16,58,0) 74%);
-  animation:lensBreathe 13s ease-in-out infinite;
+  transform:translate(-50%,-50%); overflow:hidden;
+  background-image:
+    linear-gradient(rgba(214,191,239,.5) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(214,191,239,.5) 1px, transparent 1px),
+    radial-gradient(circle at 38% 34%, rgba(147,213,0,.15), rgba(34,16,58,.5) 60%, rgba(34,16,58,.66));
+  background-size:64px 64px, 64px 64px, 100% 100%;
+  box-shadow:inset 0 0 42px rgba(34,16,58,.55), inset 9px 11px 28px rgba(255,255,255,.05);
 }
+/* 렌즈 구조 — 전부 정지. 링이 돌면 계측기가 아니라 장식으로 되돌아간다 */
 .lens-ring{position:absolute; left:50%; top:50%; border-radius:50%; transform:translate(-50%,-50%);}
-.lens-ring.r1{width:71%;height:71%;border:1.5px solid rgba(255,255,255,.5);}   /* 렌즈 테 — 돌지 않는다 */
-.lens-ring.r2{width:86%;height:86%;border:1px dashed rgba(214,191,239,.3);animation:lensSpin 46s linear infinite;}
-.lens-ring.r3{width:100%;height:100%;border:1px solid rgba(214,191,239,.14);
-  border-top-color:rgba(214,191,239,.58);animation:lensSpin 24s linear infinite reverse;}
+.lens-ring.r1{width:71%;height:71%;border:1.5px solid rgba(255,255,255,.5);}   /* 렌즈 테 */
+.lens-ring.r2{width:86%;height:86%;border:1px dashed rgba(214,191,239,.26);}
+.lens-ring.r3{width:100%;height:100%;border:1px solid rgba(214,191,239,.13);
+  border-top-color:rgba(214,191,239,.44);}
 .lens-cross{position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;}
 .lens-cross::before,.lens-cross::after{content:"";position:absolute;background:rgba(147,213,0,.5);}
 .lens-cross::before{left:50%;top:0;width:1px;height:100%;margin-left:-.5px;}
 .lens-cross::after{top:50%;left:0;height:1px;width:100%;margin-top:-.5px;}
-
-/* 20초 한 바퀴 — 양 끝에서 잠깐 멈춘다(§4.7 ⑤ : 훑은 자리를 읽을 시간) */
-@keyframes mwLens{
-  0%,4%    {transform:translateX(calc(10px - var(--lens) / 2))}
-  46%,54%  {transform:translateX(calc(100vw - 10px - var(--lens) / 2))}
-  96%,100% {transform:translateX(calc(10px - var(--lens) / 2))}
-}
-@keyframes mwScan{
-  0%,4%    {-webkit-mask-position:calc(10px - var(--scan) / 2) 50%;mask-position:calc(10px - var(--scan) / 2) 50%}
-  46%,54%  {-webkit-mask-position:calc(100vw - 10px - var(--scan) / 2) 50%;mask-position:calc(100vw - 10px - var(--scan) / 2) 50%}
-  96%,100% {-webkit-mask-position:calc(10px - var(--scan) / 2) 50%;mask-position:calc(10px - var(--scan) / 2) 50%}
-}
-@keyframes lensBreathe{0%,100%{transform:translate(-50%,-50%) scale(1);opacity:.86}50%{transform:translate(-50%,-50%) scale(1.07);opacity:1}}
-@keyframes lensSpin{from{transform:translate(-50%,-50%) rotate(0)}to{transform:translate(-50%,-50%) rotate(360deg)}}
 
 .cover-inner{
   position:relative; z-index:1;
@@ -712,7 +699,7 @@ code{font-family:ui-monospace,SFMono-Regular,"SF Mono",Consolas,"Liberation Mono
 }
 @media (max-width:1180px){
   body{font-size:15.5px;}
-  .cover{--lens:340px;--scan:560px;}
+  .cover{--lens:330px;}
   .cover-inner{padding-top:88px;padding-bottom:80px;}
   .cover h1{font-size:44px;}
   .cover-subtitle{font-size:19px;}
@@ -731,7 +718,9 @@ code{font-family:ui-monospace,SFMono-Regular,"SF Mono",Consolas,"Liberation Mono
   .cover h1{font-size:37px;}
   .cover-subtitle{font-size:17px;}
   .cover-desc{font-size:15px;}
-  .cover{--lens:270px;--scan:450px;}
+  /* 좁아지면 렌즈를 오른쪽 밖으로 밀어 텍스트와 절대 겹치지 않게 한다 */
+  .cover{--lens:300px;}
+  .cover-lens{right:-96px;opacity:.85;}
   .chap-head{gap:16px;}
   .chap-no{font-size:44px;}
   .chap-title{font-size:26px;}
@@ -744,7 +733,8 @@ code{font-family:ui-monospace,SFMono-Regular,"SF Mono",Consolas,"Liberation Mono
 }
 @media (max-width:760px){
   body{font-size:15px;}
-  .cover{--lens:210px;--scan:350px;}
+  .cover{--lens:240px;}
+  .cover-lens{right:-86px;opacity:.7;}
   .wrap,.topbar-inner,.cover-inner{padding-left:16px;padding-right:16px;}
   .cover h1{font-size:31px;letter-spacing:-.02em;}
   .cover-subtitle{font-size:15.5px;}
@@ -767,17 +757,12 @@ code{font-family:ui-monospace,SFMono-Regular,"SF Mono",Consolas,"Liberation Mono
   .topbar{display:none !important;}
   .rv{opacity:1 !important;transform:none !important;}          /* ★없으면 백지로 인쇄된다 */
   .ksd-ctl,.ksd-hint{display:none !important;}
-  /* 종이에서도 "렌즈가 판 위에 놓인" 완성된 장면으로 세워 둔다.
-     훑고 지나간 자리(.cover-scan)만 뺀다 — 마스크가 인쇄 엔진마다 결과가 갈린다. */
-  .cover-scan{display:none !important;}
-  .cover-lens{animation:none !important;transform:translateX(calc(62vw - var(--lens) / 2)) !important;}
-  .lens-glass{animation:none !important;transform:translate(-50%,-50%) !important;}
-  .lens-ring{animation:none !important;}
+  /* 표지는 원래 정지 그림이라 인쇄에서 손댈 것이 없다 */
   .fig,.card,.keymsg,.note{box-shadow:none !important;}
   .chapter{break-before:page;}
   .chapter:first-of-type{break-before:auto;}
   .sec-head,.keymsg,.note,.card,.fig,.ksd{break-inside:avoid;}
-  .lens-ring,.lens-glass,.fig svg *,.ksd-app *,.ksd-ctl-bar i,.flow{animation:none !important;transition:none !important;}
+  .fig svg *,.ksd-app *,.ksd-ctl-bar i,.flow{animation:none !important;transition:none !important;}
   .ksd{max-width:640px;}
   .fig svg .flow,.fig svg .pk,.fig svg .drift,
   .fig svg .pass,.fig svg .stop,.fig svg .ring{opacity:0 !important;}
@@ -792,13 +777,7 @@ code{font-family:ui-monospace,SFMono-Regular,"SF Mono",Consolas,"Liberation Mono
     animation-delay:0ms !important; transition-duration:.001ms !important; transition-delay:0ms !important;
   }
   .rv{opacity:1 !important;transform:none !important;}
-  /* ⚠️ 훑는 도중에 멈추면 이상하다 — 렌즈를 판 가운데에 세워 "지켜보는 장면"으로 완성시킨다 */
-  .cover-lens{animation:none !important;transform:translateX(calc(62vw - var(--lens) / 2)) !important;}
-  .cover-scan{animation:none !important;
-    -webkit-mask-position:calc(62vw - var(--scan) / 2) 50% !important;
-    mask-position:calc(62vw - var(--scan) / 2) 50% !important;}
-  .lens-glass{animation:none !important;transform:translate(-50%,-50%) !important;}
-  .lens-ring,
+  /* ⚠️ 표지에는 애니메이션이 없다 — reduce에서 되돌릴 상태 자체가 없다 */
   .fig svg *,.f11 *,.f12 *,.fan *,.stem8 *,.hl *,.rel *,.ef *,.rc *,.role *,
   .ksd-app,.ksd-app *,.ksd-ctl-bar i{animation:none !important;}
   .fig svg .flow,.fig svg .pk,.fig svg .drift,
@@ -835,9 +814,8 @@ code{font-family:ui-monospace,SFMono-Regular,"SF Mono",Consolas,"Liberation Mono
 
 <section class="cover" aria-labelledby="cover-title">
   <div class="cover-grid" aria-hidden="true"></div>
-  <div class="cover-scan" aria-hidden="true"></div>
   <div class="cover-lens" aria-hidden="true">
-    <span class="lens-glass"></span>
+    <span class="lens-grid"></span>
     <span class="lens-ring r3"></span>
     <span class="lens-ring r2"></span>
     <span class="lens-ring r1"></span>
