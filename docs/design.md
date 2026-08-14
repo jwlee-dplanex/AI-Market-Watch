@@ -2988,3 +2988,525 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 지식그래프 화�
 - 엣지: KB국민은행–Anthropic(가중치 3), 삼성생명–OpenAI(가중치 2), 신한은행–OpenAI(가중치 1) — 동종업계(금융사-금융사, 보험사-보험사 등)끼리는 연결선 없음
 - 엣지 클릭 예시: "KB국민은행 × Anthropic" 클릭 시 우측 패널 헤더 "KB국민은행 × Anthropic / 함께 언급된 뉴스 3건" + 근거 뉴스 3건 전량 표시
 ```
+
+---
+
+## 4. 기획보고서 HTML 형식 표준 (2026-08-14 신설, PD)
+
+### 4.0 이 표준의 지위와 적용 대상
+
+**제품 화면이 아니라 "산출물"의 형식 표준이다.** 위 3장까지가 `templates/` 아래 Django 화면 스펙이라면, 이 장은 **경영진·외부에 나가는 기획보고서 HTML 한 장짜리 문서**를 어떻게 만드는지 정한다. 화면 ID(`SET-0NN` 등)를 부여하지 않는다 — 화면이 아니기 때문이다.
+
+- **재사용 표준이다.** 한 번 쓰고 버리는 문서 스펙이 아니라, 앞으로 나가는 기획보고서 전부가 이 형식을 따른다. **첫 적용은 AI Market Watch 대표님 보고자료.**
+- **원본 레퍼런스**: `docs/references/KANDLE_INSIGHT_SYSTEM_기획보고서.html`(578,712자) — 사용자가 "우수사례"로 지정한 문서다. 본문만 필요하면 같은 폴더의 `_본문추출.txt`(28KB)를 읽는다. ⚠️ **원본 HTML을 통째로 Read하지 말 것**(578KB, 컨텍스트가 날아간다). 기법 확인은 `Grep`으로 좁혀서 한다.
+- **토큰은 "치환"이 아니라 "승계"다.** 원본의 `:root` 첫 줄이 `/* ---- Brand : DPLANEX Violet (logo #582B8D) ---- */`이다 — 애초에 같은 브랜드 위에서 만들어진 문서라, 톤을 갈아엎을 게 아니라 **완성된 토큰 세트를 그대로 물려받고 어긋난 한 값만 정합**시키면 된다(4.1).
+- **Django 템플릿이 아니다.** 산출물은 단독 `.html` 파일이므로 `{# #}` 한 줄 규칙의 적용 대상이 아니다. ⚠️ 단, **이 보고서를 나중에 Django로 서빙하기로 하면 그 순간 규칙이 되살아난다** — 그때는 주석을 전부 `{% comment %}`로 바꾸고 렌더 결과에 `{#`가 남았는지 확인한다.
+
+### 4.1 브랜드 보라 정합 — `#60269E`를 정본으로 한다 (결론)
+
+| 출처 | 값 | 근거 문구 |
+|---|---|---|
+| `docs/design.md` 1.1 컬러 토큰 · `CLAUDE.md` | **`#60269E`** | "아래 토큰은 DPLANEX VI 가이드라인에서 직접 가져옵니다" |
+| KANDLE 기획보고서 `:root` | `#582B8D` | "Brand : DPLANEX Violet (logo #582B8D)" / "BRAND — 로고 원색, 주요 Accent" |
+
+**결론: 이 프로젝트의 모든 산출물에서 브랜드 보라는 `#60269E`다.** 승계한 8단계 사다리에서 `--violet-800`만 `#582B8D` → `#60269E`로 바꾸고 나머지 단계는 원본 값을 그대로 쓴다.
+
+- **왜 `#60269E`인가**: ⑴ `design.md` 1.1이 "VI 가이드라인에서 직접 가져왔다"고 명시한 유일한 표(이 프로젝트의 색 정본은 여기다). ⑵ 구현 전체가 이미 `#60269E`다 — 헤더·사이드바 활성 메뉴·파비콘·`<meta name="theme-color">`·그래프 AI 노드까지 `design.md`에서만 40곳 넘게 참조된다. ⑶ **첫 적용 문서가 하필 이 제품을 소개하는 보고서다.** 보고서 안의 도해가 실제 화면 스크린샷·재현 도해와 나란히 놓이는데 보라가 한 톤 어긋나면 그 자리에서 티가 난다.
+- **두 값은 같은 색조라 승계에 지장이 없다.** `#582B8D`는 H267.5°/S53%/L36%, `#60269E`는 H269°/S61%/L38%로 **색조가 사실상 같고 채도·명도만 미세하게 다르다.** 그래서 `--violet-800` 한 칸만 바꿔도 나머지 7단계와의 명도 간격이 그대로 유지된다(사다리를 재계산할 필요가 없다).
+- ⚠️ **열려 있는 항목 — "실제 DPLANEX 로고 원색이 무엇인가"는 이 표준이 정할 문제가 아니다.** KANDLE 문서 저자는 로고 원색을 `#582B8D`로 적어뒀다. 만약 VI 실측 결과가 `#582B8D`로 확인되면 **`design.md` 1.1과 `CLAUDE.md`가 먼저 정정돼야 하고**, 이 절은 그 결정을 따라간다. 여기서 정한 것은 "브랜드 정본이 무엇인가"가 아니라 **"두 값이 충돌할 때 산출물은 프로젝트 정본을 따른다"**는 순서 규칙이다.
+
+### 4.2 디자인 토큰 (KANDLE 세트 승계 + 프로젝트 기존 토큰 편입)
+
+**값만 옮기지 않는다 — 용도 주석이 곧 사용 규칙이다.** 아래 주석은 원본 `:root`에 달려 있던 것을 그대로 가져왔고, 프로젝트 사정에 맞게 보완한 곳만 표시했다.
+
+```css
+:root{
+  /* ---- Brand : DPLANEX Violet (정본 #60269E, 4.1 참고) ---- */
+  --violet-950:#22103A;   /* 최심층 surface — Cover / Gate / Footer */
+  --violet-900:#351A55;   /* 다크 surface · 강조 텍스트 */
+  --violet-850:#401771;   /* ★프로젝트 편입 — Violet Deep, 그라디언트 마무리 */
+  --violet-820:#4C1C80;   /* ★프로젝트 편입 — Violet Hover, 버튼 hover·active */
+  --violet-800:#60269E;   /* BRAND — 로고 원색, 주요 Accent (원본 #582B8D에서 정합) */
+  --violet-700:#6B34A8;   /* Brand alt — Gradient 종단 */
+  --violet-500:#9163CE;   /* 어두운 배경 위 밝은 Accent */
+  --violet-300:#A28BC9;   /* ⚠️이전 상태(AS-IS) 표기 전용 — 4.3 참고 */
+  --lav-200:#D6BFEF;      /* 카드 테두리 · 배지 */
+  --lav-100:#EFE7F6;      /* 카드/섹션 채움 */
+  --lav-050:#F4F1F9;      /* 가장 옅은 면 */
+
+  /* ---- Secondary : Indigo (영역 구분 전용 — 4.3 참고) ---- */
+  --indigo-700:#4E5188;
+  --indigo-600:#686AA8;
+  --indigo-200:#D2D5E8;
+  --indigo-100:#E5E5F0;
+  --indigo-050:#F3F5FB;
+
+  /* ---- Neutral ---- */
+  --ink:#272639;          /* 본문 */
+  --ink-2:#4A4759;        /* 보조 본문 */
+  --muted:#7A7690;        /* 캡션 · 비활성 */
+  --line:#E6E2EE;         /* hairline */
+  --line-2:#D2CBDF;       /* 강한 구분선 */
+  --bg:#FFFFFF;
+  --bg-soft:#F7F5FA;
+  --bg-soft-2:#EFECF5;
+
+  /* ---- Semantic : 제약 · 주의 (미구현·미확정 실토용, 4.3 참고) ---- */
+  --warn:#9E2F27;         /* 제약 · 주의 : 본문 텍스트 */
+  --warn-mid:#C0453B;     /* 제약 · 주의 : Accent (아이콘 · 라인) */
+  --warn-bg:#FDF3F1;      /* 제약 · 주의 : 배경 */
+  --warn-line:#F0D3CE;    /* 제약 · 주의 : 테두리 */
+
+  /* ---- 형태 · 레이아웃 ---- */
+  --radius:14px;          /* 카드 */
+  --radius-s:9px;         /* 소형 요소 */
+  --shadow-s:0 1px 2px rgba(39,38,57,.05), 0 2px 8px rgba(39,38,57,.05);
+  --shadow-m:0 2px 6px rgba(39,38,57,.06), 0 12px 28px rgba(39,38,57,.07);
+  --maxw:1360px;
+  --font:"<내장폰트명>","Pretendard Variable","Pretendard",-apple-system,BlinkMacSystemFont,
+         "Apple SD Gothic Neo","Malgun Gothic","맑은 고딕","Segoe UI",system-ui,"Noto Sans KR",sans-serif;
+}
+```
+
+**승계하면서 손댄 것은 3곳뿐이다.**
+
+| 조치 | 내용 | 이유 |
+|---|---|---|
+| 값 정합 | `--violet-800` `#582B8D` → **`#60269E`** | 4.1 |
+| 단계 편입 | `--violet-850 #401771`(Violet Deep) · `--violet-820 #4C1C80`(Violet Hover) 신설 | 프로젝트에 이미 있는 두 토큰이 명도상 `900`(L22%)과 `800`(L38%) **사이에 정확히 들어간다**(L27%·L31%). 사다리를 어지럽히는 게 아니라 빈칸을 메운다 — 보고서 안에서 앱 버튼·그라디언트를 재현할 때 앱과 같은 값을 쓸 수 있게 된다. |
+| 주석 보강 | `--violet-300`·warn 4색·Indigo에 사용 조건 명시 | 아래 4.3 |
+
+⚠️ **그림자를 한 겹으로 줄이지 말 것.** `--shadow-s`·`--shadow-m` 둘 다 **근거리 그림자 + 원거리 그림자 2겹**이다. 한 겹으로 줄이면 카드가 종이처럼 떠 보이지 않고 톤이 무너진다. Tailwind의 `shadow-sm` 감각(1겹)과 다르다는 점에 유의 — 이 문서는 Tailwind를 쓰지 않는다(4.5).
+
+⚠️ **`--radius`는 앱의 10px 규칙과 다르다.** 앱 화면(1.3 Surface & Shape)은 버튼·인풋·카드 공통 10px이지만, **이 보고서 형식은 카드 14px / 소형 9px**이다 — 인포그래픽 밀도가 높은 큰 판형에서 10px은 각져 보인다. 용도별 분기는 4.4 마지막 표를 따른다.
+
+**앱 화면을 도해로 재현할 때만의 예외**: 보고서 안에 대시보드·지식그래프 같은 실제 화면을 그려 넣을 때는 **그 화면의 값(radius 10px, 활성 메뉴 배경 `#F3EAFB`, 금융사 `#3B82F6` / 보험사 `#00AF9A` / AI `#60269E` 뱃지 3색)을 그대로 쓴다.** 보고서 토큰으로 갈아끼우면 "실제 화면"이라는 사실 자체가 틀려진다(사실 기반 원칙).
+
+### 4.3 색 사용 규칙 — 어느 색이 무엇을 의미하는가
+
+**⑴ AS-IS / TO-BE 대비는 색 규칙으로 못 박는다.** 원본이 `--violet-300`에 `/* 이전 상태(AS-IS) 표기 */` 주석을 달아둔 이유가 이것이다. **우리 보고서도 정확히 AS-IS/TO-BE 구조라 이 규칙이 그대로 필요하다.**
+
+| 대상 | 색 | 비고 |
+|---|---|---|
+| **AS-IS**(지금의 방식, 곧 대체될 것) | `--violet-300 #A28BC9` | 같은 색조의 **연하고 채도 낮은** 보라. "낡음"을 붉은 경고가 아니라 **바래짐**으로 표현한다 |
+| **TO-BE**(제안하는 방식) | `--violet-800 #60269E` | 브랜드 원색. 화살표·강조 텍스트도 여기 맞춘다 |
+| 전환 화살표 | `--violet-500` → `--violet-800` 그라디언트 | 왼쪽(과거)에서 오른쪽(미래)으로 진해진다 |
+
+- ⚠️ **AS-IS를 warn(붉은색)으로 칠하지 말 것.** 제약·주의는 완전히 다른 축이다(⑶). AS-IS는 "잘못된 것"이 아니라 "지금까지의 것"이다 — 붉게 칠하면 현행 운영을 비난하는 문서가 된다.
+
+**⑵ Indigo는 "영역 구분" 전용이다.** 원본은 `KANDLE 금융(폐쇄망)` vs `KANDLE 문고(클라우드)` **두 환경을 색조로 갈랐다**(보라 = 데이터·분석 영역, 인디고 = 금융 플랫폼 영역).
+
+우리 보고서의 대응 축은 **"자동 파이프라인(수집·1차 판정)" vs "사람 운영(RA 검증·큐레이션)"**으로 잡는다. AI Market Watch의 실제 구조적 대비가 여기이기 때문이다 — 검증 게이트(`News.objects.verified()`)를 경계로 **기계가 모아온 것**과 **사람이 통과시킨 것**이 갈리고, 옵션 B 코드화 전까지 운영 갭을 RA가 수동으로 덮는다는 것이 확정 원칙이다(`CLAUDE.md`). 두 축이 실제로 다른 주체·다른 신뢰도를 갖기 때문에 색조를 나눌 명분이 선다.
+
+- **"구현 완료 vs 로드맵"에는 Indigo를 쓰지 않는다.** 그건 영역이 아니라 **시간 축**이라 AS-IS/TO-BE 규칙(⑴)과 미확정 표기(⑶)로 표현한다. 축이 셋이 되면 독자가 색을 못 읽는다.
+- ⚠️ **앱의 금융사 블루(`#3B82F6`)와 Indigo를 같은 화면에서 겹쳐 쓰지 말 것.** 굳이 같은 도해에 나와야 하면 **Indigo는 면(영역 배경·구획선)에만, 뱃지 3색은 점(노드·칩)에만** 쓴다 — 역할이 겹치지 않으면 색이 가까워도 읽힌다.
+
+**⑶ 제약·주의 4색 세트는 "미구현·미확정 실토" 자리에 쓴다.** 원본은 `--warn`(본문 텍스트) / `--warn-mid`(아이콘·라인) / `--warn-bg`(배경) / `--warn-line`(테두리)을 따로 두어, 제약 사항 박스 하나를 **네 값의 조합으로 일관되게** 그렸다.
+
+**우리 보고서는 이 세트를 반드시 쓴다.** 대표님 보고자료에는 아직 안 만든 것·아직 못 정한 것이 섞여 들어가는데, 이걸 각주로 실토하는 것이 사실 기반 원칙(`CLAUDE.md`·메모리)이다. 실토를 본문과 같은 색으로 흘려 쓰면 읽는 쪽이 구분하지 못한다.
+
+```
+┌──────────────────────────────────────────────┐  bg:--warn-bg  border:1px solid --warn-line
+│ ⚠  현재 미구현                                │  라벨: --warn-mid, 800, +.08em, 10.5px
+│    관련 기사 자동 판별은 RA가 수동으로 수행     │  본문: --warn, 700, 11.5px
+└──────────────────────────────────────────────┘  radius: --radius-s
+```
+
+- **DPLANEX Error `#D92D20`·Orange `#FF6C0E`를 이 자리에 쓰지 않는다.** 앱의 Error는 "파괴적 액션·오류 상태"라 의미가 다르고, warn 4색은 **채도를 눌러 본문과 함께 읽히도록 조율된 세트**다. 원색 오렌지/레드를 섞으면 각주가 경보가 된다.
+- **Success `#18A957`·Accent Green `#93D500`은 보고서 본문에서 기본적으로 쓰지 않는다.** 초록은 "완료·통과" 신호로만 아주 드물게, 슬래시 액센트(로고)는 표지·헤더에 한정한다.
+
+### 4.4 타이포그래피 — 밀도가 이 형식의 정체성이다
+
+**측정값(원본)**: `font-size` 8.5px~17px(최다 10.5px, 그다음 11px·11.5px) / `font-weight` **800이 177회로 압도적**, 700이 64회, 600이 26회.
+
+- ⚠️ **본문급이 10~13px대이고, 위계는 크기가 아니라 굵기로 만든다.** 크기를 키우고 굵기를 낮추면 **인포그래픽 밀도가 사라져** 그냥 웹페이지가 된다. 이 형식은 "화면에서 읽는 문서"가 아니라 **"슬라이드를 스크롤로 넘기는 문서"**다.
+- 앱 화면의 타이포 스케일(1.2 — 본문 16px/lh 1.7)은 **여기 적용하지 않는다.** 적용 대상이 다르다.
+
+| 역할 | 크기 / 굵기 / 자간 | 비고 |
+|---|---|---|
+| 표지 대제목 | 34~44px / 800 / `-.03em` | 문서 전체에 한 번 |
+| 챕터 번호(`01`) | 40~56px / 800 / `-.02em` | 색은 `--violet-500` 또는 `--lav-200` |
+| 섹션 라벨(영문 대문자) | 10~11px / 800 / **`+.08em ~ +.13em`** | `DATA VALUE`·`STRUCTURAL BARRIER` 형태 |
+| 섹션 제목(한글) | 17~22px / 800 / `-.02em` | |
+| 리드 문장 | 13~14px / 700 / `-.015em` | 섹션 제목 아래 2~3줄 요약 |
+| 본문 | **11~12.5px / 700** / `-.01em` | ⚠️ 본문도 700이다 |
+| 도해 내부 라벨 | **8.5~10.5px / 800** / `-.01em` | 가장 많이 쓰이는 크기대 |
+| 캡션 · 각주 | 9.5~10.5px / 700 / `-.01em` | 색 `--muted` |
+| KEY MESSAGE | 18.5px / 700 / `-.02em` / lh 1.55 | 챕터 결론 한 줄, 보라 면 위 |
+
+**letter-spacing은 이중 체계다 — 이게 이 문서 특유의 리듬을 만든다.**
+
+```
+한글 · 본문        -.01em ~ -.03em    좁힘 (큰 글자일수록 더 좁힌다)
+영문 대문자 라벨   +.06em ~ +.13em    넓힘 (오직 대문자 라벨에만)
+```
+
+- **양수 자간은 `DATA VALUE`·`APPROACH SHIFT`·`END-TO-END FLOW` 같은 영문 대문자 라벨 전용이다.** 한글에 양수 자간을 주면 글자가 흩어지고, 영문 대문자에 음수 자간을 주면 뭉친다. **섞어 쓰면 리듬이 죽는다.**
+- 한글 본문에는 `word-break:keep-all`을 함께 건다(1.2와 같은 이유 — 어절 단위로 끊어야 읽힌다).
+
+**border-radius는 용도별로 갈린다.**
+
+| 값 | 용도 |
+|---|---|
+| `50%` / `99px` / `999px` | 원·알약 — 배지, 스텝 번호, 카테고리 칩 |
+| `14px`(`--radius`) · `12px` | 카드, 패널, 도해 프레임 |
+| `8~11px`(`--radius-s` 9px) | 소형 요소 — 각주 박스, 인풋 모형, 작은 태그 |
+
+**폰트 체인은 3단 구조를 유지한다**: `내장 폰트 → Pretendard(사용자 시스템에 있을 수 있음) → OS 시스템 폰트`. 어느 환경에서 열어도 한글이 깨지지 않으면서, 우리 환경에서는 의도한 글꼴이 나온다.
+
+- **웹폰트 링크(Google Fonts 등)는 금지**(4.5 — 자립형 원칙). 필요하면 `@font-face`에 **base64 woff2로 내장**한다(원본이 이 방식, `@font-face` 1개).
+- **내장은 서브셋 1~2종까지.** 한글 폰트를 통짜로 넣으면 파일이 수 MB로 뛴다. 목표는 **원본과 같은 1MB 이내**(원본 578KB).
+- **세리프 헤딩(Source Serif 4 / Noto Serif KR)은 이 형식에 쓰지 않는 것이 기본값이다.** 앱 화면 규칙(1.2)과 다르며, 산세리프 800 굵기로 밀도를 만드는 이 형식과 맞지 않는다. 표지·챕터 표제에 한해 선택적으로 허용하되, **그 한 종을 내장하는 비용을 감수할 때만** 쓴다.
+
+### 4.5 기술 구성 규칙 — 자립형 단일 HTML
+
+**최상위 원칙: 파일 하나로 어디서든, 인터넷 없이 열려야 한다.** 원본의 외부 리소스는 **0개**다(CDN·웹폰트 링크·이미지 파일 전부 없음). 그래서 **메일에 그대로 첨부해서 보낼 수 있고**, 받는 쪽이 사내망·비행기·폐쇄망 어디서 열어도 처음 만든 그대로 보인다. 이미지 폴더를 같이 압축해 보내거나, 링크가 죽어서 도해가 깨지거나, 사내 프록시가 CDN을 막아 폰트가 바뀌는 일이 **구조적으로 일어나지 않는다.**
+
+| 규칙 | 원본 실측 | 이유 |
+|---|---|---|
+| **`<img>`·`<video>` 금지** | 0 / 0 | 외부 파일이 되거나 base64로 파일을 부풀린다. 무엇보다 **확대하면 뭉개진다** — 도해가 본체인 문서에서 치명적이다 |
+| **`<canvas>`·`<iframe>` 금지** | 0 / 0 | canvas는 인쇄·확대·접근성 전부에서 불리하고, iframe은 외부 의존이다 |
+| **도해는 전부 inline `<svg>`** | **116개** (`path` 532 · `text` 306 · `circle` 284 · `rect` 142 · `g` 138 · `linearGradient` 2 · `radialGradient` 2 · `marker` 4) | 무한 확대해도 선명하고, 텍스트가 **선택·검색·스크린리더 판독이 되며**, CSS로 색과 움직임을 줄 수 있다. 화살표는 `<marker>`로 정의해 재사용한다 |
+| **SVG 자체 애니메이션(SMIL) 금지** | `<animate>` **0** | 브라우저 지원이 고르지 않고 `prefers-reduced-motion`으로 한 번에 끌 수 없다 |
+| **움직임은 CSS만** | `@keyframes` **85** · `animation` 106회 · `transition` 24회 | 한 곳(미디어 쿼리)에서 전부 끌 수 있다(4.9) |
+| **`will-change`·`backdrop-filter`는 아껴 쓴다** | 각 1회 | 남발하면 저사양 노트북·회의실 PC에서 스크롤이 끊긴다 |
+| **CSS 프레임워크 금지** | `--tw-` 0 · `@layer` 0 | Tailwind는 빌드 산출물이거나 CDN이다 — 둘 다 자립형과 양립하지 않는다. ⚠️ **앱 화면과 정반대 규칙이니 혼동 주의** |
+| **JS 프레임워크 금지** | React/Vue/jQuery 0 | 같은 이유. 필요한 동작은 바닐라로 충분하다 |
+| **CSS는 `<style>` 1블록** | 329,671자(파일의 57%) | `<head>` 안 단일 블록. CSS 변수 **57개**를 손으로 정의해 토큰으로 쓴다 |
+| **JS는 IIFE, 전역은 1개만** | 총 16,819자, 전역 노출 `window.KandleScenarioDemo` 하나 | 전역을 더럽히지 않아 여러 문서를 한 페이지에 붙여도 안전하다 |
+
+### 4.6 파일 골격과 문서 구조
+
+```
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>…</title>
+  <meta name="description" content="…">
+  <style>
+    @font-face { … base64 woff2 … font-display:swap; }   ← 외부 링크 금지
+    :root { … 4.2 토큰 … }
+    … 컴포넌트 …
+    @media (max-width:1400/1180/900/760px) { … }          ← 4단계
+    @media print { … }                                     ← 필수
+    @media (prefers-reduced-motion:reduce) { … }           ← 필수
+  </style>
+</head>
+<body>
+  <header class="topbar"> 브랜드 + 목차 nav + <div class="progress" id="progress" aria-hidden="true"></div>
+  <section class="cover">                    표지 — 대제목 · MAIN MESSAGE · 목차
+  <main>
+    <article id="ch1" class="chapter">       챕터 = 대주제 1개
+      <section class="sec" aria-labelledby="…">  섹션 = 슬라이드 1장
+    …
+  </main>
+  <footer class="footer">                    한 줄 메시지로 닫는다
+  <script> … 스크롤 등장 + 진행바 (4.7) … </script>
+  <script> … 씬 플레이어 (4.8, 필요한 문서만) … </script>
+</body>
+```
+
+**섹션(= 슬라이드 1장) 내부 골격.** 이 순서를 지키면 문서 전체 리듬이 일정해진다.
+
+```
+┌─ .sec ───────────────────────────────────────────────────────────┐
+│ ┌ .sec-head ────────────────────────────────────────────────┐    │
+│ │  01   DATA VALUE            ← 번호 + 영문 라벨(+자간)       │    │
+│ │  교보문고 데이터의 가치       ← 한글 섹션 제목 17~22px/800   │    │
+│ │  … 리드 문장 2~3줄 …          ← 13~14px/700, --ink-2       │    │
+│ └───────────────────────────────────────────────────────────┘    │
+│ ┌ .figure-cap ───────────────┐                                   │
+│ │ FIG 2-1  도해 제목          │  ← 도해에는 번호를 붙인다         │
+│ └────────────────────────────┘                                   │
+│ ┌ inline <svg> 또는 카드 그리드 ─────────────────────────────┐    │
+│ │              (본체 — 4.5 규칙)                             │    │
+│ └───────────────────────────────────────────────────────────┘    │
+│ ┌ .note (제약·주의) ───────┐   ← 미구현·미확정은 여기서 실토(4.3) │
+│ └──────────────────────────┘                                     │
+│ ┌ .keymsg ──────────────────────────────────────────────────┐    │
+│ │ KEY MESSAGE  결론 한 줄                                    │    │ ← 보라 면
+│ └───────────────────────────────────────────────────────────┘    │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+- **챕터 사이 연결어를 문서 요소로 쓴다.** 원본은 챕터 끝에 `BUT` / `THEREFORE` 한 단어를 큰 글자로 놓아 논리 흐름을 만든다. 목차 → 배경 → 한계 → 전환 → 해법 순서가 **글이 아니라 화면 전환으로** 읽히게 하는 장치다.
+- **도해에 `FIG n-n` 번호를 붙이고 본문에서 그 번호로 참조한다.** 도해 간 상호 참조(`← 전체 구조(FIG 2-1)로 돌아가기`)는 앵커 링크로 건다.
+
+### 4.7 스크롤 등장 + 읽기 진행바 (script 0, 모든 문서 공통)
+
+```js
+<script>
+(function(){
+  "use strict";
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* 1) 스크롤 등장 — .rv 가 뷰포트에 들어오면 .in 을 붙인다 */
+  var items = document.querySelectorAll(".rv");
+  if(reduce || !("IntersectionObserver" in window)){
+    for(var i=0;i<items.length;i++){ items[i].classList.add("in"); }   /* 즉시 최종 상태 */
+  }else{
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if(e.isIntersecting){ e.target.classList.add("in"); io.unobserve(e.target); }
+      });
+    },{rootMargin:"0px 0px -8% 0px",threshold:.08});
+    items.forEach(function(el){ io.observe(el); });
+  }
+
+  /* 2) 읽기 진행바 — 스크롤 비율을 상단 2px 바 폭으로 */
+  var bar = document.getElementById("progress");
+  function onScroll(){
+    var h = document.documentElement;
+    var max = h.scrollHeight - h.clientHeight;
+    bar.style.width = ((max>0 ? h.scrollTop/max : 0)*100).toFixed(2) + "%";
+    setActive();                 /* 현재 챕터 nav 활성 표시 */
+  }
+  …
+})();
+</script>
+```
+
+```css
+.rv      { opacity:0; transform:translateY(18px);
+           transition:opacity .62s cubic-bezier(.22,.7,.3,1), transform .62s cubic-bezier(.22,.7,.3,1); }
+.rv.in   { opacity:1; transform:none; }
+.progress{ position:absolute; left:0; bottom:-1px; height:2px; width:0;
+           background:linear-gradient(90deg,var(--violet-800),var(--violet-500)); }
+```
+
+- ⚠️ **`reduce`·`IntersectionObserver` 미지원 분기에서 반드시 `.in`을 즉시 붙인다.** 안 붙이면 **본문 전체가 `opacity:0`으로 영원히 안 보인다** — 이 형식에서 가장 위험한 실패 모드다.
+- 등장 애니메이션은 `.rv` 하나로 통일하고, 지연은 `style="--d:300ms"` 같은 인라인 변수로 준다(클래스를 늘리지 않는다).
+
+### 4.8 씬 플레이어 패턴 (시나리오 데모가 필요한 문서)
+
+**"흐름을 설명해야 하는 도해"를 자동 재생 + 수동 조작 겸용으로 보여주는 패턴이다.** 원본은 9개 씬(+대안 시나리오 2 + 요약 1, 총 11개)을 이 방식으로 돌린다. 씬 길이는 5,400~17,000ms.
+
+**⑴ 씬 선언 — 배열 하나가 시나리오 전체다.** 씬을 늘리고 줄이는 일이 배열 편집으로 끝나야 한다.
+
+```js
+var SCENES = [
+  { key:'collect',  step:0, dur:5400,  name:'COLLECT · 키워드 기반 수집',
+    eb:'DATA COLLECTION', tagType:'auto', tag:'파이프라인 · 자동',
+    msg:'등록된 키워드로 뉴스를 <b>매일 수집</b>합니다.' },
+  { key:'verify',   step:1, dur:11600, name:'VERIFY · 관련성 판정',
+    eb:'RELEVANCE GATE', tagType:'human', tag:'RA · 사람 검증', flow:'toHuman',
+    msg:'검증을 통과한 뉴스만 <b>화면에 노출</b>됩니다.' },
+  { key:'restrict', step:-1, dur:7000, name:'EXCEPTION · 노이즈 판정',
+    badge:'EXCEPTION', badgeType:'warn', warn:true,
+    eb:'NOISE FILTER', tagType:'human', tag:'RA · 사람 검증',
+    msg:'관련 없는 기사는 <b>삭제하고 사유를 남깁니다</b>.' }
+];
+```
+
+| 필드 | 필수 | 의미 |
+|---|---|---|
+| `key` | ✅ | 씬 식별자. 마크업의 `[data-scene="<key>"]`와 1:1로 짝지어진다 |
+| `dur` | ✅ | 재생 시간(ms). 5,400~17,000 범위가 검증된 감각. **읽을 글자가 많은 씬일수록 길게** |
+| `name` | ✅ | 컨트롤바에 표시되는 씬 이름 |
+| `step` | | 상단 스텝 인디케이터에서 활성화할 인덱스. **본류가 아닌 씬은 `-1`**(예외·요약 시나리오) |
+| `msg` | | 하단 해설. 인라인 `<b>` 허용 |
+| `eb` / `tag` / `tagType` | | 배경 워터마크 문구 / 영역 라벨 / 영역 종류(색 분기, 4.3 ⑵) |
+| `badge` / `badgeType` / `warn` | | 예외 시나리오 배지(`warn`이면 warn 4색 적용, 4.3 ⑶) |
+| `flow` | | 영역 간 이동 방향 표시 |
+
+**⑵ 컨트롤 — 4버튼 고정.** `이전 / 일시정지·재생 / 다음 / 처음부터`. 라벨은 해요체 대상이 아닌 조작 버튼이라 명사형 그대로 쓴다.
+
+```html
+<div class="ksd-ctl">
+  <div class="ksd-ctl-meta">
+    <span class="ksd-ctl-idx"><b data-ksd-idx>01</b> <span>/ <i data-ksd-total>09</i></span></span>
+    <span class="ksd-ctl-name" data-ksd-name>COLLECT · 키워드 기반 수집</span>
+  </div>
+  <div class="ksd-ctl-bar"><i data-ksd-bar></i></div>          <!-- 씬 진행 게이지 -->
+  <div class="ksd-ctl-btns">
+    <button type="button" data-ksd="prev"   aria-label="이전 장면">…이전</button>
+    <button type="button" data-ksd="toggle" aria-label="재생 또는 일시정지">
+      <svg data-ksd-icon-pause>…</svg><svg data-ksd-icon-play style="display:none">…</svg>
+      <span data-ksd-toggletxt>일시정지</span>
+    </button>
+    <button type="button" data-ksd="next"   aria-label="다음 장면">다음…</button>
+    <button type="button" data-ksd="replay" aria-label="처음부터 다시 재생">…처음부터</button>
+  </div>
+</div>
+<p class="ksd-hint">키보드 ← → 로 장면 이동, Space 로 재생·일시정지</p>
+```
+
+**⑶ 마크업 계약 — JS가 찾는 훅은 data 속성으로만 건다**(클래스는 스타일 전용이라 자유롭게 바꿔도 동작이 안 깨진다).
+
+| 훅 | 역할 |
+|---|---|
+| `.<prefix>-scenario-demo` | 루트. 한 페이지에 여러 개 둘 수 있다 |
+| `[data-scene="<key>"]` | 씬 본체. `SCENES[i].key`와 짝 |
+| `[data-ksd-steps] li` | 상단 스텝 인디케이터 |
+| `[data-ksd-idx]` `[data-ksd-total]` `[data-ksd-name]` `[data-ksd-bar]` | 컨트롤바 표시 요소 |
+| `[data-ksd-toggletxt]` `[data-ksd-icon-pause]` `[data-ksd-icon-play]` | 재생/일시정지 토글 표시 |
+| `[data-ksd="prev|next|toggle|replay"]` | 버튼. **위임 클릭 1개**로 전부 처리한다 |
+
+**⑷ 동작 계약.**
+
+- **뷰포트 진입 시 자동 시작** — `IntersectionObserver(threshold:0.25)`로 처음 보일 때 `start()`. 페이지 로드 즉시 시작하지 않는다(독자가 도달하기 전에 끝나버린다).
+- **폴백** — `setTimeout(350ms)`으로 "아직 시작 안 했고 화면 안에 있으면" 강제 시작(일부 headless·구형 환경에서 IO가 발화하지 않는다).
+- **키보드** — `←` `→` 씬 이동, `Space` 재생/일시정지. **루트에 포커스가 있거나 루트가 화면에 보일 때만** 반응한다(문서 다른 곳을 스크롤하는 독자의 Space를 가로채면 안 된다).
+- **`prefers-reduced-motion:reduce`면 애니메이션을 건너뛰고 최종 상태로 간다**(4.9).
+- **전역 노출은 하나만** — `window.<Prefix>ScenarioDemo`. 루트가 1개면 API 객체, 여러 개면 배열.
+
+```js
+return {
+  play(), pause(), next(), prev(), replay(), goto(n),
+  state(),   /* {index, key, zone, playing, duration, elapsed} */
+  scenes,    /* SCENES 원본 */
+  total      /* 전체 재생 시간 합 */
+};
+```
+
+### 4.9 접근성 · 인쇄 · 반응형 — 선택이 아니라 필수
+
+**세 가지는 "있으면 좋은 것"이 아니라 이 형식의 구성 요건이다.** 하나라도 빠지면 표준 미달로 본다.
+
+**⑴ `prefers-reduced-motion: reduce` — 필수.**
+
+```css
+@media (prefers-reduced-motion:reduce){
+  .scn-app *, .scn-app{
+    animation-duration:.001ms !important; animation-iteration-count:1 !important;
+    animation-delay:0ms !important; transition-duration:.001ms !important;
+  }
+}
+```
+- CSS만으로 부족하다. **두 스크립트 모두 맨 앞에서 `matchMedia`로 확인하고, reduce면 애니메이션을 건너뛰고 최종 상태로 바로 넘긴다**(4.7 `.rv` 즉시 `.in`, 4.8 씬 즉시 완성). **끄는 게 아니라 결과를 바로 보여주는 것**이 핵심이다 — 꺼버리면 내용이 사라진다.
+
+**⑵ `@media print` — 필수. 이 문서는 인쇄돼서 회의 탁자에 올라간다.**
+
+```css
+@media print{
+  :root{ --shadow-s:none; --shadow-m:none; }
+  html{ scroll-behavior:auto; }
+  body{ font-size:10.5pt; line-height:1.6; }
+  *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }  /* 보라 면이 흰색으로 날아가는 것 방지 */
+  .topbar{ display:none !important; }                    /* 진행바·nav는 종이에 무의미 */
+  .rv{ opacity:1 !important; transform:none !important; } /* ★안 하면 백지로 인쇄된다 */
+  .ctl, .hint{ display:none !important; }                 /* 재생 버튼도 종이엔 무의미 */
+  .scn-app *{ animation:none !important; transition:none !important; }
+  .chapter{ break-before:page; }
+  .chapter:first-of-type{ break-before:auto; }
+  .sec-head,.keymsg,.note,.card,.fig,.zone{ break-inside:avoid; }  /* 도해가 페이지 경계에서 잘리지 않게 */
+}
+```
+- ⚠️ **`.rv{opacity:1 !important}`를 빠뜨리면 인쇄물이 백지로 나온다.** 인쇄 시점에 스크롤 등장이 발화하지 않은 요소가 그대로 투명하게 인쇄된다. 실제로 이 한 줄이 원본 print 블록의 첫 번째 방어선이다.
+- **씬 플레이어는 인쇄 시 A4 가로 1페이지에 들어가도록 `max-width`를 줄인다**(원본 640px).
+
+**⑶ `aria-*` · `role` — 필수.** 원본 실측 `aria-*` 112개, `role` 9개.
+
+| 대상 | 조치 |
+|---|---|
+| 챕터·섹션 | `<section aria-labelledby="s21">` + 제목에 `id="s21"` (제목이 없으면 `aria-label`) |
+| 순수 장식 | `aria-hidden="true"` — 진행바, 배경 orb, 워터마크 문구, 도해 안 순수 장식 도형 |
+| 조작 버튼 | `aria-label="이전 장면"`처럼 **아이콘만 있는 버튼에는 반드시** |
+| 목차 nav | `<nav aria-label="보고서 목차">` |
+| 의미 있는 SVG | `role="img"` + `<title>` 또는 `aria-label`. 도해 안 텍스트는 `<text>`로 넣어 그대로 읽히게 한다 |
+
+**⑷ 반응형 4단계 — `1400 / 1180 / 900 / 760px`.** 1360px 고정폭 판형이라 노트북(1440·1280)에서 이미 걸린다. **회의실 프로젝터·태블릿·메일 앱 내장 뷰어까지 고려하면 4단계가 최소치다.**
+
+### 4.10 산출 전 체크리스트 (눈으로 보지 말고 기계로 확인한다)
+
+```powershell
+$f = "<보고서.html>"
+
+# 1) 금지 태그 — 전부 0이어야 한다
+rg -c "<img|<video|<canvas|<iframe|<animate" $f
+
+# 2) 외부 리소스 0 — xmlns 네임스페이스(http://www.w3.org/…)만 예외로 남는다
+rg -o "https?://[^\"')\s]+" $f | Sort-Object -Unique
+
+# 3) 프레임워크 흔적 0
+rg -c -- "--tw-|@layer|react|vue|jquery" $f
+
+# 4) 필수 3종 — 각각 1개 이상이어야 한다
+rg -c "prefers-reduced-motion" $f      # CSS 1 + JS 2 = 3 이상
+rg -c "@media print" $f
+rg -c "aria-" $f
+
+# 5) 전역 오염 — window. 대입이 1개뿐인지
+rg -n "window\.[A-Z]\w+\s*=" $f
+```
+
+**기계로 못 잡는 것 3가지는 사람이 확인한다.**
+
+1. **`reduce` 상태에서 본문이 보이는가** — 브라우저 개발자도구 Rendering 탭에서 `prefers-reduced-motion: reduce`를 강제하고 새로고침. 백지면 4.7 분기가 빠진 것이다.
+2. **인쇄 미리보기(Ctrl+P)에서 도해가 온전한가** — 백지·잘린 도해·사라진 보라 면 셋을 본다.
+3. **파일을 네트워크 끊고 열어보기** — 자립형 원칙의 유일한 최종 검증이다. 폰트가 바뀌거나 도해가 비면 외부 참조가 남아 있는 것이다.
+
+### 4.11 Claude Artifacts 생성 프롬프트 (재사용 템플릿)
+
+```
+DPLANEX 기획보고서 형식(단일 자립형 HTML)으로 "<문서 제목>" 기획보고서를 만들어줘.
+
+[가장 중요한 제약]
+- 외부 리소스 0개. CDN·웹폰트 링크·이미지 파일 전부 금지. 파일 하나로 인터넷 없이 열려야 해.
+- <img>, <video>, <canvas>, <iframe>, SVG <animate> 전부 금지. 모든 도해는 inline <svg>로.
+- Tailwind·React·Vue·jQuery 금지. CSS는 <head> 안 <style> 한 블록, CSS 변수로 토큰 정의.
+- JS는 바닐라 IIFE, 전역 노출은 window.<Prefix>ScenarioDemo 하나만.
+- 움직임은 CSS @keyframes/transition만.
+
+[토큰 — 그대로 사용]
+--violet-950 #22103A(최심층 surface) / --violet-900 #351A55(다크 surface·강조 텍스트)
+--violet-850 #401771(그라디언트 마무리) / --violet-820 #4C1C80(hover)
+--violet-800 #60269E(BRAND) / --violet-700 #6B34A8(gradient 종단)
+--violet-500 #9163CE(어두운 배경 위 accent) / --violet-300 #A28BC9(AS-IS 표기 전용)
+--lav-200 #D6BFEF(카드 테두리·배지) / --lav-100 #EFE7F6(카드 채움) / --lav-050 #F4F1F9(가장 옅은 면)
+--indigo-700 #4E5188 / -600 #686AA8 / -200 #D2D5E8 / -100 #E5E5F0 / -050 #F3F5FB  ← 영역 구분 전용
+--ink #272639 / --ink-2 #4A4759 / --muted #7A7690 / --line #E6E2EE / --line-2 #D2CBDF
+--bg #FFFFFF / --bg-soft #F7F5FA / --bg-soft-2 #EFECF5
+--warn #9E2F27(제약·주의 텍스트) / --warn-mid #C0453B(아이콘·라인) / --warn-bg #FDF3F1 / --warn-line #F0D3CE
+--radius 14px / --radius-s 9px / --maxw 1360px
+--shadow-s 0 1px 2px rgba(39,38,57,.05), 0 2px 8px rgba(39,38,57,.05)
+--shadow-m 0 2px 6px rgba(39,38,57,.06), 0 12px 28px rgba(39,38,57,.07)   ← 그림자는 반드시 2겹 유지
+font-family: "Pretendard Variable","Pretendard",-apple-system,BlinkMacSystemFont,
+             "Apple SD Gothic Neo","Malgun Gothic","맑은 고딕","Segoe UI",system-ui,"Noto Sans KR",sans-serif
+
+[색 사용 규칙]
+- AS-IS(현행)는 --violet-300, TO-BE(제안)는 --violet-800. AS-IS를 붉은색으로 칠하지 말 것.
+- Indigo는 두 영역을 가르는 용도로만(<영역 A> vs <영역 B>). 시간 축(현재/미래)에는 쓰지 않음.
+- 미구현·미확정 실토는 warn 4색 박스로. 본문과 같은 색으로 흘려 쓰지 말 것.
+
+[타이포 — 밀도가 핵심]
+- 본문 11~12.5px/700, 도해 라벨 8.5~10.5px/800, 섹션 제목 17~22px/800. 크기를 키우지 말 것.
+- 위계는 크기가 아니라 굵기(800/700/600)로 만든다.
+- letter-spacing 이중 체계: 한글·본문 -.01~-.03em(좁힘) / 영문 대문자 라벨 +.06~+.13em(넓힘).
+- radius: 원·알약 50%~999px / 카드 14px·12px / 소형 8~11px.
+- 한글에는 word-break:keep-all.
+
+[구조]
+topbar(브랜드+목차 nav+읽기 진행바) → cover(대제목·MAIN MESSAGE·CONTENTS)
+→ chapter 01…N(각 chapter 안에 sec 여러 장) → footer(한 줄 메시지)
+각 sec 골격: 번호+영문 대문자 라벨 → 한글 섹션 제목 → 리드 2~3줄 → FIG n-n 도해
+             → (필요 시) 제약·주의 박스 → KEY MESSAGE 보라 면
+챕터 사이 연결어(BUT / THEREFORE)를 큰 글자로 넣어 논리 흐름을 만들 것.
+
+[필수 동작]
+- .rv → .in 스크롤 등장(IntersectionObserver), 상단 2px 읽기 진행바.
+- prefers-reduced-motion: reduce면 애니메이션을 건너뛰고 최종 상태로. (CSS + JS 양쪽 모두)
+  ⚠️ reduce·IO 미지원 시 .rv에 즉시 .in을 붙일 것. 안 하면 본문이 영원히 안 보임.
+- @media print: 그림자 제거, topbar·컨트롤 숨김, .rv{opacity:1!important}, print-color-adjust:exact,
+  chapter마다 break-before:page, 도해는 break-inside:avoid.
+- @media 1400/1180/900/760px 4단계 반응형.
+- aria-*: 섹션 aria-labelledby, 장식 aria-hidden="true", 아이콘 버튼 aria-label, nav aria-label.
+
+[씬 플레이어 — 흐름 도해가 필요하면]
+SCENES 배열({key,step,dur,name,msg,...})로 씬을 선언하고 이전/일시정지/다음/처음부터 4버튼으로 조작.
+dur는 5,400~17,000ms. 뷰포트 진입 시 자동 시작(threshold 0.25) + 350ms 폴백.
+키보드 ←/→/Space(루트가 보이거나 포커스가 있을 때만). 전역은 window.<Prefix>ScenarioDemo 하나만.
+
+[내용]
+<여기에 챕터별 실제 내용 — 지어내지 말고 확정된 사실만>
+```
+
+⚠️ **내용은 사실 기반이어야 한다.** 이 형식은 도해가 화려해서 **없는 것도 있어 보이게 만든다.** 아직 구현되지 않았거나 확정되지 않은 것은 반드시 warn 박스로 실토한다(4.3 ⑶) — 대표님 보고자료에서 이게 어긋나면 형식의 완성도가 오히려 독이 된다.
+
+### 4.12 열린 항목 (사용자·PM 확인 필요)
+
+1. **DPLANEX 로고 원색이 `#60269E`인가 `#582B8D`인가** — 4.1의 결론은 "충돌 시 프로젝트 정본(`#60269E`)을 따른다"는 순서 규칙이다. VI 실측으로 `#582B8D`가 맞다고 확인되면 `design.md` 1.1과 `CLAUDE.md`를 먼저 고치고 이 절이 따라간다.
+2. **산출물 `.html`의 저장 위치** — `docs/references/`는 참고 원본 자리라 산출물과 섞이면 안 된다. `docs/reports/` 신설을 권장하나 위치 확정은 사용자 몫이다.
+3. **본문 폰트 내장 여부** — 내장(파일 크기 ↑, 어디서나 동일) vs 시스템 폴백만(파일 가벼움, 환경별 미세 차이). **권장은 내장 없이 Pretendard 폴백 체인으로 시작하고, 대표님 PC에서 실제로 열어본 뒤 글꼴이 어긋나면 그때 서브셋 1종을 내장하는 것** — 첫 문서부터 1MB를 감수할 이유가 없다.

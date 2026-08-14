@@ -1,0 +1,838 @@
+KANDLE INSIGHT SYSTEM 기획보고서
+KANDLE INSIGHT SYSTEM
+기획보고서
+01 추진 배경
+02 서비스 설명
+03 기대효과
+04 협업 부서 및 역할
+신규 서비스 기획(안)
+KANDLE INSIGHT SYSTEM (가칭)
+AI Agent를 활용한 교보문고 데이터 분석 및 KANDLE 금융 Insight 제공 체계
+MAIN MESSAGE
+교보문고의 데이터를, 관계사의 고객 기회로
+관계사가 직접 조회할 수 없는 교보문고의 고객 데이터를 AI로 분석하고,
+분석 결과를 KANDLE 금융의 보안 기준에 맞는 Insight로 제공하여
+잠재고객 발굴과 마케팅 활용을 지원합니다.
+CONTENTS
+01 추진 배경
+02 서비스 설명
+03 기대효과
+04 협업 부서 및 역할 정의
+01
+추진 배경
+교보문고 데이터의 그룹 내 활용 가치와 관계사 활용의 제약 요인을 진단하고,
+비즈니스 활용 확대를 위한 추진 방향을 제시합니다.
+01
+DATA VALUE
+교보문고 데이터의 가치
+그룹 내 대규모 고객 기반과 구매·관심 데이터를 보유
+고객
+구매
+관심
+높은 활용 잠재가치
+01
+DATA VALUE
+교보문고 데이터의 가치
+차별 Point
+도서·상품 구매 데이터를 기반으로 고객의 관심사와 생활 특성 추정 가능
+예시
+40대 여성
++
+초등학습 도서 구매
+▼
+초등 자녀를 둔 학부모 가능성 추정
+활용 가능 영역
+재테크 · 투자 주거 · 부동산 육아 · 교육
+창업 · 자기계발 여행 · 취미
+KEY MESSAGE
+관계사 중 가장 큰 규모의 고객 데이터를 기반으로,
+관계사의 고객 이해를 확장하는 데이터 자산
+BUT
+02
+STRUCTURAL BARRIER
+활용의 구조적 한계
+데이터 접근 환경과 관계사 활용 환경 간 구조적 제약
+KANDLE 문고
+CLOUD ENVIRONMENT
+클라우드 환경
+교보문고 데이터
+접근 주체 제한
+교보문고 · 디플래닉스
+관계사 직접 접근 불가
+BARRIER
+직접적 데이터 연결
+및 활용 어려움
+KANDLE 금융
+CLOSED NETWORK
+폐쇄망 환경
+관계사 공통 활용 플랫폼
+교보생명
+교보증권
+라이프플래닛
+관계사 공동 활용
+데이터 반입·반출 제약
+보안 기준 및 절차 적용
+외부 데이터 교환 제한
+관계사의 교보문고 데이터 직접 활용에 한계
+두 환경의 구조적 제약으로 직접적 활용이 어려움
+02
+STRUCTURAL BARRIER
+활용의 구조적 한계
+가치 있는 교보문고 데이터와 이를 활용할 관계사가 각각 존재하지만,
+데이터가 구축된 환경과 관계사가 활용하는 환경 간 구조적 차이 가 존재합니다.
+데이터 환경
+KANDLE 문고
+교보문고 데이터가 구축되어 있으나,
+데이터 접근 주체가 제한되어
+관계사는 분석 요청을 별도로 진행 해야만 Insight를 확인할 수 있습니다.
+활용 환경
+KANDLE 금융
+관계사가 공동 활용하는 통합 플랫폼이나,
+폐쇄망 환경으로 정보 반입·반출에
+보안 기준과 절차가 적용 됩니다.
+KEY MESSAGE
+교보문고 데이터와 관계사 활용 환경을 연결할 적절한 활용 체계 부재
+THEREFORE
+03
+APPROACH SHIFT
+접근 방식의 전환
+Insight에 도달하는 방식의 전환
+?
+BUSINESS QUESTION
+“교보문고 30대 여성 고객의 최근 도서 구매 관심사는?”
+AS-IS
+데이터 접근 · 분석 중심
+Insight 확인을 위해 여러 절차와 시간 필요
+활용 목적 검토 · 승인 분석 필요 목적 규명 및 승인
+관계사
+분석 요청 · 데이터 분석 분석 요청 및 데이터 분석 수행
+디플래닉스
+Insight 전달 분석 결과 전달
+Insight 확인을 위한
+사전 검토 · 분석 요청 필요
+접근 방식의
+전환
+TO-BE
+Insight 활용 중심
+하나의 시스템 안에서 질문 즉시 Insight 확인
+KANDLE INSIGHT SYSTEM
+질문
+원천
+데이터
+INSIGHT
+원천 데이터는 시스템 내부에만 존재 · 관계사 비노출
+관계사 활용 비즈니스 의사결정에 활용
+03
+APPROACH SHIFT
+접근 방식의 전환
+관계사가 필요한 것은 원천 데이터 자체가 아니라,
+비즈니스 질문에 대한 Insight 입니다.
+원천 데이터는 질문자에게 노출하지 않고,
+필요한 Insight만 관계사에서 활용합니다.
+RAW DATA
+시스템 내 보호
+(외부 비노출)
+INSIGHT
+필요한 답변만 제공
+관계사
+비즈니스 활용
+(의사결정)
+DATA 는 보호하고, 필요한 INSIGHT 만 연결
+시스템 구성 및 동작 방식은 「02. 서비스 설명」 에서 상세 설명
+02
+서비스 설명
+KANDLE INSIGHT SYSTEM의 정의와 사용자 경험, 전체 구조, 핵심 엔진인 AI Agent,
+Security & Privacy Guard, Approved Insight Repository 및 활용 시나리오를 설명합니다.
+2.1
+KANDLE INSIGHT SYSTEM 개요
+SERVICE DEFINITION
+KANDLE INSIGHT SYSTEM은 관계사가 직접 조회할 수 없는 교보문고 데이터를 AI Agent 가 분석하고,
+분석 결과를 KANDLE 금융의 보안 기준에 맞는 Insight 형태로 제공하여
+관계사의 고객 이해와 마케팅 활용을 지원하는 AI 기반 Insight 활용 체계 입니다.
+KANDLE 금융 플랫폼 (폐쇄망 환경)
+1
+ASK
+관계사는 자연어로
+필요한 정보를 질문
+관계사 사용자 · KANDLE 금융
+KANDLE 문고 플랫폼 (클라우드 환경)
+2
+ANALYZE
+AI Agent가 교보문고 데이터에서
+답을 탐색·분석
+AI Agent · KANDLE 문고
+3
+VALIDATE
+생성된 결과가 KANDLE 금융에서
+활용 가능한 정보인지 검증
+Security & Privacy Guard
+KANDLE 금융 플랫폼 (폐쇄망 환경)
+4
+UTILIZE
+승인된 Insight를 기반으로
+관계사가 고객·마케팅 전략에 활용
+관계사 사용자 · KANDLE 금융
+2.2
+KANDLE INSIGHT SYSTEM 전체 구조
+전체 구조는 좌측 KANDLE 금융(금융 폐쇄망) / 중앙 망연계·통제 구간 / 우측 KANDLE 문고 의 3개 영역으로 구분됩니다.
+KANDLE 금융에서는 질문이 나가고(② Question OUT) , 보안 검증을 통과한 Insight만 들어옵니다(⑤ Approved Insight IN) .
+관계사에게 교보문고의 Raw Data나 Query 결과가 직접 전달되지 않습니다.
+FIG 2-1
+KANDLE INSIGHT SYSTEM Architecture — 영역 구분 및 정보 흐름
+질문 기반으로 교보문고 데이터를 분석하고, 보안 검증을 거친 승인 Insight만 금융 플랫폼으로 전달합니다.
+AI Agent · 보안 검증을 클릭하면 아래 상세 설명으로 이동합니다.
+KANDLE 금융
+관계사 공동 활용 플랫폼
+폐쇄망 환경
+관계사
+사용자
+1
+질문 (Prompt)
+7
+답변 확인
+(Insight 제공)
+KANDLE 금융 Portal / UI
+질문 입력
+예) 30대 여성 고객의
+최근 도서 구매 관심사는?
+답변 확인
+30대 여성 고객의 도서 구매를 분석한 결과,
+임신 · 출산 및 재테크 분야의 구매가
+전년 대비 두드러지게 증가했습니다.
+6
+결과 조회
+(Insight 출력)
+결과 DB
+(Approved Insight)
+승인된 결과만 저장 (비정형 / JSON)
+금융 폐쇄망 내부에서 조회 및 활용
+망연계
+QUESTION OUT
+2
+질문 전달
+(요청 정보)
+5
+승인된 결과 전송
+(Insight)
+망연계
+INSIGHT IN
+KANDLE 문고
+데이터 분석 영역
+Cloud 환경
+AI Agent
+핵심 분석 엔진 · 3 STEP
+STEP 1 질문 이해 교보문고 데이터 · 지식 기반 질문 해석
+STEP 2 기존 Insight 탐색 동일 · 유사 질문의 검증 답변 확인
+STEP 3 신규 분석 기존 답변이 없을 경우 SQL 생성 · 분석
+검증된 기존 Insight가 있으면 재사용하고, 없으면 신규 분석
+자세히 보기 →
+교보문고 데이터 8개 주제 영역
+영업
+상품
+고객
+이벤트
+금권
+기업
+채널
+유통
+3
+보안 검증
+보안 검증
+Security & Privacy Guard
+개인정보 검출 이름 · 연락처 등 식별정보 포함 여부
+재식별 위험 조합으로 개인 특정이 가능한지
+최소 집단 크기 집계 대상 인원이 기준 미만인지
+민감정보 · 정책 제공 불가 항목 포함 여부
+4개 항목을 모두 통과한 결과만 반출
+자세히 보기 →
+4
+승인 결과 저장
+Approved Insight DB
+(Export Zone)
+검증을 통과한 결과만 저장
+비정형 답변 + 분석 메타데이터
+망연계를 통해 반출
+END-TO-END FLOW
+1 BUSINESS QUESTION
+2 AI ANALYSIS
+3 SECURITY VALIDATION
+4 APPROVED INSIGHT
+5 INSIGHT DELIVERY
+2.3
+핵심 엔진 — AI Agent 동작 구조
+AI Agent는 관계사의 질문을 이해하고, 교보문고 데이터와 축적된 분석 지식을 탐색하여
+기존 Insight 재사용 또는 신규 분석 등 가장 적절한 답변 경로를 판단 · 실행하는 핵심 엔진 입니다.
+← 전체 구조(FIG 2-1)로 돌아가기
+FIG 2-2
+AI Agent 동작 구조 — 답변 경로 판단 및 실행
+AI Agent Answer Flow
+BUSINESS QUESTION
+관계사의 질문 입력
+QUESTION ROUTER
+질문 의도 · 분석 대상 · 조건 이해
+KNOWLEDGE RETRIEVAL (RAG)
+답변에 필요한 지식과 Insight 탐색
+Data & Analysis Knowledge
+ERD / Table / Column
+Business Term
+KPI / Analysis Rule
+SQL Pattern
+Existing Insight Knowledge
+기존 Business Question
+Approved Insight
+분석 조건 / Context
+생성 시점 / 검증 상태
+기존 Insight로
+답변 가능?
+YES
+NO
+EXISTING INSIGHT REUSE
+기존 검증 Insight 활용
+빠른 답변 제공
+NEW ANALYSIS
+기존 Insight로 대응 불가 시
+SQL 생성
+데이터 종합 분석
+Insight 생성
+ANSWER
+검증 가능한 Insight 전달
+AI Agent 핵심 기능 (3 STEP)
+01
+QUESTION ROUTING 무엇을 묻는가 질문의 의도와 분석 범위 이해
+관계사 질문에서 분석 대상 · 조건 · 목적을 식별하고,
+질문에 필요한 분석 범위를 구체화합니다.
+Intent Target Condition
+02
+KNOWLEDGE RETRIEVAL 무엇을 참고할 것인가 답변에 필요한 지식과 Insight 탐색
+RAG를 기반으로 답변에 필요한 데이터 · 분석 지식과
+기존 검증 Insight를 탐색합니다.
+Data & Analysis Knowledge
+어떤 데이터를,
+어떻게 분석할 것인가
+교보문고 데이터의 구조 · 의미와 분석 기준을 참조하여 분석 대상 데이터와 분석 방법을 판단
+Existing Insight Knowledge
+기존 답변으로
+대응할 수 있는가
+기존 질문과 승인 Insight의 분석 조건 · 시점 등을 비교하여 재사용 가능한 기존 답변 여부를 판단
+03
+ANSWER STRATEGY 어떻게 답할 것인가 재사용 또는 신규 분석 경로 선택
+탐색된 기존 Insight로 질문에 대응 가능한 경우 우선 재사용하고,
+답변이 충분하지 않은 경우 신규 분석을 수행합니다.
+REUSE EXISTING INSIGHT
+기존 답변 재사용
+동일 · 유사 질문의 검증된 Insight를 활용하여 답변
+NEW ANALYSIS
+신규 분석 수행
+기존 Insight로 대응이 어려운 경우 SQL 생성 · 분석을 통해 신규 Insight 생성
+검증된 기존 Insight를 우선 활용하고, 필요한 경우에만 신규 분석을 수행하여 정확하고 신뢰할 수 있는 Insight를 제공합니다.
+2.4
+보안 검증 : Security & Privacy Guard
+AI Agent가 생성한 Insight가 KANDLE 금융으로 전달되기 전에, 개인정보 · 재식별 가능성 · 정보 노출 수준 · 정책 기준을 검증하여
+제공 가능 여부와 처리 방식을 결정 하는 별도의 통제 Layer 를 구성합니다.
+← 전체 구조(FIG 2-1)로 돌아가기
+FIG 2-3
+Security & Privacy Guard 구조 — 검증 항목과 검증 결과별 처리
+FROM AI AGENT
+Generated Insight
+AI Agent가 교보문고 데이터
+분석을 통해 생성한 결과
+검증 요청
+MANDATORY GATE
+Security & Privacy Guard
+제공 가능 여부와 처리 방식을 결정하는 필수 통제 구간
+Privacy
+개인정보 · 민감정보
+포함 여부 검증
+Re-identification
+개인 · 소규모 집단
+추정 가능성 검증
+Disclosure Control
+직접적인 수치 · 세부 정보
+제공 최소화 검증
+수치 제공 최소화
+Policy
+제공 범위 및
+정책 기준 적합성 검증
+정책 기반 자동 검증 + 휴먼 검토(필요 시)
+검증 결과
+PASS
+승인 통과
+Insight를 그대로 제공
+REFINE
+조건부 통과(정제 필요)
+안전한 수준으로 정제 후
+재검증 및 제공
+RESTRICT
+검증 위배
+제공 제한 및 사유 안내,
+질문 수정 가이드 제공
+전달
+전달
+안내
+TO REPOSITORY
+Approved Insight
+검증을 통과한 결과만
+Repository에 저장되고
+KANDLE 금융으로 전송
+TO USER
+위배 사유 안내
+보안 위배 사유와 함께
+질문 수정 가이드 제공
+검토 예정
+실제 반입·반출 가능 정보 유형, 검증 기준 및 자동화 가능 범위는 보안·기술 관련 부서 검토를 통해 확정 예정 입니다.
+본 보고서의 검토 항목은 설계 방향을 설명하기 위한 예시이며, 확정된 보안 정책이 아닙니다.
+2.5
+서비스 활용 시나리오 예시
+관계사 사용자가 KANDLE 금융에서 질문을 입력한 후, Insight가 생성·검증·제공되고 실제 활용으로 이어지는 전체 과정을 예시로 소개합니다.
+FIG 2-4
+서비스 활용 시나리오 예시 — 질문에서 Insight 활용까지
+K
+KANDLE INSIGHT SYSTEM
+AI Agent를 활용한 교보문고 데이터 분석 및 KANDLE 금융 Insight 제공 체계
+M KANDLE 금융 관계사 · 마케팅 담당자
+ASK
+UNDERSTAND
+RETRIEVE
+ANALYZE
+VALIDATE
+DELIVER
+UTILIZE
+KANDLE 금융
+CLOSED NETWORK · 관계사 포털
+CLOUD · AI Agent 분석 환경
+KANDLE 문고
+무엇이 궁금하신가요?
+분석하고 싶은 내용을 문장으로 입력하세요.
+교보문고 30대 여성 고객의 최근 도서 구매 관심사는?
+Insight 확인하기
+관계사는 데이터나 SQL이 아니라 자연어 질문 으로 서비스를 이용합니다.
+KANDLE 금융
+CLOSED NETWORK · 관계사 포털
+관계사 담당자가 입력한 질문
+QUESTION DELIVERY
+질문 전달 구간
+KANDLE 문고
+CLOUD · AI Agent 분석 환경
+AI Agent가 질문을 접수
+BUSINESS QUESTION
+교보문고 30대 여성 고객의
+최근 도서 구매 관심사는?
+KANDLE 문고의 AI AGENT에게 관계사 질문 전달
+KANDLE 금융 · 관계사 담당자가 입력한 문장
+“ 교보문고 30대 여성 고객의 최근 도서 구매 관심사 는? ”
+QUESTION ROUTER
+문장을 분석 가능한 데이터 요건 으로 변환
+DATA REQUIREMENT · 변환된 데이터 요건
+대상
+30대 여성 고객
+문장의 “30대 여성” 에서
+분석 대상
+도서 구매 관심 분야
+문장의 “도서 구매” 에서
+기간
+최근 1년 구매 동향
+문장의 “최근” 에서
+목적
+트렌드 파악
+문장의 “관심사” 에서
+※ 전달 구간의 망연계 방식·적용 기술은 미확정 이며 관련 부서 협의 후 확정 예정입니다.
+DATA & ANALYSIS KNOWLEDGE
+분석 요건
+대상 30대 여성
+분석 도서 구매 분야
+기간 최근 1년
+목적 트렌드 파악
+요건에 해당하는 주제 영역 탐색 · KANDLE 문고 8개 주제 영역
+영업
+구매 · 주문
+상품
+도서 · 분류
+고객
+연령 · 성별
+이벤트
+·
+금권
+·
+기업
+·
+채널
+·
+유통
+·
+선택 영역의 주요 테이블 · DM_SLS / LU_CUSTOMER / LU_BOOK
+함께 참조 · ERD / Business Term / Analysis Rule / SQL Pattern
+EXISTING INSIGHT KNOWLEDGE
+Approved Insight Repository 탐색
+보관된 Approved Insight 대조
+재사용 가능성 검토
+분석 대상
+분석 조건
+기준 기간
+최신성
+검증 상태
+NO REUSABLE INSIGHT
+재사용 가능한 최신 Insight 없음
+→
+NEW ANALYSIS
+NEW ANALYSIS
+재사용 가능한 Insight가 없어 신규 분석 을 구성합니다
+ANALYSIS SCOPE · 신규 분석 범위
+TARGET
+30대 여성 고객
+COMPARE
+전년 대비
+ANALYSIS
+도서 분야별 구매 변화
+DEEP DIVE
+증가를 주도한 주요 도서 · 키워드
+기존 지식으로 답할 수 없다고 판단되면 어떤 분석이 필요한지 를 먼저 정의합니다.
+고객
+30대 여성
++
+구매 데이터
+도서 구매 이력
++
+상품 데이터
+도서 분야 · 분류 · 주요 키워드
+→
+전년 대비 구매 변화 분석
+ANALYZING · 교보문고 데이터
+01 분석 요건 → SQL 자동 생성
+02 변화 추이 파악 · 시계열 집계
+03 도서 분야별 결과 정리
+변화 추이
+임신·출산 +24%
+재테크 +18%
+자기계발 +7%
+여행 +3%
+임신·출산과 재테크 분야에서 상대적으로 높은 구매 증가 확인
+“무엇이 증가를 주도했을까?”
+DEEP DIVE
+증가분 구성 분석
+임신 · 출산
++24%
+전년 대비 구매
+증가분
+‘출산 준비 · 태교’
+관련 도서
+42% 증가분 내 비중
+재테크
++18%
+전년 대비 구매
+증가분
+‘ISA · ETF’
+관련 도서
+38% 증가분 내 비중
+ANALYSIS RESULT
+→
+INSIGHT GENERATION
+→
+GENERATED INSIGHT
+GENERATED INSIGHT · 보안 검증 전
+30대 여성 고객의 도서 구매를 분석한 결과, 임신·출산(+24%) 과 재테크(+18%) 분야가 전년 대비 높은 증가세를 보였습니다.
+임신·출산 분야에서는 ‘출산 준비·태교’ 관련 도서가 증가분의 약 42% , 재테크 분야에서는 ‘ISA·ETF’ 관련 도서가 증가분의 약 38% 를 차지하며 각 분야의 구매 증가를 주도했습니다.
+※ 모든 수치는 서비스 시연을 위한 가상 분석 결과 입니다.
+GENERATED INSIGHT · 보안 검증 전
+30대 여성 고객의 도서 구매를 분석한 결과, 임신·출산(+24%) 과 재테크(+18%) 분야가 전년 대비 높은 증가세를 보였습니다.
+임신·출산 분야에서는 ‘출산 준비·태교’ 관련 도서가 증가분의 약 42% , 재테크 분야에서는 ‘ISA·ETF’ 관련 도서가 증가분의 약 38% 를 차지하며 각 분야의 구매 증가를 주도했습니다.
+보안 검증 (MANDATORY VALIDATION)
+Privacy 개인정보·민감정보 미포함
+Re-identification 개인·소규모 집단 재식별 위험 없음
+Disclosure Control 허용 가능한 집계 수준·수치 범위 충족
+Policy Insight 제공 정책 기준 충족
+수치가 포함되었다는 이유만으로 차단하지 않고 집계 수준과 제공 범위 를 함께 판단합니다.
+이번 Scenario에서는 30대 여성 고객군 단위의 집계 결과로, 증감률·비중 정보가 제공 가능 범위 로 판정된 경우입니다.
+PASS
+제공 가능한 수준의
+집계 Insight로 확인
+APPROVED INSIGHT
+임신·출산 +24% · 재테크 +18%
+출산 준비·태교 42% · ISA·ETF 38%
+APPROVED
+INSIGHT DB
+저장 완료
+※ 세부 보안 검증 기준 및 처리 방식은 향후 정보보안팀과 협의하여 구체화 예정 이며, 위 판정은 서비스 동작 설명을 위한 가상 Scenario입니다.
+KANDLE 금융
+CLOSED NETWORK
+KANDLE 금융 결과 DB
+전달받은 Insight 저장 · 활용
+SECURE DELIVERY
+안전한 전달 구간
+KANDLE 문고
+CLOUD
+Approved Insight DB
+검증을 통과한 Insight만 보관
+Raw Data · 분석용 Table 은 KANDLE 문고 영역에 유지
+APPROVED INSIGHT
+임신·출산
++24%
+재테크
++18%
+출산 준비·태교 42%
+ISA·ETF 38%
+검증된 Insight만 KANDLE 금융으로 전달
+※ 전달 구간의 망연계 방식·적용 기술은 미확정 이며 관련 부서 협의 후 확정 예정입니다.
+QUESTION
+교보문고 30대 여성 고객의 최근 도서 구매 관심사는?
+APPROVED INSIGHT · KANDLE 금융 수신
+임신 · 출산
++24%
+전년 대비 구매
+출산 준비 · 태교
+증가분의 42%
+재테크
++18%
+전년 대비 구매
+ISA · ETF
+증가분의 38%
+30대 여성 고객의 도서 구매를 분석한 결과, 임신·출산(+24%) 과 재테크(+18%) 분야가 전년 대비 높은 증가세를 보였습니다.
+임신·출산 분야에서는 ‘출산 준비·태교’ 관련 도서가 증가분의 약 42% , 재테크 분야에서는 ‘ISA·ETF’ 관련 도서가 증가분의 약 38% 를 차지하며 각 분야의 구매 증가를 주도했습니다.
+※ 서비스 시연을 위한 가상 분석 결과이며, 고객의 실제 상태를 확정하지 않는 관심 신호 로 참고합니다.
+심화 분석이 필요하신가요?
+구체적인 데이터 및 Insight 결과가 필요할 경우 교보문고 데이터 활용을 신청해보세요.
+교보문고 데이터 활용 신청
+Insight 확인
+교보문고 데이터 활용 신청
+데이터 활용 신청
+✓ 신청 안내
+2 신청서 작성
+3 신청 완료
+관계사명 *
+예) 교보생명
+담당자명 *
+홍길동
+이메일 주소 *
+name@company.com
+전화번호 *
+010-0000-0000
+활용 목적 * 구체적 활용 사유 및 기대 산출물
+구체적 활용 사유 및 기대 산출물을 입력해 주세요.
+필요 데이터 카테고리 / 항목 * 주제·항목 수준으로 선택
+영업
+상품
+고객
+이벤트
+금권
+기업
+채널
+예상 활용 기간
+예) 2026.08 ~ 2026.12
+희망 결과물 형태 *
+데이터 통계
+데이터 분석 리포트
+기타 (협의)
+← 이전
+신청 제출
+※ 화면 구성 예시이며, 실제 신청 항목·절차는 관련 부서 협의 후 확정 예정입니다.
+추가로 궁금한 점이 있으신가요?
+분석하고 싶은 내용을 문장으로 입력하세요.
+『○○○』 도서를 구매한 30대 여성 고객의 회원 정보 목록을 보여줘.
+Insight 확인하기
+KANDLE 금융 · 관계사 담당자가 입력한 문장
+“ 『○○○』 도서를 구매한 30대 여성 고객 의 회원 정보 목록 을 보여줘. ”
+QUESTION ROUTER
+요청 조건을 하나씩 식별
+TARGET
+30대 여성 고객
+문장의 “30대 여성 고객” 에서
+CONDITION
+『○○○』 도서 구매
+문장의 “『○○○』 도서를 구매한” 에서
+REQUEST
+회원 정보 목록
+문장의 “회원 정보 목록” 에서
+개별 고객 단위
+개별 고객 단위 정보 요청 감지
+→
+SECURITY REVIEW REQUIRED
+※ 실제 회원 데이터를 조회하거나 목록을 생성하지 않습니다. 요청 의도만 식별 하는 단계입니다.
+QUESTION
+『○○○』 도서를 구매한 30대 여성 고객의 회원 정보 목록을 보여줘.
+SECURITY NOTICE REQUEST BLOCKED
+요청하신 정보는 개별 고객을 식별할 수 있는 회원 단위 정보 를 포함할 수 있어 제공이 제한됩니다.
+고객 개인 정보가 아닌 집계된 Insight 형태로 질문해주세요.
+TRY AN INSIGHT QUESTION
+“30대 여성 고객의 최근 도서 구매 관심 분야와 주요 트렌드를 알려줘.”
+추천 질문으로 다시 분석
+또는 직접 다시 질문하기
+다른 내용으로 질문을 입력해 보세요.
+질문하기
+Security & Privacy Guard는 차단으로 끝내지 않고, 제한 사유를 안내하고 활용 가능한 질문으로 전환 하도록 지원합니다.
+DATA는 보호하고,
+필요한 INSIGHT만 연결
+KANDLE INSIGHT SYSTEM
+01 / 09
+ASK · BUSINESS QUESTION
+이전
+일시정지
+다음
+처음부터
+키보드 ← → 로 장면 이동, Space 로 재생·일시정지
+03
+기대효과
+AI 기반 분석 접근성과 안전한 정보 활용을 통해 확보되는 관계사와 디플래닉스의 가치,
+그리고 Insight 자산이 축적되어 새로운 비즈니스 기회로 이어지는 선순환 구조를 설명합니다.
+EXPECTED VALUE
+KANDLE INSIGHT FLYWHEEL
+지식 자산의 축적과 관계사 비즈니스 기회 확대의 선순환
+FIG 3-1
+기반 개선 → 관계사 · 디플래닉스 VALUE → 데이터 활용 가치 확대
+1.
+시스템 기반 마련을 통해
+기존 데이터 활용 제약 개선
+AI
+ACCESSIBILITY
+AI 기반 분석 접근성 확대
+자연어 질문으로 필요한 Insight에 손쉽게 접근
+SAFE UTILIZATION
+금융 폐쇄망을 고려한 안전한 정보 활용
+보안 검증 체계를 통한 안전한 Insight 제공
+2.
+관계사의 Insight 확보와
+자산 축적을 통해
+교보그룹 전체의 가치로
+CORE VALUE 01
+관계사 VALUE
+인사이트를 통한 새로운 비즈니스 기회 발굴
+질문을 통해 필요한 Insight를 탐색하고,
+축적된 Insight로 신규 고객·마케팅 가설 도출
+KEY MESSAGE
+질문과 활용이 새로운 비즈니스 기회로 확장
+CORE VALUE 02
+디플래닉스 VALUE
+관계사 니즈 기반의 심화 분석 기회 확대
+질문과 활용 패턴에서 잠재 분석 니즈를 파악하고,
+우선순위가 높은 주제를 심화 분석 과제로 연계
+KEY MESSAGE
+관계사 니즈 기반의 분석 과제 기회 확대
+RESULT
+DATA VALUE
+교보문고 데이터의 관계사 활용 가치 확대
+고객·마케팅·상품 전략 고도화
+데이터 기반 의사결정 강화
+신규 비즈니스 기회 발굴
+데이터 자산 활용 가치 극대화
+FIG 3-2
+축적되는 Insight, 확장되는 지식 자산의 선순환
+질문이 반복될수록 Insight가 축적·연결되어, 재사용 가능한 지식 자산이 지속적으로 확장됩니다.
+INSIGHT
+ASSET
+검증된 Insight의
+지속적 축적
+QUESTION
+관계사의 다양한
+비즈니스 질문 발생
+01
+ANALYZE & VERIFY
+교보문고 데이터 분석 및
+보안 검증을 통한
+Insight 생성
+02
+REUSE & UTILIZE
+기존 Insight 탐색 및 재사용으로
+더 빠르고 정확한 답변 제공
+03
+NEW OPPORTUNITY
+신규 가설·고객·마케팅 기회 및
+심화 분석 니즈 발견
+04
+지식 자산이 커지는 과정
+ACCUMULATE
+축적
+검증된 Insight가 지속적으로
+추가되어 지식의 양이
+축적됩니다.
+CONNECT
+연결
+질문·Insight·분석 맥락이 서로
+연결되어 재사용 가능한
+지식으로 체계화됩니다.
+EXPAND
+확장
+연결된 지식의 범위가 확대되어
+AI Agent가 활용할 수 있는
+지식 기반이 확장됩니다.
+확장되는 DATA VALUE
+더 큰 비즈니스 가치 창출
+Insight가 축적되고 연결될수록, 축적된 지식은 새로운 질문과 분석 기회를 만들어 냅니다.
+AI 기반의 분석 접근성과 보안 체계 기반의 안전한 활용을 통해 관계사와 디플래닉스, 나아가 교보그룹 전체의 데이터 가치를 지속적으로 확대합니다.
+04
+협업 부서 및 역할 정의
+KANDLE INSIGHT SYSTEM의 구성요소와 정보 흐름을 기준으로,
+부서별 담당 영역과 주요 협업 지점을 논의합니다.
+COLLABORATION
+부서별 협업 영역(안)
+KANDLE INSIGHT SYSTEM의 구성요소와 정보 흐름을 기준으로, 시스템 구현 및 운영에 필요한 주요 역할과 부서 간 협업 지점 을 제시합니다.
+세부 담당 범위와 역할은 관련 부서와의 협의를 통해 구체화할 예정입니다.
+FIG 4-1
+KANDLE INSIGHT SYSTEM 부서별 협업 구조(안)
+KANDLE 금융
+관계사 공동 활용 플랫폼
+폐쇄망 환경
+KANDLE 문고
+데이터 분석 영역
+Cloud 환경
+관계사
+사용자
+KANDLE 금융 Portal / UI
+질문 입력
+답변 확인
+결과 DB
+(Approved Insight)
+망연계
+QUESTION OUT
+망연계
+INSIGHT IN
+AI Agent
+핵심 분석 엔진 · 3 STEP
+보안 검증
+Security & Privacy Guard
+교보문고 데이터
+8개 주제 영역
+Approved Insight DB
+(Export Zone)
+1
+2
+3
+4
+5
+6
+7
+KANDLE 금융팀
+KANDLE 문고팀
+AI 플랫폼팀
+정보보안팀
+FLOW
+1 질문
+2 질문 전달
+3 보안 검증
+4 승인 결과 저장
+5 승인된 결과 전송
+6 결과 조회
+7 답변 확인
+KANDLE 금융팀
+주요 역할(안)
+KANDLE 금융 플랫폼 내
+Portal / UI 구성 및 운영 환경 검토
+KANDLE 문고 Cloud로의
+질문 전달을 위한 망연계 환경 검토
+KANDLE 문고팀
+주요 역할(안)
+KANDLE 문고 Cloud 내
+분석 · 답변 생성 환경 구성 검토
+승인된 답변의 KANDLE 금융 폐쇄망
+결과 전달을 위한 망연계 환경 검토
+AI 플랫폼팀
+주요 역할(안)
+AI Agent·AI Ready Data 관련
+기술 적용 가능성 검증 및 구현 방안 검토
+분석 · 답변 생성 프로세스의
+AI Agent 기술 구조 검토
+정보보안팀
+주요 역할(안)
+질문 · 답변 과정의
+보안 검토 기준 및 로직 검증
+금융 폐쇄망 반입 · 반출을 고려한
+보안 요건 검토
+※ 실선은 KANDLE 금융 · KANDLE 문고 플랫폼 영역, 점선은 담당 부서 범위이며, 정보 흐름 번호 ①~⑦은 2.2 KANDLE INSIGHT SYSTEM 전체 구조와 동일합니다.
+교보문고의 데이터를, 관계사의 고객 기회로
