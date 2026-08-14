@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AI Market Watch 기획보고서</title>
-<meta name="description" content="AI Agent를 활용한 금융·보험사 AI 동향 리서치 체계 — AI Market Watch 서비스 기획(안)">
+<meta name="description" content="AI Agent를 활용한 금융·보험사 AI 동향 리서치 체계 — AI Market Watch 서비스 소개">
 <meta name="theme-color" content="#60269E">
 <style>
 /* ============================================================
@@ -56,8 +56,12 @@
   --shadow-s:0 1px 2px rgba(39,38,57,.05), 0 2px 8px rgba(39,38,57,.05);
   --shadow-m:0 2px 6px rgba(39,38,57,.06), 0 12px 28px rgba(39,38,57,.07);
   --maxw:1360px;
-  --font:"Pretendard Variable","Pretendard",-apple-system,BlinkMacSystemFont,
-         "Apple SD Gothic Neo","Malgun Gothic","맑은 고딕","Segoe UI",system-ui,"Noto Sans KR",sans-serif;
+  /* ⚠️ Noto Sans KR 을 맨 앞에 둔다 — 가변 폰트라 800 굵기가 진짜 자형으로 있다.
+     Malgun Gothic 이 앞에 오면 800 자형이 없어 브라우저가 합성(faux bold)하고 작은 글씨에서 획이 뭉갠다. */
+  --font:"Noto Sans KR","Pretendard Variable","Pretendard",-apple-system,BlinkMacSystemFont,
+         "Apple SD Gothic Neo","Malgun Gothic","맑은 고딕",system-ui,sans-serif;
+  /* 제목 계열 — 서비스 화면(design.md 1.1)의 Heading 세리프를 승계. 굵기는 600~700으로 내린다. */
+  --font-head:"Noto Serif KR","Source Serif 4",Georgia,serif;
 
   /* 씬 플레이어 전체 재생 속도 배수 */
   --ksd-k:1.25;
@@ -160,7 +164,7 @@ svg text{font-family:var(--font);}
   border:1px solid rgba(255,255,255,.26);color:rgba(255,255,255,.86);
 }
 .pill.solid{background:var(--violet-800);border-color:transparent;color:#fff;}
-.cover h1{margin-top:22px;font-size:56px;font-weight:800;letter-spacing:-.045em;line-height:1.06;}
+.cover h1{margin-top:22px;font-family:var(--font-head);font-size:56px;font-weight:700;letter-spacing:-.03em;line-height:1.1;}
 .cover-subtitle{
   margin-top:18px;font-size:21px;font-weight:700;letter-spacing:-.025em;
   color:rgba(255,255,255,.9);
@@ -200,13 +204,13 @@ svg text{font-family:var(--font);}
 .chap-head{display:flex;align-items:flex-start;gap:26px;margin-bottom:6px;}
 .chap-no{font-size:64px;font-weight:800;line-height:.9;letter-spacing:-.04em;color:transparent;-webkit-text-stroke:1.5px var(--line-2);flex:none;}
 .chap-label{font-size:10.5px;font-weight:800;letter-spacing:.13em;color:var(--violet-500);}
-.chap-title{margin-top:4px;font-size:34px;font-weight:800;letter-spacing:-.035em;color:var(--violet-950);line-height:1.28;}
+.chap-title{margin-top:4px;font-family:var(--font-head);font-size:34px;font-weight:600;letter-spacing:-.025em;color:var(--violet-950);line-height:1.34;}
 .chap-desc{margin-top:11px;font-size:16.5px;font-weight:600;color:var(--muted);max-width:800px;line-height:1.72;}
 .sec{padding:52px 0;}
 .sec-head{margin-bottom:28px;}
 .sec-no{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:800;letter-spacing:.1em;color:var(--violet-800);margin-bottom:11px;}
 .sec-no::before{content:"";width:18px;height:2px;background:var(--violet-500);border-radius:2px;}
-.sec-title{font-size:26px;font-weight:800;letter-spacing:-.03em;color:var(--violet-950);line-height:1.4;}
+.sec-title{font-family:var(--font-head);font-size:26px;font-weight:600;letter-spacing:-.02em;color:var(--violet-950);line-height:1.46;}
 .sec-lead{margin-top:13px;font-size:17px;font-weight:600;color:var(--ink-2);max-width:920px;line-height:1.78;}
 .divider{height:1px;background:var(--line);max-width:var(--maxw);margin:0 auto;}
 
@@ -292,7 +296,7 @@ svg text{font-family:var(--font);}
 /* Footer */
 .footer{margin-top:96px;background:var(--violet-950);color:#fff;padding:70px 0 62px;text-align:center;}
 .footer .fmark{font-size:10.5px;font-weight:800;letter-spacing:.2em;color:var(--violet-500);}
-.footer .fname{margin-top:16px;font-size:40px;font-weight:800;letter-spacing:-.04em;line-height:1.1;}
+.footer .fname{margin-top:16px;font-family:var(--font-head);font-size:40px;font-weight:700;letter-spacing:-.03em;line-height:1.14;}
 .footer .fsub{margin-top:16px;font-size:13.5px;font-weight:600;color:rgba(255,255,255,.52);letter-spacing:-.01em;}
 
 /* ============================================================
@@ -711,7 +715,7 @@ code{font-family:ui-monospace,SFMono-Regular,"SF Mono",Consolas,"Liberation Mono
 @media (max-width:760px){
   body{font-size:15px;}
   .wrap,.topbar-inner,.cover-inner{padding-left:16px;padding-right:16px;}
-  .cover h1{font-size:31px;letter-spacing:-.04em;}
+  .cover h1{font-size:31px;letter-spacing:-.02em;}
   .cover-subtitle{font-size:15.5px;}
   .cover-foot{flex-wrap:wrap;gap:8px;}
   .chap-title{font-size:23px;}
@@ -794,7 +798,7 @@ code{font-family:ui-monospace,SFMono-Regular,"SF Mono",Consolas,"Liberation Mono
   </div>
 
   <div class="cover-inner">
-    <span class="pill solid">서비스 기획(안)</span>
+    <span class="pill solid">서비스 소개</span>
     <h1 id="cover-title">AI Market Watch</h1>
     <p class="cover-subtitle">AI Agent를 활용한 금융·보험사 AI 동향 리서치 체계</p>
     <div class="cover-rule" aria-hidden="true"></div>
