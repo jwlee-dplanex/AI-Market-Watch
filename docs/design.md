@@ -3000,6 +3000,7 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 지식그래프 화�
 - **재사용 표준이다.** 한 번 쓰고 버리는 문서 스펙이 아니라, 앞으로 나가는 기획보고서 전부가 이 형식을 따른다. **첫 적용은 AI Market Watch 대표님 보고자료.**
 - **원본 레퍼런스**: `docs/references/KANDLE_INSIGHT_SYSTEM_기획보고서.html`(578,712자) — 사용자가 "우수사례"로 지정한 문서다. 본문만 필요하면 같은 폴더의 `_본문추출.txt`(28KB)를 읽는다. ⚠️ **원본 HTML을 통째로 Read하지 말 것**(578KB, 컨텍스트가 날아간다). 기법 확인은 `Grep`으로 좁혀서 한다.
 - **토큰은 "치환"이 아니라 "승계"다.** 원본의 `:root` 첫 줄이 `/* ---- Brand : DPLANEX Violet (logo #582B8D) ---- */`이다 — 애초에 같은 브랜드 위에서 만들어진 문서라, 톤을 갈아엎을 게 아니라 **완성된 토큰 세트를 그대로 물려받고 어긋난 한 값만 정합**시키면 된다(4.1).
+- **품질 기준은 "원본과 최소 동등"이다(사용자 확정).** 토큰·타이포를 맞추는 것만으로는 못 미친다 — **원본을 원본이게 만드는 것은 4.7(애니메이션이 곧 논증)·4.8(시각 장치)·4.10 ⑸~⑻(씬 플레이어의 숨은 층)이다.** 이 세 절을 건너뛰고 만든 문서는 겉모습만 닮고 설득력이 없다.
 - **Django 템플릿이 아니다.** 산출물은 단독 `.html` 파일이므로 `{# #}` 한 줄 규칙의 적용 대상이 아니다. ⚠️ 단, **이 보고서를 나중에 Django로 서빙하기로 하면 그 순간 규칙이 되살아난다** — 그때는 주석을 전부 `{% comment %}`로 바꾸고 렌더 결과에 `{#`가 남았는지 확인한다.
 
 ### 4.1 브랜드 보라 정합 — `#60269E`를 정본으로 한다 (결론)
@@ -3168,7 +3169,7 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 지식그래프 화�
 | **`<canvas>`·`<iframe>` 금지** | 0 / 0 | canvas는 인쇄·확대·접근성 전부에서 불리하고, iframe은 외부 의존이다 |
 | **도해는 전부 inline `<svg>`** | **116개** (`path` 532 · `text` 306 · `circle` 284 · `rect` 142 · `g` 138 · `linearGradient` 2 · `radialGradient` 2 · `marker` 4) | 무한 확대해도 선명하고, 텍스트가 **선택·검색·스크린리더 판독이 되며**, CSS로 색과 움직임을 줄 수 있다. 화살표는 `<marker>`로 정의해 재사용한다 |
 | **SVG 자체 애니메이션(SMIL) 금지** | `<animate>` **0** | 브라우저 지원이 고르지 않고 `prefers-reduced-motion`으로 한 번에 끌 수 없다 |
-| **움직임은 CSS만** | `@keyframes` **85** · `animation` 106회 · `transition` 24회 | 한 곳(미디어 쿼리)에서 전부 끌 수 있다(4.9) |
+| **움직임은 CSS만** | `@keyframes` **85** · `animation` 106회 · `transition` 24회 | 한 곳(미디어 쿼리)에서 전부 끌 수 있다(4.11). ⚠️ 개수가 많은 건 화려해서가 아니라 **주장이 그만큼 있어서**다(4.7) |
 | **`will-change`·`backdrop-filter`는 아껴 쓴다** | 각 1회 | 남발하면 저사양 노트북·회의실 PC에서 스크롤이 끊긴다 |
 | **CSS 프레임워크 금지** | `--tw-` 0 · `@layer` 0 | Tailwind는 빌드 산출물이거나 CDN이다 — 둘 다 자립형과 양립하지 않는다. ⚠️ **앱 화면과 정반대 규칙이니 혼동 주의** |
 | **JS 프레임워크 금지** | React/Vue/jQuery 0 | 같은 이유. 필요한 동작은 바닐라로 충분하다 |
@@ -3203,8 +3204,8 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 지식그래프 화�
     …
   </main>
   <footer class="footer">                    한 줄 메시지로 닫는다
-  <script> … 스크롤 등장 + 진행바 (4.7) … </script>
-  <script> … 씬 플레이어 (4.8, 필요한 문서만) … </script>
+  <script> … 스크롤 등장 + 진행바 (4.9) … </script>
+  <script> … 씬 플레이어 (4.10, 필요한 문서만) … </script>
 </body>
 ```
 
@@ -3234,7 +3235,159 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 지식그래프 화�
 - **챕터 사이 연결어를 문서 요소로 쓴다.** 원본은 챕터 끝에 `BUT` / `THEREFORE` 한 단어를 큰 글자로 놓아 논리 흐름을 만든다. 목차 → 배경 → 한계 → 전환 → 해법 순서가 **글이 아니라 화면 전환으로** 읽히게 하는 장치다.
 - **도해에 `FIG n-n` 번호를 붙이고 본문에서 그 번호로 참조한다.** 도해 간 상호 참조(`← 전체 구조(FIG 2-1)로 돌아가기`)는 앵커 링크로 건다.
 
-### 4.7 스크롤 등장 + 읽기 진행바 (script 0, 모든 문서 공통)
+### 4.7 애니메이션은 논증이다 (움직임 설계 원칙)
+
+**조항: 이 형식의 모든 움직임은 그 절이 주장하는 바를 시간으로 재현한다. 장식으로 넣는 움직임은 없다.**
+
+원본의 `@keyframes` 85개는 전부 이 성격이다 — 하나하나가 **그 도해의 논지를 재생 시간으로 옮긴 것**이다. 이 조항을 못 박아두지 않으면 다음 사람이 형태만 베끼고(페이드인·확대·반짝임) 논증은 사라진 채 "예쁜 효과"만 남는다.
+
+**⚠️ 순서를 뒤집지 말 것.** "무엇을 주장하는가"를 먼저 정하고, 그 주장을 시간축으로 옮길 방법을 찾는다. 애니메이션을 먼저 고르고 의미를 나중에 붙이면 반드시 장식이 된다.
+
+**판별 질문 — "이 애니메이션이 없으면 어떤 주장이 증명되지 않는가?"** 답할 수 없으면 뺀다(4.12 체크리스트에 같은 문장을 넣어뒀다).
+
+---
+
+**① 절차의 길이는 문장이 아니라 재생 시간으로 증명한다 (AS-IS vs TO-BE)**
+
+원본은 두 도해에 **같은 6초 루프**를 주고, 그 안에서의 속도를 정반대로 만들었다.
+
+```
+AS-IS (apOn / apArwOn / apFootOn)      ← "절차가 길다"
+  카드 5장이 animation-delay 0 → .95s → 1.7s → 2.65s → 3.4s 로 느리게 순차 점등
+  하단 결론(.ap-foot)은 apFootOn ... infinite 4.3s 로 뒤늦게 켜짐
+  ⇒ 6초 중 4.3초가 지나야 답이 나온다
+
+TO-BE (tbQ / tbV / tbA)                ← "즉시 나온다"
+  질문 2~9%  ·  검증 9~17%  ·  답변 21~30%
+  ⇒ 6초의 30% 지점에 이미 끝나 있다
+```
+
+- **규칙: AS-IS와 TO-BE 도해는 반드시 같은 길이의 루프를 쓰고, 안의 밀도만 다르게 한다.** 루프 길이를 다르게 하면 두 도해가 비교 대상이 아니게 되어 논증이 성립하지 않는다.
+- ⚠️ "절차가 길어 시간이 걸립니다"라고 쓰는 것과 차원이 다르다. **독자는 기다리는 동안 그 사실을 몸으로 안다.**
+
+**② 실패는 "닿지 못함"으로 보여준다 (끊어진 연결)**
+
+```
+gxPkL / gxPkR   패킷이 양쪽에서 출발 → 62% 에 중앙 도달 → 74% 에 opacity:0 으로 소멸
+gxX             그 순간 X 표시가 scale(1) → 1.24 (64%)
+gxRing          동시에 링이 scale(.6) → 퍼짐
+```
+
+- **규칙: 단절을 점선으로 그리지 말고 시간으로 그린다.** 점선은 "연결이 약하다"는 뜻이고, 이 장면은 **"건너가려다 실패한다"**는 뜻이다. 둘은 다른 주장이다.
+
+**③ 3단어 구조는 그림이 순서대로 실행한다 (축적 → 연결 → 확장)**
+
+원본 03장의 세 단어 `ACCUMULATE / CONNECT / EXPAND`를 도해가 문자 그대로 수행한다.
+
+```
+efKnode   0~15%   노드가 scale .35 → 1.4 → 1 로 튀어나옴            축적
+efKedge   26~50%  엣지가 stroke-dashoffset 100 → 0 으로 그려짐       연결
+efKexp    54~78%  전체가 scale .72 → 1 로 확대되고
+efKxNode / efKxEdge 로 2차 노드·엣지가 추가됨                        확장
+efKcore   0~74%   중심 원이 .86 → .92 → .96 → 1 로 서서히 자람       (전 구간 성장)
+```
+
+- **우리 03장(기대효과)도 같은 3단 구조이므로 이 패턴을 그대로 쓴다.** AI Market Watch에서는 **뉴스 축적 → 기업·기술 연결(지식그래프) → 인사이트·보고서 확장**에 대응한다.
+- **규칙: 한 도해가 세 단어를 주장하면 세 구간을 겹치지 않게 나눈다.** 동시에 일어나면 3단이 아니라 1단이고, 세 단어를 쓸 근거가 사라진다.
+- `efKcore`처럼 **전 구간에 걸쳐 아주 천천히 자라는 요소를 하나 두면** 3단이 끊긴 토막이 아니라 하나의 성장으로 읽힌다.
+
+**④ 경계가 확정되는 순간은 `steps(1,end)`로 "딱" 바꾼다**
+
+```css
+.rl-zn.big{ animation:rlZoomBig 12s ease-in-out infinite,
+                      rlSolidBig 12s steps(1,end) infinite; }
+```
+```
+rlSolidBig    stroke-dasharray:12 8 (점선) → 4% 에 9999 0 (실선) → 25% 에 점선 복귀
+rlZoomBig/Sm  경계가 1.022~1.035배로 커지며 굵어짐
+rlWash        영역 안쪽 색은 6~19% 구간에서만 보임
+rlBadge       부서 배지가 1.15배
+inline delay  0s / 3s / 6s / 9s   ← 부서마다 인라인 style로만 다르다
+```
+
+- ⚠️ **`steps(1,end)`라 점선 → 실선이 서서히가 아니라 한 프레임에 바뀐다.** `ease`로 부드럽게 이으면 "경계가 정해졌다"는 느낌이 안 난다. **확정/미확정 같은 이산적 상태는 이산적으로 전환한다.**
+- **12초를 4등분해 인라인 `animation-delay`(0/3/6/9s)만 다르게 주는 방식**을 그대로 쓴다 — 키프레임 하나로 N개 영역을 순차 점등하므로 영역이 늘어도 CSS가 늘지 않는다.
+
+**⑤ 읽을 시간을 애니메이션 안에 넣는다**
+
+```
+ksd-travel   0%  opacity:0
+             9%  카드 등장 (translateX(0))
+            40%  ⚠️ 제자리 — 독자가 읽는 시간
+           100%  translateX(-720px) 으로 이동
+```
+
+- **규칙: 이동·전환 앞에 정지 구간을 명시적으로 넣는다.** 등장하자마자 움직이면 독자는 카드에 무엇이 적혔는지 못 읽는다. **"움직이지 않는 31%"가 이 애니메이션에서 가장 중요한 구간이다.**
+
+⚠️ **무한 루프 애니메이션은 인쇄·reduce에서 전부 꺼야 한다.** 원본은 대상 셀렉터를 한 줄에 나열해 일괄로 끈다(4.11) — 도해를 추가할 때 그 목록에 새 셀렉터를 **같이 추가하는 것을 잊지 말 것**. 빠뜨리면 인쇄물에서 그 요소만 중간 상태로 굳어 찍힌다.
+
+### 4.8 시각 장치 디테일 (형태만 베끼면 사라지는 것들)
+
+**⑴ 챕터 번호는 채우지 않고 외곽선으로 그린다.**
+
+```css
+.chapter-no{ font-size:64px; font-weight:800;
+             color:transparent; -webkit-text-stroke:1.5px var(--line-2); }
+```
+⚠️ **채운 숫자로 그리면 번호가 제목을 이긴다.** 번호는 위치를 알려주는 표지일 뿐 읽히는 대상이 아니다. 외곽선으로 두면 크게 써도 제목을 방해하지 않는다.
+
+**⑵ 절 번호 앞 막대** — 작지만 이 형식의 리듬을 만드는 요소다.
+
+```css
+.sec-no::before{ content:""; width:18px; height:2px;
+                 background:var(--violet-500); border-radius:2px; }
+```
+
+**⑶ 표지 오브 — 주기를 서로 나누어떨어지지 않게 준다.**
+
+```css
+.orb-core   { animation:orbBreathe 13s ease-in-out infinite; }
+.orb-ring.r1{ animation:orbSpin 34s linear infinite; }
+.orb-ring.r2{ animation:orbSpin 24s linear infinite reverse; }   /* 방향도 반대 */
+.orb-ring.r3{ animation:orbSpin 46s linear infinite; }
+```
+⚠️ **같은 주기를 주면 세 링이 한 덩어리로 뭉쳐 돈다.** 34/24/46처럼 서로 어긋나는 값이라야 계속 다른 모양이 나와 살아 있는 표지가 된다.
+
+**⑷ 표지 그리드는 마스크로 가장자리를 지운다.**
+
+```css
+mask-image:radial-gradient(900px 500px at 55% 40%,#000,transparent 75%);
+-webkit-mask-image:radial-gradient(900px 500px at 55% 40%,#000,transparent 75%);
+```
+64px 격자를 그대로 깔면 배경이 시끄럽다. 가운데만 남기면 격자가 무늬가 아니라 **질감**이 된다. ⚠️ `-webkit-` 접두사를 함께 쓴다.
+
+**⑸ KEY MESSAGE 면과 밝은 변형.**
+
+```css
+.keymsg      { background:linear-gradient(100deg,var(--violet-900),var(--violet-800) 55%,var(--violet-700)); }
+.keymsg.light{ background:var(--lav-100); box-shadow:none; }   /* .light .tag 는 violet-800 면 + 흰 글자 */
+```
+- 그라디언트는 **900 → 800(55%) → 700**으로, 중간 지점을 55%에 두어 브랜드 원색이 면의 중심을 차지한다.
+- **한 챕터에서 진한 면이 연속되면 무거워진다** — 두 번째부터는 `.light`를 섞는다.
+
+**⑹ 선 위를 흐르는 빛 — `pathLength="100"`이 핵심이다.**
+
+```html
+<!-- 바탕 선: 가는 점선 + marker 화살촉 -->
+<path d="M534 274 H744" stroke="var(--violet-800)" stroke-width="1.8" fill="none"
+      stroke-dasharray="7 6" marker-end="url(#arrow)"/>
+<!-- 흐르는 빛: 굵은 실선, 같은 d, pathLength 로 길이 정규화 -->
+<path class="flow f2" pathLength="100" d="M534 274 H744"
+      stroke="var(--violet-500)" stroke-width="4" stroke-linecap="round" fill="none"/>
+```
+```css
+@keyframes efFlow{
+  0%{stroke-dashoffset:115;opacity:0} 7%{opacity:1}
+  40%{stroke-dashoffset:0;opacity:1} 50%,100%{stroke-dashoffset:0;opacity:0}
+}
+```
+
+- ⚠️ **`pathLength="100"`이 경로의 실제 길이를 100으로 정규화한다.** 그래서 짧은 선과 긴 선에 **같은 키프레임을 써도 같은 속도로 흐른다.** 이게 없으면 경로마다 `dasharray` 값을 손으로 맞춰야 하고, 도해 안 선들의 흐름 속도가 제각각이 되어 "하나의 흐름"으로 안 읽힌다. **원본의 `efFlow`/`a2Flow`/`agFlow`/`sgFlow`가 전부 이 방식이다.**
+- **바탕 선과 흐르는 빛을 두 겹으로 겹쳐 그린다.** 한 겹으로는 "경로가 있다"와 "지금 흐르고 있다"를 동시에 못 보여준다.
+
+**⑺ 화살촉은 별도 요소로 두고 까딱인다** — `<marker>`로 그린 정지 화살촉과 별개로, `.agh`/`.sgh`/`.ef-hd` 같은 요소를 `translate`로 미세하게 움직여 방향감을 준다.
+
+### 4.9 스크롤 등장 + 읽기 진행바 (script 0, 모든 문서 공통)
 
 ```js
 <script>
@@ -3279,7 +3432,7 @@ DPLANEX 디자인 시스템 기반으로 "AI Market Watch" 지식그래프 화�
 - ⚠️ **`reduce`·`IntersectionObserver` 미지원 분기에서 반드시 `.in`을 즉시 붙인다.** 안 붙이면 **본문 전체가 `opacity:0`으로 영원히 안 보인다** — 이 형식에서 가장 위험한 실패 모드다.
 - 등장 애니메이션은 `.rv` 하나로 통일하고, 지연은 `style="--d:300ms"` 같은 인라인 변수로 준다(클래스를 늘리지 않는다).
 
-### 4.8 씬 플레이어 패턴 (시나리오 데모가 필요한 문서)
+### 4.10 씬 플레이어 패턴 (시나리오 데모가 필요한 문서)
 
 **"흐름을 설명해야 하는 도해"를 자동 재생 + 수동 조작 겸용으로 보여주는 패턴이다.** 원본은 9개 씬(+대안 시나리오 2 + 요약 1, 총 11개)을 이 방식으로 돌린다. 씬 길이는 5,400~17,000ms.
 
@@ -3349,7 +3502,7 @@ var SCENES = [
 - **뷰포트 진입 시 자동 시작** — `IntersectionObserver(threshold:0.25)`로 처음 보일 때 `start()`. 페이지 로드 즉시 시작하지 않는다(독자가 도달하기 전에 끝나버린다).
 - **폴백** — `setTimeout(350ms)`으로 "아직 시작 안 했고 화면 안에 있으면" 강제 시작(일부 headless·구형 환경에서 IO가 발화하지 않는다).
 - **키보드** — `←` `→` 씬 이동, `Space` 재생/일시정지. **루트에 포커스가 있거나 루트가 화면에 보일 때만** 반응한다(문서 다른 곳을 스크롤하는 독자의 Space를 가로채면 안 된다).
-- **`prefers-reduced-motion:reduce`면 애니메이션을 건너뛰고 최종 상태로 간다**(4.9).
+- **`prefers-reduced-motion:reduce`면 애니메이션을 건너뛰고 최종 상태로 간다**(4.11).
 - **전역 노출은 하나만** — `window.<Prefix>ScenarioDemo`. 루트가 1개면 API 객체, 여러 개면 배열.
 
 ```js
@@ -3361,7 +3514,92 @@ return {
 };
 ```
 
-### 4.9 접근성 · 인쇄 · 반응형 — 선택이 아니라 필수
+**⑸ 논리 캔버스 고정 + 런타임 스케일 — 씬 안에는 반응형 분기를 만들지 않는다.**
+
+```css
+.ksd-app{ position:absolute; top:0; left:0; width:1080px; height:675px;
+          transform-origin:top left; transform:scale(var(--ksd-s)); }
+```
+```js
+function fit(){
+  var w = screen.clientWidth;
+  if (w > 0) root.style.setProperty('--ksd-s', (w / 1080).toFixed(5));
+}
+if (window.ResizeObserver) { new ResizeObserver(fit).observe(screen); }
+window.addEventListener('resize', fit);
+fit();
+```
+
+- ⚠️ **씬 내부의 모든 좌표·크기를 1080×675 논리 좌표로 쓰고, 화면 폭에 맞춰 통째로 축소한다.** 그래서 **씬 안에는 미디어 쿼리가 필요 없다** — 4.11의 4단계 반응형은 문서 레이아웃용이고, 씬은 이 스케일 하나로 전 해상도를 감당한다.
+- `ResizeObserver`로 관찰하는 대상은 `window`가 아니라 **화면 컨테이너(`.ksd-screen`)**다. 사이드바 접힘·인쇄 미리보기처럼 창 크기는 그대로인데 컨테이너만 바뀌는 경우까지 잡힌다. `resize` 리스너와 최초 `fit()` 호출은 미지원 환경 폴백이다.
+
+**⑹ 속도 배수 하나로 CSS와 JS를 동시에 조절한다.**
+
+```css
+:root{ --ksd-k:1.25; }        /* 전체 재생 속도 배수 */
+.ksd-fx{ animation: ksd-up calc(.52s * var(--ksd-k)) var(--ksd-ease)
+                    calc(var(--d,0ms) * var(--ksd-k)) both; }
+```
+```js
+var K = parseFloat(getComputedStyle(root).getPropertyValue('--ksd-k')) || 1;
+function durOf(i){ return Math.round(SCENES[i].dur * K); }
+```
+
+- ⚠️ **모든 CSS 시간값을 `calc(… * var(--ksd-k))`로 감싸고, JS는 그 변수를 읽어 씬 길이에 곱한다.** 변수 하나를 바꾸면 애니메이션과 씬 전환이 **함께** 빨라지고 느려진다 — 둘을 따로 관리하면 반드시 어긋난다.
+- **발표 리허설에서 이게 결정적이다.** "조금만 천천히"라는 요청에 `--ksd-k` 한 값만 고치면 되고, 씬 스크립트·키프레임을 손대지 않는다. 원본의 기본값은 `1.25`(원 설계보다 25% 느리게)다.
+
+**⑺ ⚠️ 숨은 씬을 측정하는 기법 — 이게 없으면 타이핑·커서 애니메이션이 성립하지 않는다.**
+
+```js
+function withVisible(scene, fn){
+  if (!scene) return;
+  var d = scene.style.display, v = scene.style.visibility;
+  scene.style.display = 'flex';        /* 잠깐 띄우되 */
+  scene.style.visibility = 'hidden';   /* 눈에는 안 보이게 */
+  try { fn(scene); } catch (e) {}
+  scene.style.display = d;             /* 원상 복구 */
+  scene.style.visibility = v;
+}
+```
+
+- **문제**: 비활성 씬은 `display:none`이라 `scrollWidth`가 **0으로 측정된다.** 그래서 재생 시점에 재려 하면 이미 늦고, 미리 재려 하면 0이 나온다.
+- **해결**: 위처럼 `display:flex` + `visibility:hidden`으로 **레이아웃은 계산되지만 화면에는 안 보이는 상태**를 만들어 그 안에서 측정하고 즉시 되돌린다. 사용자에게는 아무것도 보이지 않는다.
+- 이 안에서 **세 가지를 CSS 변수로 주입**한다.
+
+```js
+/* 타이핑 폭 + 글자 수 → steps() 애니메이션이 실제 텍스트에 맞게 끊긴다 */
+el.style.width = 'auto';
+var w = Math.ceil(el.scrollWidth) + 2;
+el.style.setProperty('--tw', w + 'px');
+el.style.setProperty('--tsteps', Math.max(4, txt.replace(/\s/g,'').length));
+
+/* 커서 도착 좌표 = 버튼 중앙, ⚠️ 논리 좌표계로 되돌려야 한다 */
+var s  = parseFloat(getComputedStyle(root).getPropertyValue('--ksd-s')) || 1;
+var rb = btn.getBoundingClientRect(), rs = stageEl.getBoundingClientRect();
+cursor.style.setProperty('--cx', Math.round((rb.left - rs.left + rb.width  / 2) / s) + 'px');
+cursor.style.setProperty('--cy', Math.round((rb.top  - rs.top  + rb.height / 2) / s) + 'px');
+```
+```css
+.ksd-typed{ animation: ksd-type calc(var(--tdur,2200ms) * var(--ksd-k))
+                       steps(var(--tsteps,28),end) calc(var(--d,700ms) * var(--ksd-k)) both; }
+```
+
+- ⚠️ **`getBoundingClientRect()`는 스케일이 적용된 실제 화면 픽셀을 돌려준다.** 논리 좌표(1080×675)로 쓰는 CSS에 그대로 넣으면 창 크기에 따라 커서가 엉뚱한 곳을 찍는다 — **반드시 `--ksd-s`로 나눠 논리 좌표로 되돌린다.** ⑸의 스케일 기법을 쓰는 한 이 나눗셈은 선택이 아니다.
+- 타이핑은 `steps(글자 수)`라 **공백을 뺀 실제 글자 수**를 넣어야 한 글자씩 또박또박 찍힌다. 고정값(28)을 쓰면 문장 길이가 바뀔 때마다 어긋난다.
+
+**⑻ 일괄 일시정지와 재생 엔진.**
+
+```css
+.is-paused .ksd-app *, .is-paused .ksd-app,
+.is-paused .ksd-ctl-bar i{ animation-play-state:paused !important; }
+```
+
+- **일시정지는 클래스 하나로 끝낸다.** 진행 중인 모든 CSS 애니메이션이 그 자리에 멈추고, 컨트롤바 게이지도 함께 멈춘다(게이지를 빼먹으면 멈춘 화면에서 게이지만 계속 차오른다).
+- **재생 엔진은 `setTimeout` + 경과 시간 누적(`tElapsed`)** 이다. 일시정지 때 `tElapsed += now() - tStart`로 적립하고 재개 때 남은 시간만 다시 건다 — **일시정지 후 재개해도 씬 길이가 정확히 지켜진다.**
+- **마지막 씬은 되감지 않고 그대로 멈춘다**(`isLast()` → `setPlaying(false)`). ⚠️ 자동으로 처음으로 돌아가면 발표 중 화면이 제멋대로 리셋된다. 되돌리는 건 "처음부터" 버튼을 누른 사람의 의도일 때만이다.
+- 씬을 다시 보여줄 때 게이지는 `animation:'none'` → `void offsetWidth`(리플로 강제) → 재지정으로 **재시작**시킨다. 이 3단계를 생략하면 같은 애니메이션이 재적용되지 않는다.
+
+### 4.11 접근성 · 인쇄 · 반응형 — 선택이 아니라 필수
 
 **세 가지는 "있으면 좋은 것"이 아니라 이 형식의 구성 요건이다.** 하나라도 빠지면 표준 미달로 본다.
 
@@ -3375,7 +3613,8 @@ return {
   }
 }
 ```
-- CSS만으로 부족하다. **두 스크립트 모두 맨 앞에서 `matchMedia`로 확인하고, reduce면 애니메이션을 건너뛰고 최종 상태로 바로 넘긴다**(4.7 `.rv` 즉시 `.in`, 4.8 씬 즉시 완성). **끄는 게 아니라 결과를 바로 보여주는 것**이 핵심이다 — 꺼버리면 내용이 사라진다.
+- CSS만으로 부족하다. **두 스크립트 모두 맨 앞에서 `matchMedia`로 확인하고, reduce면 애니메이션을 건너뛰고 최종 상태로 바로 넘긴다**(4.9 `.rv` 즉시 `.in`, 4.10 씬 즉시 완성). **끄는 게 아니라 결과를 바로 보여주는 것**이 핵심이다 — 꺼버리면 내용이 사라진다.
+- ⚠️ **무한 루프 도해(4.7·4.8)는 셀렉터를 나열해 명시적으로 끈다.** 원본은 `.ap-cards > div, .ap-foot, .tb-sys, .tb-n, .ef-rot, .orb-core, .orb-ring, .a2-svg .flow, .ag-svg .agf …`를 한 줄에 모아 `animation:none !important`를 건다. **새 도해를 추가하면 이 목록에도 추가**한다 — 빠뜨리면 그 요소만 중간 상태로 굳는다.
 
 **⑵ `@media print` — 필수. 이 문서는 인쇄돼서 회의 탁자에 올라간다.**
 
@@ -3409,7 +3648,7 @@ return {
 
 **⑷ 반응형 4단계 — `1400 / 1180 / 900 / 760px`.** 1360px 고정폭 판형이라 노트북(1440·1280)에서 이미 걸린다. **회의실 프로젝터·태블릿·메일 앱 내장 뷰어까지 고려하면 4단계가 최소치다.**
 
-### 4.10 산출 전 체크리스트 (눈으로 보지 말고 기계로 확인한다)
+### 4.12 산출 전 체크리스트 (눈으로 보지 말고 기계로 확인한다)
 
 ```powershell
 $f = "<보고서.html>"
@@ -3430,15 +3669,22 @@ rg -c "aria-" $f
 
 # 5) 전역 오염 — window. 대입이 1개뿐인지
 rg -n "window\.[A-Z]\w+\s*=" $f
+
+# 6) 구현 층 누락 — 해당 기법을 썼다면 짝이 되는 값이 반드시 함께 있어야 한다
+rg -c "pathLength=\"100\"" $f          # 흐르는 선을 그렸다면 1 이상 (4.8 ⑹)
+rg -c "text-stroke" $f                 # 챕터 번호 외곽선 (4.8 ⑴)
+rg -c "ResizeObserver|withVisible" $f  # 씬 플레이어를 넣었다면 각 1 이상 (4.10 ⑸⑺)
+rg -c "animation-play-state" $f        # 씬 플레이어를 넣었다면 1 이상 (4.10 ⑻)
 ```
 
-**기계로 못 잡는 것 3가지는 사람이 확인한다.**
+**⚠️ 기계로 못 잡는 것 4가지는 사람이 확인한다. 마지막 항목이 이 표준의 핵심이다.**
 
-1. **`reduce` 상태에서 본문이 보이는가** — 브라우저 개발자도구 Rendering 탭에서 `prefers-reduced-motion: reduce`를 강제하고 새로고침. 백지면 4.7 분기가 빠진 것이다.
+1. **`reduce` 상태에서 본문이 보이는가** — 브라우저 개발자도구 Rendering 탭에서 `prefers-reduced-motion: reduce`를 강제하고 새로고침. 백지면 4.9 분기가 빠진 것이다.
 2. **인쇄 미리보기(Ctrl+P)에서 도해가 온전한가** — 백지·잘린 도해·사라진 보라 면 셋을 본다.
 3. **파일을 네트워크 끊고 열어보기** — 자립형 원칙의 유일한 최종 검증이다. 폰트가 바뀌거나 도해가 비면 외부 참조가 남아 있는 것이다.
+4. ⚠️ **각 애니메이션에 대해 "이게 없으면 어떤 주장이 증명되지 않는가"를 답할 수 없으면 뺀다**(4.7). 답이 "화면이 심심해진다"면 그건 장식이므로 뺀다. **`@keyframes` 개수를 원본에 맞추는 것은 목표가 아니다** — 원본의 85개는 주장이 85번 있었기 때문에 나온 수다.
 
-### 4.11 Claude Artifacts 생성 프롬프트 (재사용 템플릿)
+### 4.13 Claude Artifacts 생성 프롬프트 (재사용 템플릿)
 
 ```
 DPLANEX 기획보고서 형식(단일 자립형 HTML)으로 "<문서 제목>" 기획보고서를 만들어줘.
@@ -3485,6 +3731,35 @@ topbar(브랜드+목차 nav+읽기 진행바) → cover(대제목·MAIN MESSAGE�
              → (필요 시) 제약·주의 박스 → KEY MESSAGE 보라 면
 챕터 사이 연결어(BUT / THEREFORE)를 큰 글자로 넣어 논리 흐름을 만들 것.
 
+[애니메이션 — 장식 금지, 전부 논증이어야 함]
+모든 움직임은 그 절이 주장하는 바를 시간으로 재현할 것. "이게 없으면 어떤 주장이 증명되지 않는가"에
+답할 수 없는 애니메이션은 넣지 말 것. 아래 5개 패턴을 그대로 사용:
+- AS-IS/TO-BE는 같은 길이 루프(6s)를 쓰되 안의 밀도를 반대로:
+  AS-IS는 카드가 0/.95/1.7/2.65/3.4s 로 느리게 순차 점등 + 결론은 4.3s 에 뒤늦게,
+  TO-BE는 2~9% / 9~17% / 21~30% 로 한 묶음에 끝남. ("길다/즉시"를 재생 시간으로 증명)
+- 단절은 점선이 아니라 시간으로: 패킷이 양쪽에서 출발 → 62% 중앙 도달 → 74% 소멸,
+  그 순간 X 표시 scale 1→1.24 + 링 확산.
+- 3단어 구조(축적→연결→확장)는 구간을 겹치지 않게 분리:
+  노드 0~15% scale .35→1.4→1 / 엣지 26~50% stroke-dashoffset 100→0 /
+  전체 54~78% scale .72→1 + 2차 노드·엣지 추가. 중심 원은 0~74% .86→1 로 서서히.
+- 경계 확정은 steps(1,end) 로 점선(12 8) → 실선(9999 0) 한 번에 전환.
+  N개 영역은 키프레임 하나 + 인라인 animation-delay(0/3/6/9s)로만 구분.
+- 이동 전에 정지 구간을 넣을 것: 9% 등장 → 40%까지 제자리(읽는 시간) → 이동.
+
+[시각 장치 — 반드시 포함]
+- 챕터 번호는 외곽선 숫자: color:transparent; -webkit-text-stroke:1.5px var(--line-2); 64px.
+  (채운 숫자로 그리면 번호가 제목을 이김)
+- 절 번호 앞 18×2px 막대(.sec-no::before, --violet-500).
+- 표지 오브: core 13s breathe + 링 3개를 34s / 24s reverse / 46s 로 서로 다른 주기·방향.
+- 표지 64px 격자에 mask-image:radial-gradient(900px 500px at 55% 40%,#000,transparent 75%)
+  (-webkit- 접두사 함께).
+- .keymsg 는 linear-gradient(100deg, --violet-900, --violet-800 55%, --violet-700),
+  같은 챕터에서 반복되면 .light 변형(배경 --lav-100, 그림자 없음)을 섞을 것.
+- 선 위를 흐르는 빛: 바탕 선(가는 점선 + marker 화살촉)과 흐르는 빛(굵은 실선)을 두 겹으로 겹치고,
+  ⚠️ 흐르는 선에 pathLength="100" 을 붙여 길이를 정규화할 것 —
+  그래야 길이가 다른 경로들이 같은 속도로 흐른다. (stroke-dasharray + dashoffset 애니메이션)
+- 화살촉은 별도 요소로 두고 translate 로 미세하게 까딱일 것.
+
 [필수 동작]
 - .rv → .in 스크롤 등장(IntersectionObserver), 상단 2px 읽기 진행바.
 - prefers-reduced-motion: reduce면 애니메이션을 건너뛰고 최종 상태로. (CSS + JS 양쪽 모두)
@@ -3498,6 +3773,18 @@ topbar(브랜드+목차 nav+읽기 진행바) → cover(대제목·MAIN MESSAGE�
 SCENES 배열({key,step,dur,name,msg,...})로 씬을 선언하고 이전/일시정지/다음/처음부터 4버튼으로 조작.
 dur는 5,400~17,000ms. 뷰포트 진입 시 자동 시작(threshold 0.25) + 350ms 폴백.
 키보드 ←/→/Space(루트가 보이거나 포커스가 있을 때만). 전역은 window.<Prefix>ScenarioDemo 하나만.
+- 논리 캔버스 고정: .app{width:1080px;height:675px;transform-origin:top left;transform:scale(var(--s))}
+  + ResizeObserver 로 화면 컨테이너를 관찰해 --s = clientWidth/1080 주입.
+  ⇒ 씬 내부에는 미디어 쿼리를 만들지 말 것(스케일 하나로 전 해상도 대응).
+- 속도 배수: CSS --k(기본 1.25)를 모든 시간값에 calc(… * var(--k))로 곱하고,
+  JS는 getComputedStyle 로 --k 를 읽어 씬 dur 에 곱할 것. 변수 하나로 전체 속도를 조절.
+- ⚠️ 숨은 씬 측정: display:none 이면 scrollWidth 가 0이므로,
+  display:flex + visibility:hidden 으로 잠깐 띄워 재고 즉시 복구하는 withVisible() 을 쓸 것.
+  여기서 타이핑 폭(--tw), 공백 제외 글자 수(--tsteps, steps()에 사용),
+  커서 도착 좌표(--cx/--cy)를 주입. 좌표는 getBoundingClientRect 값을 --s 로 나눠 논리 좌표로 되돌릴 것.
+- 일시정지는 .is-paused 클래스 + animation-play-state:paused !important 로 일괄(게이지 포함).
+- 재생은 setTimeout + 경과 시간 누적으로 일시정지·재개가 정확해야 하고,
+  마지막 씬에서는 되감지 말고 그대로 멈출 것.
 
 [내용]
 <여기에 챕터별 실제 내용 — 지어내지 말고 확정된 사실만>
@@ -3505,7 +3792,9 @@ dur는 5,400~17,000ms. 뷰포트 진입 시 자동 시작(threshold 0.25) + 350m
 
 ⚠️ **내용은 사실 기반이어야 한다.** 이 형식은 도해가 화려해서 **없는 것도 있어 보이게 만든다.** 아직 구현되지 않았거나 확정되지 않은 것은 반드시 warn 박스로 실토한다(4.3 ⑶) — 대표님 보고자료에서 이게 어긋나면 형식의 완성도가 오히려 독이 된다.
 
-### 4.12 열린 항목 (사용자·PM 확인 필요)
+⚠️ **한 번의 생성으로 원본 수준이 나오지 않는다.** 원본은 `@keyframes` 85개·inline SVG 116개·CSS 33만 자 규모다. **챕터 단위로 나눠 생성하고, 각 챕터마다 4.7의 판별 질문(이 움직임이 무엇을 주장하는가)과 4.12 체크리스트를 통과시킨 뒤 다음으로 넘어간다.** 한꺼번에 요청하면 도해가 정적인 박스 나열로 퇴화한다.
+
+### 4.14 열린 항목 (사용자·PM 확인 필요)
 
 1. **DPLANEX 로고 원색이 `#60269E`인가 `#582B8D`인가** — 4.1의 결론은 "충돌 시 프로젝트 정본(`#60269E`)을 따른다"는 순서 규칙이다. VI 실측으로 `#582B8D`가 맞다고 확인되면 `design.md` 1.1과 `CLAUDE.md`를 먼저 고치고 이 절이 따라간다.
 2. **산출물 `.html`의 저장 위치** — `docs/references/`는 참고 원본 자리라 산출물과 섞이면 안 된다. `docs/reports/` 신설을 권장하나 위치 확정은 사용자 몫이다.
