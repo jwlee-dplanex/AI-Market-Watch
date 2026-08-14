@@ -6,6 +6,7 @@
 <title>AI Market Watch 기획보고서</title>
 <meta name="description" content="AI Agent를 활용한 금융·보험사 AI 동향 리서치 체계 — AI Market Watch 서비스 소개">
 <meta name="theme-color" content="#60269E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20512%20512'%3E%3Crect%20width='512'%20height='512'%20rx='112'%20fill='%2360269E'/%3E%3Ccircle%20cx='218'%20cy='214'%20r='140'%20fill='%23FFFFFF'/%3E%3Ccircle%20cx='218'%20cy='214'%20r='100'%20fill='%2393D500'/%3E%3Cline%20x1='319'%20y1='315'%20x2='410'%20y2='406'%20stroke='%23FFFFFF'%20stroke-width='52'%20stroke-linecap='round'/%3E%3C/svg%3E">
 <style>
 /* ============================================================
    AI Market Watch · 기획보고서
@@ -95,15 +96,8 @@ svg text{font-family:var(--font);}
   display:flex; align-items:center; justify-content:space-between; gap:24px;
 }
 .brand{display:flex;align-items:center;gap:11px;}
-.brand-mark{
-  width:26px;height:26px;border-radius:8px;flex:none;
-  background:linear-gradient(135deg,var(--violet-800),var(--violet-850));
-  position:relative;
-}
-.brand-mark::after{
-  content:"";position:absolute;left:11px;top:5px;width:3px;height:16px;border-radius:2px;
-  background:#93D500;transform:rotate(18deg);
-}
+/* 실제 심볼(static/img/logo_image.svg, design.md 1.6) — 좌표는 원본 그대로, 크기만 조절한다 */
+.brand-mark{width:26px;height:26px;flex:none;display:block;}
 .brand-name{display:block;font-size:14px;font-weight:800;letter-spacing:-.02em;color:var(--violet-950);line-height:1.2;}
 .brand-sub{display:block;font-size:10.5px;font-weight:800;letter-spacing:.12em;color:var(--muted);}
 .nav{display:flex;align-items:center;gap:4px;}
@@ -771,7 +765,12 @@ code{font-family:ui-monospace,SFMono-Regular,"SF Mono",Consolas,"Liberation Mono
 <header class="topbar">
   <div class="topbar-inner">
     <div class="brand">
-      <div class="brand-mark" aria-hidden="true"></div>
+      <svg class="brand-mark" viewBox="0 0 512 512" aria-hidden="true" focusable="false">
+        <rect width="512" height="512" rx="112" fill="#60269E"/>
+        <circle cx="218" cy="214" r="140" fill="#FFFFFF"/>
+        <circle cx="218" cy="214" r="100" fill="#93D500"/>
+        <line x1="319" y1="315" x2="410" y2="406" stroke="#FFFFFF" stroke-width="52" stroke-linecap="round"/>
+      </svg>
       <div>
         <span class="brand-name">AI Market Watch</span>
         <span class="brand-sub">기획보고서</span>
