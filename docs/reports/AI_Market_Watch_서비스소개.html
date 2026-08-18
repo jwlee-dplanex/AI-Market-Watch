@@ -230,7 +230,9 @@ svg text{font-family:var(--font);}
 .sec-lead{margin-top:13px;font-size:17px;font-weight:600;color:var(--ink-2);max-width:920px;line-height:1.78;}
 .divider{height:1px;background:var(--line);max-width:var(--maxw);margin:0 auto;}
 
-/* 연결어 (BUT / AND / THEREFORE) */
+/* 연결어 (BUT / AND / THEREFORE)
+   ⚠️ 현재 마크업에서 미사용 — 01장을 원문 그대로로 되돌리면서 걷어냈다.
+   죽은 코드가 아니라 보류다(planning.md 6-3의 표준 장치라 되살릴 수 있다). 지우지 말 것. */
 .conn{display:flex;flex-direction:column;align-items:center;gap:0;padding:6px 0;}
 .conn .stem{width:1px;height:22px;background:linear-gradient(180deg,var(--lav-200),var(--violet-500));}
 .conn .word{
@@ -320,12 +322,14 @@ svg text{font-family:var(--font);}
    ============================================================ */
 .bgx{display:grid;grid-template-columns:minmax(0,1fr) 396px;gap:34px;align-items:start;}
 .bgx-side{position:sticky;top:86px;}
-.axis{position:relative;overflow:hidden;border:1px solid var(--line);border-radius:var(--radius);background:#fff;padding:20px 22px 20px 26px;box-shadow:var(--shadow-s);}
-.axis::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--violet-300);}
-.axis .lb{display:block;font-size:10.5px;font-weight:800;letter-spacing:.13em;color:var(--violet-800);}
-.axis h4{margin-top:9px;font-size:18.5px;font-weight:800;letter-spacing:-.028em;color:var(--violet-950);line-height:1.5;}
-.axis .src{display:inline-block;margin-top:13px;font-size:10.5px;font-weight:800;letter-spacing:.06em;color:var(--muted);background:var(--bg-soft);border:1px solid var(--line);border-radius:99px;padding:4px 10px;}
-.axis .add{margin-top:11px;font-size:13px;font-weight:600;color:var(--ink-2);line-height:1.68;}
+/* ⚠️ 01장 본문은 사용자 원문을 그대로 쓴다. 압축·추상화하지 않는다.
+   `모으는 데 사람이 듭니다` 같은 요약 문장으로 바꿨다가 무슨 말인지 알 수 없다는
+   지적을 받았다. 원문 다섯 문장은 이미 짧고 구체적이다. */
+.chap-head.lead .chap-desc{color:var(--ink-2);max-width:940px;}
+.chap-desc + .chap-desc{margin-top:15px;}
+.limits{display:flex;flex-direction:column;gap:10px;}
+.limits li{position:relative;padding:15px 19px 15px 40px;border:1px solid var(--line);border-radius:var(--radius);background:#fff;box-shadow:var(--shadow-s);font-size:14.5px;font-weight:600;color:var(--ink-2);line-height:1.72;}
+.limits li::before{content:"";position:absolute;left:19px;top:23px;width:7px;height:7px;border-radius:50%;background:var(--violet-500);}
 
 /* AS-IS / TO-BE 대비 표 */
 .shift{margin-top:22px;display:grid;grid-template-columns:200px minmax(0,1fr) minmax(0,1fr);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:#fff;box-shadow:var(--shadow-s);}
@@ -844,15 +848,14 @@ code{font-family:ui-monospace,SFMono-Regular,"SF Mono",Consolas,"Liberation Mono
 <main>
 <article id="ch1" class="chapter">
   <div class="wrap">
-    <header class="chap-head rv">
+    <header class="chap-head lead rv">
       <div class="chap-no" aria-hidden="true">01</div>
       <div>
         <span class="chap-label">BACKGROUND</span>
         <h2 class="chap-title">추진 배경</h2>
-        <p class="chap-desc">
-          금융사·보험사의 AI 도입은 지금 매일 일어나고 있습니다.<br>
-          그런데 그것을 따라가는 방식은 세 곳에서 막혀 있습니다.
-        </p>
+        <p class="chap-desc">금융사·보험사의 AI 도입은 다양한 기술 흐름을 중심으로 빠르게 변화하고 있다.</p>
+        <p class="chap-desc">전략기획팀은 이러한 시장 변화를 지속적으로 모니터링하고 DPLANEX 사업 방향과 연결해 해석할 필요가 있다. 그러나 기존 방식은 담당자가 직접 뉴스를 검색하고 문서로 정리하는 수작업 중심이어서 정보 수집과 정리에 많은 시간이 소요된다.</p>
+        <p class="chap-desc">따라서 AI 시장 정보를 자동으로 수집하고, DPLANEX 관점에서 분류·요약·해석하여 전략기획팀이 시장 변화와 사업 기회를 빠르게 파악할 수 있는 체계가 필요하다.</p>
       </div>
     </header>
   </div>
@@ -861,12 +864,7 @@ code{font-family:ui-monospace,SFMono-Regular,"SF Mono",Consolas,"Liberation Mono
     <div class="wrap">
       <div class="sec-head rv">
         <span class="sec-no">STRUCTURAL BARRIER</span>
-        <h3 class="sec-title" id="s11">따라가는 방식이 막히는 세 곳</h3>
-        <p class="sec-lead">
-          한계는 다섯 문장으로 적혀 있지만, 성격은 셋입니다.
-          <b>비용</b>의 문제와 <b>품질</b>의 문제, 그리고 <b>재사용</b>의 문제입니다.
-          앞의 둘을 풀어 빠르고 일관되게 모아도, 모은 것이 다시 쓰이지 않으면 자산이 되지 않습니다.
-        </p>
+        <h3 class="sec-title" id="s11">기존 AI 시장 정보 수집 방식은 다음과 같은 한계가 있다.</h3>
       </div>
 
       <div class="bgx">
@@ -991,39 +989,21 @@ code{font-family:ui-monospace,SFMono-Regular,"SF Mono",Consolas,"Liberation Mono
             </svg>
           </div>
           <p class="fig-claim">세 축은 성격이 다릅니다 — <b>RESOURCE는 비용</b>, <b>CONSISTENCY는 품질</b>, <b>ASSET은 재사용</b>입니다. 앞의 둘을 풀어도 세 번째는 따라오지 않습니다.</p>
-          <div class="fig-body" style="padding-top:0"><div class="fig-links" style="margin-top:0"><a class="fig-link" href="#fig32">이 다섯이 어디로 회수되는지 · FIG 3-2 →</a></div></div>
         </figure>
 
-        <!-- ======================= 축 카드 ======================= -->
+        <!-- ======================= 한계 다섯 (원문 그대로) ======================= -->
         <div class="bgx-side">
-          <div class="axis rv">
-            <span class="lb">RESOURCE</span>
-            <h4>모으는 데 사람이 듭니다.</h4>
-            <span class="src">원문 ① ⑤ · 비용의 문제</span>
-          </div>
-
-          <div class="conn rv" aria-hidden="true"><span class="stem"></span><span class="word">BUT</span><span class="stem"></span></div>
-
-          <div class="axis rv">
-            <span class="lb">CONSISTENCY</span>
-            <h4>사람을 더 넣어 빨리 모아도, 사람마다 기준이 달라 결과가 흔들립니다.</h4>
-            <span class="src">원문 ③ · 품질의 문제</span>
-          </div>
-
-          <div class="conn soft rv" aria-hidden="true"><span class="stem"></span><span class="word">AND</span><span class="stem"></span></div>
-
-          <div class="axis rv">
-            <span class="lb">ASSET</span>
-            <h4>게다가 모아 놓아도 다시 쓰이지 않습니다.</h4>
-            <p class="add">관계망의 세 갈래(금융사 · 보험사 · <b>AI 기업</b>) 가운데 AI 기업 축이 사업 기회와 닿는 자리라, 스코프를 금융권으로 좁혀도 원문 ④는 그대로 살아 있는 물음입니다.</p>
-            <span class="src">원문 ② ④ · 재사용의 문제</span>
-          </div>
+          <ul class="limits rv">
+            <li>담당자가 직접 검색하고 정리해야 하므로 시간이 많이 소요된다.</li>
+            <li>기사와 자료가 개별적으로 관리되어 유사 이슈나 시장 흐름을 파악하기 어렵다.</li>
+            <li>조사자마다 분류 기준과 해석 관점이 달라 일관된 인사이트를 만들기 어렵다.</li>
+            <li>수집된 뉴스가 실제 DPLANEX 사업 기회와 어떻게 연결되는지 파악하기 어렵다.</li>
+            <li>정기적으로 공유 가능한 보고서 생성 과정이 수작업에 의존한다.</li>
+          </ul>
         </div>
       </div>
     </div>
   </section>
-
-  <div class="wrap"><div class="conn big rv" aria-hidden="true"><span class="stem"></span><span class="word">THEREFORE</span><span class="stem"></span></div></div>
 
   <section class="sec" aria-labelledby="s12">
     <div class="wrap">
