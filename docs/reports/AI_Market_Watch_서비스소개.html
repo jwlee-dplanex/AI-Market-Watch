@@ -334,31 +334,20 @@ svg text{font-family:var(--font);}
 .limits li{position:relative;padding:15px 19px 15px 40px;border:1px solid var(--line);border-radius:var(--radius);background:#fff;box-shadow:var(--shadow-s);font-size:14.5px;font-weight:600;color:var(--ink-2);line-height:1.72;}
 .limits li::before{content:"";position:absolute;left:19px;top:23px;width:7px;height:7px;border-radius:50%;background:var(--violet-500);}
 
-/* 핵심 가치 6항목 — 01장 결론(.core-grid)과 2.1 서비스 개요(.core-list)가 같은 문구를 쓴다.
+/* 핵심 가치 6항목 — 문서에서 이 한 곳(01장 결론)에만 둔다.
    ⚠️ 문구는 사용자 원문이다. 줄이거나 다시 쓰지 말 것.
-   ⚠️ 두 자리는 형태를 반드시 다르게 둔다 (2026-08-19, 사용자 지적).
-      같은 카드로 그리면 다른 섹션인데 같은 내용을 두 번 보여 주는 것처럼 읽힌다.
-      나눈 기준은 "그 자리에서의 위계"다 —
-        01장 = 그 장의 결론이므로 카드로 세운다      → 3열 카드 · 외곽선 숫자 · 제목 밑줄 · 흰 면 + 그림자
-        2.1  = 개요 문단에 딸린 요약이므로 눕힌다     → 카드를 걷고 2열 목록 · 알약 없는 숫자 · 옅은 한 판
-      ⚠️ 색만 바꾸는 것으로는 구분되지 않는다. 카드 유무 · 열 수 · 숫자 표기를 함께 바꾼다.
-      ⚠️ 움직임으로 구분하지 않는다(4.7). .core-list는 목록 전체에 .rv 하나만 건다. */
+   ⚠️ 2026-08-19 — 같은 6항목이 2.1 서비스 개요에도 글자 하나까지 똑같이 있었다.
+      처음엔 두 자리의 "형태"를 다르게 해서(2.1은 눕힌 목록 .core-list) 구분하려 했지만,
+      사용자가 지적한 진짜 문제는 형태가 아니라 내용 중복이었다 — 형태를 갈라도 같은 글을
+      두 번 읽는 것은 그대로다. 그래서 2.1 쪽 블록과 .core-list CSS를 통째로 걷어내고
+      이 카드 하나만 남겼다("핵심 가치에서 사용하는 카드 디자인을 기준으로 하나로 정리").
+      ⚠️ 이 6항목을 다른 절에 다시 복제하지 말 것. 참조가 필요하면 #s12로 링크한다. */
 .core-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;}
 .core{border:1px solid var(--line);border-radius:var(--radius);background:#fff;padding:22px 22px 20px;box-shadow:var(--shadow-s);}
 .core .idx{display:block;font-size:26px;font-weight:800;line-height:1;letter-spacing:-.03em;color:transparent;-webkit-text-stroke:1.2px var(--violet-500);}
 .core h4{margin-top:12px;font-size:16.5px;font-weight:800;letter-spacing:-.028em;color:var(--violet-950);line-height:1.48;}
 .core h4::after{content:"";display:block;width:26px;height:2px;border-radius:2px;margin-top:12px;background:var(--violet-500);}
 .core p{margin-top:12px;font-size:14px;font-weight:600;color:var(--ink-2);line-height:1.74;}
-
-/* 2.1 서비스 개요 안의 같은 6항목 — 카드가 아니라 목록 */
-.core-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 36px;
-  border:1px solid var(--lav-200);border-radius:var(--radius);background:var(--lav-050);padding:4px 26px;}
-.core-list > li{display:flex;gap:14px;padding:17px 0;border-bottom:1px dashed var(--line-2);}
-.core-list > li:nth-child(n+5){border-bottom:0;}
-.core-list .n{flex:none;min-width:21px;padding-top:2px;font-size:12.5px;font-weight:800;letter-spacing:.02em;color:var(--violet-800);}
-.core-list .tx{min-width:0;}
-.core-list h4{font-size:15px;font-weight:800;letter-spacing:-.028em;color:var(--violet-950);line-height:1.5;}
-.core-list p{margin-top:6px;font-size:13.5px;font-weight:600;color:var(--ink-2);line-height:1.72;}
 
 /* FIG 1-1 — 기존 방식의 세 가지 한계 */
 .f11 .st{animation:f11Step 6s var(--ksd-ease) infinite both;}
@@ -393,9 +382,6 @@ svg text{font-family:var(--font);}
 @media (max-width:900px){
   .bgx{grid-template-columns:minmax(0,1fr);}
   .bgx-side{position:static;}
-  .core-list{grid-template-columns:minmax(0,1fr);gap:0;padding:4px 20px;}
-  .core-list > li:nth-child(n+5){border-bottom:1px dashed var(--line-2);}
-  .core-list > li:last-child{border-bottom:0;}
 }
 @media (max-width:760px){
   .core-grid{grid-template-columns:minmax(0,1fr);}
@@ -1175,36 +1161,12 @@ svg text{font-family:var(--font);}
           전략기획팀이 시장 변화와 DPLANEX 사업 기회를 빠르게 파악할 수 있도록 지원하는
           내부 웹 대시보드 서비스이다.
         </p>
-        <p class="sec-lead" style="margin-top:14px">핵심 가치는 다음과 같다.</p>
       </div>
 
-      <!-- 01장 CORE VALUE와 같은 6항목이지만 형태를 달리한다 — 근거는 CSS .core-list 주석 -->
-      <ol class="core-list rv">
-        <li><span class="n">01</span><div class="tx">
-          <h4>AI 시장 정보 수집 자동화</h4>
-          <p>뉴스, 기업 블로그, RSS, API 등 다양한 데이터 소스를 기반으로 AI Agent, 생성형 AI, AX, 금융권 AI 활용 사례를 자동 수집한다.</p>
-        </div></li>
-        <li><span class="n">02</span><div class="tx">
-          <h4>뉴스 요약 및 주제 분류 자동화</h4>
-          <p>수집된 정보를 LLM API를 활용해 핵심 내용 중심으로 요약하고, 기술 흐름·기업 사례·금융권 활용·규제·경쟁사 동향 등으로 분류한다.</p>
-        </div></li>
-        <li><span class="n">03</span><div class="tx">
-          <h4>유사 기사 검색과 이슈 그룹핑</h4>
-          <p>개별 기사 단위가 아니라 유사한 이슈를 묶어 시장 흐름과 반복적으로 등장하는 주요 주제를 파악할 수 있도록 지원한다.</p>
-        </div></li>
-        <li><span class="n">04</span><div class="tx">
-          <h4>DPLANEX 관점의 사업 시사점 도출</h4>
-          <p>단순 뉴스 요약을 넘어 DPLANEX의 KANDLE, AI Studio, 관계사 AX 지원 관점에서 활용 가능성과 사업 기회를 정리한다.</p>
-        </div></li>
-        <li><span class="n">05</span><div class="tx">
-          <h4>주간 AI 인사이트 보고서 자동 생성</h4>
-          <p>수집된 뉴스와 인사이트를 기반으로 전략기획팀이 정기적으로 공유할 수 있는 주간 AI 인사이트 보고서를 자동 생성한다.</p>
-        </div></li>
-        <li><span class="n">06</span><div class="tx">
-          <h4>내부 시장 정보 자산 축적</h4>
-          <p>일회성 리서치가 아니라 수집 기사, 요약, 태그, 유사 기사, 시사점, 보고서가 누적되는 내부 AI 시장 정보 자산을 구축한다.</p>
-        </div></li>
-      </ol>
+      <!-- 여기 있던 핵심 가치 6항목(.core-list)은 2026-08-19에 삭제했다 —
+           01장 CORE VALUE(#s12)와 글자 하나까지 같은 내용이었다. 같은 글을 두 번 읽게 하지
+           않는다. 개요 문단 다음에 곧바로 FIG 2-2(처리 흐름)가 오는 지금이 원래 의도한
+           순서다. 다시 넣지 말 것. -->
 
       <figure class="fig rv" id="fig22">
         <figcaption class="fig-cap">
@@ -1251,11 +1213,6 @@ svg text{font-family:var(--font);}
         </div>
         <p class="fig-claim">8단계는 <b>하나의 처리 흐름</b>이다. 그래서 화면에 도착한 것은 이미 <b>남을 것이 정해진 상태</b>다.</p>
       </figure>
-
-      <div class="note caution rv">
-        <span class="note-label">협의 후 확정</span>
-        각 단계의 <strong>적용 방식과 전환 시점</strong>은 관련 부서 협의 후 확정 예정이며, 일정은 04장 <strong>NEXT STEPS</strong>에서 정한다.
-      </div>
     </div>
   </section>
 
