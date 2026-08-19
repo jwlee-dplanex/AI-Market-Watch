@@ -1,3 +1,4 @@
+{% load static %}
 {% comment %}
   서비스 소개 모달 (전역 컴포넌트, 별도 화면 ID 없음 — 2026-08-08, PD, 사용자 요청).
   base.html의 <aside>(x-data="{ aboutOpen: false }")에서 include된다 — 이 파일은
@@ -70,6 +71,23 @@
               class="text-gray-400 hover:text-gray-600 transition-colors">
         <i data-lucide="x" class="w-4 h-4"></i>
       </button>
+    </div>
+
+    {% comment %}
+      전체 소개 자료 링크 (2026-08-19, PE, 사용자 승인 형태 그대로) — 이 모달은 없애지 않는다.
+      모달은 "이게 뭐 하는 앱이지" 3초 답변이고, docs/reports/의 HTML 소개 자료는 10분짜리
+      정독용 문서라 성격이 다르다. 새 탭으로 열어 모달과 공존시킨다(target="_blank" + rel="noopener").
+      원본은 docs/(정적 서빙 대상 아님)에 있어 static/docs/로 빌드 시 복사한 사본을 가리킨다
+      (scripts/copy-vendor.js, npm run build에 물려 있어 문서를 고쳐도 복사를 잊지 않는다).
+      아직 PD가 화면 목업을 작업 중인 미완성본이지만, 빌드로 복사되므로 나중에 자동으로 최신화된다.
+      절 이동 링크 바로 아래, 본문 스크롤 영역 바깥(flex-shrink-0)에 둬서 스크롤해도 항상 보이게 했다.
+    {% endcomment %}
+    <div class="px-6 py-2.5 border-b border-gray-100 flex-shrink-0">
+      <a href="{% static 'docs/AI_Market_Watch_service_intro.html' %}" target="_blank" rel="noopener"
+         class="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+        전체 소개 자료 보기
+        <i data-lucide="arrow-up-right" class="w-3 h-3"></i>
+      </a>
     </div>
 
     {% comment %} 절 이동 앵커 — 절 제목과 정확히 같은 순서·문구. {% endcomment %}
