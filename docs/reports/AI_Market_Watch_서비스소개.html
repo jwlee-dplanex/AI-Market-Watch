@@ -404,7 +404,9 @@ svg text{font-family:var(--font);}
 /* ============================================================
    CH 02 — 서비스 설명
    ============================================================ */
-.svc-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:26px;}
+/* 화면 하나가 한 행을 다 쓴다. 목업이 실제 앱 화면(가로로 긴 사이드바 + 본문)이라
+   2열로 나누면 폭이 절반이 되어 안쪽 지표 카드 3개가 읽히지 않는다. */
+.svc-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;margin-top:26px;}
 .svc{border:1px solid var(--line);border-radius:var(--radius);background:#fff;box-shadow:var(--shadow-s);overflow:hidden;display:flex;flex-direction:column;}
 .svc-hd{display:flex;align-items:center;gap:10px;padding:15px 20px;background:var(--lav-050);border-bottom:1px solid var(--line);}
 .svc-no{flex:none;font-size:10.5px;font-weight:800;letter-spacing:.09em;color:#fff;background:var(--violet-800);border-radius:99px;padding:4px 10px;}
@@ -439,88 +441,97 @@ svg text{font-family:var(--font);}
       사이드바 #401771 / 카드 테두리 #E5E5E5. 금융사 파랑(#3B82F6)·회색 계열은 이 문서
       팔레트에 없는 Tailwind 기본값이라 리터럴로 둔다(앱 화면과 다른 색이면 안 되므로).
    ------------------------------------------------------------ */
+/* ⚠️ 치수 기준 (2026-08-19 재조정) — .svc-grid 가 2열에서 1열로 바뀌면서 카드 폭이
+   약 630px → 약 1280px 이 됐다. 실제 앱 뷰포트가 대략 1440px 이므로 지금 목업은
+   실물의 약 0.9배다. 그래서 축소 도해가 아니라 "거의 실물 크기"로 잡는다 —
+   사이드바 240px→200px, 본문 글자 14px→12.5px 처럼 실제 값에 0.85~0.9를 곱한 수치다.
+   폭이 늘었다고 요소를 더 넣지 않는다. 늘어난 폭은 전부 여백과 글자 크기로 돌린다. */
 .ksd-shot{
   --s-line:#E5E5E5; --s-line2:#E5E7EB; --s-soft:#F3F4F6; --s-bg:#F9FAFB;
   --s-ink:#111827; --s-mute:#9CA3AF; --s-mute2:#6B7280; --s-blue:#3B82F6;
   display:flex; overflow:hidden; background:var(--s-bg);
   border-top:1px solid var(--line); border-bottom:1px solid var(--line);
-  font-size:10px; line-height:1.45; letter-spacing:-.012em;
+  font-size:12px; line-height:1.5; letter-spacing:-.012em;
 }
 /* 사이드바 (templates/base.html <aside class="w-60 bg-[#401771]">) */
-.ksd-shot-nav{width:104px;flex:none;background:#401771;display:flex;flex-direction:column;padding:9px 7px;}
-.ksd-shot-nav .bd{padding:0 5px 8px;border-bottom:1px solid rgba(255,255,255,.1);}
-.ksd-shot-nav .bd em{display:block;font-style:normal;font-size:7px;font-weight:800;letter-spacing:.17em;color:rgba(255,255,255,.55);}
-.ksd-shot-nav .bd b{display:block;margin-top:3px;font-size:9.5px;font-weight:800;letter-spacing:-.03em;color:#fff;}
-.ksd-shot-nav ul{margin-top:7px;display:flex;flex-direction:column;gap:2px;}
-.ksd-shot-nav li{display:flex;align-items:center;gap:6px;padding:4px 5px;border-radius:6px;font-size:8.5px;font-weight:700;color:rgba(255,255,255,.7);}
+.ksd-shot-nav{width:200px;flex:none;background:#401771;display:flex;flex-direction:column;padding:14px 12px;}
+.ksd-shot-nav .bd{padding:0 8px 13px;border-bottom:1px solid rgba(255,255,255,.1);}
+.ksd-shot-nav .bd em{display:block;font-style:normal;font-size:9.5px;font-weight:800;letter-spacing:.17em;color:rgba(255,255,255,.55);}
+.ksd-shot-nav .bd b{display:block;margin-top:5px;font-size:14px;font-weight:800;letter-spacing:-.03em;color:#fff;}
+.ksd-shot-nav ul{margin-top:11px;display:flex;flex-direction:column;gap:4px;}
+.ksd-shot-nav li{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px;font-size:11.5px;font-weight:700;color:rgba(255,255,255,.7);}
 .ksd-shot-nav li.on{background:rgba(255,255,255,.2);color:#fff;}
-.ksd-shot-nav .ic{width:10px;height:10px;flex:none;fill:none;stroke:currentColor;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round;}
+.ksd-shot-nav .ic{width:14px;height:14px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
 .ksd-shot-nav .ft{margin-top:auto;}
-.ksd-shot-nav .ft .sv{display:flex;align-items:center;gap:6px;margin-top:7px;padding:7px 5px 0;border-top:1px solid rgba(255,255,255,.1);font-size:8px;font-weight:700;color:rgba(255,255,255,.7);}
-.ksd-shot-nav .ft .lc{margin-top:7px;padding:6px 5px 0;border-top:1px solid rgba(255,255,255,.1);}
-.ksd-shot-nav .ft .lc em{display:block;font-style:normal;font-size:7.5px;font-weight:700;color:rgba(255,255,255,.4);}
-.ksd-shot-nav .ft .lc i{display:block;margin-top:3px;height:4px;width:34px;border-radius:2px;background:rgba(255,255,255,.28);}
+.ksd-shot-nav .ft .sv{display:flex;align-items:center;gap:10px;margin-top:12px;padding:12px 10px 0;border-top:1px solid rgba(255,255,255,.1);font-size:11px;font-weight:700;color:rgba(255,255,255,.7);}
+.ksd-shot-nav .ft .lc{margin-top:12px;padding:11px 10px 0;border-top:1px solid rgba(255,255,255,.1);}
+.ksd-shot-nav .ft .lc em{display:block;font-style:normal;font-size:10px;font-weight:700;color:rgba(255,255,255,.4);}
+.ksd-shot-nav .ft .lc i{display:block;margin-top:5px;height:5px;width:56px;border-radius:3px;background:rgba(255,255,255,.28);}
 /* 본문 영역 (헤더 + main) */
 .ksd-shot-main{flex:1;min-width:0;display:flex;flex-direction:column;}
-.ksd-shot-hd{display:flex;align-items:center;gap:8px;padding:7px 11px;background:#fff;border-bottom:1px solid var(--s-line2);}
-.ksd-shot-hd b{font-size:10.5px;font-weight:800;letter-spacing:-.028em;color:var(--s-ink);}
-.ksd-shot-hd .act{margin-left:auto;display:flex;align-items:center;gap:5px;}
-.ksd-shot-bd{flex:1;min-height:0;padding:10px 11px;display:flex;flex-direction:column;gap:8px;}
+.ksd-shot-hd{display:flex;align-items:center;gap:10px;padding:12px 20px;background:#fff;border-bottom:1px solid var(--s-line2);}
+.ksd-shot-hd b{font-size:14.5px;font-weight:800;letter-spacing:-.028em;color:var(--s-ink);}
+.ksd-shot-hd .act{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.ksd-shot-bd{flex:1;min-height:0;padding:18px 20px;display:flex;flex-direction:column;gap:14px;}
 /* 공통 원자 */
-.ksd-shot .s-card{background:#fff;border:1px solid var(--s-line);border-radius:7px;box-shadow:0 1px 2px rgba(39,38,57,.05);}
-.ksd-shot .s-pad{padding:8px 9px;}
-.ksd-shot .s-h{display:flex;align-items:center;gap:4px;font-size:9px;font-weight:800;letter-spacing:-.025em;color:var(--s-ink);}
-.ksd-shot .s-hdr{display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;}
-.ksd-shot .s-q{width:9px;height:9px;border-radius:50%;background:var(--s-soft);color:var(--s-mute);font-size:6.5px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex:none;}
-.ksd-shot .s-link{font-size:7.5px;font-weight:700;color:var(--violet-800);}
+.ksd-shot .s-card{background:#fff;border:1px solid var(--s-line);border-radius:9px;box-shadow:0 1px 2px rgba(39,38,57,.05);}
+.ksd-shot .s-pad{padding:13px 15px;}
+.ksd-shot .s-h{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:800;letter-spacing:-.025em;color:var(--s-ink);}
+.ksd-shot .s-hdr{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+.ksd-shot .s-q{width:14px;height:14px;border-radius:50%;background:var(--s-soft);color:var(--s-mute);font-size:9.5px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex:none;}
+.ksd-shot .s-link{font-size:10.5px;font-weight:700;color:var(--violet-800);}
 /* 값 추상화용 흐린 막대 — 실제 코드에서 확인하지 못한 값은 숫자·문구를 짓지 않고 이걸로 둔다 */
-.ksd-shot .s-bar{display:block;height:4px;border-radius:2px;background:#E9E7EF;}
+.ksd-shot .s-bar{display:block;height:6px;border-radius:3px;background:#E9E7EF;}
 .ksd-shot .s-bar.d{background:var(--s-soft);}
-.ksd-shot .s-div{margin-top:4px;padding-top:4px;border-top:1px solid var(--s-soft);}
-.ksd-shot .s-meta{display:flex;align-items:center;gap:4px;flex:none;}
-.ksd-shot .s-gr{font-size:7px;font-weight:800;border-radius:99px;padding:1px 5px;background:rgba(96,38,158,.1);color:var(--violet-800);white-space:nowrap;}
+.ksd-shot .s-div{margin-top:7px;padding-top:7px;border-top:1px solid var(--s-soft);}
+.ksd-shot .s-meta{display:flex;align-items:center;gap:7px;flex:none;}
+.ksd-shot .s-gr{font-size:10px;font-weight:800;border-radius:99px;padding:2px 8px;background:rgba(96,38,158,.1);color:var(--violet-800);white-space:nowrap;}
 .ksd-shot .s-gr.g2{background:rgba(0,175,154,.1);color:#00AF9A;}
 .ksd-shot .s-gr.g3{background:var(--s-soft);color:var(--s-mute2);}
-.ksd-shot .s-cv{width:8px;height:8px;flex:none;fill:none;stroke:var(--s-mute);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;}
-.ksd-shot .s-ttl{font-size:8.5px;font-weight:800;letter-spacing:-.025em;color:var(--s-ink);line-height:1.42;min-width:0;}
+.ksd-shot .s-cv{width:12px;height:12px;flex:none;fill:none;stroke:var(--s-mute);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
+.ksd-shot .s-ttl{font-size:12.5px;font-weight:800;letter-spacing:-.025em;color:var(--s-ink);line-height:1.45;min-width:0;}
 /* .tr = 실제 화면에서 truncate 가 걸린 제목("주요 이슈" 목록). 헤드라인 카드 제목은
    2026-08-06에 truncate 를 뺐으므로 이 modifier 를 붙이지 않는다 — 두 자리의 차이가 실제 차이다. */
 .ksd-shot .s-ttl.tr{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.ksd-shot .s-top{display:flex;align-items:flex-start;justify-content:space-between;gap:6px;}
+.ksd-shot .s-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
 .ksd-shot .s-top > .s-ttl{flex:1;}
-.ksd-shot .s-lst{display:flex;flex-direction:column;gap:5px;margin-top:6px;}
+.ksd-shot .s-lst{display:flex;flex-direction:column;gap:8px;margin-top:10px;}
+/* 목록 한 줄짜리 제목·날짜 ("최신 뉴스" 카드, 보고서 목록의 참고 뉴스 등) */
+.ksd-shot .s-nt{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  font-size:11px;font-weight:600;letter-spacing:-.02em;color:var(--s-ink);line-height:1.5;}
+.ksd-shot .s-dt{display:block;margin-top:5px;font-size:10px;font-weight:600;color:var(--s-mute);}
 /* 헤드라인 트레이 (bg-gradient-to-r from-primary/5 via-white to-accent/5, border-primary/15) */
-.ksd-shot .s-tray{border:1px solid rgba(96,38,158,.15);border-radius:8px;padding:8px 9px;
+.ksd-shot .s-tray{border:1px solid rgba(96,38,158,.15);border-radius:10px;padding:14px 16px;
   background:linear-gradient(90deg,rgba(96,38,158,.05),#fff 52%,rgba(147,213,0,.05));}
-.ksd-shot .s-fl{width:9px;height:9px;flex:none;fill:none;stroke:var(--violet-800);stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round;}
-.ksd-shot .s-hl{border-left:3px solid var(--violet-800);}
+.ksd-shot .s-fl{width:13px;height:13px;flex:none;fill:none;stroke:var(--violet-800);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.ksd-shot .s-hl{border-left:4px solid var(--violet-800);}
 /* 기간 필터 pill (bg-gray-100 rounded-full p-0.5 / 선택 시 bg-primary text-white) */
-.ksd-shot .s-pills{display:flex;gap:2px;background:var(--s-soft);border-radius:99px;padding:1.5px;}
-.ksd-shot .s-pills i{font-style:normal;font-size:7px;font-weight:700;padding:2px 6px;border-radius:99px;color:var(--s-mute2);}
+.ksd-shot .s-pills{display:flex;gap:2px;background:var(--s-soft);border-radius:99px;padding:2px;}
+.ksd-shot .s-pills i{font-style:normal;font-size:10px;font-weight:700;padding:3px 10px;border-radius:99px;color:var(--s-mute2);}
 .ksd-shot .s-pills i.on{background:var(--violet-800);color:#fff;}
 /* 랭킹 행 (rank · 이름 · 막대 · 건수) */
-.ksd-shot .s-rk{display:flex;align-items:center;gap:4px;}
-.ksd-shot .s-rk > em{font-style:normal;width:7px;text-align:right;flex:none;font-size:7px;font-weight:800;color:var(--s-mute);}
+.ksd-shot .s-rk{display:flex;align-items:center;gap:7px;}
+.ksd-shot .s-rk > em{font-style:normal;width:11px;text-align:right;flex:none;font-size:10px;font-weight:800;color:var(--s-mute);}
 .ksd-shot .s-rk > .s-bar{flex:none;}
-.ksd-shot .s-track{flex:1;height:4px;border-radius:99px;background:var(--s-soft);overflow:hidden;}
+.ksd-shot .s-track{flex:1;height:6px;border-radius:99px;background:var(--s-soft);overflow:hidden;}
 .ksd-shot .s-track i{display:block;height:100%;border-radius:99px;background:var(--violet-800);}
 .ksd-shot .s-track i.fin{background:var(--s-blue);}
 .ksd-shot .s-track i.ins{background:#00AF9A;}
 .ksd-shot .s-track i.tec{background:#93D500;}
-.ksd-shot .s-lgd{display:flex;align-items:center;gap:7px;}
-.ksd-shot .s-lgd span{display:inline-flex;align-items:center;gap:3px;font-size:7px;font-weight:700;color:var(--s-mute2);border-bottom:1px dashed #D1D5DB;}
-.ksd-shot .s-lgd b{width:5px;height:5px;border-radius:50%;display:block;flex:none;}
+.ksd-shot .s-lgd{display:flex;align-items:center;gap:11px;}
+.ksd-shot .s-lgd span{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:var(--s-mute2);border-bottom:1px dashed #D1D5DB;}
+.ksd-shot .s-lgd b{width:7px;height:7px;border-radius:50%;display:block;flex:none;}
 .ksd-shot .s-lgd b.fin{background:var(--s-blue);}
 .ksd-shot .s-lgd b.ins{background:#00AF9A;}
 .ksd-shot .s-lgd b.ai{background:var(--violet-800);}
-.ksd-shot .s-chart{width:100%;height:auto;margin-top:5px;}
-.ksd-shot .s-g21{display:grid;grid-template-columns:2fr 1fr;gap:7px;}
-.ksd-shot .s-g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:5px;}
+.ksd-shot .s-chart{width:100%;height:auto;margin-top:8px;}
+.ksd-shot .s-g21{display:grid;grid-template-columns:2fr 1fr;gap:11px;}
+.ksd-shot .s-g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px;margin-top:8px;}
 /* 목업 아래 한 줄 — "실제 화면에서 무엇을 줄였는지"를 그림 옆에서 바로 밝힌다 */
-.ksd-shot-note{padding:9px 20px;background:#fff;border-bottom:1px solid var(--line);
-  font-size:11px;font-weight:700;color:var(--muted);line-height:1.6;}
+.ksd-shot-note{padding:11px 20px;background:#fff;border-bottom:1px solid var(--line);
+  font-size:11.5px;font-weight:700;color:var(--muted);line-height:1.62;}
 
-@media (max-width:560px){ .ksd-shot-nav{display:none;} }
+@media (max-width:700px){ .ksd-shot-nav{display:none;} }
 
 .legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;}
 .lg{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;font-weight:800;color:var(--ink-2);letter-spacing:-.01em;}
@@ -575,7 +586,6 @@ svg text{font-family:var(--font);}
 @keyframes relRing{0%,60%{opacity:0;transform:scale(.6)}68%{opacity:.8}88%,100%{opacity:0;transform:scale(1.55)}}
 
 @media (max-width:1180px){ .svc-grid{gap:14px;} }
-@media (max-width:900px){ .svc-grid{grid-template-columns:minmax(0,1fr);} }
 
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}
 
@@ -1286,25 +1296,29 @@ svg text{font-family:var(--font);}
 
                 <div class="s-tray">
                   <div class="s-h"><svg class="s-fl"><use href="#nvFlame"/></svg>헤드라인<span class="s-q">?</span></div>
+                  <!-- 제목 3건은 headliner_order 실제 값이다(2026-08-19 DB 조회). 셋 다 1급.
+                       ⚠️ 헤드라인 카드 제목에는 말줄임을 걸지 않는다 — 2026-08-06에 truncate 를 뗐고
+                          긴 제목은 자연 줄바꿈으로 전문이 보인다. 1줄로 접히는 건 제목이 아니라 본문
+                          (display_content)이며, 그건 아래 구분선 밑 흐린 막대 한 줄이 그 자리다. -->
                   <div class="s-lst">
                     <div class="s-card s-hl s-pad">
                       <div class="s-top">
-                        <span class="s-ttl">현대해상 · DB손해보험 AI 심사</span>
-                        <span class="s-meta"><span class="s-gr">1급</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
+                        <span class="s-ttl">KT가 NH농협은행 차세대 AICC 구축 완료 — AI 직접 처리 상담 업무 45개에서 180개로 확대</span>
+                        <span class="s-meta"><span class="s-gr">1급</span><span class="s-bar d" style="width:32px"></span><svg class="s-cv"><use href="#nvChev"/></svg></span>
                       </div>
                       <div class="s-div"><span class="s-bar" style="width:82%"></span></div>
                     </div>
                     <div class="s-card s-hl s-pad">
                       <div class="s-top">
-                        <span class="s-ttl">KT × NH농협 AICC</span>
-                        <span class="s-meta"><span class="s-gr">1급</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
+                        <span class="s-ttl">현대해상이 전체 보험계약의 절반 이상을 AI 자동 심사로, DB손해보험은 심사 시간을 4분의 1로 단축</span>
+                        <span class="s-meta"><span class="s-gr">1급</span><span class="s-bar d" style="width:32px"></span><svg class="s-cv"><use href="#nvChev"/></svg></span>
                       </div>
                       <div class="s-div"><span class="s-bar" style="width:74%"></span></div>
                     </div>
                     <div class="s-card s-hl s-pad">
                       <div class="s-top">
-                        <span class="s-ttl">토스증권 AI 어닝콜</span>
-                        <span class="s-meta"><span class="s-gr">1급</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
+                        <span class="s-ttl">카카오페이손해보험이 보험금 청구 24시간 내 지급분에 소요 시간 알림 — 해외여행보험 45%가 1분 이내</span>
+                        <span class="s-meta"><span class="s-gr">1급</span><span class="s-bar d" style="width:32px"></span><svg class="s-cv"><use href="#nvChev"/></svg></span>
                       </div>
                       <div class="s-div"><span class="s-bar" style="width:88%"></span></div>
                     </div>
@@ -1314,25 +1328,36 @@ svg text{font-family:var(--font);}
                 <div class="s-g21">
                   <div class="s-card s-pad">
                     <div class="s-h">주요 이슈<span class="s-q">?</span></div>
+                    <!-- 제목·등급·근거 건수 모두 실제 값(2026-08-19 DB 조회). 이 목록의 제목은
+                         헤드라인과 달리 truncate 가 걸려 있어(.tr) 긴 제목이 한 줄에서 잘린다 —
+                         두 자리의 처리가 실제로 다르다. 헤드라인에 오른 3건은 여기 다시 넣지
+                         않았다(중복 노출 여부를 코드에서 확인하지 못함). -->
                     <div class="s-lst">
                       <div class="s-card s-pad">
                         <div class="s-top">
-                          <span class="s-ttl tr">한화생명이 전 임직원 2,728명에게 M365 코파일럿 도입</span>
+                          <span class="s-ttl tr">대상웰라이프와 한화생명금융서비스가 건강데이터 기반 보험설계 업무협약 체결</span>
                           <span class="s-meta"><span class="s-gr g2">2급</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
                         </div>
                         <div class="s-div"><span class="s-bar" style="width:79%"></span></div>
                       </div>
                       <div class="s-card s-pad">
                         <div class="s-top">
-                          <span class="s-ttl tr">삼성화재 — 약물안전 AI 스타트업 피매치 투자</span>
-                          <span class="s-meta"><svg class="s-cv"><use href="#nvChev"/></svg></span>
+                          <span class="s-ttl tr">다올금융그룹이 투자 서비스와 내부 업무로 AX 확대 — MCP 트레이딩 구축 추진</span>
+                          <span class="s-meta"><span class="s-gr g2">2급</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
                         </div>
                         <div class="s-div"><span class="s-bar" style="width:68%"></span></div>
                       </div>
                       <div class="s-card s-pad">
                         <div class="s-top">
-                          <span class="s-ttl tr">다올투자증권 — 전 임직원 AI 활용 교육</span>
-                          <span class="s-meta"><svg class="s-cv"><use href="#nvChev"/></svg></span>
+                          <span class="s-ttl tr">AI 오류로 난 손해는 현행 보험으로 보상 못 받는다 — 삼성화재 "AI 관련 특약 검토 중"</span>
+                          <span class="s-meta"><span class="s-gr g3">3급</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
+                        </div>
+                        <div class="s-div"><span class="s-bar" style="width:84%"></span></div>
+                      </div>
+                      <div class="s-card s-pad">
+                        <div class="s-top">
+                          <span class="s-ttl tr">한화생명 'AI STS' 사용 설계사 2만8,000명 — 인당 건강보험 월평균 판매실적 미사용자 대비 40% 이상</span>
+                          <span class="s-meta"><span class="s-gr g3">3급</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
                         </div>
                         <div class="s-div"><span class="s-bar" style="width:73%"></span></div>
                       </div>
@@ -1344,21 +1369,24 @@ svg text{font-family:var(--font);}
                       <span class="s-h">최신 뉴스<span class="s-q">?</span></span>
                       <span class="s-link">전체 보기</span>
                     </div>
+                    <!-- 제목·발행일 모두 실제 값(검증 완료 최신 4건, 2026-08-19 DB 조회).
+                         이 카드는 제목과 날짜만 렌더하므로 언론사가 비어 있는 것과 무관하다. -->
                     <div class="s-lst">
                       <div class="s-card s-pad">
-                        <span class="s-bar" style="width:100%"></span>
-                        <span class="s-bar" style="width:62%;margin-top:3px"></span>
-                        <span class="s-bar d" style="width:18px;margin-top:5px"></span>
+                        <span class="s-nt">대상웰라이프·한화생명금융서비스, 건강데이터에 보험설계 더한다</span>
+                        <span class="s-dt">08/19</span>
                       </div>
                       <div class="s-card s-pad">
-                        <span class="s-bar" style="width:100%"></span>
-                        <span class="s-bar" style="width:48%;margin-top:3px"></span>
-                        <span class="s-bar d" style="width:18px;margin-top:5px"></span>
+                        <span class="s-nt">[금융권 스타트업 협업①] KB국민은행은 왜 신생 '티냅스'를 택했나</span>
+                        <span class="s-dt">08/18</span>
                       </div>
                       <div class="s-card s-pad">
-                        <span class="s-bar" style="width:100%"></span>
-                        <span class="s-bar" style="width:71%;margin-top:3px"></span>
-                        <span class="s-bar d" style="width:18px;margin-top:5px"></span>
+                        <span class="s-nt">다올금융그룹, AI 전환 속도…투자 서비스부터 내부 업무까지 확대</span>
+                        <span class="s-dt">08/18</span>
+                      </div>
+                      <div class="s-card s-pad">
+                        <span class="s-nt">"여행보험 최단 1초만에 지급"…카카오페이손보, '바로지급' 실시</span>
+                        <span class="s-dt">08/18</span>
                       </div>
                     </div>
                   </div>
@@ -1374,27 +1402,36 @@ svg text{font-family:var(--font);}
                   <div class="s-g3">
                     <div class="s-card s-pad">
                       <div class="s-h">일별 뉴스 건수 추이<span class="s-q">?</span></div>
-                      <svg class="s-chart" viewBox="0 0 150 58" aria-hidden="true">
+                      <!-- 좌표계·패딩은 실제 차트(_metrics.html)를 그대로 따랐다:
+                           viewBox 300×100, PAD_LEFT 16 / PAD_RIGHT 6 / PAD_TOP 8 / PAD_BOTTOM 18,
+                           눈금선 y=8·45(점선) y=82(실선), 곡선은 "수평 탄젠트" 베지어, 마지막 점만
+                           채운 보라(오늘 지점)·나머지는 흰 채움 + 회색 테두리.
+                           ⚠️ 일별 실제 건수는 조회하지 않았으므로 y 값은 값 주장이 아니다 —
+                              그래서 y축 눈금 숫자와 x축 날짜도 숫자 대신 흐린 막대로 뒀다. -->
+                      <svg class="s-chart" viewBox="0 0 300 100" aria-hidden="true">
                         <defs>
                           <linearGradient id="sTrendFill" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stop-color="#60269E" stop-opacity=".18"/>
                             <stop offset="100%" stop-color="#60269E" stop-opacity="0"/>
                           </linearGradient>
                         </defs>
-                        <line x1="10" y1="4" x2="145" y2="4" stroke="#EDEDED" stroke-width="1" stroke-dasharray="2 3"/>
-                        <line x1="10" y1="25" x2="145" y2="25" stroke="#EDEDED" stroke-width="1" stroke-dasharray="2 3"/>
-                        <line x1="10" y1="46" x2="145" y2="46" stroke="#E5E5E5" stroke-width="1"/>
-                        <line x1="10" y1="4" x2="10" y2="46" stroke="#E5E5E5" stroke-width="1"/>
-                        <path d="M10,28 C21.25,28 21.25,18 32.5,18 C43.75,18 43.75,32 55,32 C66.25,32 66.25,22 77.5,22 C88.75,22 88.75,30 100,30 C111.25,30 111.25,16 122.5,16 C133.75,16 133.75,24 145,24 L145,46 L10,46 Z" fill="url(#sTrendFill)"/>
-                        <path d="M10,28 C21.25,28 21.25,18 32.5,18 C43.75,18 43.75,32 55,32 C66.25,32 66.25,22 77.5,22 C88.75,22 88.75,30 100,30 C111.25,30 111.25,16 122.5,16 C133.75,16 133.75,24 145,24" fill="none" stroke="#60269E" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-                        <g fill="#fff" stroke="#D1D5DB" stroke-width="1">
-                          <circle cx="10" cy="28" r="1.7"/><circle cx="32.5" cy="18" r="1.7"/><circle cx="55" cy="32" r="1.7"/>
-                          <circle cx="77.5" cy="22" r="1.7"/><circle cx="100" cy="30" r="1.7"/><circle cx="122.5" cy="16" r="1.7"/>
+                        <line x1="16" y1="8" x2="294" y2="8" stroke="#EDEDED" stroke-width="1" stroke-dasharray="2 3"/>
+                        <line x1="16" y1="45" x2="294" y2="45" stroke="#EDEDED" stroke-width="1" stroke-dasharray="2 3"/>
+                        <line x1="16" y1="82" x2="294" y2="82" stroke="#E5E5E5" stroke-width="1"/>
+                        <line x1="16" y1="8" x2="16" y2="82" stroke="#E5E5E5" stroke-width="1"/>
+                        <g stroke="#E5E5E5" stroke-width="1">
+                          <line x1="16" y1="82" x2="16" y2="86"/><line x1="155" y1="82" x2="155" y2="86"/><line x1="294" y1="82" x2="294" y2="86"/>
                         </g>
-                        <circle cx="145" cy="24" r="1.9" fill="#60269E" stroke="#60269E" stroke-width="1"/>
+                        <path d="M16,58 C39.17,58 39.17,34 62.33,34 C85.5,34 85.5,66 108.67,66 C131.83,66 131.83,44 155,44 C178.17,44 178.17,60 201.33,60 C224.5,60 224.5,28 247.67,28 C270.83,28 270.83,46 294,46 L294,82 L16,82 Z" fill="url(#sTrendFill)"/>
+                        <path d="M16,58 C39.17,58 39.17,34 62.33,34 C85.5,34 85.5,66 108.67,66 C131.83,66 131.83,44 155,44 C178.17,44 178.17,60 201.33,60 C224.5,60 224.5,28 247.67,28 C270.83,28 270.83,46 294,46" fill="none" stroke="#60269E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <g fill="#fff" stroke="#D1D5DB" stroke-width="1.2">
+                          <circle cx="16" cy="58" r="2.6"/><circle cx="62.33" cy="34" r="2.6"/><circle cx="108.67" cy="66" r="2.6"/>
+                          <circle cx="155" cy="44" r="2.6"/><circle cx="201.33" cy="60" r="2.6"/><circle cx="247.67" cy="28" r="2.6"/>
+                        </g>
+                        <circle cx="294" cy="46" r="2.9" fill="#60269E" stroke="#60269E" stroke-width="1.2"/>
                         <g fill="#E9E7EF">
-                          <rect x="1" y="2.5" width="6" height="3" rx="1.5"/><rect x="1" y="23.5" width="6" height="3" rx="1.5"/><rect x="1" y="44.5" width="6" height="3" rx="1.5"/>
-                          <rect x="4" y="51" width="12" height="3" rx="1.5"/><rect x="71.5" y="51" width="12" height="3" rx="1.5"/><rect x="133" y="51" width="12" height="3" rx="1.5"/>
+                          <rect x="2" y="6" width="11" height="4" rx="2"/><rect x="2" y="43" width="11" height="4" rx="2"/><rect x="2" y="80" width="11" height="4" rx="2"/>
+                          <rect x="6" y="90" width="20" height="4" rx="2"/><rect x="145" y="90" width="20" height="4" rx="2"/><rect x="274" y="90" width="20" height="4" rx="2"/>
                         </g>
                       </svg>
                     </div>
@@ -1406,23 +1443,23 @@ svg text{font-family:var(--font);}
                           <span><b class="fin"></b>금융사</span><span><b class="ins"></b>보험사</span><span><b class="ai"></b>AI</span>
                         </span>
                       </div>
-                      <div class="s-lst" style="gap:4px">
-                        <div class="s-rk"><em>1</em><span class="s-bar" style="width:26px"></span><span class="s-track"><i class="ins" style="width:100%"></i></span><span class="s-bar d" style="width:7px"></span></div>
-                        <div class="s-rk"><em>2</em><span class="s-bar" style="width:26px"></span><span class="s-track"><i class="fin" style="width:78%"></i></span><span class="s-bar d" style="width:7px"></span></div>
-                        <div class="s-rk"><em>3</em><span class="s-bar" style="width:26px"></span><span class="s-track"><i style="width:61%"></i></span><span class="s-bar d" style="width:7px"></span></div>
-                        <div class="s-rk"><em>4</em><span class="s-bar" style="width:26px"></span><span class="s-track"><i class="ins" style="width:44%"></i></span><span class="s-bar d" style="width:7px"></span></div>
-                        <div class="s-rk"><em>5</em><span class="s-bar" style="width:26px"></span><span class="s-track"><i class="fin" style="width:32%"></i></span><span class="s-bar d" style="width:7px"></span></div>
+                      <div class="s-lst" style="gap:9px">
+                        <div class="s-rk"><em>1</em><span class="s-bar" style="width:68px"></span><span class="s-track"><i class="ins" style="width:100%"></i></span><span class="s-bar d" style="width:13px"></span></div>
+                        <div class="s-rk"><em>2</em><span class="s-bar" style="width:68px"></span><span class="s-track"><i class="fin" style="width:78%"></i></span><span class="s-bar d" style="width:13px"></span></div>
+                        <div class="s-rk"><em>3</em><span class="s-bar" style="width:68px"></span><span class="s-track"><i style="width:61%"></i></span><span class="s-bar d" style="width:13px"></span></div>
+                        <div class="s-rk"><em>4</em><span class="s-bar" style="width:68px"></span><span class="s-track"><i class="ins" style="width:44%"></i></span><span class="s-bar d" style="width:13px"></span></div>
+                        <div class="s-rk"><em>5</em><span class="s-bar" style="width:68px"></span><span class="s-track"><i class="fin" style="width:32%"></i></span><span class="s-bar d" style="width:13px"></span></div>
                       </div>
                     </div>
 
                     <div class="s-card s-pad">
                       <div class="s-h">기술 주제별 언급 건수<span class="s-q">?</span></div>
-                      <div class="s-lst" style="gap:4px">
-                        <div class="s-rk"><em>1</em><span class="s-bar" style="width:26px"></span><span class="s-track"><i class="tec" style="width:100%"></i></span><span class="s-bar d" style="width:7px"></span></div>
-                        <div class="s-rk"><em>2</em><span class="s-bar" style="width:26px"></span><span class="s-track"><i class="tec" style="width:72%"></i></span><span class="s-bar d" style="width:7px"></span></div>
-                        <div class="s-rk"><em>3</em><span class="s-bar" style="width:26px"></span><span class="s-track"><i class="tec" style="width:55%"></i></span><span class="s-bar d" style="width:7px"></span></div>
-                        <div class="s-rk"><em>4</em><span class="s-bar" style="width:26px"></span><span class="s-track"><i class="tec" style="width:38%"></i></span><span class="s-bar d" style="width:7px"></span></div>
-                        <div class="s-rk"><em>5</em><span class="s-bar" style="width:26px"></span><span class="s-track"><i class="tec" style="width:24%"></i></span><span class="s-bar d" style="width:7px"></span></div>
+                      <div class="s-lst" style="gap:9px">
+                        <div class="s-rk"><em>1</em><span class="s-bar" style="width:68px"></span><span class="s-track"><i class="tec" style="width:100%"></i></span><span class="s-bar d" style="width:13px"></span></div>
+                        <div class="s-rk"><em>2</em><span class="s-bar" style="width:68px"></span><span class="s-track"><i class="tec" style="width:72%"></i></span><span class="s-bar d" style="width:13px"></span></div>
+                        <div class="s-rk"><em>3</em><span class="s-bar" style="width:68px"></span><span class="s-track"><i class="tec" style="width:55%"></i></span><span class="s-bar d" style="width:13px"></span></div>
+                        <div class="s-rk"><em>4</em><span class="s-bar" style="width:68px"></span><span class="s-track"><i class="tec" style="width:38%"></i></span><span class="s-bar d" style="width:13px"></span></div>
+                        <div class="s-rk"><em>5</em><span class="s-bar" style="width:68px"></span><span class="s-track"><i class="tec" style="width:24%"></i></span><span class="s-bar d" style="width:13px"></span></div>
                       </div>
                     </div>
                   </div>
@@ -1432,9 +1469,9 @@ svg text{font-family:var(--font);}
             </div>
           </div>
           <p class="ksd-shot-note">
-            실제 화면을 줄여 그린 것이다. 목록 건수(헤드라인 3건은 실제 상한, 주요 이슈 · 최신 뉴스 · 순위는 스크롤되는 목록에서 앞 3~5행만),
-            그리고 <b>확인하지 못한 값</b>(기사 제목 · 날짜 · 건수 · 기업명)은 지어내지 않고 흐린 막대로 뒀다.
-            이슈 제목과 등급은 2.7 운영 사례에 실린 실제 값이다.
+            헤드라인 · 주요 이슈의 <b>제목과 등급</b>, 최신 뉴스의 <b>제목과 발행일</b>은 실제 값이다. 목록 길이만 줄였다 —
+            헤드라인 3건은 실제 상한이고, 주요 이슈 · 최신 뉴스 · 순위는 스크롤되는 목록에서 앞 4~5행만 그렸다.
+            <b>확인하지 못한 값</b>(일별 건수 · 순위 기업명과 건수 · 이슈 본문)은 지어내지 않고 흐린 막대로 뒀다.
           </p>
 
           <div class="svc-bd">
