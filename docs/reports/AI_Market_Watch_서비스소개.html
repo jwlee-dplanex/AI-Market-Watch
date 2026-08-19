@@ -717,15 +717,24 @@ svg text{font-family:var(--font);}
 /* ============================================================
    CH 03 — 기대 효과
    ============================================================ */
-/* 기대 효과 6항목 — 한 줄짜리 항목이라 카드가 아니라 가로 행으로 세운다.
+/* 기대 효과 7항목 — 한 줄짜리 항목이라 카드가 아니라 가로 행으로 세운다.
    ⚠️ 01장 핵심 가치(.core, 3열 카드 + 설명문)와 형태를 일부러 다르게 둔다.
-      같은 카드로 그리면 서로 다른 내용이 같은 것으로 읽힌다(2026-08-19 사용자 지적). */
+      같은 카드로 그리면 서로 다른 내용이 같은 것으로 읽힌다(2026-08-19 사용자 지적).
+   ⚠️ 07(외부 조사 범위 축소)만 제목 아래 설명 한 줄(.d)을 단다 — 01~06과 달리 제목만으로는
+      "외부 조사를 줄인다"가 비용을 깎는다는 말로 읽힐 수 있어서다. 실제 논지는 역할 분담이므로
+      (공개 자료 구간은 내부가, 내부 인터뷰처럼 직접 해야 하는 부분은 외부가) 그 문장을 항목에
+      붙여 둔다. 설명을 떼면 톤이 무너진다. 나머지 항목에는 .d 를 만들지 말 것 — 하나만 예외인
+      게 의도다(제목만으로 뜻이 서는 항목에 군더더기를 달지 않는다). */
 .effect-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 34px;}
 .effect{display:flex;align-items:center;gap:16px;padding:20px 4px;border-bottom:1px solid var(--line);
   font-size:16.5px;font-weight:800;letter-spacing:-.028em;color:var(--violet-950);line-height:1.5;}
 .effect .idx{flex:none;font-size:13px;font-weight:800;letter-spacing:.04em;color:var(--violet-800);
   background:var(--lav-100);border:1px solid var(--lav-200);border-radius:99px;padding:5px 11px;}
-.effect-grid > .effect:nth-child(n+5){border-bottom:0;}   /* 마지막 행(5·6번)만 밑줄 없음 */
+.effect .tx{min-width:0;}
+.effect .d{display:block;margin-top:7px;font-size:13.5px;font-weight:600;letter-spacing:-.01em;
+  color:var(--ink-2);line-height:1.72;}
+/* 2열 · 7항목이므로 마지막 행은 07 하나다(01~06은 3개 행을 채운다) */
+.effect-grid > .effect:nth-child(n+7){border-bottom:0;}
 
 /* ============================================================
    CH 04 — 추진 과제
@@ -764,7 +773,7 @@ svg text{font-family:var(--font);}
 @media (max-width:900px){
   .expand{grid-template-columns:repeat(2,minmax(0,1fr));}
   .effect-grid{grid-template-columns:minmax(0,1fr);gap:0;}
-  .effect-grid > .effect:nth-child(n+5){border-bottom:1px solid var(--line);}
+  .effect-grid > .effect:nth-child(n+7){border-bottom:1px solid var(--line);}
   .effect-grid > .effect:last-child{border-bottom:0;}
   .effect{font-size:15.5px;}
 }
@@ -948,7 +957,7 @@ svg text{font-family:var(--font);}
           <figcaption class="fig-cap">
             <span class="fig-num">FIG 1-1</span>
             <span class="fig-ttl">기존 리서치 방식의 세 가지 한계 — 시간이 들고, 기준이 흔들리고, 쌓이지 않는다</span>
-            <span class="fig-sub">다섯 개의 한계를 세 축으로 묶은 것이며, 각 라벨은 원문 그대로다.</span>
+            <span class="fig-sub">여섯 개의 한계를 세 축으로 묶은 것이며, 각 라벨은 원문 그대로다.</span>
           </figcaption>
           <div class="fig-body">
             <!--
@@ -957,13 +966,18 @@ svg text{font-family:var(--font);}
                 · 도형은 그보다 최소 16px 위에서 종료
               세 밴드에 같은 규칙을 적용했고, 밴드 높이를 늘려 아래 요소를 통째로 내렸다.
               도형 간 상대 좌표는 바꾸지 않았다.
-                RESOURCE   116 ~ 386 (h 270)  캡션 372  도형 하단 356
-                CONSISTENCY 402 ~ 646 (h 244)  캡션 632  도형 하단 616
-                ASSET       662 ~ 920 (h 258)  캡션 906  도형 하단 890
+
+              ⚠️ 2026-08-19 2차 — RESOURCE 축에 한계 ⑥(외부 조사 의뢰 범위)이 추가됐다.
+                 두 줄짜리 문장이라 RESOURCE 밴드가 42px 자라고, 그 아래 CONSISTENCY ·
+                 ASSET · 꼬리 라벨 · viewBox 높이를 전부 +42 로 밀었다. 세 밴드 모두 위
+                 규칙(캡션 = 밴드 하단 −14, 도형 하단과 캡션 사이 16)을 다시 만족한다.
+                RESOURCE   116 ~ 428 (h 312)  캡션 414  도형 하단 398
+                CONSISTENCY 444 ~ 688 (h 244)  캡션 674  도형 하단 658
+                ASSET       704 ~ 962 (h 258)  캡션 948  도형 하단 932
               ⚠️ SVG는 좌표로만 배치되므로 요소를 늘려도 아래가 자동으로 밀려나지 않는다.
             -->
-            <svg class="f11" viewBox="0 0 620 986" role="img"
-                 aria-label="기존 리서치 방식의 세 가지 한계. RESOURCE 축은 검색부터 정리까지 다섯 단계를 거쳐야 보고서 한 건이 나오는 모습, CONSISTENCY 축은 같은 기사 한 건이 조사자마다 서로 다른 결과 칸으로 도착하는 모습, ASSET 축은 개별로 관리된 기사가 사업 기회로 이어지지 못하고 중간에 사라지는 모습을 나타낸다.">
+            <svg class="f11" viewBox="0 0 620 1028" role="img"
+                 aria-label="기존 리서치 방식의 세 가지 한계. RESOURCE 축은 검색부터 정리까지 다섯 단계를 거쳐야 보고서 한 건이 나오는 모습과, 외부 조사를 의뢰할 때 공개 자료로 확인되는 구간까지 함께 의뢰하게 되는 상황을 나타낸다. CONSISTENCY 축은 같은 기사 한 건이 조사자마다 서로 다른 결과 칸으로 도착하는 모습, ASSET 축은 개별로 관리된 기사가 사업 기회로 이어지지 못하고 중간에 사라지는 모습을 나타낸다.">
               <defs>
                 <marker id="ar11" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
                   <path d="M0 1 L9 5 L0 9 z" fill="var(--violet-300)"/>
@@ -979,105 +993,113 @@ svg text{font-family:var(--font);}
                 <text x="28" y="95">수작업 중심이어서 정보 수집과 정리에 많은 시간이 소요된다.</text>
               </g>
 
-              <!-- ============ RESOURCE ============ 밴드 116 ~ 386 -->
-              <rect x="14" y="116" width="592" height="270" rx="12" fill="#FBFAFD" stroke="var(--line)"/>
+              <!-- ============ RESOURCE ============ 밴드 116 ~ 428 -->
+              <rect x="14" y="116" width="592" height="312" rx="12" fill="#FBFAFD" stroke="var(--line)"/>
               <rect x="30" y="132" width="88" height="21" rx="10.5" fill="var(--lav-100)" stroke="var(--violet-300)"/>
               <text x="74" y="147" text-anchor="middle" font-size="9.5" font-weight="800" letter-spacing=".12em" fill="var(--ink-2)">RESOURCE</text>
               <g font-size="11.5" font-weight="700" fill="var(--ink)">
                 <text x="30" y="182">① 담당자가 직접 검색하고 정리해야 하므로 시간이 많이 소요된다.</text>
                 <text x="30" y="203">⑤ 정기적으로 공유 가능한 보고서 생성 과정이 수작업에 의존한다.</text>
+                <text x="30" y="224">⑥ 외부 조사를 의뢰할 때, 공개된 보도자료로 확인할 수 있는</text>
+                <text x="42" y="245">현황·동향까지 함께 의뢰하게 된다.</text>
               </g>
               <g font-size="10" font-weight="800" fill="var(--ink-2)" text-anchor="middle">
-                <g class="st"><rect x="34" y="226" width="92" height="34" rx="8" fill="#fff" stroke="var(--violet-300)"/><text x="80" y="248">검색</text></g>
-                <g class="st" style="animation-delay:.95s"><rect x="136" y="226" width="92" height="34" rx="8" fill="#fff" stroke="var(--violet-300)"/><text x="182" y="248">수집</text></g>
-                <g class="st" style="animation-delay:1.7s"><rect x="238" y="226" width="92" height="34" rx="8" fill="#fff" stroke="var(--violet-300)"/><text x="284" y="248">분류</text></g>
-                <g class="st" style="animation-delay:2.65s"><rect x="340" y="226" width="92" height="34" rx="8" fill="#fff" stroke="var(--violet-300)"/><text x="386" y="248">해석</text></g>
-                <g class="st" style="animation-delay:3.4s"><rect x="442" y="226" width="92" height="34" rx="8" fill="#fff" stroke="var(--violet-300)"/><text x="488" y="248">정리</text></g>
+                <g class="st"><rect x="34" y="268" width="92" height="34" rx="8" fill="#fff" stroke="var(--violet-300)"/><text x="80" y="290">검색</text></g>
+                <g class="st" style="animation-delay:.95s"><rect x="136" y="268" width="92" height="34" rx="8" fill="#fff" stroke="var(--violet-300)"/><text x="182" y="290">수집</text></g>
+                <g class="st" style="animation-delay:1.7s"><rect x="238" y="268" width="92" height="34" rx="8" fill="#fff" stroke="var(--violet-300)"/><text x="284" y="290">분류</text></g>
+                <g class="st" style="animation-delay:2.65s"><rect x="340" y="268" width="92" height="34" rx="8" fill="#fff" stroke="var(--violet-300)"/><text x="386" y="290">해석</text></g>
+                <g class="st" style="animation-delay:3.4s"><rect x="442" y="268" width="92" height="34" rx="8" fill="#fff" stroke="var(--violet-300)"/><text x="488" y="290">정리</text></g>
               </g>
-              <text x="34" y="288" font-size="9.5" font-weight="800" letter-spacing=".12em" fill="var(--muted)">TIME</text>
-              <rect x="34" y="292" width="500" height="5" rx="2.5" fill="var(--line)"/>
-              <path class="gauge" pathLength="100" d="M34 294.5 H534" stroke="var(--violet-300)" stroke-width="5" stroke-linecap="round" fill="none"/>
+              <text x="34" y="330" font-size="9.5" font-weight="800" letter-spacing=".12em" fill="var(--muted)">TIME</text>
+              <rect x="34" y="334" width="500" height="5" rx="2.5" fill="var(--line)"/>
+              <path class="gauge" pathLength="100" d="M34 336.5 H534" stroke="var(--violet-300)" stroke-width="5" stroke-linecap="round" fill="none"/>
               <g class="doc">
-                <rect x="384" y="316" width="150" height="40" rx="8" fill="var(--lav-100)" stroke="var(--violet-300)"/>
-                <text x="459" y="341" text-anchor="middle" font-size="11" font-weight="800" fill="var(--violet-900)">보고서 1건</text>
+                <rect x="384" y="358" width="150" height="40" rx="8" fill="var(--lav-100)" stroke="var(--violet-300)"/>
+                <text x="459" y="383" text-anchor="middle" font-size="11" font-weight="800" fill="var(--violet-900)">보고서 1건</text>
               </g>
-              <text x="34" y="372" font-size="11" font-weight="700" fill="var(--muted)">여기까지 와야 한 건이 끝난다</text>
+              <text x="34" y="414" font-size="11" font-weight="700" fill="var(--muted)">여기까지 와야 한 건이 끝난다</text>
 
-              <!-- ============ CONSISTENCY ============ 밴드 402 ~ 646 -->
-              <rect x="14" y="402" width="592" height="244" rx="12" fill="#FBFAFD" stroke="var(--line)"/>
-              <rect x="30" y="418" width="112" height="21" rx="10.5" fill="var(--lav-100)" stroke="var(--violet-300)"/>
-              <text x="86" y="433" text-anchor="middle" font-size="9.5" font-weight="800" letter-spacing=".12em" fill="var(--ink-2)">CONSISTENCY</text>
+              <!-- ============ CONSISTENCY ============ 밴드 444 ~ 688 (RESOURCE 확장으로 +42) -->
+              <rect x="14" y="444" width="592" height="244" rx="12" fill="#FBFAFD" stroke="var(--line)"/>
+              <rect x="30" y="460" width="112" height="21" rx="10.5" fill="var(--lav-100)" stroke="var(--violet-300)"/>
+              <text x="86" y="475" text-anchor="middle" font-size="9.5" font-weight="800" letter-spacing=".12em" fill="var(--ink-2)">CONSISTENCY</text>
               <g font-size="11.5" font-weight="700" fill="var(--ink)">
-                <text x="30" y="468">③ 조사자마다 분류 기준과 해석 관점이 달라 일관된 인사이트를</text>
-                <text x="42" y="489">만들기 어렵다.</text>
+                <text x="30" y="510">③ 조사자마다 분류 기준과 해석 관점이 달라 일관된 인사이트를</text>
+                <text x="42" y="531">만들기 어렵다.</text>
               </g>
               <g stroke="var(--line-2)" stroke-width="1.2" stroke-dasharray="5 5" fill="none">
-                <path d="M134 558 L196 529"/><path d="M134 558 L196 565"/><path d="M134 558 L196 601"/>
-                <path d="M288 529 L466 529"/><path d="M288 565 L466 565"/><path d="M288 601 L466 601"/>
+                <path d="M134 600 L196 571"/><path d="M134 600 L196 607"/><path d="M134 600 L196 643"/>
+                <path d="M288 571 L466 571"/><path d="M288 607 L466 607"/><path d="M288 643 L466 643"/>
               </g>
-              <rect x="30" y="538" width="104" height="40" rx="8" fill="#fff" stroke="var(--line-2)"/>
-              <text x="82" y="563" text-anchor="middle" font-size="10.5" font-weight="800" fill="var(--ink)">같은 기사 1건</text>
+              <rect x="30" y="580" width="104" height="40" rx="8" fill="#fff" stroke="var(--line-2)"/>
+              <text x="82" y="605" text-anchor="middle" font-size="10.5" font-weight="800" fill="var(--ink)">같은 기사 1건</text>
               <g font-size="10" font-weight="800" fill="var(--ink-2)" text-anchor="middle">
-                <g><rect x="196" y="514" width="92" height="30" rx="8" fill="#fff" stroke="var(--line-2)"/><text x="242" y="533">조사자 1</text></g>
-                <g><rect x="196" y="550" width="92" height="30" rx="8" fill="#fff" stroke="var(--line-2)"/><text x="242" y="569">조사자 2</text></g>
-                <g><rect x="196" y="586" width="92" height="30" rx="8" fill="#fff" stroke="var(--line-2)"/><text x="242" y="605">조사자 3</text></g>
-                <g class="bin"><rect x="466" y="514" width="110" height="30" rx="8" fill="var(--lav-100)" stroke="var(--violet-300)"/><text x="521" y="533">결과 A</text></g>
-                <g class="bin" style="animation-delay:.12s"><rect x="466" y="550" width="110" height="30" rx="8" fill="var(--lav-100)" stroke="var(--violet-300)"/><text x="521" y="569">결과 B</text></g>
-                <g class="bin" style="animation-delay:.24s"><rect x="466" y="586" width="110" height="30" rx="8" fill="var(--lav-100)" stroke="var(--violet-300)"/><text x="521" y="605">결과 C</text></g>
+                <g><rect x="196" y="556" width="92" height="30" rx="8" fill="#fff" stroke="var(--line-2)"/><text x="242" y="575">조사자 1</text></g>
+                <g><rect x="196" y="592" width="92" height="30" rx="8" fill="#fff" stroke="var(--line-2)"/><text x="242" y="611">조사자 2</text></g>
+                <g><rect x="196" y="628" width="92" height="30" rx="8" fill="#fff" stroke="var(--line-2)"/><text x="242" y="647">조사자 3</text></g>
+                <g class="bin"><rect x="466" y="556" width="110" height="30" rx="8" fill="var(--lav-100)" stroke="var(--violet-300)"/><text x="521" y="575">결과 A</text></g>
+                <g class="bin" style="animation-delay:.12s"><rect x="466" y="592" width="110" height="30" rx="8" fill="var(--lav-100)" stroke="var(--violet-300)"/><text x="521" y="611">결과 B</text></g>
+                <g class="bin" style="animation-delay:.24s"><rect x="466" y="628" width="110" height="30" rx="8" fill="var(--lav-100)" stroke="var(--violet-300)"/><text x="521" y="647">결과 C</text></g>
               </g>
               <g fill="var(--violet-500)">
-                <circle class="drift" cx="140" cy="558" r="5" style="--dx:326px;--dy:-29px"/>
-                <circle class="drift" cx="140" cy="558" r="5" style="--dx:326px;--dy:7px"/>
-                <circle class="drift" cx="140" cy="558" r="5" style="--dx:326px;--dy:43px"/>
+                <circle class="drift" cx="140" cy="600" r="5" style="--dx:326px;--dy:-29px"/>
+                <circle class="drift" cx="140" cy="600" r="5" style="--dx:326px;--dy:7px"/>
+                <circle class="drift" cx="140" cy="600" r="5" style="--dx:326px;--dy:43px"/>
               </g>
-              <text x="30" y="632" font-size="10" font-weight="700" fill="var(--muted)">같은 기사를 넣어도 도착하는 칸이 서로 다르다</text>
+              <text x="30" y="674" font-size="10" font-weight="700" fill="var(--muted)">같은 기사를 넣어도 도착하는 칸이 서로 다르다</text>
 
-              <!-- ============ ASSET ============ 밴드 662 ~ 920 -->
-              <rect x="14" y="662" width="592" height="258" rx="12" fill="#FBFAFD" stroke="var(--line)"/>
-              <rect x="30" y="678" width="68" height="21" rx="10.5" fill="var(--lav-100)" stroke="var(--violet-300)"/>
-              <text x="64" y="693" text-anchor="middle" font-size="9.5" font-weight="800" letter-spacing=".12em" fill="var(--ink-2)">ASSET</text>
+              <!-- ============ ASSET ============ 밴드 704 ~ 962 (RESOURCE 확장으로 +42) -->
+              <rect x="14" y="704" width="592" height="258" rx="12" fill="#FBFAFD" stroke="var(--line)"/>
+              <rect x="30" y="720" width="68" height="21" rx="10.5" fill="var(--lav-100)" stroke="var(--violet-300)"/>
+              <text x="64" y="735" text-anchor="middle" font-size="9.5" font-weight="800" letter-spacing=".12em" fill="var(--ink-2)">ASSET</text>
               <g font-size="11.5" font-weight="700" fill="var(--ink)">
-                <text x="30" y="728">② 기사와 자료가 개별적으로 관리되어 유사 이슈나 시장 흐름을</text>
-                <text x="42" y="749">파악하기 어렵다.</text>
-                <text x="30" y="773">④ 수집된 뉴스가 실제 DPLANEX 사업 기회와 어떻게 연결되는지</text>
-                <text x="42" y="794">파악하기 어렵다.</text>
+                <text x="30" y="770">② 기사와 자료가 개별적으로 관리되어 유사 이슈나 시장 흐름을</text>
+                <text x="42" y="791">파악하기 어렵다.</text>
+                <text x="30" y="815">④ 수집된 뉴스가 실제 DPLANEX 사업 기회와 어떻게 연결되는지</text>
+                <text x="42" y="836">파악하기 어렵다.</text>
               </g>
               <g fill="#fff" stroke="var(--line-2)">
-                <rect x="34" y="818" width="84" height="32" rx="6"/><rect x="126" y="818" width="84" height="32" rx="6"/>
-                <rect x="34" y="858" width="84" height="32" rx="6"/><rect x="126" y="858" width="84" height="32" rx="6"/>
+                <rect x="34" y="860" width="84" height="32" rx="6"/><rect x="126" y="860" width="84" height="32" rx="6"/>
+                <rect x="34" y="900" width="84" height="32" rx="6"/><rect x="126" y="900" width="84" height="32" rx="6"/>
               </g>
               <g stroke="var(--line-2)" stroke-width="1" opacity=".8">
-                <path d="M44 828 H92"/><path d="M44 838 H76"/><path d="M136 828 H184"/><path d="M136 838 H168"/>
-                <path d="M44 868 H92"/><path d="M44 878 H76"/><path d="M136 868 H184"/><path d="M136 878 H168"/>
+                <path d="M44 870 H92"/><path d="M44 880 H76"/><path d="M136 870 H184"/><path d="M136 880 H168"/>
+                <path d="M44 910 H92"/><path d="M44 920 H76"/><path d="M136 910 H184"/><path d="M136 920 H168"/>
               </g>
               <g stroke="var(--line-2)" stroke-width="1.2" stroke-dasharray="5 5" fill="none" marker-end="url(#ar11)">
-                <path d="M222 842 H460"/><path d="M222 874 H460"/>
+                <path d="M222 884 H460"/><path d="M222 916 H460"/>
               </g>
-              <rect x="470" y="834" width="112" height="52" rx="10" fill="var(--lav-050)" stroke="var(--violet-300)" stroke-dasharray="6 5"/>
-              <text x="526" y="856" text-anchor="middle" font-size="10.5" font-weight="800" fill="var(--muted)">사업 기회</text>
-              <text x="526" y="872" text-anchor="middle" font-size="9.5" font-weight="700" fill="var(--muted)">연결 지점</text>
+              <rect x="470" y="876" width="112" height="52" rx="10" fill="var(--lav-050)" stroke="var(--violet-300)" stroke-dasharray="6 5"/>
+              <text x="526" y="898" text-anchor="middle" font-size="10.5" font-weight="800" fill="var(--muted)">사업 기회</text>
+              <text x="526" y="914" text-anchor="middle" font-size="9.5" font-weight="700" fill="var(--muted)">연결 지점</text>
               <g fill="var(--violet-500)">
-                <circle class="pk" cx="222" cy="842" r="5.5" style="--dx:122px;--dy:6px"/>
-                <circle class="pk" cx="222" cy="874" r="5.5" style="--dx:122px;--dy:-4px"/>
+                <circle class="pk" cx="222" cy="884" r="5.5" style="--dx:122px;--dy:6px"/>
+                <circle class="pk" cx="222" cy="916" r="5.5" style="--dx:122px;--dy:-4px"/>
               </g>
-              <circle class="ring" cx="346" cy="858" r="17" fill="none" stroke="var(--violet-300)" stroke-width="1.6"/>
+              <circle class="ring" cx="346" cy="900" r="17" fill="none" stroke="var(--violet-300)" stroke-width="1.6"/>
               <g class="xmk" stroke="var(--violet-300)" stroke-width="3" stroke-linecap="round">
-                <path d="M338 850 L354 866"/><path d="M354 850 L338 866"/>
+                <path d="M338 892 L354 908"/><path d="M354 892 L338 908"/>
               </g>
-              <text x="34" y="906" font-size="9.5" font-weight="700" fill="var(--muted)">개별로 관리된다</text>
+              <text x="34" y="948" font-size="9.5" font-weight="700" fill="var(--muted)">개별로 관리된다</text>
 
               <!-- 꼬리 라벨 — 원문 그대로 -->
-              <rect x="14" y="936" width="3" height="40" rx="1.5" fill="var(--violet-800)"/>
+              <rect x="14" y="978" width="3" height="40" rx="1.5" fill="var(--violet-800)"/>
               <g font-size="11.5" font-weight="800" fill="var(--violet-900)">
-                <text x="28" y="953">따라서 AI 시장 정보를 자동으로 수집하고, DPLANEX 관점에서 분류·요약·해석하여</text>
-                <text x="28" y="972">전략기획팀이 시장 변화와 사업 기회를 빠르게 파악할 수 있는 체계가 필요하다.</text>
+                <text x="28" y="995">따라서 AI 시장 정보를 자동으로 수집하고, DPLANEX 관점에서 분류·요약·해석하여</text>
+                <text x="28" y="1014">전략기획팀이 시장 변화와 사업 기회를 빠르게 파악할 수 있는 체계가 필요하다.</text>
               </g>
             </svg>
           </div>
           <p class="fig-claim">세 축은 성격이 다르다 — <b>RESOURCE는 비용</b>, <b>CONSISTENCY는 품질</b>, <b>ASSET은 재사용</b>이다. 앞의 둘을 풀어도 세 번째는 따라오지 않는다.</p>
         </figure>
 
-        <!-- ======================= 한계 다섯 (원문 그대로) ======================= -->
+        <!-- ======================= 한계 여섯 =======================
+             ①~⑤는 사용자 원문 그대로다. ⑥은 2026-08-19에 추가했다 — 근거는 사용자의
+             직접 경험("실제로 컨설팅사랑 협업해보니 그들도 보도자료를 잘 찾아서 오는
+             거더만. 그리고 차별점은 내부 인터뷰 하는거고")이며 추정이 아니다.
+             ⚠️ 논지는 "외부 조사의 품질" 이 아니라 "의뢰 범위"다. 컨설팅사가 검색만
+                한다는 뜻으로 읽히면 안 된다 — 03장 효과 07과 짝을 이뤄 역할 분담이
+                명확해진다는 말을 한다. 문장을 고칠 때 이 균형을 깨지 말 것. -->
         <div class="bgx-side">
           <ul class="limits rv">
             <li>담당자가 직접 검색하고 정리해야 하므로 시간이 많이 소요된다.</li>
@@ -1085,6 +1107,7 @@ svg text{font-family:var(--font);}
             <li>조사자마다 분류 기준과 해석 관점이 달라 일관된 인사이트를 만들기 어렵다.</li>
             <li>수집된 뉴스가 실제 DPLANEX 사업 기회와 어떻게 연결되는지 파악하기 어렵다.</li>
             <li>정기적으로 공유 가능한 보고서 생성 과정이 수작업에 의존한다.</li>
+            <li>외부 조사를 의뢰할 때, 공개된 보도자료로 확인할 수 있는 현황·동향까지 함께 의뢰하게 된다.</li>
           </ul>
         </div>
       </div>
@@ -1945,6 +1968,16 @@ svg text{font-family:var(--font);}
         <li class="effect rv" style="--d:150ms"><span class="idx" aria-hidden="true">04</span>DPLANEX 사업 관점의 인사이트 확보</li>
         <li class="effect rv" style="--d:200ms"><span class="idx" aria-hidden="true">05</span>주간 보고서 생성 및 공유 자동화</li>
         <li class="effect rv" style="--d:250ms"><span class="idx" aria-hidden="true">06</span>내부 시장 정보 자산 축적</li>
+        <!-- 07 — 01장 한계 ⑥과 짝이다. ⚠️ 설명 줄(.d)을 떼지 말 것: 제목만 남으면
+             "외부 조사를 줄인다 = 비용을 깎는다"로 읽히고, 이 문서가 하려는 말(역할 분담)이
+             아니게 된다. 근거는 사용자의 컨설팅사 협업 경험이며, 외부의 고유 가치(내부
+             인터뷰)를 문장 안에 그대로 남겨 둔 것이 톤을 지키는 장치다. -->
+        <li class="effect rv" style="--d:300ms">
+          <span class="idx" aria-hidden="true">07</span>
+          <span class="tx">외부 조사 범위 축소
+            <span class="d">공개 자료로 확인되는 현황·동향은 내부에서 확보하고, 외부에는 내부 인터뷰처럼 직접 수행해야 하는 부분만 의뢰한다.</span>
+          </span>
+        </li>
       </ol>
 
       <p class="foot-note rv">※ 수집 대상 영역을 어디까지 넓힐지는 04장 <b>NEXT STEPS</b>에서 정한다.</p>
