@@ -278,6 +278,7 @@ def run_collection(actor: str) -> dict:
             status="fail" if stats["errors"] else "success",
             error_message="\n".join(stats["errors"]) or None,
             actor=actor,
+            crawl_failed_count=stats["crawl_failed"],
         )
     except Exception:
         logger.exception(

@@ -137,6 +137,13 @@
             <th class="text-left font-semibold text-gray-500 px-5 py-3 w-40">시작 시각</th>
             <th class="text-left font-semibold text-gray-500 py-3 w-32">소스</th>
             <th class="text-left font-semibold text-gray-500 py-3 w-24">수집 건수</th>
+            {% comment %}
+              크롤 실패 열(2026-08-19, PE): 본문 추출이 실패해(services/crawler.py MIN_BODY_LENGTH=200
+              미만) 네이버 API 스니펫으로 대체 저장된 건수. 수집 직후 화면(_collect_result.html)에서만
+              잠깐 보이고 사라지던 값을 CollectionLog에 남겨 여기서도 나중에 확인할 수 있게 했다 — 짧은
+              본문이 조용히 저장돼 태깅 오류로 이어졌던 실제 사고가 계기.
+            {% endcomment %}
+            <th class="text-left font-semibold text-gray-500 py-3 w-24">크롤 실패</th>
             <th class="text-left font-semibold text-gray-500 py-3 w-20">상태</th>
             <th class="text-left font-semibold text-gray-500 py-3">오류</th>
           </tr>
@@ -147,6 +154,9 @@
             <td class="px-5 py-3 text-gray-500">{{ log.started_at|date:"m.d H:i" }}</td>
             <td class="py-3 text-gray-700">{{ log.source.name|default:"—" }}</td>
             <td class="py-3 text-gray-700">{{ log.collected_count }}건</td>
+            <td class="py-3 {% if log.crawl_failed_count %}text-orange-500 font-semibold{% else %}text-gray-400{% endif %}">
+              {{ log.crawl_failed_count }}건
+            </td>
             <td class="py-3">
               <span class="px-2 py-0.5 rounded-full
                 {% if log.status == 'success' %}bg-green-100 text-green-700
@@ -158,7 +168,7 @@
             <td class="py-3 text-red-500 truncate max-w-xs">{{ log.error_message|default:"—" }}</td>
           </tr>
           {% empty %}
-          <tr><td colspan="5" class="px-5 py-10 text-center text-gray-400">아직 수집 로그가 없어요. 수집이 실행되면 여기에 표시돼요.</td></tr>
+          <tr><td colspan="6" class="px-5 py-10 text-center text-gray-400">아직 수집 로그가 없어요. 수집이 실행되면 여기에 표시돼요.</td></tr>
           {% endfor %}
         </tbody>
       </table>

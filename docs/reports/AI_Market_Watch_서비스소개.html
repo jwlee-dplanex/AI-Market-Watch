@@ -563,6 +563,42 @@ svg text{font-family:var(--font);}
   font-size:10.5px;font-weight:500;color:#4B5563;}
 .ksd-shot .s-ref b{font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .ksd-shot .s-ref span{flex:none;font-size:9.5px;color:var(--s-mute);}
+/* ---- 지식그래프 화면 (GRAPH-001) ---- */
+/* 기간 필터가 대시보드와 다르다 — 이쪽은 흰 카드 + 사각 알약이고, 대시보드는 회색 판 + 원형
+   알약이다. 실제 두 화면이 서로 다르므로 목업에서도 통일하지 않는다. */
+.ksd-shot .s-gper{display:inline-flex;align-items:center;gap:4px;background:#fff;
+  border:1px solid var(--s-line);border-radius:9px;padding:3px;box-shadow:0 1px 2px rgba(39,38,57,.05);}
+.ksd-shot .s-gper i{font-style:normal;font-size:10px;font-weight:500;padding:3px 10px;border-radius:7px;color:#4B5563;}
+.ksd-shot .s-gper i.on{background:var(--violet-800);color:#fff;}
+.ksd-shot .s-grow{display:flex;gap:14px;align-items:stretch;}
+.ksd-shot .s-gcanvas{position:relative;flex:1;min-width:0;background:#fff;border:1px solid var(--s-line);
+  border-radius:9px;box-shadow:0 1px 2px rgba(39,38,57,.05);overflow:hidden;}
+.ksd-shot .s-glegend{position:absolute;top:12px;left:12px;z-index:2;display:flex;align-items:center;gap:2px;
+  background:rgba(255,255,255,.9);border:1px solid var(--s-line);border-radius:9px;padding:5px 7px;
+  box-shadow:0 1px 2px rgba(39,38,57,.05);}
+.ksd-shot .s-glegend span{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:500;
+  color:#4B5563;padding:2px 6px;border-radius:99px;}
+.ksd-shot .s-glegend b{width:8px;height:8px;border-radius:50%;display:block;flex:none;}
+.ksd-shot .s-gstat{position:absolute;top:12px;right:12px;z-index:2;font-size:10px;font-weight:500;
+  color:var(--s-mute);background:rgba(255,255,255,.9);border:1px solid var(--s-line);border-radius:9px;padding:5px 9px;}
+.ksd-shot .s-gsvg{display:block;width:100%;height:auto;}
+/* 우측 패널 — 실제로는 w-72(288px). 목업 축척(0.86)에 맞춰 248px */
+.ksd-shot .s-gpanel{width:248px;flex:none;background:#fff;border:1px solid var(--s-line);
+  border-radius:9px;box-shadow:0 1px 2px rgba(39,38,57,.05);padding:14px 15px;}
+.ksd-shot .s-lbl{font-size:10px;font-weight:600;letter-spacing:.06em;color:var(--s-mute2);}
+.ksd-shot .s-chip{font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;white-space:nowrap;}
+.ksd-shot .s-chip.fin{background:#DBEAFE;color:#1D4ED8;}
+.ksd-shot .s-chip.ins{background:#E6F7F5;color:#00AF9A;}
+.ksd-shot .s-chip.ai{background:#F3EAFB;color:var(--violet-800);}
+/* 뉴스 카드 안에 붙는 더 옅은 기업 배지(_edge_panel.html 근거 뉴스 쪽 톤) */
+.ksd-shot .s-chip.s{font-size:9.5px;padding:1px 6px;}
+.ksd-shot .s-chip.s.fin{background:#EFF6FF;color:#2563EB;}
+.ksd-shot .s-chip.s.ai{background:#FAF5FF;color:var(--violet-800);}
+.ksd-shot .s-rel{display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;
+  border:1px solid var(--violet-800);color:var(--violet-800);}
+.ksd-shot .s-edit{display:inline-flex;align-items:center;gap:3px;flex:none;font-size:10px;
+  font-weight:500;color:var(--violet-800);}
+.ksd-shot .s-edit svg{width:9px;height:9px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
 /* 목업 아래 한 줄 — "무엇이 실제 값이고 무엇이 예시인지"를 그림 옆에서 바로 밝힌다.
    같은 카드 안 .svc-fn 과 완전히 같은 형태를 쓴다(새 시각 요소를 만들지 않음). */
 .ksd-shot-note{margin:12px 20px 0;padding:10px 13px;border-radius:var(--radius-s);
@@ -1316,6 +1352,7 @@ svg text{font-family:var(--font);}
           <symbol id="nvLayers" viewBox="0 0 24 24"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></symbol>
           <symbol id="nvDown" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></symbol>
           <symbol id="nvSend" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
+          <symbol id="nvPencil" viewBox="0 0 24 24"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497Z"/><path d="m15 5 4 4"/></symbol>
         </defs>
       </svg>
 
@@ -1703,6 +1740,158 @@ svg text{font-family:var(--font);}
         <!-- 03 지식그래프 -->
         <div class="svc rv" style="--d:120ms">
           <div class="svc-hd"><span class="svc-no">03</span><span class="svc-nm">지식그래프 — 기업 간 관계 시각화</span></div>
+
+          <!-- GRAPH-001 목업 — templates/graph/index.html + templates/graph/_edge_panel.html.
+               우측 패널은 "연결선 하나를 클릭한 상태"로 그렸다. 기본 상태(안내 문구만 있는 빈 패널)
+               보다 이 화면이 무엇을 하는 곳인지가 드러나고, 관계 라벨과 근거 뉴스가 한 화면에서
+               보이기 때문이다 — 실제로 존재하는 상태이지 지어낸 화면이 아니다.
+               ⚠️ 캔버스는 확대·이동되는 영역이라 전체가 한 번에 보이지 않는다. 실제 기업 63개 중
+                  연결이 있는 12개, 관계 16건 중 7건이 들어오는 범위를 그렸다. 우측 상단 통계는
+                  실제 총량(63 / 16)을 그대로 표시한다 — 실제 화면도 그렇게 동작한다.
+               ⚠️ 그린 7건은 실제 등록된 관계이며, 라벨 6종(공급계약 · 기술협업 · 업무협약 ·
+                  지분투자 · 인수 · 파트너십)이 한 번씩은 보이도록 골랐다. -->
+          <div class="ksd-shot" role="img"
+               aria-label="지식그래프 화면. 위쪽에 전체·최근 30일·최근 7일 기간 필터가 있고, 왼쪽 캔버스에 기업이 원으로, 관계가 선으로 그려진다. 선 가운데에는 공급계약·기술협업 같은 관계 이름이 붙어 있다. 왼쪽 위에는 금융사·보험사·AI 범례가, 오른쪽 위에는 기업 63개 연결 16개라는 통계가 있다. 오른쪽 패널에는 클릭한 연결선의 두 기업, 관계 라벨, 근거 뉴스가 나온다.">
+            <div class="ksd-shot-nav">
+              <div class="bd"><em>DPLANEX</em><b>AI Market Watch</b></div>
+              <ul>
+                <li><svg class="ic"><use href="#nvDash"/></svg>대시보드</li>
+                <li><svg class="ic"><use href="#nvChart"/></svg>보고서</li>
+                <li class="on"><svg class="ic"><use href="#nvNet"/></svg>지식그래프</li>
+                <li><svg class="ic"><use href="#nvNews"/></svg>뉴스</li>
+                <li><svg class="ic"><use href="#nvSet"/></svg>설정</li>
+              </ul>
+              <div class="ft">
+                <div class="sv"><svg class="ic"><use href="#nvInfo"/></svg>서비스 소개</div>
+                <div class="lc"><em>마지막 수집</em><b>08/19 09:00</b></div>
+              </div>
+            </div>
+            <div class="ksd-shot-main">
+              <div class="ksd-shot-hd"><b>지식그래프</b></div>
+              <div class="ksd-shot-bd">
+
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span class="s-lbl" style="font-weight:700">기간</span>
+                  <span class="s-gper"><i class="on">전체</i><i>최근 30일</i><i>최근 7일</i></span>
+                </div>
+
+                <div class="s-grow">
+                  <div class="s-gcanvas">
+                    <div class="s-glegend">
+                      <span><b style="background:#3B82F6"></b>금융사</span>
+                      <span><b style="background:#00AF9A"></b>보험사</span>
+                      <span><b style="background:#60269E"></b>AI</span>
+                    </div>
+                    <div class="s-gstat">기업 63개 · 연결 16개</div>
+                    <svg class="s-gsvg" viewBox="0 0 734 336" aria-hidden="true">
+                      <g stroke="#898A8D" stroke-opacity=".75" stroke-linecap="round">
+                        <line x1="170" y1="160" x2="68" y2="68" stroke-width="3"/>
+                        <line x1="170" y1="160" x2="66" y2="258" stroke-width="2"/>
+                        <line x1="170" y1="160" x2="288" y2="252" stroke-width="1.5"/>
+                        <line x1="395" y1="62" x2="520" y2="62" stroke-width="1.5"/>
+                        <line x1="400" y1="175" x2="525" y2="175" stroke-width="1.5"/>
+                        <line x1="398" y1="288" x2="523" y2="288" stroke-width="1.5"/>
+                        <line x1="640" y1="120" x2="640" y2="228" stroke-width="2"/>
+                      </g>
+                      <g fill="#fff" stroke="#60269E" stroke-width="1">
+                        <rect x="85" y="105" width="66" height="18" rx="8"/>
+                        <rect x="85" y="200" width="66" height="18" rx="8"/>
+                        <rect x="203" y="197" width="40" height="18" rx="8"/>
+                        <rect x="424" y="53" width="66" height="18" rx="8"/>
+                        <rect x="429" y="166" width="66" height="18" rx="8"/>
+                        <rect x="427" y="279" width="66" height="18" rx="8"/>
+                        <rect x="607" y="165" width="66" height="18" rx="8"/>
+                      </g>
+                      <g font-size="10" font-weight="600" fill="#60269E" text-anchor="middle" dominant-baseline="middle">
+                        <text x="118" y="115">공급계약</text>
+                        <text x="118" y="210">기술협업</text>
+                        <text x="223" y="207">인수</text>
+                        <text x="457" y="63">지분투자</text>
+                        <text x="462" y="176">업무협약</text>
+                        <text x="460" y="289">파트너십</text>
+                        <text x="640" y="175">기술협업</text>
+                      </g>
+                      <g stroke="#fff" stroke-width="2">
+                        <circle cx="170" cy="160" r="15" fill="#3B82F6"/>
+                        <circle cx="68" cy="68" r="11" fill="#60269E"/>
+                        <circle cx="66" cy="258" r="10" fill="#60269E"/>
+                        <circle cx="288" cy="252" r="10" fill="#60269E"/>
+                        <circle cx="395" cy="62" r="10" fill="#3B82F6"/>
+                        <circle cx="520" cy="62" r="10" fill="#60269E"/>
+                        <circle cx="400" cy="175" r="10" fill="#3B82F6"/>
+                        <circle cx="525" cy="175" r="10" fill="#60269E"/>
+                        <circle cx="398" cy="288" r="10" fill="#3B82F6"/>
+                        <circle cx="523" cy="288" r="10" fill="#60269E"/>
+                        <circle cx="640" cy="120" r="10" fill="#00AF9A"/>
+                        <circle cx="640" cy="228" r="10" fill="#60269E"/>
+                      </g>
+                      <g font-size="11" fill="#54565A" text-anchor="middle">
+                        <text x="170" y="188">NH농협은행</text>
+                        <text x="68" y="92">KT</text>
+                        <text x="66" y="281">스위치원</text>
+                        <text x="288" y="275">애자일소다</text>
+                        <text x="395" y="85">NH투자증권</text>
+                        <text x="520" y="85">퓨리오사AI</text>
+                        <text x="400" y="198">BC카드</text>
+                        <text x="525" y="198">몽고DB</text>
+                        <text x="398" y="311">케이뱅크</text>
+                        <text x="523" y="311">땅집고옥션</text>
+                        <text x="640" y="143">현대해상</text>
+                        <text x="640" y="251">KAIST</text>
+                      </g>
+                    </svg>
+                  </div>
+
+                  <div class="s-gpanel">
+                    <div style="padding-bottom:12px;border-bottom:1px solid #F3F4F6">
+                      <div class="s-ttl" style="line-height:1.6">NH농협은행 × KT<br>함께 언급된 뉴스 3건</div>
+                      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:8px">
+                        <span class="s-chip fin">NH농협은행</span><span class="s-chip ai">KT</span>
+                      </div>
+                    </div>
+
+                    <div style="padding:12px 0;border-bottom:1px solid #F3F4F6">
+                      <div class="s-lbl">관계</div>
+                      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-top:7px">
+                        <div>
+                          <span class="s-rel">공급계약</span>
+                          <p class="s-tx" style="font-size:10.5px;margin-top:6px">KT가 NH농협은행의 차세대 AICC를 구축해 공급했다.</p>
+                        </div>
+                        <span class="s-edit"><svg><use href="#nvPencil"/></svg>수정</span>
+                      </div>
+                    </div>
+
+                    <div style="padding-top:12px">
+                      <div class="s-lbl">근거 뉴스</div>
+                      <div class="s-lst" style="gap:9px;margin-top:9px">
+                        <div>
+                          <div class="s-nt">KT, NH농협은행 차세대 AICC 구축 완료…AI 상담 업무 180개로</div>
+                          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">
+                            <span class="s-chip s fin">NH농협은행</span><span class="s-chip s ai">KT</span>
+                          </div>
+                          <div class="s-dt" style="margin-top:3px">08.12</div>
+                        </div>
+                        <div>
+                          <div class="s-nt">농협은행, AI 컨택센터 상담 자동화 범위 확대</div>
+                          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">
+                            <span class="s-chip s fin">NH농협은행</span><span class="s-chip s ai">KT</span>
+                          </div>
+                          <div class="s-dt" style="margin-top:3px">08.05</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+          <p class="ksd-shot-note">
+            <b>기업 63개 · 연결 16개는 실제 총량</b>이고, 그림에 보이는 <b>기업 12개 · 관계 7건도 실제 등록된 것</b>이다 —
+            캔버스가 확대 · 이동되는 영역이라 한 번에 다 보이지 않아, 관계 이름 여섯 가지가 한 번씩은 나오도록 골라 그렸다.
+            기업명 · 관계 이름 · 유형별 색은 실제 값이며, 근거 뉴스 제목 · 날짜 · 건수는 예시다.
+          </p>
+
           <div class="svc-bd">
             <p class="svc-tx">검증된 기사에 등장한 금융사 · 보험사와 AI 기업을 대상으로 한다.</p>
             <p class="svc-tx"><b>기사에서 관계가 확인된 경우에만</b> 두 기업을 연결하고, 관계 유형을 함께 등록한다.</p>
@@ -2161,9 +2350,6 @@ svg text{font-family:var(--font);}
           </span>
         </li>
       </ol>
-
-      <p class="foot-note rv">※ 수집 대상 영역을 어디까지 넓힐지는 04장 <b>NEXT STEPS</b>에서 정한다.</p>
-
     </div>
   </section>
 </article>

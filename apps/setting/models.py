@@ -101,6 +101,17 @@ class CollectionLog(models.Model):
     status = models.CharField(max_length=10, choices=STATUS_CHOICES)
     error_message = models.TextField(null=True, blank=True)
     actor = models.CharField(max_length=20, choices=ACTOR_CHOICES, default=ACTOR_SCHEDULED)
+    # 크롤 실패 관측성(2026-08-19, PE 작업 배경: 본문이 152자만 수집된 기사가 조용히 저장돼
+    # 관련성 판정 근거가 부실해졌고, 결국 KB금융 별칭 오매칭으로 이어져 News·Insight를 함께
+    # 삭제한 사고가 실제로 있었다). 실패 판정 자체는 새로 만든 게 아니라
+    # services/crawler.py의 기존 MIN_BODY_LENGTH=200 임계값(사고 사례 152자보다 크므로 이미 그 사고를
+    # 잡아냈을 값)을 그대로 쓴다 — collector.py의 collect_naver()가 fetch_article_body()가 None을
+    # 반환한(추출 실패 또는 200자 미만) 건수를 stats["crawl_failed"]로 이미 세고 있었는데 지금까지는
+    # 그 값이 수집 직후 화면(_collect_result.html)에서만 잠깐 보이고 사라졌다 — 로그에 남지 않아 나중에
+    # (사고처럼 태깅 오류를 역추적할 때) 확인할 방법이 없었다. 이 필드는 그 값을 CollectionLog에
+    # 영속화해 SET-006 처리 이력에서도 볼 수 있게 한다. 수집 동작 자체(저장 여부)는 바꾸지 않는다 —
+    # 실패해도 스니펫으로 계속 저장하고, 이 필드는 "실패를 드러낸다"만 한다.
+    crawl_failed_count = models.IntegerField(default=0)
 
     class Meta:
         ordering = ["-started_at"]
