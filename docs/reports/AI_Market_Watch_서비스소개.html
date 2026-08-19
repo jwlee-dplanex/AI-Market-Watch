@@ -1745,11 +1745,27 @@ svg text{font-family:var(--font);}
                우측 패널은 "연결선 하나를 클릭한 상태"로 그렸다. 기본 상태(안내 문구만 있는 빈 패널)
                보다 이 화면이 무엇을 하는 곳인지가 드러나고, 관계 라벨과 근거 뉴스가 한 화면에서
                보이기 때문이다 — 실제로 존재하는 상태이지 지어낸 화면이 아니다.
-               ⚠️ 캔버스는 확대·이동되는 영역이라 전체가 한 번에 보이지 않는다. 실제 기업 63개 중
-                  연결이 있는 12개, 관계 16건 중 7건이 들어오는 범위를 그렸다. 우측 상단 통계는
-                  실제 총량(63 / 16)을 그대로 표시한다 — 실제 화면도 그렇게 동작한다.
-               ⚠️ 그린 7건은 실제 등록된 관계이며, 라벨 6종(공급계약 · 기술협업 · 업무협약 ·
-                  지분투자 · 인수 · 파트너십)이 한 번씩은 보이도록 골랐다. -->
+               ⚠️ 엣지는 전부 실선 + 관계 라벨이다. 실제 화면에 점선 엣지라는 표현 자체가
+                  없으므로 만들지 않는다 — 한 번 점선(미래 연결)을 넣었다가 "실제 화면에
+                  없는 UI"라는 지적으로 되돌렸다(2026-08-19). 목업은 화면이 어떻게 생겼는지를
+                  보여 주는 것이고, 없는 요소를 넣으면 그 목적이 무너진다.
+
+               ⚠️ 연결 22건 중 13건은 실제 등록된 관계이고 9건은 예시다. 예시를 넣은 이유 —
+                  현재 실측 16건은 전부 금융·보험사 → AI기업 한 방향이고 같은 AI 기업을 둘
+                  이상이 쓰는 경우가 없어서, 실측만 그리면 망이 아니라 별 모양 숲이 된다.
+                  이 화면의 존재 이유가 관계망이므로 "관계가 쌓였을 때의 모습"으로 그린다
+                  (2026-08-19 사용자 허용).
+                  예시 연결도 아무 데나 긋지 않았다 — 여러 금융사가 같은 AI 기업(KT ·
+                  솔트룩스 · 구글 · LG AI연구원 · 팔란티어)에 모이는 형태로만 그어, 별 모양이
+                  망으로 바뀌는 지점을 보여 준다. 그 결과 순환이 두 개 생긴다
+                  (하나은행-솔트룩스-코스콤-LG AI연구원 / KB국민은행-구글-메리츠화재-팔란티어).
+               ⚠️ 노드는 실제 등록된 63곳에서만 가져온다 — 이 제약은 완화되지 않았다.
+                  관계 라벨도 실제 쓰이는 6종(공급계약 · 기술협업 · 업무협약 · 지분투자 ·
+                  인수 · 파트너십) 밖으로 나가지 않는다.
+               ⚠️ 우측 상단 통계 "기업 63개 · 연결 16개"는 실제 총량 그대로 둔다. 그림은
+                  예시를 포함하지만 지금 규모가 얼마인지는 이 숫자가 붙잡아 준다.
+               ⚠️ 라벨 알약이 서로 겹치지 않는 선이 이 배율의 한계다. 연결을 더 넣으려면
+                  캔버스 높이를 함께 키워야 한다 — 겹치면 오히려 못 읽는다. -->
           <div class="ksd-shot" role="img"
                aria-label="지식그래프 화면. 위쪽에 전체·최근 30일·최근 7일 기간 필터가 있고, 왼쪽 캔버스에 기업이 원으로, 관계가 선으로 그려진다. 선 가운데에는 공급계약·기술협업 같은 관계 이름이 붙어 있다. 왼쪽 위에는 금융사·보험사·AI 범례가, 오른쪽 위에는 기업 63개 연결 16개라는 통계가 있다. 오른쪽 패널에는 클릭한 연결선의 두 기업, 관계 라벨, 근거 뉴스가 나온다.">
             <div class="ksd-shot-nav">
@@ -1783,61 +1799,130 @@ svg text{font-family:var(--font);}
                       <span><b style="background:#60269E"></b>AI</span>
                     </div>
                     <div class="s-gstat">기업 63개 · 연결 16개</div>
-                    <svg class="s-gsvg" viewBox="0 0 734 336" aria-hidden="true">
+                    <svg class="s-gsvg" viewBox="0 0 734 580" aria-hidden="true">
                       <g stroke="#898A8D" stroke-opacity=".75" stroke-linecap="round">
-                        <line x1="170" y1="160" x2="68" y2="68" stroke-width="3"/>
-                        <line x1="170" y1="160" x2="66" y2="258" stroke-width="2"/>
-                        <line x1="170" y1="160" x2="288" y2="252" stroke-width="1.5"/>
-                        <line x1="395" y1="62" x2="520" y2="62" stroke-width="1.5"/>
-                        <line x1="400" y1="175" x2="525" y2="175" stroke-width="1.5"/>
-                        <line x1="398" y1="288" x2="523" y2="288" stroke-width="1.5"/>
-                        <line x1="640" y1="120" x2="640" y2="228" stroke-width="2"/>
+                        <line x1="150" y1="190" x2="300" y2="110" stroke-width="3"/>
+                        <line x1="150" y1="190" x2="48" y2="108" stroke-width="2"/>
+                        <line x1="150" y1="190" x2="58" y2="268" stroke-width="1.8"/>
+                        <line x1="300" y1="455" x2="255" y2="330" stroke-width="2.2"/>
+                        <line x1="60" y1="430" x2="140" y2="505" stroke-width="1.5"/>
+                        <line x1="170" y1="540" x2="290" y2="540" stroke-width="1.5"/>
+                        <line x1="420" y1="45" x2="395" y2="145" stroke-width="1.5"/>
+                        <line x1="630" y1="90" x2="505" y2="165" stroke-width="2.4"/>
+                        <line x1="420" y1="480" x2="470" y2="375" stroke-width="2"/>
+                        <line x1="630" y1="300" x2="700" y2="220" stroke-width="1.8"/>
+                        <line x1="690" y1="400" x2="620" y2="470" stroke-width="1.5"/>
+                        <line x1="600" y1="540" x2="700" y2="515" stroke-width="1.5"/>
+                        <line x1="400" y1="540" x2="510" y2="500" stroke-width="1.5"/>
+                        <line x1="420" y1="45" x2="300" y2="110" stroke-width="1.8"/>
+                        <line x1="150" y1="190" x2="255" y2="330" stroke-width="2.4"/>
+                        <line x1="60" y1="430" x2="255" y2="330" stroke-width="1.8"/>
+                        <line x1="420" y1="480" x2="255" y2="330" stroke-width="2"/>
+                        <line x1="300" y1="455" x2="470" y2="375" stroke-width="2.2"/>
+                        <line x1="630" y1="90" x2="700" y2="220" stroke-width="1.5"/>
+                        <line x1="690" y1="400" x2="470" y2="375" stroke-width="1.8"/>
+                        <line x1="630" y1="300" x2="505" y2="165" stroke-width="2"/>
+                        <line x1="600" y1="540" x2="470" y2="375" stroke-width="1.8"/>
                       </g>
                       <g fill="#fff" stroke="#60269E" stroke-width="1">
-                        <rect x="85" y="105" width="66" height="18" rx="8"/>
-                        <rect x="85" y="200" width="66" height="18" rx="8"/>
-                        <rect x="203" y="197" width="40" height="18" rx="8"/>
-                        <rect x="424" y="53" width="66" height="18" rx="8"/>
-                        <rect x="429" y="166" width="66" height="18" rx="8"/>
-                        <rect x="427" y="279" width="66" height="18" rx="8"/>
-                        <rect x="607" y="165" width="66" height="18" rx="8"/>
+                        <rect x="198" y="141" width="54" height="18" rx="8"/>
+                        <rect x="72" y="140" width="54" height="18" rx="8"/>
+                        <rect x="87" y="220" width="34" height="18" rx="8"/>
+                        <rect x="250" y="383" width="54" height="18" rx="8"/>
+                        <rect x="73" y="459" width="54" height="18" rx="8"/>
+                        <rect x="203" y="531" width="54" height="18" rx="8"/>
+                        <rect x="380" y="86" width="54" height="18" rx="8"/>
+                        <rect x="540" y="118" width="54" height="18" rx="8"/>
+                        <rect x="418" y="418" width="54" height="18" rx="8"/>
+                        <rect x="638" y="251" width="54" height="18" rx="8"/>
+                        <rect x="628" y="426" width="54" height="18" rx="8"/>
+                        <rect x="623" y="518" width="54" height="18" rx="8"/>
+                        <rect x="428" y="511" width="54" height="18" rx="8"/>
+                        <rect x="321" y="75" width="54" height="18" rx="8"/>
+                        <rect x="175" y="251" width="54" height="18" rx="8"/>
+                        <rect x="130" y="371" width="54" height="18" rx="8"/>
+                        <rect x="343" y="426" width="54" height="18" rx="8"/>
+                        <rect x="358" y="406" width="54" height="18" rx="8"/>
+                        <rect x="638" y="146" width="54" height="18" rx="8"/>
+                        <rect x="553" y="378" width="54" height="18" rx="8"/>
+                        <rect x="540" y="223" width="54" height="18" rx="8"/>
+                        <rect x="508" y="448" width="54" height="18" rx="8"/>
                       </g>
                       <g font-size="10" font-weight="600" fill="#60269E" text-anchor="middle" dominant-baseline="middle">
-                        <text x="118" y="115">공급계약</text>
-                        <text x="118" y="210">기술협업</text>
-                        <text x="223" y="207">인수</text>
-                        <text x="457" y="63">지분투자</text>
-                        <text x="462" y="176">업무협약</text>
-                        <text x="460" y="289">파트너십</text>
-                        <text x="640" y="175">기술협업</text>
+                        <text x="225" y="151">공급계약</text>
+                        <text x="99" y="150">기술협업</text>
+                        <text x="104" y="230">인수</text>
+                        <text x="277" y="393">기술협업</text>
+                        <text x="100" y="469">파트너십</text>
+                        <text x="230" y="541">업무협약</text>
+                        <text x="407" y="96">공급계약</text>
+                        <text x="567" y="128">기술협업</text>
+                        <text x="445" y="428">기술협업</text>
+                        <text x="665" y="261">기술협업</text>
+                        <text x="655" y="436">지분투자</text>
+                        <text x="650" y="528">기술협업</text>
+                        <text x="455" y="521">업무협약</text>
+                        <text x="348" y="85">공급계약</text>
+                        <text x="202" y="261">기술협업</text>
+                        <text x="157" y="381">업무협약</text>
+                        <text x="370" y="436">기술협업</text>
+                        <text x="385" y="416">공급계약</text>
+                        <text x="665" y="156">파트너십</text>
+                        <text x="580" y="388">지분투자</text>
+                        <text x="567" y="233">기술협업</text>
+                        <text x="535" y="458">업무협약</text>
                       </g>
                       <g stroke="#fff" stroke-width="2">
-                        <circle cx="170" cy="160" r="15" fill="#3B82F6"/>
-                        <circle cx="68" cy="68" r="11" fill="#60269E"/>
-                        <circle cx="66" cy="258" r="10" fill="#60269E"/>
-                        <circle cx="288" cy="252" r="10" fill="#60269E"/>
-                        <circle cx="395" cy="62" r="10" fill="#3B82F6"/>
-                        <circle cx="520" cy="62" r="10" fill="#60269E"/>
-                        <circle cx="400" cy="175" r="10" fill="#3B82F6"/>
-                        <circle cx="525" cy="175" r="10" fill="#60269E"/>
-                        <circle cx="398" cy="288" r="10" fill="#3B82F6"/>
-                        <circle cx="523" cy="288" r="10" fill="#60269E"/>
-                        <circle cx="640" cy="120" r="10" fill="#00AF9A"/>
-                        <circle cx="640" cy="228" r="10" fill="#60269E"/>
+                        <circle cx="150" cy="190" r="16" fill="#3B82F6"/>
+                        <circle cx="300" cy="455" r="11" fill="#3B82F6"/>
+                        <circle cx="60" cy="430" r="10" fill="#3B82F6"/>
+                        <circle cx="170" cy="540" r="10" fill="#3B82F6"/>
+                        <circle cx="420" cy="45" r="10" fill="#3B82F6"/>
+                        <circle cx="630" cy="90" r="11" fill="#3B82F6"/>
+                        <circle cx="420" cy="480" r="10" fill="#3B82F6"/>
+                        <circle cx="690" cy="400" r="10" fill="#3B82F6"/>
+                        <circle cx="630" cy="300" r="10" fill="#00AF9A"/>
+                        <circle cx="600" cy="540" r="10" fill="#00AF9A"/>
+                        <circle cx="400" cy="540" r="10" fill="#00AF9A"/>
+                        <circle cx="300" cy="110" r="14" fill="#60269E"/>
+                        <circle cx="255" cy="330" r="16" fill="#60269E"/>
+                        <circle cx="505" cy="165" r="14" fill="#60269E"/>
+                        <circle cx="470" cy="375" r="16" fill="#60269E"/>
+                        <circle cx="700" cy="220" r="13" fill="#60269E"/>
+                        <circle cx="48" cy="108" r="9" fill="#60269E"/>
+                        <circle cx="58" cy="268" r="9" fill="#60269E"/>
+                        <circle cx="140" cy="505" r="9" fill="#60269E"/>
+                        <circle cx="290" cy="540" r="9" fill="#60269E"/>
+                        <circle cx="395" cy="145" r="9" fill="#60269E"/>
+                        <circle cx="620" cy="470" r="9" fill="#60269E"/>
+                        <circle cx="700" cy="515" r="9" fill="#60269E"/>
+                        <circle cx="510" cy="500" r="9" fill="#60269E"/>
                       </g>
                       <g font-size="11" fill="#54565A" text-anchor="middle">
-                        <text x="170" y="188">NH농협은행</text>
-                        <text x="68" y="92">KT</text>
-                        <text x="66" y="281">스위치원</text>
-                        <text x="288" y="275">애자일소다</text>
-                        <text x="395" y="85">NH투자증권</text>
-                        <text x="520" y="85">퓨리오사AI</text>
-                        <text x="400" y="198">BC카드</text>
-                        <text x="525" y="198">몽고DB</text>
-                        <text x="398" y="311">케이뱅크</text>
-                        <text x="523" y="311">땅집고옥션</text>
-                        <text x="640" y="143">현대해상</text>
-                        <text x="640" y="251">KAIST</text>
+                        <text x="150" y="218">NH농협은행</text>
+                        <text x="300" y="479">하나은행</text>
+                        <text x="60" y="453">케이뱅크</text>
+                        <text x="170" y="563">BC카드</text>
+                        <text x="420" y="68">우리은행</text>
+                        <text x="630" y="114">KB국민은행</text>
+                        <text x="420" y="503">코스콤</text>
+                        <text x="690" y="423">NH투자증권</text>
+                        <text x="630" y="323">메리츠화재</text>
+                        <text x="600" y="563">현대해상</text>
+                        <text x="400" y="563">KB손해보험</text>
+                        <text x="300" y="138">KT</text>
+                        <text x="255" y="357">솔트룩스</text>
+                        <text x="505" y="192">구글</text>
+                        <text x="470" y="401">LG AI연구원</text>
+                        <text x="700" y="245">팔란티어</text>
+                        <text x="48" y="130">스위치원</text>
+                        <text x="58" y="290">애자일소다</text>
+                        <text x="140" y="527">땅집고옥션</text>
+                        <text x="290" y="562">몽고DB</text>
+                        <text x="395" y="167">티오리</text>
+                        <text x="620" y="492">퓨리오사AI</text>
+                        <text x="700" y="537">KAIST</text>
+                        <text x="510" y="522">스몰티켓</text>
                       </g>
                     </svg>
                   </div>
@@ -1887,9 +1972,10 @@ svg text{font-family:var(--font);}
             </div>
           </div>
           <p class="ksd-shot-note">
-            <b>기업 63개 · 연결 16개는 실제 총량</b>이고, 그림에 보이는 <b>기업 12개 · 관계 7건도 실제 등록된 것</b>이다 —
-            캔버스가 확대 · 이동되는 영역이라 한 번에 다 보이지 않아, 관계 이름 여섯 가지가 한 번씩은 나오도록 골라 그렸다.
-            기업명 · 관계 이름 · 유형별 색은 실제 값이며, 근거 뉴스 제목 · 날짜 · 건수는 예시다.
+            <b>기업명 · 관계 이름 · 유형별 색은 실제 값</b>이고, 우측 상단의 기업 63개 · 연결 16개도 현재 실제 규모다.
+            그림의 연결은 <b>관계가 쌓였을 때 이 화면이 어떤 모습이 되는지</b>를 담은 것이라 일부가 예시이며,
+            여러 금융사가 같은 AI 기업으로 모이는 지점에서 관계망이 만들어진다.
+            우측 패널의 근거 뉴스 제목 · 날짜 · 건수도 예시다.
           </p>
 
           <div class="svc-bd">
