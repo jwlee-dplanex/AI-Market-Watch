@@ -34,6 +34,14 @@
       현재 페이지 기준 "?period=…"만 남긴다(새로고침·링크 공유 시 전체 페이지 뷰가 같은 period로 열려야
       하므로). 기본값은 "전체"(services/periods.py DEFAULT_PERIOD)이며 뷰가 유효하지 않은 값은 그 기본값으로
       취급한다(PE 스펙 참고).
+
+      ⚠️ 2026-08-19 PE: "최근 7일" 버튼 조건에 예전엔 "or not period" 폴백이 붙어 있었다. resolve_period()가
+      항상 VALID_PERIODS 안의 값을 반환해 period가 빈 값이 될 수 없으므로 죽은 코드였는데, 하필 문서화된
+      기본값(전체)과 반대 버튼에 붙어 있었다 — 언젠가 뷰를 고쳐 이 보장이 깨지면 "전체가 기본인데 최근 7일이
+      켜진다"는 방향으로 조용히 틀어질 뻔했다. 즉시 틀린 화면은 아니었지만(사용자 확인 결과 "전체"가 정상
+      점등) 살아있는 죽은 코드라 제거했다 — 이 div가 죽지 않게 하려는 안전장치가 필요하다면 resolve_period
+      자체를 신뢰할 수 없다는 뜻이므로 거기서 고쳐야 하고, 템플릿에 방향이 틀린 폴백을 얹는 것으로 대신할
+      수 없다. graph/index.html의 기간 필터에도 동일한 패턴이 있어 함께 제거했다.
     {% endcomment %}
     <div class="flex gap-1 bg-gray-100 rounded-full p-0.5">
       <a href="?period=all"
@@ -60,7 +68,7 @@
          hx-swap="outerHTML"
          hx-push-url="?period=7d"
          class="px-2.5 py-1 text-xs font-medium rounded-full transition-colors
-                {% if period == '7d' or not period %}bg-primary text-white{% else %}text-gray-500 hover:text-gray-700{% endif %}">
+                {% if period == '7d' %}bg-primary text-white{% else %}text-gray-500 hover:text-gray-700{% endif %}">
         최근 7일
       </a>
     </div>

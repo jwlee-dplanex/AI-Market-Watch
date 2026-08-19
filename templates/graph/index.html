@@ -10,7 +10,13 @@
   .edge-label-g text { font-family: "Malgun Gothic", "맑은 고딕", system-ui, sans-serif; }
 </style>
 
-<!-- 기간 필터 — 대시보드·지식그래프 공통 정책(전체/최근 30일/최근 7일), 대시보드·지식그래프 둘 다 기본값은 최근 7일로 통일.
+<!-- 기간 필터 — 대시보드·지식그래프 공통 정책(전체/최근 30일/최근 7일). 기본값은 "전체"
+     (services/periods.py DEFAULT_PERIOD, 2026-08-05부터). 이 주석은 예전에 "둘 다 최근 7일로
+     통일"이라고 적었던 시절 그대로 남아 있었는데 DEFAULT_PERIOD 변경 때 갱신되지 않았다 — 실제로는
+     resolve_period()가 항상 유효한 값을 반환해 selected_period가 비는 경우가 없으므로 아래 "최근
+     7일" 버튼에 붙어 있던 "or not selected_period" 폴백은 죽은 코드였고, 살아났다면 기본값과
+     반대 방향(7일)으로 켜졌을 것이다(2026-08-19 PE, dashboard/_metrics.html과 동일한 패턴이라 함께
+     제거). resolve_period가 항상 보장하므로 폴백 없이도 안전하다.
      news/list.html의 검색·필터 바와 동일하게 <a href="?period=..."> 전체 페이지 GET 재로드 방식을 쓴다
      (HTMX 부분 스왑 대신). 이 화면은 D3 초기화 스크립트가 최상위 const/let 선언을 쓰는데, HTMX로 이
      <script>만 부분 재실행하면 브라우저가 같은 전역 스코프에 const를 두 번 선언하는 SyntaxError를
@@ -27,7 +33,7 @@
               {% if selected_period == '30d' %}bg-primary text-white{% else %}text-gray-600 hover:bg-gray-50{% endif %}">최근 30일</a>
     <a href="?period=7d"
        class="px-3 py-1.5 text-xs font-medium rounded-[8px] transition-colors
-              {% if selected_period == '7d' or not selected_period %}bg-primary text-white{% else %}text-gray-600 hover:bg-gray-50{% endif %}">최근 7일</a>
+              {% if selected_period == '7d' %}bg-primary text-white{% else %}text-gray-600 hover:bg-gray-50{% endif %}">최근 7일</a>
   </div>
 </div>
 
