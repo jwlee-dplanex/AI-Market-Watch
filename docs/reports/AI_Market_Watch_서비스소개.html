@@ -445,12 +445,18 @@ svg text{font-family:var(--font);}
    약 630px → 약 1280px 이 됐다. 실제 앱 뷰포트가 대략 1440px 이므로 지금 목업은
    실물의 약 0.9배다. 그래서 축소 도해가 아니라 "거의 실물 크기"로 잡는다 —
    사이드바 240px→200px, 본문 글자 14px→12.5px 처럼 실제 값에 0.85~0.9를 곱한 수치다.
-   폭이 늘었다고 요소를 더 넣지 않는다. 늘어난 폭은 전부 여백과 글자 크기로 돌린다. */
+   폭이 늘었다고 요소를 더 넣지 않는다. 늘어난 폭은 전부 여백과 글자 크기로 돌린다.
+
+   ⚠️ 여백 (2026-08-19 사용자 요청 "칸에 꽉차게 하는 것보다 조금의 여유공간") — full-bleed 를
+      버리고 좌우 20px(= .svc-bd 의 좌우 패딩과 같은 값)만큼 안쪽으로 들여 카드 위에 "얹혀
+      있는" 형태로 바꿨다. 여백만 주면 경계가 흐려지므로 테두리 · 라운드 · 그림자를 함께
+      줘서 이게 한 장의 "화면"임이 드러나게 한다. 유효 폭은 1280 → 약 1238px 이 되어 실물의
+      0.86배 — 글자 크기는 그대로 둔다(지표 카드 3개가 각 320px 대라 12.5px 제목이 그대로 읽힌다). */
 .ksd-shot{
   --s-line:#E5E5E5; --s-line2:#E5E7EB; --s-soft:#F3F4F6; --s-bg:#F9FAFB;
   --s-ink:#111827; --s-mute:#9CA3AF; --s-mute2:#6B7280; --s-blue:#3B82F6;
-  display:flex; overflow:hidden; background:var(--s-bg);
-  border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+  margin:18px 20px 0; display:flex; overflow:hidden; background:var(--s-bg);
+  border:1px solid var(--line-2); border-radius:12px; box-shadow:var(--shadow-m);
   font-size:12px; line-height:1.5; letter-spacing:-.012em;
 }
 /* 사이드바 (templates/base.html <aside class="w-60 bg-[#401771]">) */
@@ -466,7 +472,7 @@ svg text{font-family:var(--font);}
 .ksd-shot-nav .ft .sv{display:flex;align-items:center;gap:10px;margin-top:12px;padding:12px 10px 0;border-top:1px solid rgba(255,255,255,.1);font-size:11px;font-weight:700;color:rgba(255,255,255,.7);}
 .ksd-shot-nav .ft .lc{margin-top:12px;padding:11px 10px 0;border-top:1px solid rgba(255,255,255,.1);}
 .ksd-shot-nav .ft .lc em{display:block;font-style:normal;font-size:10px;font-weight:700;color:rgba(255,255,255,.4);}
-.ksd-shot-nav .ft .lc i{display:block;margin-top:5px;height:5px;width:56px;border-radius:3px;background:rgba(255,255,255,.28);}
+.ksd-shot-nav .ft .lc b{display:block;margin-top:3px;font-size:10px;font-weight:700;color:rgba(255,255,255,.7);}
 /* 본문 영역 (헤더 + main) */
 .ksd-shot-main{flex:1;min-width:0;display:flex;flex-direction:column;}
 .ksd-shot-hd{display:flex;align-items:center;gap:10px;padding:12px 20px;background:#fff;border-bottom:1px solid var(--s-line2);}
@@ -496,6 +502,11 @@ svg text{font-family:var(--font);}
 .ksd-shot .s-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
 .ksd-shot .s-top > .s-ttl{flex:1;}
 .ksd-shot .s-lst{display:flex;flex-direction:column;gap:8px;margin-top:10px;}
+/* 접힌 이슈 본문 미리보기 — 실제 화면은 line-clamp-1 이라 정확히 한 줄에서 잘린다 */
+.ksd-shot .s-pv{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  font-size:12px;font-weight:500;color:#374151;line-height:1.62;letter-spacing:-.015em;}
+/* 메타 줄의 회색 잔글씨 (날짜, "관련 기사 N건") */
+.ksd-shot .s-mt{font-size:10.5px;font-weight:600;color:var(--s-mute);white-space:nowrap;}
 /* 목록 한 줄짜리 제목·날짜 ("최신 뉴스" 카드, 보고서 목록의 참고 뉴스 등) */
 .ksd-shot .s-nt{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
   font-size:11px;font-weight:600;letter-spacing:-.02em;color:var(--s-ink);line-height:1.5;}
@@ -513,6 +524,9 @@ svg text{font-family:var(--font);}
 .ksd-shot .s-rk{display:flex;align-items:center;gap:7px;}
 .ksd-shot .s-rk > em{font-style:normal;width:11px;text-align:right;flex:none;font-size:10px;font-weight:800;color:var(--s-mute);}
 .ksd-shot .s-rk > .s-bar{flex:none;}
+/* 순위 행의 이름 칸 — 실제 화면은 w-24(96px) 고정 폭에 말줄임 없이 자연 줄바꿈 */
+.ksd-shot .s-nm{width:82px;flex:none;font-size:11px;font-weight:600;color:#374151;line-height:1.3;letter-spacing:-.02em;}
+.ksd-shot .s-ct{width:16px;flex:none;text-align:right;font-size:10px;font-weight:600;color:var(--s-mute);}
 .ksd-shot .s-track{flex:1;height:6px;border-radius:99px;background:var(--s-soft);overflow:hidden;}
 .ksd-shot .s-track i{display:block;height:100%;border-radius:99px;background:var(--violet-800);}
 .ksd-shot .s-track i.fin{background:var(--s-blue);}
@@ -527,9 +541,16 @@ svg text{font-family:var(--font);}
 .ksd-shot .s-chart{width:100%;height:auto;margin-top:8px;}
 .ksd-shot .s-g21{display:grid;grid-template-columns:2fr 1fr;gap:11px;}
 .ksd-shot .s-g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px;margin-top:8px;}
-/* 목업 아래 한 줄 — "실제 화면에서 무엇을 줄였는지"를 그림 옆에서 바로 밝힌다 */
-.ksd-shot-note{padding:11px 20px;background:#fff;border-bottom:1px solid var(--line);
-  font-size:11.5px;font-weight:700;color:var(--muted);line-height:1.62;}
+/* 목업 아래 한 줄 — "무엇이 실제 값이고 무엇이 예시인지"를 그림 옆에서 바로 밝힌다.
+   같은 카드 안 .svc-fn 과 완전히 같은 형태를 쓴다(새 시각 요소를 만들지 않음). */
+.ksd-shot-note{margin:12px 20px 0;padding:10px 13px;border-radius:var(--radius-s);
+  background:var(--bg-soft);border:1px solid var(--line);
+  font-size:11.5px;font-weight:600;color:var(--muted);line-height:1.62;}
+/* 화면 구성 절 전체에 붙는 예시 데이터 고지 — 2.7 운영 사례(실측)와 성격이 다름을 밝힌다 */
+.svc-demo{margin-top:16px;padding:11px 15px;border-radius:var(--radius-s);
+  background:var(--lav-050);border:1px solid var(--lav-200);
+  font-size:12.5px;font-weight:700;color:var(--violet-900);line-height:1.68;}
+.svc-demo b{color:var(--violet-800);}
 
 @media (max-width:700px){ .ksd-shot-nav{display:none;} }
 
@@ -1248,6 +1269,12 @@ svg text{font-family:var(--font);}
           다섯 개 화면으로 구성한다. 화면마다 별도의 자료를 만들지 않고,
           <b>같은 처리 결과를 각 화면의 관점으로</b> 보여 준다.
         </p>
+        <p class="svc-demo">
+          ※ 아래 그림은 각 화면의 <b>배치를 보여 주기 위한 것</b>이다.
+          화면 이름 · 항목 이름 · 버튼은 실제 화면 그대로이고 이슈 제목 · 뉴스 제목 · 기업명도 실제 값이지만,
+          <b>수치는 예시</b>이며 목록은 앞 몇 행만 그린 것이다. 그림마다 무엇이 실제 값인지 아래에 밝혀 둔다.
+          실측 기록은 2.7 운영 사례에 있다.
+        </p>
       </div>
 
       <!-- 목업 아이콘 스프라이트 — 실제 화면이 쓰는 Lucide 아이콘 원본 path 를 그대로 옮겼다
@@ -1286,7 +1313,7 @@ svg text{font-family:var(--font);}
               </ul>
               <div class="ft">
                 <div class="sv"><svg class="ic"><use href="#nvInfo"/></svg>서비스 소개</div>
-                <div class="lc"><em>마지막 수집</em><i></i></div>
+                <div class="lc"><em>마지막 수집</em><b>08/19 09:00</b></div>
               </div>
             </div>
 
@@ -1304,23 +1331,23 @@ svg text{font-family:var(--font);}
                     <div class="s-card s-hl s-pad">
                       <div class="s-top">
                         <span class="s-ttl">KT가 NH농협은행 차세대 AICC 구축 완료 — AI 직접 처리 상담 업무 45개에서 180개로 확대</span>
-                        <span class="s-meta"><span class="s-gr">1급</span><span class="s-bar d" style="width:32px"></span><svg class="s-cv"><use href="#nvChev"/></svg></span>
+                        <span class="s-meta"><span class="s-gr">1급</span><span class="s-mt">08/12</span><span class="s-mt">관련 기사 3건</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
                       </div>
-                      <div class="s-div"><span class="s-bar" style="width:82%"></span></div>
+                      <div class="s-div"><span class="s-pv">KT가 NH농협은행 차세대 AICC 구축을 완료했다. AI가 직접 처리하는 상담 업무가 45개에서 180개로 늘면서 상담사 연결 없이 끝나는 문의 비중이 커졌다.</span></div>
                     </div>
                     <div class="s-card s-hl s-pad">
                       <div class="s-top">
                         <span class="s-ttl">현대해상이 전체 보험계약의 절반 이상을 AI 자동 심사로, DB손해보험은 심사 시간을 4분의 1로 단축</span>
-                        <span class="s-meta"><span class="s-gr">1급</span><span class="s-bar d" style="width:32px"></span><svg class="s-cv"><use href="#nvChev"/></svg></span>
+                        <span class="s-meta"><span class="s-gr">1급</span><span class="s-mt">08/15</span><span class="s-mt">관련 기사 2건</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
                       </div>
-                      <div class="s-div"><span class="s-bar" style="width:74%"></span></div>
+                      <div class="s-div"><span class="s-pv">현대해상이 전체 보험계약의 절반 이상을 AI 자동 심사로 처리하고 있고, DB손해보험은 심사에 걸리던 시간을 4분의 1로 줄였다.</span></div>
                     </div>
                     <div class="s-card s-hl s-pad">
                       <div class="s-top">
                         <span class="s-ttl">카카오페이손해보험이 보험금 청구 24시간 내 지급분에 소요 시간 알림 — 해외여행보험 45%가 1분 이내</span>
-                        <span class="s-meta"><span class="s-gr">1급</span><span class="s-bar d" style="width:32px"></span><svg class="s-cv"><use href="#nvChev"/></svg></span>
+                        <span class="s-meta"><span class="s-gr">1급</span><span class="s-mt">08/18</span><span class="s-mt">관련 기사 1건</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
                       </div>
-                      <div class="s-div"><span class="s-bar" style="width:88%"></span></div>
+                      <div class="s-div"><span class="s-pv">카카오페이손해보험이 보험금 청구 후 24시간 안에 지급된 건에 대해 실제 소요 시간을 알려 준다. 해외여행보험은 45%가 1분 이내에 지급됐다.</span></div>
                     </div>
                   </div>
                 </div>
@@ -1336,30 +1363,30 @@ svg text{font-family:var(--font);}
                       <div class="s-card s-pad">
                         <div class="s-top">
                           <span class="s-ttl tr">대상웰라이프와 한화생명금융서비스가 건강데이터 기반 보험설계 업무협약 체결</span>
-                          <span class="s-meta"><span class="s-gr g2">2급</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
+                          <span class="s-meta"><span class="s-gr g2">2급</span><span class="s-mt">08/19</span><span class="s-mt">관련 기사 1건</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
                         </div>
-                        <div class="s-div"><span class="s-bar" style="width:79%"></span></div>
+                        <div class="s-div"><span class="s-pv">대상웰라이프와 한화생명금융서비스가 건강데이터를 보험설계에 활용하는 업무협약을 맺었다.</span></div>
                       </div>
                       <div class="s-card s-pad">
                         <div class="s-top">
                           <span class="s-ttl tr">다올금융그룹이 투자 서비스와 내부 업무로 AX 확대 — MCP 트레이딩 구축 추진</span>
-                          <span class="s-meta"><span class="s-gr g2">2급</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
+                          <span class="s-meta"><span class="s-gr g2">2급</span><span class="s-mt">08/18</span><span class="s-mt">관련 기사 1건</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
                         </div>
-                        <div class="s-div"><span class="s-bar" style="width:68%"></span></div>
+                        <div class="s-div"><span class="s-pv">다올금융그룹이 투자 서비스와 내부 업무 양쪽으로 AX를 확대하며 MCP 기반 트레이딩 환경 구축을 추진한다.</span></div>
                       </div>
                       <div class="s-card s-pad">
                         <div class="s-top">
                           <span class="s-ttl tr">AI 오류로 난 손해는 현행 보험으로 보상 못 받는다 — 삼성화재 "AI 관련 특약 검토 중"</span>
-                          <span class="s-meta"><span class="s-gr g3">3급</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
+                          <span class="s-meta"><span class="s-gr g3">3급</span><span class="s-mt">08/15</span><span class="s-mt">관련 기사 1건</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
                         </div>
-                        <div class="s-div"><span class="s-bar" style="width:84%"></span></div>
+                        <div class="s-div"><span class="s-pv">AI 오류로 발생한 손해는 현행 보험 약관으로 보상받기 어렵다. 삼성화재는 AI 관련 특약을 검토 중이라고 밝혔다.</span></div>
                       </div>
                       <div class="s-card s-pad">
                         <div class="s-top">
                           <span class="s-ttl tr">한화생명 'AI STS' 사용 설계사 2만8,000명 — 인당 건강보험 월평균 판매실적 미사용자 대비 40% 이상</span>
-                          <span class="s-meta"><span class="s-gr g3">3급</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
+                          <span class="s-meta"><span class="s-gr g3">3급</span><span class="s-mt">08/13</span><span class="s-mt">관련 기사 1건</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
                         </div>
-                        <div class="s-div"><span class="s-bar" style="width:73%"></span></div>
+                        <div class="s-div"><span class="s-pv">한화생명 'AI STS'를 쓰는 설계사가 2만8,000명으로 늘었고, 인당 건강보험 월평균 판매실적이 미사용자보다 40% 이상 높았다.</span></div>
                       </div>
                     </div>
                   </div>
@@ -1395,20 +1422,30 @@ svg text{font-family:var(--font);}
                 <div>
                   <div class="s-hdr">
                     <span class="s-h">핵심 지표</span>
-                    <!-- 기간 필터는 "최근 7일"을 선택한 상태로 그린다: 이 필터가 곧 버킷 단위를
-                         결정하므로(_metrics.html), 7일이어야 옆 카드 제목이 "일별"로 확정된다 -->
-                    <span class="s-pills"><i>전체</i><i>최근 30일</i><i class="on">최근 7일</i></span>
+                    <!-- 기간 필터는 화면을 처음 열었을 때 그대로인 "전체"가 켜진 상태로 그린다
+                         (services/periods.py DEFAULT_PERIOD = "all", 사용자 화면 확인 완료). -->
+                    <span class="s-pills"><i class="on">전체</i><i>최근 30일</i><i>최근 7일</i></span>
                   </div>
                   <div class="s-g3">
                     <div class="s-card s-pad">
-                      <div class="s-h">일별 뉴스 건수 추이<span class="s-q">?</span></div>
+                      <div class="s-h">주별 뉴스 건수 추이<span class="s-q">?</span></div>
                       <!-- 좌표계·패딩은 실제 차트(_metrics.html)를 그대로 따랐다:
                            viewBox 300×100, PAD_LEFT 16 / PAD_RIGHT 6 / PAD_TOP 8 / PAD_BOTTOM 18,
                            눈금선 y=8·45(점선) y=82(실선), 곡선은 "수평 탄젠트" 베지어, 마지막 점만
                            채운 보라(오늘 지점)·나머지는 흰 채움 + 회색 테두리.
-                           ⚠️ 일별 실제 건수는 조회하지 않았으므로 y 값은 값 주장이 아니다 —
-                              그래서 y축 눈금 숫자와 x축 날짜도 숫자 대신 흐린 막대로 뒀다. -->
-                      <svg class="s-chart" viewBox="0 0 300 100" aria-hidden="true">
+
+                           ⚠️ 버킷 단위 — 기간이 "전체"면 apps/dashboard/views.py 가
+                              bucket_unit 을 "day"가 아니라 "week"(수집 전 기간이 364일 이하일 때)
+                              로 잡는다. 그래서 카드 제목이 "주별"이고, 점 하나가 오늘부터 거꾸로
+                              굴린 7일 롤링 윈도우 하나다(_build_rolling_buckets). x축 라벨은 그
+                              윈도우의 시작일이다 — 마지막 점 라벨이 오늘(08/19)이 아니라 08/13인
+                              이유가 이것이다. 라벨 솎아내기 interval = round(n/6) 이므로 n=7 이면
+                              7개 전부 표시되고, 점 크기도 15개 이하라 축소되지 않는다.
+
+                           ⚠️ 주별 건수는 예시값이다(9·14·21·18·26·23·22). 합이 정확히 133 —
+                              검증 완료 뉴스 실제 총량과 같게 맞췄다. y축 최댓값(26)·중간값(13)도
+                              그 값에서 나온다. 주 수(7)는 실제 수집 시작일을 확인하지 못해 예시다. -->
+                      <svg class="s-chart" viewBox="-7 0 314 100" aria-hidden="true">
                         <defs>
                           <linearGradient id="sTrendFill" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stop-color="#60269E" stop-opacity=".18"/>
@@ -1419,19 +1456,27 @@ svg text{font-family:var(--font);}
                         <line x1="16" y1="45" x2="294" y2="45" stroke="#EDEDED" stroke-width="1" stroke-dasharray="2 3"/>
                         <line x1="16" y1="82" x2="294" y2="82" stroke="#E5E5E5" stroke-width="1"/>
                         <line x1="16" y1="8" x2="16" y2="82" stroke="#E5E5E5" stroke-width="1"/>
+                        <!-- x축 눈금선은 날짜 라벨이 붙는 지점에만 그린다(실제 화면 규칙).
+                             버킷이 7개면 interval=1 이라 7개 전부에 라벨이 붙는다. -->
                         <g stroke="#E5E5E5" stroke-width="1">
-                          <line x1="16" y1="82" x2="16" y2="86"/><line x1="155" y1="82" x2="155" y2="86"/><line x1="294" y1="82" x2="294" y2="86"/>
+                          <line x1="16" y1="82" x2="16" y2="86"/><line x1="62.33" y1="82" x2="62.33" y2="86"/><line x1="108.67" y1="82" x2="108.67" y2="86"/>
+                          <line x1="155" y1="82" x2="155" y2="86"/><line x1="201.33" y1="82" x2="201.33" y2="86"/><line x1="247.67" y1="82" x2="247.67" y2="86"/>
+                          <line x1="294" y1="82" x2="294" y2="86"/>
                         </g>
-                        <path d="M16,58 C39.17,58 39.17,34 62.33,34 C85.5,34 85.5,66 108.67,66 C131.83,66 131.83,44 155,44 C178.17,44 178.17,60 201.33,60 C224.5,60 224.5,28 247.67,28 C270.83,28 270.83,46 294,46 L294,82 L16,82 Z" fill="url(#sTrendFill)"/>
-                        <path d="M16,58 C39.17,58 39.17,34 62.33,34 C85.5,34 85.5,66 108.67,66 C131.83,66 131.83,44 155,44 C178.17,44 178.17,60 201.33,60 C224.5,60 224.5,28 247.67,28 C270.83,28 270.83,46 294,46" fill="none" stroke="#60269E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M16,56.4 C39.17,56.4 39.17,42.2 62.33,42.2 C85.5,42.2 85.5,22.2 108.67,22.2 C131.83,22.2 131.83,30.8 155,30.8 C178.17,30.8 178.17,8 201.33,8 C224.5,8 224.5,16.5 247.67,16.5 C270.83,16.5 270.83,19.4 294,19.4 L294,82 L16,82 Z" fill="url(#sTrendFill)"/>
+                        <path d="M16,56.4 C39.17,56.4 39.17,42.2 62.33,42.2 C85.5,42.2 85.5,22.2 108.67,22.2 C131.83,22.2 131.83,30.8 155,30.8 C178.17,30.8 178.17,8 201.33,8 C224.5,8 224.5,16.5 247.67,16.5 C270.83,16.5 270.83,19.4 294,19.4" fill="none" stroke="#60269E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                         <g fill="#fff" stroke="#D1D5DB" stroke-width="1.2">
-                          <circle cx="16" cy="58" r="2.6"/><circle cx="62.33" cy="34" r="2.6"/><circle cx="108.67" cy="66" r="2.6"/>
-                          <circle cx="155" cy="44" r="2.6"/><circle cx="201.33" cy="60" r="2.6"/><circle cx="247.67" cy="28" r="2.6"/>
+                          <circle cx="16" cy="56.4" r="2.6"/><circle cx="62.33" cy="42.2" r="2.6"/><circle cx="108.67" cy="22.2" r="2.6"/>
+                          <circle cx="155" cy="30.8" r="2.6"/><circle cx="201.33" cy="8" r="2.6"/><circle cx="247.67" cy="16.5" r="2.6"/>
                         </g>
-                        <circle cx="294" cy="46" r="2.9" fill="#60269E" stroke="#60269E" stroke-width="1.2"/>
-                        <g fill="#E9E7EF">
-                          <rect x="2" y="6" width="11" height="4" rx="2"/><rect x="2" y="43" width="11" height="4" rx="2"/><rect x="2" y="80" width="11" height="4" rx="2"/>
-                          <rect x="6" y="90" width="20" height="4" rx="2"/><rect x="145" y="90" width="20" height="4" rx="2"/><rect x="274" y="90" width="20" height="4" rx="2"/>
+                        <circle cx="294" cy="19.4" r="2.9" fill="#60269E" stroke="#60269E" stroke-width="1.2"/>
+                        <g font-size="9" font-weight="700" fill="#9CA3AF" text-anchor="end">
+                          <text x="13" y="11">26</text><text x="13" y="48">13</text><text x="13" y="85">0</text>
+                        </g>
+                        <g font-size="9" font-weight="600" fill="#9CA3AF" text-anchor="middle">
+                          <text x="16" y="95">07/02</text><text x="62.33" y="95">07/09</text><text x="108.67" y="95">07/16</text>
+                          <text x="155" y="95">07/23</text><text x="201.33" y="95">07/30</text><text x="247.67" y="95">08/06</text>
+                          <text x="294" y="95" font-weight="800" fill="#60269E">08/13</text>
                         </g>
                       </svg>
                     </div>
@@ -1443,23 +1488,27 @@ svg text{font-family:var(--font);}
                           <span><b class="fin"></b>금융사</span><span><b class="ins"></b>보험사</span><span><b class="ai"></b>AI</span>
                         </span>
                       </div>
+                      <!-- 기업명은 실제 등록 기업(63곳)에서 가져왔고 유형별 색도 실제 규칙을 따른다.
+                           건수는 예시값이며 검증 완료 133건 안에서 앞뒤가 맞는 규모로 잡았다. -->
                       <div class="s-lst" style="gap:9px">
-                        <div class="s-rk"><em>1</em><span class="s-bar" style="width:68px"></span><span class="s-track"><i class="ins" style="width:100%"></i></span><span class="s-bar d" style="width:13px"></span></div>
-                        <div class="s-rk"><em>2</em><span class="s-bar" style="width:68px"></span><span class="s-track"><i class="fin" style="width:78%"></i></span><span class="s-bar d" style="width:13px"></span></div>
-                        <div class="s-rk"><em>3</em><span class="s-bar" style="width:68px"></span><span class="s-track"><i style="width:61%"></i></span><span class="s-bar d" style="width:13px"></span></div>
-                        <div class="s-rk"><em>4</em><span class="s-bar" style="width:68px"></span><span class="s-track"><i class="ins" style="width:44%"></i></span><span class="s-bar d" style="width:13px"></span></div>
-                        <div class="s-rk"><em>5</em><span class="s-bar" style="width:68px"></span><span class="s-track"><i class="fin" style="width:32%"></i></span><span class="s-bar d" style="width:13px"></span></div>
+                        <div class="s-rk"><em>1</em><span class="s-nm">NH농협은행</span><span class="s-track"><i class="fin" style="width:100%"></i></span><span class="s-ct">14</span></div>
+                        <div class="s-rk"><em>2</em><span class="s-nm">삼성화재</span><span class="s-track"><i class="ins" style="width:86%"></i></span><span class="s-ct">12</span></div>
+                        <div class="s-rk"><em>3</em><span class="s-nm">한화생명</span><span class="s-track"><i class="ins" style="width:79%"></i></span><span class="s-ct">11</span></div>
+                        <div class="s-rk"><em>4</em><span class="s-nm">KB국민은행</span><span class="s-track"><i class="fin" style="width:64%"></i></span><span class="s-ct">9</span></div>
+                        <div class="s-rk"><em>5</em><span class="s-nm">KT</span><span class="s-track"><i style="width:57%"></i></span><span class="s-ct">8</span></div>
                       </div>
                     </div>
 
                     <div class="s-card s-pad">
                       <div class="s-h">기술 주제별 언급 건수<span class="s-q">?</span></div>
+                      <!-- 주제명은 실제 등록된 기술 주제 19개에서 가져왔다. 건수는 예시값 —
+                           한 기사에 여러 주제가 붙을 수 있어 합이 133을 넘지 않는 선으로 잡았다. -->
                       <div class="s-lst" style="gap:9px">
-                        <div class="s-rk"><em>1</em><span class="s-bar" style="width:68px"></span><span class="s-track"><i class="tec" style="width:100%"></i></span><span class="s-bar d" style="width:13px"></span></div>
-                        <div class="s-rk"><em>2</em><span class="s-bar" style="width:68px"></span><span class="s-track"><i class="tec" style="width:72%"></i></span><span class="s-bar d" style="width:13px"></span></div>
-                        <div class="s-rk"><em>3</em><span class="s-bar" style="width:68px"></span><span class="s-track"><i class="tec" style="width:55%"></i></span><span class="s-bar d" style="width:13px"></span></div>
-                        <div class="s-rk"><em>4</em><span class="s-bar" style="width:68px"></span><span class="s-track"><i class="tec" style="width:38%"></i></span><span class="s-bar d" style="width:13px"></span></div>
-                        <div class="s-rk"><em>5</em><span class="s-bar" style="width:68px"></span><span class="s-track"><i class="tec" style="width:24%"></i></span><span class="s-bar d" style="width:13px"></span></div>
+                        <div class="s-rk"><em>1</em><span class="s-nm">생성형 AI</span><span class="s-track"><i class="tec" style="width:100%"></i></span><span class="s-ct">31</span></div>
+                        <div class="s-rk"><em>2</em><span class="s-nm">AI 상담</span><span class="s-track"><i class="tec" style="width:71%"></i></span><span class="s-ct">22</span></div>
+                        <div class="s-rk"><em>3</em><span class="s-nm">여신심사</span><span class="s-track"><i class="tec" style="width:55%"></i></span><span class="s-ct">17</span></div>
+                        <div class="s-rk"><em>4</em><span class="s-nm">AI 에이전트</span><span class="s-track"><i class="tec" style="width:48%"></i></span><span class="s-ct">15</span></div>
+                        <div class="s-rk"><em>5</em><span class="s-nm">사기탐지</span><span class="s-track"><i class="tec" style="width:39%"></i></span><span class="s-ct">12</span></div>
                       </div>
                     </div>
                   </div>
@@ -1469,9 +1518,10 @@ svg text{font-family:var(--font);}
             </div>
           </div>
           <p class="ksd-shot-note">
-            헤드라인 · 주요 이슈의 <b>제목과 등급</b>, 최신 뉴스의 <b>제목과 발행일</b>은 실제 값이다. 목록 길이만 줄였다 —
-            헤드라인 3건은 실제 상한이고, 주요 이슈 · 최신 뉴스 · 순위는 스크롤되는 목록에서 앞 4~5행만 그렸다.
-            <b>확인하지 못한 값</b>(일별 건수 · 순위 기업명과 건수 · 이슈 본문)은 지어내지 않고 흐린 막대로 뒀다.
+            헤드라인 · 주요 이슈의 <b>제목과 등급</b>, 최신 뉴스의 <b>제목과 발행일</b>, 순위에 오른 <b>기업명 · 기술 주제명</b>은 실제 값이다.
+            <b>건수는 예시</b>이며 주별 추이 합계는 검증 완료 뉴스 실제 총량(133건)에 맞췄다.
+            목록 길이만 줄였다 — 헤드라인 3건은 실제 상한이고, 주요 이슈 · 최신 뉴스 · 순위는 스크롤되는 목록에서 앞 4~5행만 그렸다.
+            헤드라인에 오른 이슈는 아래 주요 이슈 목록에 다시 나오지 않는다.
           </p>
 
           <div class="svc-bd">
