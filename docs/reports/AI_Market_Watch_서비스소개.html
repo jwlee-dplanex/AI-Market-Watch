@@ -419,6 +419,109 @@ svg text{font-family:var(--font);}
 .reject p{margin-top:6px;font-size:13px;font-weight:700;color:var(--violet-900);line-height:1.66;}
 .reject p + p{margin-top:7px;font-weight:600;color:var(--ink-2);}
 
+/* ------------------------------------------------------------
+   2.2~2.6 화면 목업 — .ksd-shot*
+   ------------------------------------------------------------
+   접두사를 2.7 씬 플레이어(.ksd-*)와 맞추되 뒤에 -shot 을 붙여 갈래를 나눈다.
+   왜 재사용이 아니라 확장인가 — 2.7의 .ksd-frame/.ksd-screen 은 "어두운 무대 위에서
+   시간 순서로 재생되는 한 장면"을 담는 그릇이라 흰 카드 위에 그대로 얹으면 테두리가
+   없어 화면 경계가 사라진다. 2.2~2.6은 그와 반대로 "정지된 화면 다섯 개를 나란히
+   보는" 것이고, 보여줘야 할 것도 장면이 아니라 templates/base.html 의 실제 앱 크롬
+   (좌측 사이드바 + 상단 헤더 + 본문)이다. 그래서 재생 크롬(무대·상태 배지·컨트롤바)은
+   일절 쓰지 않는다 — 2.7과 같아 보이면 안 된다는 조건이기도 하다.
+   내부 원자는 .s-* 로 짧게 두되 전부 .ksd-shot 아래로만 스코프한다(문서 전역 클래스와
+   충돌 금지).
+
+   ⚠️ 애니메이션 없음. 화면이 어떻게 생겼는지 보여주는 게 목적이라 증명할 주장이 없고,
+      목업 다섯 개가 동시에 움직이면 그것만으로 과부하다(§4.7). 카드 등장(.rv)만 상위에서
+      상속된다.
+   ⚠️ 색은 실제 앱 토큰을 그대로 쓴다 — primary #60269E / accent #93D500 / teal #00AF9A /
+      사이드바 #401771 / 카드 테두리 #E5E5E5. 금융사 파랑(#3B82F6)·회색 계열은 이 문서
+      팔레트에 없는 Tailwind 기본값이라 리터럴로 둔다(앱 화면과 다른 색이면 안 되므로).
+   ------------------------------------------------------------ */
+.ksd-shot{
+  --s-line:#E5E5E5; --s-line2:#E5E7EB; --s-soft:#F3F4F6; --s-bg:#F9FAFB;
+  --s-ink:#111827; --s-mute:#9CA3AF; --s-mute2:#6B7280; --s-blue:#3B82F6;
+  display:flex; overflow:hidden; background:var(--s-bg);
+  border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+  font-size:10px; line-height:1.45; letter-spacing:-.012em;
+}
+/* 사이드바 (templates/base.html <aside class="w-60 bg-[#401771]">) */
+.ksd-shot-nav{width:104px;flex:none;background:#401771;display:flex;flex-direction:column;padding:9px 7px;}
+.ksd-shot-nav .bd{padding:0 5px 8px;border-bottom:1px solid rgba(255,255,255,.1);}
+.ksd-shot-nav .bd em{display:block;font-style:normal;font-size:7px;font-weight:800;letter-spacing:.17em;color:rgba(255,255,255,.55);}
+.ksd-shot-nav .bd b{display:block;margin-top:3px;font-size:9.5px;font-weight:800;letter-spacing:-.03em;color:#fff;}
+.ksd-shot-nav ul{margin-top:7px;display:flex;flex-direction:column;gap:2px;}
+.ksd-shot-nav li{display:flex;align-items:center;gap:6px;padding:4px 5px;border-radius:6px;font-size:8.5px;font-weight:700;color:rgba(255,255,255,.7);}
+.ksd-shot-nav li.on{background:rgba(255,255,255,.2);color:#fff;}
+.ksd-shot-nav .ic{width:10px;height:10px;flex:none;fill:none;stroke:currentColor;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round;}
+.ksd-shot-nav .ft{margin-top:auto;}
+.ksd-shot-nav .ft .sv{display:flex;align-items:center;gap:6px;margin-top:7px;padding:7px 5px 0;border-top:1px solid rgba(255,255,255,.1);font-size:8px;font-weight:700;color:rgba(255,255,255,.7);}
+.ksd-shot-nav .ft .lc{margin-top:7px;padding:6px 5px 0;border-top:1px solid rgba(255,255,255,.1);}
+.ksd-shot-nav .ft .lc em{display:block;font-style:normal;font-size:7.5px;font-weight:700;color:rgba(255,255,255,.4);}
+.ksd-shot-nav .ft .lc i{display:block;margin-top:3px;height:4px;width:34px;border-radius:2px;background:rgba(255,255,255,.28);}
+/* 본문 영역 (헤더 + main) */
+.ksd-shot-main{flex:1;min-width:0;display:flex;flex-direction:column;}
+.ksd-shot-hd{display:flex;align-items:center;gap:8px;padding:7px 11px;background:#fff;border-bottom:1px solid var(--s-line2);}
+.ksd-shot-hd b{font-size:10.5px;font-weight:800;letter-spacing:-.028em;color:var(--s-ink);}
+.ksd-shot-hd .act{margin-left:auto;display:flex;align-items:center;gap:5px;}
+.ksd-shot-bd{flex:1;min-height:0;padding:10px 11px;display:flex;flex-direction:column;gap:8px;}
+/* 공통 원자 */
+.ksd-shot .s-card{background:#fff;border:1px solid var(--s-line);border-radius:7px;box-shadow:0 1px 2px rgba(39,38,57,.05);}
+.ksd-shot .s-pad{padding:8px 9px;}
+.ksd-shot .s-h{display:flex;align-items:center;gap:4px;font-size:9px;font-weight:800;letter-spacing:-.025em;color:var(--s-ink);}
+.ksd-shot .s-hdr{display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;}
+.ksd-shot .s-q{width:9px;height:9px;border-radius:50%;background:var(--s-soft);color:var(--s-mute);font-size:6.5px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex:none;}
+.ksd-shot .s-link{font-size:7.5px;font-weight:700;color:var(--violet-800);}
+/* 값 추상화용 흐린 막대 — 실제 코드에서 확인하지 못한 값은 숫자·문구를 짓지 않고 이걸로 둔다 */
+.ksd-shot .s-bar{display:block;height:4px;border-radius:2px;background:#E9E7EF;}
+.ksd-shot .s-bar.d{background:var(--s-soft);}
+.ksd-shot .s-div{margin-top:4px;padding-top:4px;border-top:1px solid var(--s-soft);}
+.ksd-shot .s-meta{display:flex;align-items:center;gap:4px;flex:none;}
+.ksd-shot .s-gr{font-size:7px;font-weight:800;border-radius:99px;padding:1px 5px;background:rgba(96,38,158,.1);color:var(--violet-800);white-space:nowrap;}
+.ksd-shot .s-gr.g2{background:rgba(0,175,154,.1);color:#00AF9A;}
+.ksd-shot .s-gr.g3{background:var(--s-soft);color:var(--s-mute2);}
+.ksd-shot .s-cv{width:8px;height:8px;flex:none;fill:none;stroke:var(--s-mute);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;}
+.ksd-shot .s-ttl{font-size:8.5px;font-weight:800;letter-spacing:-.025em;color:var(--s-ink);line-height:1.42;min-width:0;}
+/* .tr = 실제 화면에서 truncate 가 걸린 제목("주요 이슈" 목록). 헤드라인 카드 제목은
+   2026-08-06에 truncate 를 뺐으므로 이 modifier 를 붙이지 않는다 — 두 자리의 차이가 실제 차이다. */
+.ksd-shot .s-ttl.tr{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ksd-shot .s-top{display:flex;align-items:flex-start;justify-content:space-between;gap:6px;}
+.ksd-shot .s-top > .s-ttl{flex:1;}
+.ksd-shot .s-lst{display:flex;flex-direction:column;gap:5px;margin-top:6px;}
+/* 헤드라인 트레이 (bg-gradient-to-r from-primary/5 via-white to-accent/5, border-primary/15) */
+.ksd-shot .s-tray{border:1px solid rgba(96,38,158,.15);border-radius:8px;padding:8px 9px;
+  background:linear-gradient(90deg,rgba(96,38,158,.05),#fff 52%,rgba(147,213,0,.05));}
+.ksd-shot .s-fl{width:9px;height:9px;flex:none;fill:none;stroke:var(--violet-800);stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round;}
+.ksd-shot .s-hl{border-left:3px solid var(--violet-800);}
+/* 기간 필터 pill (bg-gray-100 rounded-full p-0.5 / 선택 시 bg-primary text-white) */
+.ksd-shot .s-pills{display:flex;gap:2px;background:var(--s-soft);border-radius:99px;padding:1.5px;}
+.ksd-shot .s-pills i{font-style:normal;font-size:7px;font-weight:700;padding:2px 6px;border-radius:99px;color:var(--s-mute2);}
+.ksd-shot .s-pills i.on{background:var(--violet-800);color:#fff;}
+/* 랭킹 행 (rank · 이름 · 막대 · 건수) */
+.ksd-shot .s-rk{display:flex;align-items:center;gap:4px;}
+.ksd-shot .s-rk > em{font-style:normal;width:7px;text-align:right;flex:none;font-size:7px;font-weight:800;color:var(--s-mute);}
+.ksd-shot .s-rk > .s-bar{flex:none;}
+.ksd-shot .s-track{flex:1;height:4px;border-radius:99px;background:var(--s-soft);overflow:hidden;}
+.ksd-shot .s-track i{display:block;height:100%;border-radius:99px;background:var(--violet-800);}
+.ksd-shot .s-track i.fin{background:var(--s-blue);}
+.ksd-shot .s-track i.ins{background:#00AF9A;}
+.ksd-shot .s-track i.tec{background:#93D500;}
+.ksd-shot .s-lgd{display:flex;align-items:center;gap:7px;}
+.ksd-shot .s-lgd span{display:inline-flex;align-items:center;gap:3px;font-size:7px;font-weight:700;color:var(--s-mute2);border-bottom:1px dashed #D1D5DB;}
+.ksd-shot .s-lgd b{width:5px;height:5px;border-radius:50%;display:block;flex:none;}
+.ksd-shot .s-lgd b.fin{background:var(--s-blue);}
+.ksd-shot .s-lgd b.ins{background:#00AF9A;}
+.ksd-shot .s-lgd b.ai{background:var(--violet-800);}
+.ksd-shot .s-chart{width:100%;height:auto;margin-top:5px;}
+.ksd-shot .s-g21{display:grid;grid-template-columns:2fr 1fr;gap:7px;}
+.ksd-shot .s-g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:5px;}
+/* 목업 아래 한 줄 — "실제 화면에서 무엇을 줄였는지"를 그림 옆에서 바로 밝힌다 */
+.ksd-shot-note{padding:9px 20px;background:#fff;border-bottom:1px solid var(--line);
+  font-size:11px;font-weight:700;color:var(--muted);line-height:1.6;}
+
+@media (max-width:560px){ .ksd-shot-nav{display:none;} }
+
 .legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;}
 .lg{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;font-weight:800;color:var(--ink-2);letter-spacing:-.01em;}
 .lg i{width:11px;height:11px;border-radius:3px;display:inline-block;flex:none;}
@@ -1137,10 +1240,203 @@ svg text{font-family:var(--font);}
         </p>
       </div>
 
+      <!-- 목업 아이콘 스프라이트 — 실제 화면이 쓰는 Lucide 아이콘 원본 path 를 그대로 옮겼다
+           (사이드바 layout-dashboard / bar-chart-2 / network / newspaper / settings / info,
+           헤드라인 flame, 접힘 표시 chevron-down). 다섯 목업이 같은 심볼을 공유하므로
+           <symbol> + <use> 로 한 번만 정의한다 — 외부 리소스 0 원칙은 그대로다. -->
+      <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+        <defs>
+          <symbol id="nvDash" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></symbol>
+          <symbol id="nvChart" viewBox="0 0 24 24"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></symbol>
+          <symbol id="nvNet" viewBox="0 0 24 24"><rect x="16" y="16" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="9" y="2" width="6" height="6" rx="1"/><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"/><path d="M12 12V8"/></symbol>
+          <symbol id="nvNews" viewBox="0 0 24 24"><path d="M15 18h-5"/><path d="M18 14h-8"/><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/></symbol>
+          <symbol id="nvSet" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></symbol>
+          <symbol id="nvInfo" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol>
+          <symbol id="nvFlame" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></symbol>
+          <symbol id="nvChev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+        </defs>
+      </svg>
+
       <div class="svc-grid">
         <!-- 2.2 대시보드 -->
         <div class="svc rv">
           <div class="svc-hd"><span class="svc-no">2.2</span><span class="svc-nm">대시보드</span></div>
+
+          <!-- ALL-001 목업 — templates/dashboard/index.html + templates/dashboard/_metrics.html + templates/base.html -->
+          <div class="ksd-shot" role="img"
+               aria-label="대시보드 화면. 왼쪽에 대시보드·보고서·지식그래프·뉴스·설정 다섯 개 메뉴가 있는 사이드바가 있고, 본문은 위에서부터 헤드라인 세 건, 주요 이슈 목록과 최신 뉴스 목록, 핵심 지표 세 카드(뉴스 건수 추이·기업별 건수 Top 10·기술 주제별 언급 건수) 순으로 놓인다.">
+            <div class="ksd-shot-nav">
+              <div class="bd"><em>DPLANEX</em><b>AI Market Watch</b></div>
+              <ul>
+                <li class="on"><svg class="ic"><use href="#nvDash"/></svg>대시보드</li>
+                <li><svg class="ic"><use href="#nvChart"/></svg>보고서</li>
+                <li><svg class="ic"><use href="#nvNet"/></svg>지식그래프</li>
+                <li><svg class="ic"><use href="#nvNews"/></svg>뉴스</li>
+                <li><svg class="ic"><use href="#nvSet"/></svg>설정</li>
+              </ul>
+              <div class="ft">
+                <div class="sv"><svg class="ic"><use href="#nvInfo"/></svg>서비스 소개</div>
+                <div class="lc"><em>마지막 수집</em><i></i></div>
+              </div>
+            </div>
+
+            <div class="ksd-shot-main">
+              <div class="ksd-shot-hd"><b>대시보드</b></div>
+              <div class="ksd-shot-bd">
+
+                <div class="s-tray">
+                  <div class="s-h"><svg class="s-fl"><use href="#nvFlame"/></svg>헤드라인<span class="s-q">?</span></div>
+                  <div class="s-lst">
+                    <div class="s-card s-hl s-pad">
+                      <div class="s-top">
+                        <span class="s-ttl">현대해상 · DB손해보험 AI 심사</span>
+                        <span class="s-meta"><span class="s-gr">1급</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
+                      </div>
+                      <div class="s-div"><span class="s-bar" style="width:82%"></span></div>
+                    </div>
+                    <div class="s-card s-hl s-pad">
+                      <div class="s-top">
+                        <span class="s-ttl">KT × NH농협 AICC</span>
+                        <span class="s-meta"><span class="s-gr">1급</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
+                      </div>
+                      <div class="s-div"><span class="s-bar" style="width:74%"></span></div>
+                    </div>
+                    <div class="s-card s-hl s-pad">
+                      <div class="s-top">
+                        <span class="s-ttl">토스증권 AI 어닝콜</span>
+                        <span class="s-meta"><span class="s-gr">1급</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
+                      </div>
+                      <div class="s-div"><span class="s-bar" style="width:88%"></span></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="s-g21">
+                  <div class="s-card s-pad">
+                    <div class="s-h">주요 이슈<span class="s-q">?</span></div>
+                    <div class="s-lst">
+                      <div class="s-card s-pad">
+                        <div class="s-top">
+                          <span class="s-ttl tr">한화생명이 전 임직원 2,728명에게 M365 코파일럿 도입</span>
+                          <span class="s-meta"><span class="s-gr g2">2급</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
+                        </div>
+                        <div class="s-div"><span class="s-bar" style="width:79%"></span></div>
+                      </div>
+                      <div class="s-card s-pad">
+                        <div class="s-top">
+                          <span class="s-ttl tr">삼성화재 — 약물안전 AI 스타트업 피매치 투자</span>
+                          <span class="s-meta"><svg class="s-cv"><use href="#nvChev"/></svg></span>
+                        </div>
+                        <div class="s-div"><span class="s-bar" style="width:68%"></span></div>
+                      </div>
+                      <div class="s-card s-pad">
+                        <div class="s-top">
+                          <span class="s-ttl tr">다올투자증권 — 전 임직원 AI 활용 교육</span>
+                          <span class="s-meta"><svg class="s-cv"><use href="#nvChev"/></svg></span>
+                        </div>
+                        <div class="s-div"><span class="s-bar" style="width:73%"></span></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="s-card s-pad">
+                    <div class="s-hdr">
+                      <span class="s-h">최신 뉴스<span class="s-q">?</span></span>
+                      <span class="s-link">전체 보기</span>
+                    </div>
+                    <div class="s-lst">
+                      <div class="s-card s-pad">
+                        <span class="s-bar" style="width:100%"></span>
+                        <span class="s-bar" style="width:62%;margin-top:3px"></span>
+                        <span class="s-bar d" style="width:18px;margin-top:5px"></span>
+                      </div>
+                      <div class="s-card s-pad">
+                        <span class="s-bar" style="width:100%"></span>
+                        <span class="s-bar" style="width:48%;margin-top:3px"></span>
+                        <span class="s-bar d" style="width:18px;margin-top:5px"></span>
+                      </div>
+                      <div class="s-card s-pad">
+                        <span class="s-bar" style="width:100%"></span>
+                        <span class="s-bar" style="width:71%;margin-top:3px"></span>
+                        <span class="s-bar d" style="width:18px;margin-top:5px"></span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <div class="s-hdr">
+                    <span class="s-h">핵심 지표</span>
+                    <!-- 기간 필터는 "최근 7일"을 선택한 상태로 그린다: 이 필터가 곧 버킷 단위를
+                         결정하므로(_metrics.html), 7일이어야 옆 카드 제목이 "일별"로 확정된다 -->
+                    <span class="s-pills"><i>전체</i><i>최근 30일</i><i class="on">최근 7일</i></span>
+                  </div>
+                  <div class="s-g3">
+                    <div class="s-card s-pad">
+                      <div class="s-h">일별 뉴스 건수 추이<span class="s-q">?</span></div>
+                      <svg class="s-chart" viewBox="0 0 150 58" aria-hidden="true">
+                        <defs>
+                          <linearGradient id="sTrendFill" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#60269E" stop-opacity=".18"/>
+                            <stop offset="100%" stop-color="#60269E" stop-opacity="0"/>
+                          </linearGradient>
+                        </defs>
+                        <line x1="10" y1="4" x2="145" y2="4" stroke="#EDEDED" stroke-width="1" stroke-dasharray="2 3"/>
+                        <line x1="10" y1="25" x2="145" y2="25" stroke="#EDEDED" stroke-width="1" stroke-dasharray="2 3"/>
+                        <line x1="10" y1="46" x2="145" y2="46" stroke="#E5E5E5" stroke-width="1"/>
+                        <line x1="10" y1="4" x2="10" y2="46" stroke="#E5E5E5" stroke-width="1"/>
+                        <path d="M10,28 C21.25,28 21.25,18 32.5,18 C43.75,18 43.75,32 55,32 C66.25,32 66.25,22 77.5,22 C88.75,22 88.75,30 100,30 C111.25,30 111.25,16 122.5,16 C133.75,16 133.75,24 145,24 L145,46 L10,46 Z" fill="url(#sTrendFill)"/>
+                        <path d="M10,28 C21.25,28 21.25,18 32.5,18 C43.75,18 43.75,32 55,32 C66.25,32 66.25,22 77.5,22 C88.75,22 88.75,30 100,30 C111.25,30 111.25,16 122.5,16 C133.75,16 133.75,24 145,24" fill="none" stroke="#60269E" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                        <g fill="#fff" stroke="#D1D5DB" stroke-width="1">
+                          <circle cx="10" cy="28" r="1.7"/><circle cx="32.5" cy="18" r="1.7"/><circle cx="55" cy="32" r="1.7"/>
+                          <circle cx="77.5" cy="22" r="1.7"/><circle cx="100" cy="30" r="1.7"/><circle cx="122.5" cy="16" r="1.7"/>
+                        </g>
+                        <circle cx="145" cy="24" r="1.9" fill="#60269E" stroke="#60269E" stroke-width="1"/>
+                        <g fill="#E9E7EF">
+                          <rect x="1" y="2.5" width="6" height="3" rx="1.5"/><rect x="1" y="23.5" width="6" height="3" rx="1.5"/><rect x="1" y="44.5" width="6" height="3" rx="1.5"/>
+                          <rect x="4" y="51" width="12" height="3" rx="1.5"/><rect x="71.5" y="51" width="12" height="3" rx="1.5"/><rect x="133" y="51" width="12" height="3" rx="1.5"/>
+                        </g>
+                      </svg>
+                    </div>
+
+                    <div class="s-card s-pad">
+                      <div class="s-hdr">
+                        <span class="s-h">기업별 건수 Top 10<span class="s-q">?</span></span>
+                        <span class="s-lgd">
+                          <span><b class="fin"></b>금융사</span><span><b class="ins"></b>보험사</span><span><b class="ai"></b>AI</span>
+                        </span>
+                      </div>
+                      <div class="s-lst" style="gap:4px">
+                        <div class="s-rk"><em>1</em><span class="s-bar" style="width:26px"></span><span class="s-track"><i class="ins" style="width:100%"></i></span><span class="s-bar d" style="width:7px"></span></div>
+                        <div class="s-rk"><em>2</em><span class="s-bar" style="width:26px"></span><span class="s-track"><i class="fin" style="width:78%"></i></span><span class="s-bar d" style="width:7px"></span></div>
+                        <div class="s-rk"><em>3</em><span class="s-bar" style="width:26px"></span><span class="s-track"><i style="width:61%"></i></span><span class="s-bar d" style="width:7px"></span></div>
+                        <div class="s-rk"><em>4</em><span class="s-bar" style="width:26px"></span><span class="s-track"><i class="ins" style="width:44%"></i></span><span class="s-bar d" style="width:7px"></span></div>
+                        <div class="s-rk"><em>5</em><span class="s-bar" style="width:26px"></span><span class="s-track"><i class="fin" style="width:32%"></i></span><span class="s-bar d" style="width:7px"></span></div>
+                      </div>
+                    </div>
+
+                    <div class="s-card s-pad">
+                      <div class="s-h">기술 주제별 언급 건수<span class="s-q">?</span></div>
+                      <div class="s-lst" style="gap:4px">
+                        <div class="s-rk"><em>1</em><span class="s-bar" style="width:26px"></span><span class="s-track"><i class="tec" style="width:100%"></i></span><span class="s-bar d" style="width:7px"></span></div>
+                        <div class="s-rk"><em>2</em><span class="s-bar" style="width:26px"></span><span class="s-track"><i class="tec" style="width:72%"></i></span><span class="s-bar d" style="width:7px"></span></div>
+                        <div class="s-rk"><em>3</em><span class="s-bar" style="width:26px"></span><span class="s-track"><i class="tec" style="width:55%"></i></span><span class="s-bar d" style="width:7px"></span></div>
+                        <div class="s-rk"><em>4</em><span class="s-bar" style="width:26px"></span><span class="s-track"><i class="tec" style="width:38%"></i></span><span class="s-bar d" style="width:7px"></span></div>
+                        <div class="s-rk"><em>5</em><span class="s-bar" style="width:26px"></span><span class="s-track"><i class="tec" style="width:24%"></i></span><span class="s-bar d" style="width:7px"></span></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+          <p class="ksd-shot-note">
+            실제 화면을 줄여 그린 것이다. 목록 건수(헤드라인 3건은 실제 상한, 주요 이슈 · 최신 뉴스 · 순위는 스크롤되는 목록에서 앞 3~5행만),
+            그리고 <b>확인하지 못한 값</b>(기사 제목 · 날짜 · 건수 · 기업명)은 지어내지 않고 흐린 막대로 뒀다.
+            이슈 제목과 등급은 2.7 운영 사례에 실린 실제 값이다.
+          </p>
+
           <div class="svc-bd">
             <p class="svc-tx">검증을 통과한 뉴스와, 그 뉴스를 근거로 묶인 이슈를 한 화면에서 확인한다.</p>
             <p class="svc-tx">이슈에는 1 · 2 · 3급 등급을 부여하고, <b>1급이면서 근거 기사가 최근인 이슈</b> 가운데 세 건을 헤드라인으로 세운다. 따라서 한동안 새 소식이 없던 이슈는 등급이 높아도 헤드라인에 오르지 않는다.</p>
