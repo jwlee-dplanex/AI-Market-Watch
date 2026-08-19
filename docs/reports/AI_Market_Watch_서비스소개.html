@@ -408,15 +408,15 @@ svg text{font-family:var(--font);}
 .reject p + p{margin-top:7px;font-weight:600;color:var(--ink-2);}
 
 /* ------------------------------------------------------------
-   2.2~2.6 화면 목업 — .ksd-shot*
+   2.2 화면 구성 목업 — .ksd-shot*
    ------------------------------------------------------------
-   접두사를 2.7 씬 플레이어(.ksd-*)와 맞추되 뒤에 -shot 을 붙여 갈래를 나눈다.
-   왜 재사용이 아니라 확장인가 — 2.7의 .ksd-frame/.ksd-screen 은 "어두운 무대 위에서
+   접두사를 2.3 씬 플레이어(.ksd-*)와 맞추되 뒤에 -shot 을 붙여 갈래를 나눈다.
+   왜 재사용이 아니라 확장인가 — 2.3의 .ksd-frame/.ksd-screen 은 "어두운 무대 위에서
    시간 순서로 재생되는 한 장면"을 담는 그릇이라 흰 카드 위에 그대로 얹으면 테두리가
-   없어 화면 경계가 사라진다. 2.2~2.6은 그와 반대로 "정지된 화면 다섯 개를 나란히
+   없어 화면 경계가 사라진다. 2.2는 그와 반대로 "정지된 화면 다섯 개를 나란히
    보는" 것이고, 보여줘야 할 것도 장면이 아니라 templates/base.html 의 실제 앱 크롬
    (좌측 사이드바 + 상단 헤더 + 본문)이다. 그래서 재생 크롬(무대·상태 배지·컨트롤바)은
-   일절 쓰지 않는다 — 2.7과 같아 보이면 안 된다는 조건이기도 하다.
+   일절 쓰지 않는다 — 2.3과 같아 보이면 안 된다는 조건이기도 하다.
    내부 원자는 .s-* 로 짧게 두되 전부 .ksd-shot 아래로만 스코프한다(문서 전역 클래스와
    충돌 금지).
 
@@ -527,12 +527,48 @@ svg text{font-family:var(--font);}
 .ksd-shot .s-chart{width:100%;height:auto;margin-top:8px;}
 .ksd-shot .s-g21{display:grid;grid-template-columns:2fr 1fr;gap:11px;}
 .ksd-shot .s-g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px;margin-top:8px;}
+/* ---- 한 카드에 화면이 둘일 때 붙이는 작은 라벨 (보고서 = 목록 + 상세 등) ---- */
+.ksd-shot-lbl{margin:16px 20px -8px;font-size:10px;font-weight:800;letter-spacing:.13em;color:var(--violet-800);}
+.ksd-shot-lbl span{margin-left:8px;letter-spacing:-.01em;font-weight:700;color:var(--muted);}
+/* ---- 보고서 화면 (REPORT-001 목록 · REPORT-002 상세) ---- */
+.ksd-shot .s-yr{display:flex;align-items:center;gap:10px;}
+.ksd-shot .s-yr b{flex:none;font-size:10.5px;font-weight:700;color:var(--s-mute);}
+.ksd-shot .s-yr i{flex:1;height:1px;background:#E5E7EB;display:block;}
+.ksd-shot .s-btn{display:inline-flex;align-items:center;gap:5px;border-radius:8px;padding:4px 9px;
+  font-size:10.5px;font-weight:600;border:1px solid var(--violet-800);color:var(--violet-800);}
+.ksd-shot .s-btn.off{border-color:#E5E7EB;color:#D1D5DB;}
+.ksd-shot .s-btn svg{width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.ksd-shot .s-bc{display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:600;color:var(--s-mute);}
+.ksd-shot .s-bc svg{width:9px;height:9px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
+.ksd-shot .s-bc em{font-style:normal;color:var(--s-mute2);}
+/* 상세 헤더 — 실제 화면과 같은 135도 보라 그라디언트 + 우측 상단 DPLANEX 워드마크 */
+.ksd-shot .s-hero{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;
+  border-radius:9px;padding:17px 19px;background:linear-gradient(135deg,#60269E 0%,#401771 100%);}
+.ksd-shot .s-hero .t{font-family:var(--font-head);font-size:16.5px;font-weight:700;
+  letter-spacing:-.02em;color:#fff;line-height:1.45;}
+.ksd-shot .s-hero .dt{margin-top:6px;font-size:11px;font-weight:600;color:rgba(255,255,255,.7);}
+.ksd-shot .s-hero .wm{flex:none;font-size:9.5px;font-weight:800;letter-spacing:.17em;color:rgba(255,255,255,.85);}
+/* 짧은 버전 / 긴 버전 세그먼트 (bg-gray-100 p-0.5, 선택 시 흰 알약 + 그림자) */
+.ksd-shot .s-seg{display:flex;gap:2px;background:var(--s-soft);border-radius:8px;padding:2px;}
+.ksd-shot .s-seg i{font-style:normal;font-size:10px;font-weight:600;padding:3px 10px;border-radius:6px;color:var(--s-mute2);}
+.ksd-shot .s-seg i.on{background:#fff;color:var(--violet-800);box-shadow:0 1px 2px rgba(39,38,57,.08);}
+/* 보고서 본문의 이슈 카드 (bg-gray-50/50 + 번호 원) */
+.ksd-shot .s-iss{background:#FAFAFB;border:1px solid var(--s-line);border-radius:9px;padding:13px 15px;}
+.ksd-shot .s-issh{display:flex;align-items:center;gap:9px;}
+.ksd-shot .s-num{flex:none;width:19px;height:19px;border-radius:50%;background:rgba(96,38,158,.1);
+  color:var(--violet-800);font-size:9.5px;font-weight:800;display:flex;align-items:center;justify-content:center;}
+.ksd-shot .s-tx{font-size:11.5px;font-weight:500;color:#374151;line-height:1.78;letter-spacing:-.015em;}
+.ksd-shot .s-refh{font-size:9px;font-weight:700;letter-spacing:.07em;color:var(--s-mute);}
+.ksd-shot .s-ref{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+  font-size:10.5px;font-weight:500;color:#4B5563;}
+.ksd-shot .s-ref b{font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ksd-shot .s-ref span{flex:none;font-size:9.5px;color:var(--s-mute);}
 /* 목업 아래 한 줄 — "무엇이 실제 값이고 무엇이 예시인지"를 그림 옆에서 바로 밝힌다.
    같은 카드 안 .svc-fn 과 완전히 같은 형태를 쓴다(새 시각 요소를 만들지 않음). */
 .ksd-shot-note{margin:12px 20px 0;padding:10px 13px;border-radius:var(--radius-s);
   background:var(--bg-soft);border:1px solid var(--line);
   font-size:11.5px;font-weight:600;color:var(--muted);line-height:1.62;}
-/* 화면 구성 절 전체에 붙는 예시 데이터 고지 — 2.7 운영 사례(실측)와 성격이 다름을 밝힌다 */
+/* 화면 구성 절 전체에 붙는 예시 데이터 고지 — 2.3 운영 사례(실측)와 성격이 다름을 밝힌다 */
 .svc-demo{margin-top:16px;padding:11px 15px;border-radius:var(--radius-s);
   background:var(--lav-050);border:1px solid var(--lav-200);
   font-size:12.5px;font-weight:700;color:var(--violet-900);line-height:1.68;}
@@ -597,7 +633,7 @@ svg text{font-family:var(--font);}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}
 
 /* ============================================================
-   2.7 씬 플레이어 — 논리 캔버스 1080 × 675
+   2.3 씬 플레이어 — 논리 캔버스 1080 × 675
    ============================================================ */
 .ksd{margin-top:26px;border:1px solid var(--line);border-radius:var(--radius);background:#fff;box-shadow:var(--shadow-m);overflow:hidden;}
 .ksd-steps{display:flex;flex-wrap:wrap;gap:2px 0;padding:13px 18px;border-bottom:1px solid var(--line);background:var(--lav-050);}
@@ -1239,11 +1275,15 @@ svg text{font-family:var(--font);}
     </div>
   </section>
 
-  <!-- ===================== 2.2 ~ 2.6 ===================== -->
+  <!-- ===================== 2.2 화면 구성 =====================
+       ⚠️ 절 번호는 2.2 하나다. 안의 카드 다섯 장은 절이 아니라 목록 항목이므로
+          01~05 로 센다(핵심 가치 01~06 · 기대 효과 01~07과 같은 방식).
+          카드에 2.2~2.6 을 매기면 절 제목이 "2.2 — 2.6" 같은 범위가 되어
+          번호 체계가 두 겹으로 보인다 — 2026-08-19 사용자 지적으로 정리했다. -->
   <section class="sec" aria-labelledby="s22">
     <div class="wrap">
       <div class="sec-head rv">
-        <span class="sec-no">2.2 — 2.6 · SCREENS</span>
+        <span class="sec-no">2.2 · SCREENS</span>
         <h3 class="sec-title" id="s22">화면 구성</h3>
         <p class="sec-lead">
           다섯 개 화면으로 구성한다. 화면마다 별도의 자료를 만들지 않고,
@@ -1253,7 +1293,7 @@ svg text{font-family:var(--font);}
           ※ 아래 그림은 각 화면의 <b>배치를 보여 주기 위한 것</b>이다.
           화면 이름 · 항목 이름 · 버튼은 실제 화면 그대로이고 이슈 제목 · 뉴스 제목 · 기업명도 실제 값이지만,
           <b>수치는 예시</b>이며 목록은 앞 몇 행만 그린 것이다. 그림마다 무엇이 실제 값인지 아래에 밝혀 둔다.
-          실측 기록은 2.7 운영 사례에 있다.
+          실측 기록은 2.3 운영 사례에 있다.
         </p>
       </div>
 
@@ -1271,13 +1311,18 @@ svg text{font-family:var(--font);}
           <symbol id="nvInfo" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol>
           <symbol id="nvFlame" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></symbol>
           <symbol id="nvChev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+          <symbol id="nvChevR" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+          <symbol id="nvTrend" viewBox="0 0 24 24"><path d="M16 7h6v6"/><path d="m22 7-8.5 8.5-5-5L2 17"/></symbol>
+          <symbol id="nvLayers" viewBox="0 0 24 24"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></symbol>
+          <symbol id="nvDown" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></symbol>
+          <symbol id="nvSend" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
         </defs>
       </svg>
 
       <div class="svc-grid">
-        <!-- 2.2 대시보드 -->
+        <!-- 01 대시보드 -->
         <div class="svc rv">
-          <div class="svc-hd"><span class="svc-no">2.2</span><span class="svc-nm">대시보드</span></div>
+          <div class="svc-hd"><span class="svc-no">01</span><span class="svc-nm">대시보드</span></div>
 
           <!-- ALL-001 목업 — templates/dashboard/index.html + templates/dashboard/_metrics.html + templates/base.html -->
           <div class="ksd-shot" role="img"
@@ -1511,9 +1556,142 @@ svg text{font-family:var(--font);}
           </div>
         </div>
 
-        <!-- 2.3 보고서 -->
+        <!-- 02 보고서 -->
         <div class="svc rv" style="--d:60ms">
-          <div class="svc-hd"><span class="svc-no">2.3</span><span class="svc-nm">보고서 — 이슈별 분석과 시사점</span></div>
+          <div class="svc-hd"><span class="svc-no">02</span><span class="svc-nm">보고서 — 이슈별 분석과 시사점</span></div>
+
+          <p class="ksd-shot-lbl">목록<span>REPORT-001</span></p>
+          <!-- 목록 목업 — templates/reports/list.html + templates/base.html.
+               ⚠️ 3건이 전부다. 실제로 발행된 보고서가 3건이고, 목록 길이 자체가 정보이므로
+                  네 번째 행을 만들지 않는다. 세 건 모두 2026년이라 연도 그룹도 하나다
+                  (regroup by date_from.year). 완료 상태 배지는 실제로도 렌더되지 않고,
+                  Slack 전송 배지는 발송 기능이 아직 없어 항상 비어 있으므로 그리지 않았다. -->
+          <div class="ksd-shot" role="img"
+               aria-label="보고서 목록 화면. 2026년 연도 구분선 아래에 주차별 보고서 세 건이 카드로 놓이고, 카드마다 기간과 제목, 생성일이 적혀 있다.">
+            <div class="ksd-shot-nav">
+              <div class="bd"><em>DPLANEX</em><b>AI Market Watch</b></div>
+              <ul>
+                <li><svg class="ic"><use href="#nvDash"/></svg>대시보드</li>
+                <li class="on"><svg class="ic"><use href="#nvChart"/></svg>보고서</li>
+                <li><svg class="ic"><use href="#nvNet"/></svg>지식그래프</li>
+                <li><svg class="ic"><use href="#nvNews"/></svg>뉴스</li>
+                <li><svg class="ic"><use href="#nvSet"/></svg>설정</li>
+              </ul>
+              <div class="ft">
+                <div class="sv"><svg class="ic"><use href="#nvInfo"/></svg>서비스 소개</div>
+                <div class="lc"><em>마지막 수집</em><b>08/19 09:00</b></div>
+              </div>
+            </div>
+            <div class="ksd-shot-main">
+              <div class="ksd-shot-hd"><b>보고서</b></div>
+              <div class="ksd-shot-bd">
+                <div class="s-yr"><b>2026년</b><i></i></div>
+                <div class="s-lst" style="margin-top:0">
+                  <div class="s-card s-pad">
+                    <span class="s-mt">08.08 ~ 08.14</span>
+                    <div class="s-ttl" style="margin-top:6px">8월 2주차 금융권 AI 도입 동향 보고서</div>
+                    <span class="s-mt" style="display:block;margin-top:5px">생성일: 08.15 09:40</span>
+                  </div>
+                  <div class="s-card s-pad">
+                    <span class="s-mt">08.01 ~ 08.07</span>
+                    <div class="s-ttl" style="margin-top:6px">8월 1주차 금융권 AI 도입 동향 보고서</div>
+                    <span class="s-mt" style="display:block;margin-top:5px">생성일: 08.08 10:12</span>
+                  </div>
+                  <div class="s-card s-pad">
+                    <span class="s-mt">07.25 ~ 07.31</span>
+                    <div class="s-ttl" style="margin-top:6px">7월 5주차 금융권 AI 도입 동향 보고서</div>
+                    <span class="s-mt" style="display:block;margin-top:5px">생성일: 08.01 11:05</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <p class="ksd-shot-lbl">상세<span>REPORT-002 · 위 목록에서 첫 번째를 연 화면</span></p>
+          <!-- 상세 목업 — templates/reports/detail.html + templates/reports/_issues_body.html.
+               제목·기간은 실제 보고서 값이다. 주요 동향 본문과 이슈 두 건의 서술은 예시이며,
+               이슈 제목과 참고 뉴스는 2.3 운영 사례에 실린 실제 건에서 가져왔다(그 배치가
+               이 보고서 기간 8.8~8.14 안에 있다).
+               ⚠️ "Slack 전송" 버튼은 실제로도 비활성이다 — 발송 코드가 아직 없어서 회색으로
+                  두고 커서만 막아 둔 상태이며, 그래서 목업도 흐린 테두리로 그렸다. -->
+          <div class="ksd-shot" role="img"
+               aria-label="보고서 상세 화면. 상단에 Slack 전송 비활성 버튼과 PDF 다운로드 버튼이 있고, 보라색 그라디언트 헤더에 보고서 제목과 기간이 놓인다. 그 아래 주요 동향 카드와, 짧은 버전 · 긴 버전을 전환할 수 있는 주요 이슈 카드가 있으며 이슈마다 참고 뉴스가 연결돼 있다.">
+            <div class="ksd-shot-nav">
+              <div class="bd"><em>DPLANEX</em><b>AI Market Watch</b></div>
+              <ul>
+                <li><svg class="ic"><use href="#nvDash"/></svg>대시보드</li>
+                <li class="on"><svg class="ic"><use href="#nvChart"/></svg>보고서</li>
+                <li><svg class="ic"><use href="#nvNet"/></svg>지식그래프</li>
+                <li><svg class="ic"><use href="#nvNews"/></svg>뉴스</li>
+                <li><svg class="ic"><use href="#nvSet"/></svg>설정</li>
+              </ul>
+              <div class="ft">
+                <div class="sv"><svg class="ic"><use href="#nvInfo"/></svg>서비스 소개</div>
+                <div class="lc"><em>마지막 수집</em><b>08/19 09:00</b></div>
+              </div>
+            </div>
+            <div class="ksd-shot-main">
+              <div class="ksd-shot-hd">
+                <b>보고서 상세</b>
+                <span class="act">
+                  <span class="s-btn off"><svg><use href="#nvSend"/></svg>Slack 전송</span>
+                  <span class="s-btn"><svg><use href="#nvDown"/></svg>PDF 다운로드</span>
+                </span>
+              </div>
+              <div class="ksd-shot-bd">
+                <div class="s-bc">보고서<svg><use href="#nvChevR"/></svg><em>주간 · 2026.08.08</em></div>
+
+                <div class="s-hero">
+                  <div>
+                    <div class="t">8월 2주차 금융권 AI 도입 동향 보고서</div>
+                    <div class="dt">2026.08.08 ~ 2026.08.14</div>
+                  </div>
+                  <span class="wm">DPLANEX</span>
+                </div>
+
+                <div class="s-card s-pad">
+                  <div class="s-h"><svg class="s-fl"><use href="#nvTrend"/></svg>주요 동향</div>
+                  <p class="s-tx" style="margin-top:8px">이번 주에는 보험사의 AI 스타트업 투자와 증권사의 전 임직원 AI 교육이 함께 확인됐다. 도구를 들여놓는 단계에서 업무에 붙이는 단계로 넘어가는 움직임이 양쪽 업권에서 같이 나타난다.</p>
+                </div>
+
+                <div class="s-card s-pad">
+                  <div class="s-hdr">
+                    <span class="s-h"><svg class="s-fl"><use href="#nvLayers"/></svg>주요 이슈</span>
+                    <span class="s-seg"><i class="on">짧은 버전</i><i>긴 버전</i></span>
+                  </div>
+                  <div class="s-lst">
+                    <div class="s-iss">
+                      <div class="s-issh"><span class="s-num">1</span><span class="s-ttl">삼성화재 — 약물안전 AI 스타트업 피매치 투자</span></div>
+                      <p class="s-tx" style="margin-top:8px">삼성화재가 인포뱅크와 함께 운용하는 펀드를 통해 약물 안전 AI 서비스 '필톡'을 만든 피매치에 투자했다. 보험사가 보장 상품 밖의 헬스케어 AI로 접점을 넓히는 사례다.</p>
+                      <div style="margin-top:10px;padding-top:9px;border-top:1px solid #E5E7EB">
+                        <div class="s-refh">참고 뉴스</div>
+                        <div class="s-lst" style="gap:5px;margin-top:6px">
+                          <div class="s-ref"><b>약물 안전 AI '필톡'의 피매치, 삼성화재-인포뱅크 펀드서 투자 유치</b><span>08.14</span></div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="s-iss">
+                      <div class="s-issh"><span class="s-num">2</span><span class="s-ttl">다올투자증권 — 전 임직원 AI 활용 교육</span></div>
+                      <p class="s-tx" style="margin-top:8px">다올투자증권이 전 임직원을 대상으로 AI 활용 교육을 진행했다. 특정 부서가 아니라 전사를 대상으로 삼았다는 점에서 도입 범위를 넓히려는 의도가 읽힌다.</p>
+                      <div style="margin-top:10px;padding-top:9px;border-top:1px solid #E5E7EB">
+                        <div class="s-refh">참고 뉴스</div>
+                        <div class="s-lst" style="gap:5px;margin-top:6px">
+                          <div class="s-ref"><b>다올투자증권, 전 임직원 대상 AI 활용 교육 실시</b><span>08.11</span></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="ksd-shot-note">
+            보고서 <b>3건은 실제 전부</b>다 — 지금까지 발행된 것이 이만큼이고, 목록 길이를 늘리지 않았다.
+            제목 · 기간 · 이슈 제목 · 첫 번째 참고 뉴스는 실제 값이다.
+            생성일 · 본문 서술 · 두 번째 참고 뉴스 제목은 예시다.
+            "Slack 전송" 버튼이 흐린 것은 실제 화면 그대로다 — 발송 기능이 아직 없어 눌리지 않는다.
+          </p>
+
           <div class="svc-bd">
             <p class="svc-tx">그 주에 묶인 이슈와 각 이슈의 근거 기사를 대상으로 한다.</p>
             <p class="svc-tx">이슈마다 흐름 분석과 시사점을 붙이고, 문단마다 근거 기사를 연결한다. <b>근거가 없는 문장은 쓰지 않는다.</b></p>
@@ -1522,9 +1700,9 @@ svg text{font-family:var(--font);}
           <p class="svc-fn">※ 보고서는 긴 버전과 짧은 버전 두 가지 형태로 발행하며, 본문의 이슈마다 근거 기사가 연결돼 있다.</p>
         </div>
 
-        <!-- 2.4 지식그래프 -->
+        <!-- 03 지식그래프 -->
         <div class="svc rv" style="--d:120ms">
-          <div class="svc-hd"><span class="svc-no">2.4</span><span class="svc-nm">지식그래프 — 기업 간 관계 시각화</span></div>
+          <div class="svc-hd"><span class="svc-no">03</span><span class="svc-nm">지식그래프 — 기업 간 관계 시각화</span></div>
           <div class="svc-bd">
             <p class="svc-tx">검증된 기사에 등장한 금융사 · 보험사와 AI 기업을 대상으로 한다.</p>
             <p class="svc-tx"><b>기사에서 관계가 확인된 경우에만</b> 두 기업을 연결하고, 관계 유형을 함께 등록한다.</p>
@@ -1538,9 +1716,9 @@ svg text{font-family:var(--font);}
           <p class="svc-fn">※ 관계 유형은 기술협업 · 공급계약 · 업무협약 · 파트너십 · 지분투자 · 인수다.</p>
         </div>
 
-        <!-- 2.5 뉴스 -->
+        <!-- 04 뉴스 -->
         <div class="svc rv" style="--d:180ms">
-          <div class="svc-hd"><span class="svc-no">2.5</span><span class="svc-nm">뉴스 — 검증 완료 기사</span></div>
+          <div class="svc-hd"><span class="svc-no">04</span><span class="svc-nm">뉴스 — 검증 완료 기사</span></div>
           <div class="svc-bd">
             <p class="svc-tx">수집된 기사 원문과 요약을 대상으로 한다.</p>
             <p class="svc-tx">등록해 둔 기준으로 관련성을 판정하고, 통과하지 못한 기사는 화면에서 제외한다. 기업 · 기술 주제 태그를 부여하고, 잘못 부여된 태그는 수동으로 교정한다.</p>
@@ -1549,9 +1727,9 @@ svg text{font-family:var(--font);}
           <p class="svc-fn">※ 기업은 금융사 · 보험사 · AI 세 유형으로 나눠 등록한다.</p>
         </div>
 
-        <!-- 2.6 설정 -->
+        <!-- 05 설정 -->
         <div class="svc rv" style="--d:240ms">
-          <div class="svc-hd"><span class="svc-no">2.6</span><span class="svc-nm">설정 — 수집 기준과 처리 이력</span></div>
+          <div class="svc-hd"><span class="svc-no">05</span><span class="svc-nm">설정 — 수집 기준과 처리 이력</span></div>
           <div class="svc-bd">
             <p class="svc-tx">수집 대상과 기준 데이터, 그리고 처리 기록을 대상으로 한다.</p>
             <p class="svc-tx">수집(데이터 소스 · 수집 키워드 · 스케줄), 판정과 알림(분석 프롬프트 · Slack), 기준 데이터(기업 · 기술 주제)를 관리한다.</p>
@@ -1693,11 +1871,15 @@ svg text{font-family:var(--font);}
     </div>
   </section>
 
-  <!-- ===================== 2.7 ===================== -->
+  <!-- ===================== 2.3 운영 사례 =====================
+       ⚠️ 화면에 보이는 절 번호만 2.7 → 2.3 으로 내렸다(2.2~2.6 다섯 절이 2.2 한 절로
+          합쳐졌기 때문). 앵커 id="s27" 과 figure id="fig25" 는 그대로 둔다 — 내부
+          식별자라 화면에 안 보이고, 문서 안팎의 기존 링크(#fig25)를 깨뜨리지 않기 위함이다.
+          같은 이유로 FIG 번호(FIG 2-5)도 바꾸지 않았다. -->
   <section class="sec" aria-labelledby="s27">
     <div class="wrap">
       <div class="sec-head rv">
-        <span class="sec-no">2.7 · OPERATION RECORD</span>
+        <span class="sec-no">2.3 · OPERATION RECORD</span>
         <h3 class="sec-title" id="s27">운영 사례</h3>
         <p class="sec-lead">
           아래는 실제 처리 기록이다. 열 개 장면은 <b>실제로 일어난 순서 그대로</b>이며,
@@ -2087,7 +2269,7 @@ svg text{font-family:var(--font);}
         <h4>02장의 구조를 구축하는 중이며, 그동안에도 판정은 이미 매일 수행되고 있다.</h4>
         <ul>
           <li>02장의 8단계는 <b>이 구조로 전환 중</b>이며, 그 사이에도 <b>관련성 판정 · 이슈 그룹핑 · 시사점 작성 · 관계 확인은 research analyst가 같은 기준으로 수행하고 있다.</b></li>
-          <li><b>이것이 이 서비스의 강점이다.</b> 판단 기준이 문서로 이미 확정돼 있고, 매일 실제 기사에 적용되고 있다. 01장 <b>CONSISTENCY</b> 축은 앞으로 하겠다는 계획이 아니라 <b>이미 가동 중인 것</b>이며, <a href="#fig25" style="color:var(--violet-800);font-weight:800;text-decoration:underline">2.7 운영 사례(FIG 2-5)</a>가 그 근거다.</li>
+          <li><b>이것이 이 서비스의 강점이다.</b> 판단 기준이 문서로 이미 확정돼 있고, 매일 실제 기사에 적용되고 있다. 01장 <b>CONSISTENCY</b> 축은 앞으로 하겠다는 계획이 아니라 <b>이미 가동 중인 것</b>이며, <a href="#fig25" style="color:var(--violet-800);font-weight:800;text-decoration:underline">2.3 운영 사례(FIG 2-5)</a>가 그 근거다.</li>
           <li>따라서 자동화는 <b>없던 판단을 새로 만드는 일이 아니라, 이미 검증된 판단을 코드로 옮기는 일</b>이다.</li>
         </ul>
       </div>
@@ -2250,7 +2432,7 @@ svg text{font-family:var(--font);}
 </script>
 <script>
 /* ============================================================
-   2.7 씬 플레이어 — 2026-08-14 배치 10씬
+   2.3 씬 플레이어 — 2026-08-14 배치 10씬
    전역 노출은 window.AmwScenarioDemo 하나뿐
    ============================================================ */
 window.AmwScenarioDemo = (function(){
