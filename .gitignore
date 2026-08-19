@@ -216,3 +216,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Node (Tailwind CLI 빌드 도구체인 — static/vendor/·static/css/tailwind.css는 커밋 대상)
+node_modules/

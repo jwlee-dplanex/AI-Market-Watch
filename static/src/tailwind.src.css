@@ -1,0 +1,12 @@
+/*
+ * Tailwind 빌드 입력 파일.
+ *
+ * `npm run build:css`가 이 파일을 읽어 tailwind.config.js의 content 경로를 훑고,
+ * 실제로 쓰인 클래스만 골라 static/css/tailwind.css로 내보낸다.
+ *
+ * ⚠️ static/css/tailwind.css는 빌드 산출물이므로 직접 고치지 않는다.
+ * 다음 빌드에서 덮어써진다. 커스텀 CSS가 필요하면 아래 @layer에 쓴다.
+ */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

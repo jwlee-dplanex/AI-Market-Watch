@@ -1,0 +1,20 @@
+{
+  "name": "ai-market-watch",
+  "private": true,
+  "version": "0.1.0",
+  "description": "AI Market Watch — 금융·보험사 AI 도입 동향 리서치 도구",
+  "scripts": {
+    "build:css": "tailwindcss -i ./static/src/tailwind.src.css -o ./static/css/tailwind.css --minify",
+    "watch:css": "tailwindcss -i ./static/src/tailwind.src.css -o ./static/css/tailwind.css --watch",
+    "copy:vendor": "node scripts/copy-vendor.js",
+    "build": "npm run build:css && npm run copy:vendor"
+  },
+  "devDependencies": {
+    "tailwindcss": "3.4.17"
+  },
+  "dependencies": {
+    "alpinejs": "3.14.1",
+    "htmx.org": "2.0.3",
+    "lucide": "0.454.0"
+  }
+}

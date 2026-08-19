@@ -15,27 +15,8 @@
   <link rel="apple-touch-icon" href="{% static 'img/logo_image.svg' %}">
   <meta name="theme-color" content="#60269E">
 
-  <!-- Tailwind CSS Play CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            primary: { DEFAULT: '#60269E', dark: '#401771', hover: '#4C1C80' },
-            accent:  { DEFAULT: '#93D500' },
-            teal:    { DEFAULT: '#00AF9A', hover: '#009583' },
-          },
-          borderRadius: { DEFAULT: '10px' },
-          fontFamily: {
-            sans:  ['Noto Sans KR', 'Inter', 'sans-serif'],
-            serif: ['Noto Serif KR', 'Source Serif 4', 'serif'],
-            mono:  ['JetBrains Mono', 'monospace'],
-          },
-        }
-      }
-    }
-  </script>
+  <!-- Tailwind CSS (로컬 빌드 — tailwind.config.js, `npm run build`) -->
+  <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
 
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -43,11 +24,11 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&family=Noto+Serif+KR:wght@400;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
 
   <!-- HTMX -->
-  <script src="https://unpkg.com/htmx.org@2.0.3"></script>
+  <script src="{% static 'vendor/htmx.min.js' %}"></script>
 
   <!-- Alpine.js -->
   <style>[x-cloak] { display: none !important; }</style>
-  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+  <script defer src="{% static 'vendor/alpine.min.js' %}"></script>
 
   <!-- 페이지 전환(예: 대시보드/지식그래프 기간 필터의 ?period= 전체 재로드) 부드럽게: 흰 화면 깜빡임 완화.
        아키텍처는 그대로(순수 <a href> GET 재로드) 두고 시각 효과만 얹는다(2026-07 PM 정책).
@@ -92,7 +73,7 @@
   </style>
 
   <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="{% static 'vendor/lucide.min.js' %}"></script>
 
   {% block extra_head %}{% endblock %}
 </head>
