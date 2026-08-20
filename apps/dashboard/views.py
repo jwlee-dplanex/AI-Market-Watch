@@ -122,7 +122,10 @@ def _build_trend_points(start_date, today, bucket_unit, earliest_date):
     trend_points = []
     for i, bucket in enumerate(buckets):
         pct = _pct(bucket["count"], max_count)
-        label = bucket["start"].strftime("%m/%d")
+        # 라벨은 항상 버킷의 끝일(end) 기준. 일 버킷은 start==end라 동작이 그대로 유지되고,
+        # 주/월 롤링 버킷은 마지막 포인트가 "오늘"을 가리키게 된다(설계 의도, docs/design.md
+        # "기간 필터 + 뉴스 건수 추이 차트 가변화" 3번 절 (b) — 사용자가 발견한 버그, 2026-08-20 수정).
+        label = bucket["end"].strftime("%m/%d")
         if bucket_unit == "day":
             range_label = label
         else:
