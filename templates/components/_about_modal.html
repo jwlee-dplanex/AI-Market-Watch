@@ -74,31 +74,10 @@
     </div>
 
     {% comment %}
-      전체 소개 자료 링크 (2026-08-19, PE, 사용자 승인 형태 그대로) — 이 모달은 없애지 않는다.
-      모달은 "이게 뭐 하는 앱이지" 3초 답변이고, docs/reports/의 HTML 소개 자료는 10분짜리
-      정독용 문서라 성격이 다르다. 새 탭으로 열어 모달과 공존시킨다(target="_blank" + rel="noopener").
-      원본은 docs/(정적 서빙 대상 아님)에 있어 static/docs/로 빌드 시 복사한 사본을 가리킨다
-      (scripts/copy-vendor.js, npm run build에 물려 있어 문서를 고쳐도 복사를 잊지 않는다).
-      아직 PD가 화면 목업을 작업 중인 미완성본이지만, 빌드로 복사되므로 나중에 자동으로 최신화된다.
-      절 이동 링크 바로 아래, 본문 스크롤 영역 바깥(flex-shrink-0)에 둬서 스크롤해도 항상 보이게 했다.
+      절 이동 앵커 다섯 개는 2026-08-20 사용자 지시로 제거했다. 본문이 다섯 덩어리뿐이라
+      스크롤 몇 번이면 닿는 길이인데, 앵커 줄이 헤더 아래 가로줄 하나를 통째로 차지하면서
+      "먼저 골라야 하는 목록"처럼 보였다. 목차가 필요할 만큼 긴 문서는 전체 소개 자료 쪽이다.
     {% endcomment %}
-    <div class="px-6 py-2.5 border-b border-gray-100 flex-shrink-0">
-      <a href="{% static 'docs/AI_Market_Watch_service_intro.html' %}" target="_blank" rel="noopener"
-         class="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-        전체 소개 자료 보기
-        <i data-lucide="arrow-up-right" class="w-3 h-3"></i>
-      </a>
-    </div>
-
-    {% comment %} 절 이동 앵커 — 절 제목과 정확히 같은 순서·문구. {% endcomment %}
-    <div class="flex flex-wrap gap-x-3 gap-y-1 px-6 py-3 border-b border-gray-100 flex-shrink-0">
-      <a href="#about-background" class="text-xs text-primary hover:underline">왜 만들었나요</a>
-      <a href="#about-overview" class="text-xs text-primary hover:underline">어떻게 동작하나요</a>
-      <a href="#about-values" class="text-xs text-primary hover:underline">무엇이 좋은가요</a>
-      <a href="#about-scope" class="text-xs text-primary hover:underline">어떤 화면이 있나요</a>
-      <a href="#about-agents" class="text-xs text-primary hover:underline">어떤 에이전트가 함께 일하나요</a>
-    </div>
-
     <div class="px-6 py-5 overflow-y-auto space-y-6">
       <p class="text-base font-serif font-bold text-gray-900">AI Market Watch</p>
 
@@ -142,6 +121,27 @@
           <li>research analyst는 수집된 뉴스를 검증하고 금융권 AI 도입 동향 보고서를 발행해요.</li>
         </ul>
       </div>
+    </div>
+
+    {% comment %}
+      전체 소개 자료 링크 (2026-08-19 신설, 2026-08-20 사용자 지시로 위치 이동) — 이 모달은
+      없애지 않는다. 모달은 "이게 뭐 하는 앱이지" 3초 답변이고, docs/reports/의 HTML 소개 자료는
+      정독용 문서라 성격이 다르다. 새 탭으로 열어 공존시킨다(target="_blank" + rel="noopener").
+
+      위치를 헤더 아래에서 이 자리(닫는 줄)로 내렸다. 모달을 다 읽고 나서 "더 볼 수 있다"로
+      이어지는 게 읽는 순서와 맞고, 헤더 위쪽은 아직 아무것도 안 읽은 사람에게 선택을 먼저
+      요구하는 자리였다. flex-shrink-0이라 본문을 스크롤해도 이 줄은 계속 보인다.
+      닫기 버튼(헤더 오른쪽) 옆에 두지 않은 것은 오조작 때문이다 — 닫으려다 새 탭이 열린다.
+
+      원본은 docs/(정적 서빙 대상 아님)에 있어 static/docs/로 빌드 시 복사한 사본을 가리킨다
+      (scripts/copy-vendor.js, npm run build에 물려 있어 문서를 고쳐도 복사를 잊지 않는다).
+    {% endcomment %}
+    <div class="px-6 py-3 border-t border-gray-100 flex justify-end flex-shrink-0">
+      <a href="{% static 'docs/AI_Market_Watch_service_intro.html' %}" target="_blank" rel="noopener"
+         class="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+        전체 소개 자료 보기
+        <i data-lucide="arrow-up-right" class="w-3 h-3"></i>
+      </a>
     </div>
   </div>
 </div>
