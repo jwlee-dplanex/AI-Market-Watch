@@ -60,8 +60,8 @@ def _is_word_char(ch: str) -> bool:
     return ch.isascii() and ch.isalnum()
 
 
-def _contains_alias(lower_text: str, alias: str) -> bool:
-    """lower_text 안에서 alias가 단어 경계를 지키며 등장하는지 확인한다.
+def _find_alias_positions(lower_text: str, alias: str) -> list[int]:
+    """lower_text 안에서 alias가 단어 경계를 지키며 등장하는 모든 시작 인덱스를 반환한다.
 
     lower_text는 이미 소문자로 변환된 상태여야 한다.
 
@@ -72,12 +72,17 @@ def _contains_alias(lower_text: str, alias: str) -> bool:
     alias 자신의 경계 글자가 영숫자가 아니면(=한글이면) 그 쪽 경계 검사를 생략해 이
     불일치를 없앤다. alias가 영문("RAG" 등)으로 시작/끝나는 경우는 기존처럼 엄격하게
     경계를 검사해 "storage"/"average" 안에 우연히 낀 매칭은 여전히 막는다.
+
+    (2026-08-20) 첫 매치에서 바로 반환하던 것을 전체 위치 목록 반환으로 바꿨다 —
+    아래 _find_matching_entities()의 역방향 삼킴 방지가 "이 등장이 다른 엔티티의 더 긴
+    이름 안에 덮여 있는가"를 판단하려면 개별 등장 위치가 필요하기 때문이다.
     """
     if not alias:
-        return False
+        return []
     needle = alias.lower()
     if not needle:
-        return False
+        return []
+    positions = []
     start = 0
     text_len = len(lower_text)
     needle_len = len(needle)
@@ -86,7 +91,7 @@ def _contains_alias(lower_text: str, alias: str) -> bool:
     while True:
         idx = lower_text.find(needle, start)
         if idx == -1:
-            return False
+            break
         before_ok = (
             idx == 0
             or not needle_starts_word
@@ -99,20 +104,81 @@ def _contains_alias(lower_text: str, alias: str) -> bool:
             or not _is_word_char(lower_text[after_idx])
         )
         if before_ok and after_ok:
-            return True
+            positions.append(idx)
         start = idx + 1
+    return positions
+
+
+def _contains_alias(lower_text: str, alias: str) -> bool:
+    """lower_text 안에 alias가 단어 경계를 지키며 등장하는지 여부만 확인한다."""
+    return bool(_find_alias_positions(lower_text, alias))
 
 
 def _find_matching_entities(text: str, entities: list) -> list:
     """text에 별칭이 매칭되는 엔티티(Organization 또는 TechTopic) 목록을 반환한다.
 
     두 모델 모두 name/aliases 속성 구조가 동일해서 매칭 로직을 공용화했다.
+
+    역방향 삼킴 방지(2026-08-20, docs/planning.md "2-1. 역방향 삼킴은 코드로 받는다"):
+    한글은 word-boundary가 없어 부분 문자열 매칭을 쓰는데, 그 결과 긴 법인명 안에만
+    등장하는 짧은 법인이 함께 태깅되는 사고가 반복됐다 — "한화생명금융서비스" 본문에
+    "한화생명"만 있어도 한화생명이 같이 걸리고(2026-08-19), "카카오페이손해보험" 본문에
+    "카카오페이"가 있어도 마찬가지였다(2026-08-20, News 2137: 본문에 "카카오페이" 4회
+    등장하나 전부 "카카오페이손해보험"의 부분 문자열이고 단독 등장은 0회). 별칭 자체를
+    지우는 방법은 못 쓴다 — 둘 다 실재하는 등록 법인의 정식 명칭이라서(예전 KB금융처럼
+    "형제 계열사를 삼키는 별칭"이 아니라 법인 이름 자체가 다른 법인 이름을 삼킨다).
+
+    해법: 짧은 별칭의 각 등장 위치가, 그 위치를 완전히 덮는 "다른 엔티티의 더 긴
+    이름/별칭 등장"이 텍스트 어딘가에 있으면 그 등장은 "낀 부분 문자열"로 보고 무시한다.
+    짧은 별칭이 그런 덮임 없이 독립적으로 한 번이라도 등장하면(=본문에 긴 법인명과
+    별개로 짧은 법인명도 단독으로 나오면) 정상적으로 태깅한다 — 무조건 짧은 쪽을
+    지우면 "카카오페이손해보험"과 "카카오페이"가 각자 다른 문맥으로 둘 다 언급된
+    기사에서 카카오페이가 빠지는 과잉 수정이 되므로 피한다.
+
+    같은 엔티티 소유의 name/alias끼리는(예: "한화생명"과 그 별칭 "한화생명보험") 비교
+    대상에서 제외한다 — 어차피 같은 엔티티라 결과에 차이가 없고, 의미상 "다른 법인에
+    삼켜졌다"는 것도 아니다.
+
+    되돌림 조건(PM): 이 로직 적용 후 "짧은 쪽이 본문에 단독 등장하는데도 태그가 빠지는"
+    사례가 서로 다른 3개 배치에서 각 1건 이상 나오면 방식을 재검토한다.
     """
     lower_text = text.lower()
+
+    # entity, alias, [본문에서 경계를 지키며 등장한 시작 인덱스들] — 등장이 없는
+    # (entity, alias) 조합은 아예 담지 않는다.
+    entity_alias_hits = []
+    for entity in entities:
+        for alias in [entity.name] + list(entity.aliases or []):
+            positions = _find_alias_positions(lower_text, alias)
+            if positions:
+                entity_alias_hits.append((entity, alias, positions))
+
     matched = []
     for entity in entities:
-        all_names = [entity.name] + list(entity.aliases or [])
-        if any(_contains_alias(lower_text, alias) for alias in all_names):
+        own_hits = [hit for hit in entity_alias_hits if hit[0] is entity]
+        if not own_hits:
+            continue
+        other_hits = [hit for hit in entity_alias_hits if hit[0] is not entity]
+
+        independent = False
+        for _, alias, positions in own_hits:
+            alias_len = len(alias)
+            for pos in positions:
+                swallowed = any(
+                    len(other_alias) > alias_len
+                    and any(
+                        opos <= pos and pos + alias_len <= opos + len(other_alias)
+                        for opos in other_positions
+                    )
+                    for _, other_alias, other_positions in other_hits
+                )
+                if not swallowed:
+                    independent = True
+                    break
+            if independent:
+                break
+
+        if independent:
             matched.append(entity)
     return matched
 
