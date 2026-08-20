@@ -599,6 +599,42 @@ svg text{font-family:var(--font);}
 .ksd-shot .s-edit{display:inline-flex;align-items:center;gap:3px;flex:none;font-size:10px;
   font-weight:500;color:var(--violet-800);}
 .ksd-shot .s-edit svg{width:9px;height:9px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+/* ---- 뉴스 화면 (NEWS-001 목록 · NEWS-002 상세) ---- */
+/* 검색·필터 바 — 실제로는 흰 카드 안에 input/select 가 한 줄로 놓인다 */
+.ksd-shot .s-fbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;background:#fff;
+  border:1px solid var(--s-line);border-radius:9px;box-shadow:0 1px 2px rgba(39,38,57,.05);padding:11px 12px;}
+.ksd-shot .s-inp{display:flex;align-items:center;gap:7px;border:1px solid #E5E7EB;border-radius:9px;
+  padding:6px 10px;font-size:11px;font-weight:500;color:var(--s-mute);background:#fff;}
+.ksd-shot .s-inp.grow{flex:1;min-width:150px;}
+.ksd-shot .s-inp svg{width:12px;height:12px;flex:none;fill:none;stroke:var(--s-mute);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.ksd-shot .s-inp .cv{margin-left:auto;}
+.ksd-shot .s-go{font-size:11px;font-weight:600;color:#fff;background:var(--violet-800);
+  border-radius:9px;padding:7px 15px;}
+.ksd-shot .s-reset{font-size:11px;font-weight:500;color:var(--s-mute);}
+/* 날짜 구분 행 (달력 아이콘 + 날짜 + 가는 선) */
+.ksd-shot .s-day{display:flex;align-items:center;gap:8px;}
+.ksd-shot .s-day svg{width:13px;height:13px;flex:none;fill:none;stroke:var(--violet-800);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.ksd-shot .s-day b{flex:none;font-size:11.5px;font-weight:700;color:#374151;}
+.ksd-shot .s-day i{flex:1;height:1px;background:#E5E7EB;display:block;}
+/* 페이지네이션 */
+.ksd-shot .s-page{display:flex;align-items:center;justify-content:center;gap:5px;}
+.ksd-shot .s-page i{font-style:normal;font-size:11px;font-weight:500;color:#4B5563;
+  border:1px solid #E5E7EB;border-radius:9px;padding:4px 10px;}
+.ksd-shot .s-page i.on{background:var(--violet-800);border-color:var(--violet-800);color:#fff;}
+/* 상세 — 기사 제목(세리프)과 본문 */
+.ksd-shot .s-art{font-family:var(--font-head);font-size:17px;font-weight:700;letter-spacing:-.02em;
+  color:var(--s-ink);line-height:1.45;}
+.ksd-shot .s-link.ext{display:inline-flex;align-items:center;gap:4px;}
+.ksd-shot .s-link.ext svg{width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+/* 이슈 시사점 블록 — 연보라 판 + 좌측 보라 굵은 보더 */
+.ksd-shot .s-imp{background:#FAF5FF;border-left:4px solid var(--violet-800);
+  border-radius:0 9px 9px 0;padding:11px 13px;}
+.ksd-shot .s-bulb{width:13px;height:13px;flex:none;fill:none;stroke:#93D500;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+/* 관련 기업 배지 — 닫기(x)가 붙는 형태 */
+.ksd-shot .s-chip.x{display:inline-flex;align-items:center;gap:4px;}
+.ksd-shot .s-chip.x svg{width:9px;height:9px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;}
+.ksd-shot .s-chip.b.fin{background:#DBEAFE;color:#1D4ED8;}
+.ksd-shot .s-chip.b.ai{background:#F3E8FF;color:var(--violet-800);}
 /* 목업 아래 한 줄 — "무엇이 실제 값이고 무엇이 예시인지"를 그림 옆에서 바로 밝힌다.
    같은 카드 안 .svc-fn 과 완전히 같은 형태를 쓴다(새 시각 요소를 만들지 않음). */
 .ksd-shot-note{margin:12px 20px 0;padding:10px 13px;border-radius:var(--radius-s);
@@ -1353,6 +1389,13 @@ svg text{font-family:var(--font);}
           <symbol id="nvDown" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></symbol>
           <symbol id="nvSend" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
           <symbol id="nvPencil" viewBox="0 0 24 24"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497Z"/><path d="m15 5 4 4"/></symbol>
+          <symbol id="nvSearch" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+          <symbol id="nvCal" viewBox="0 0 24 24"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></symbol>
+          <symbol id="nvExt" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+          <symbol id="nvBulb" viewBox="0 0 24 24"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></symbol>
+          <symbol id="nvX" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+          <symbol id="nvPlus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+          <symbol id="nvChevL" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
         </defs>
       </svg>
 
@@ -1504,9 +1547,11 @@ svg text{font-family:var(--font);}
                               이유가 이것이다. 라벨 솎아내기 interval = round(n/6) 이므로 n=7 이면
                               7개 전부 표시되고, 점 크기도 15개 이하라 축소되지 않는다.
 
-                           ⚠️ 주별 건수는 예시값이다(9·14·21·18·26·23·22). 합이 정확히 133 —
+                           ⚠️ 주별 건수는 예시값이다(9·14·21·18·26·23·24). 합이 정확히 135 —
                               검증 완료 뉴스 실제 총량과 같게 맞췄다. y축 최댓값(26)·중간값(13)도
-                              그 값에서 나온다. 주 수(7)는 실제 수집 시작일을 확인하지 못해 예시다. -->
+                              그 값에서 나온다. 주 수(7)는 실제 수집 시작일을 확인하지 못해 예시다.
+                              ⚠️ DB가 늘면 이 합계도 함께 고쳐야 한다(133 → 135, 2026-08-20).
+                                 마지막 주 값 하나만 조정하고 나머지는 그대로 뒀다. -->
                       <svg class="s-chart" viewBox="-7 0 314 100" aria-hidden="true">
                         <defs>
                           <linearGradient id="sTrendFill" x1="0" y1="0" x2="0" y2="1">
@@ -1525,13 +1570,13 @@ svg text{font-family:var(--font);}
                           <line x1="155" y1="82" x2="155" y2="86"/><line x1="201.33" y1="82" x2="201.33" y2="86"/><line x1="247.67" y1="82" x2="247.67" y2="86"/>
                           <line x1="294" y1="82" x2="294" y2="86"/>
                         </g>
-                        <path d="M16,56.4 C39.17,56.4 39.17,42.2 62.33,42.2 C85.5,42.2 85.5,22.2 108.67,22.2 C131.83,22.2 131.83,30.8 155,30.8 C178.17,30.8 178.17,8 201.33,8 C224.5,8 224.5,16.5 247.67,16.5 C270.83,16.5 270.83,19.4 294,19.4 L294,82 L16,82 Z" fill="url(#sTrendFill)"/>
-                        <path d="M16,56.4 C39.17,56.4 39.17,42.2 62.33,42.2 C85.5,42.2 85.5,22.2 108.67,22.2 C131.83,22.2 131.83,30.8 155,30.8 C178.17,30.8 178.17,8 201.33,8 C224.5,8 224.5,16.5 247.67,16.5 C270.83,16.5 270.83,19.4 294,19.4" fill="none" stroke="#60269E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M16,56.4 C39.17,56.4 39.17,42.2 62.33,42.2 C85.5,42.2 85.5,22.2 108.67,22.2 C131.83,22.2 131.83,30.8 155,30.8 C178.17,30.8 178.17,8 201.33,8 C224.5,8 224.5,16.5 247.67,16.5 C270.83,16.5 270.83,13.7 294,13.7 L294,82 L16,82 Z" fill="url(#sTrendFill)"/>
+                        <path d="M16,56.4 C39.17,56.4 39.17,42.2 62.33,42.2 C85.5,42.2 85.5,22.2 108.67,22.2 C131.83,22.2 131.83,30.8 155,30.8 C178.17,30.8 178.17,8 201.33,8 C224.5,8 224.5,16.5 247.67,16.5 C270.83,16.5 270.83,13.7 294,13.7" fill="none" stroke="#60269E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                         <g fill="#fff" stroke="#D1D5DB" stroke-width="1.2">
                           <circle cx="16" cy="56.4" r="2.6"/><circle cx="62.33" cy="42.2" r="2.6"/><circle cx="108.67" cy="22.2" r="2.6"/>
                           <circle cx="155" cy="30.8" r="2.6"/><circle cx="201.33" cy="8" r="2.6"/><circle cx="247.67" cy="16.5" r="2.6"/>
                         </g>
-                        <circle cx="294" cy="19.4" r="2.9" fill="#60269E" stroke="#60269E" stroke-width="1.2"/>
+                        <circle cx="294" cy="13.7" r="2.9" fill="#60269E" stroke="#60269E" stroke-width="1.2"/>
                         <g font-size="9" font-weight="700" fill="#9CA3AF" text-anchor="end">
                           <text x="13" y="11">26</text><text x="13" y="48">13</text><text x="13" y="85">0</text>
                         </g>
@@ -1551,7 +1596,7 @@ svg text{font-family:var(--font);}
                         </span>
                       </div>
                       <!-- 기업명은 실제 등록 기업(63곳)에서 가져왔고 유형별 색도 실제 규칙을 따른다.
-                           건수는 예시값이며 검증 완료 133건 안에서 앞뒤가 맞는 규모로 잡았다. -->
+                           건수는 예시값이며 검증 완료 135건 안에서 앞뒤가 맞는 규모로 잡았다. -->
                       <div class="s-lst" style="gap:9px">
                         <div class="s-rk"><em>1</em><span class="s-nm">NH농협은행</span><span class="s-track"><i class="fin" style="width:100%"></i></span><span class="s-ct">14</span></div>
                         <div class="s-rk"><em>2</em><span class="s-nm">삼성화재</span><span class="s-track"><i class="ins" style="width:86%"></i></span><span class="s-ct">12</span></div>
@@ -1564,7 +1609,7 @@ svg text{font-family:var(--font);}
                     <div class="s-card s-pad">
                       <div class="s-h">기술 주제별 언급 건수<span class="s-q">?</span></div>
                       <!-- 주제명은 실제 등록된 기술 주제 19개에서 가져왔다. 건수는 예시값 —
-                           한 기사에 여러 주제가 붙을 수 있어 합이 133을 넘지 않는 선으로 잡았다. -->
+                           한 기사에 여러 주제가 붙을 수 있어 합이 135를 넘지 않는 선으로 잡았다. -->
                       <div class="s-lst" style="gap:9px">
                         <div class="s-rk"><em>1</em><span class="s-nm">생성형 AI</span><span class="s-track"><i class="tec" style="width:100%"></i></span><span class="s-ct">31</span></div>
                         <div class="s-rk"><em>2</em><span class="s-nm">AI 상담</span><span class="s-track"><i class="tec" style="width:71%"></i></span><span class="s-ct">22</span></div>
@@ -1581,7 +1626,7 @@ svg text{font-family:var(--font);}
           </div>
           <p class="ksd-shot-note">
             헤드라인 · 주요 이슈의 <b>제목과 등급</b>, 최신 뉴스의 <b>제목과 발행일</b>, 순위에 오른 <b>기업명 · 기술 주제명</b>은 실제 값이다.
-            <b>건수는 예시</b>이며 주별 추이 합계는 검증 완료 뉴스 실제 총량(133건)에 맞췄다.
+            <b>건수는 예시</b>이며 주별 추이 합계는 검증 완료 뉴스 실제 총량(135건)에 맞췄다.
             목록 길이만 줄였다 — 헤드라인 3건은 실제 상한이고, 주요 이슈 · 최신 뉴스 · 순위는 스크롤되는 목록에서 앞 4~5행만 그렸다.
             헤드라인에 오른 이슈는 아래 주요 이슈 목록에 다시 나오지 않는다.
           </p>
@@ -1762,12 +1807,12 @@ svg text{font-family:var(--font);}
                ⚠️ 노드는 실제 등록된 63곳에서만 가져온다 — 이 제약은 완화되지 않았다.
                   관계 라벨도 실제 쓰이는 6종(공급계약 · 기술협업 · 업무협약 · 지분투자 ·
                   인수 · 파트너십) 밖으로 나가지 않는다.
-               ⚠️ 우측 상단 통계 "기업 63개 · 연결 16개"는 실제 총량 그대로 둔다. 그림은
+               ⚠️ 우측 상단 통계 "기업 65개 · 연결 16개"는 실제 총량 그대로 둔다. 그림은
                   예시를 포함하지만 지금 규모가 얼마인지는 이 숫자가 붙잡아 준다.
                ⚠️ 라벨 알약이 서로 겹치지 않는 선이 이 배율의 한계다. 연결을 더 넣으려면
                   캔버스 높이를 함께 키워야 한다 — 겹치면 오히려 못 읽는다. -->
           <div class="ksd-shot" role="img"
-               aria-label="지식그래프 화면. 위쪽에 전체·최근 30일·최근 7일 기간 필터가 있고, 왼쪽 캔버스에 기업이 원으로, 관계가 선으로 그려진다. 선 가운데에는 공급계약·기술협업 같은 관계 이름이 붙어 있다. 왼쪽 위에는 금융사·보험사·AI 범례가, 오른쪽 위에는 기업 63개 연결 16개라는 통계가 있다. 오른쪽 패널에는 클릭한 연결선의 두 기업, 관계 라벨, 근거 뉴스가 나온다.">
+               aria-label="지식그래프 화면. 위쪽에 전체·최근 30일·최근 7일 기간 필터가 있고, 왼쪽 캔버스에 기업이 원으로, 관계가 선으로 그려진다. 선 가운데에는 공급계약·기술협업 같은 관계 이름이 붙어 있다. 왼쪽 위에는 금융사·보험사·AI 범례가, 오른쪽 위에는 기업 65개 연결 16개라는 통계가 있다. 오른쪽 패널에는 클릭한 연결선의 두 기업, 관계 라벨, 근거 뉴스가 나온다.">
             <div class="ksd-shot-nav">
               <div class="bd"><em>DPLANEX</em><b>AI Market Watch</b></div>
               <ul>
@@ -1798,7 +1843,7 @@ svg text{font-family:var(--font);}
                       <span><b style="background:#00AF9A"></b>보험사</span>
                       <span><b style="background:#60269E"></b>AI</span>
                     </div>
-                    <div class="s-gstat">기업 63개 · 연결 16개</div>
+                    <div class="s-gstat">기업 65개 · 연결 16개</div>
                     <svg class="s-gsvg" viewBox="0 0 734 580" aria-hidden="true">
                       <g stroke="#898A8D" stroke-opacity=".75" stroke-linecap="round">
                         <line x1="150" y1="190" x2="300" y2="110" stroke-width="3"/>
@@ -1972,7 +2017,7 @@ svg text{font-family:var(--font);}
             </div>
           </div>
           <p class="ksd-shot-note">
-            <b>기업명 · 관계 이름 · 유형별 색은 실제 값</b>이고, 우측 상단의 기업 63개 · 연결 16개도 현재 실제 규모다.
+            <b>기업명 · 관계 이름 · 유형별 색은 실제 값</b>이고, 우측 상단의 기업 65개 · 연결 16개도 현재 실제 규모다.
             그림의 연결은 <b>관계가 쌓였을 때 이 화면이 어떤 모습이 되는지</b>를 담은 것이라 일부가 예시이며,
             여러 금융사가 같은 AI 기업으로 모이는 지점에서 관계망이 만들어진다.
             우측 패널의 근거 뉴스 제목 · 날짜 · 건수도 예시다.
@@ -1994,6 +2039,181 @@ svg text{font-family:var(--font);}
         <!-- 04 뉴스 -->
         <div class="svc rv" style="--d:180ms">
           <div class="svc-hd"><span class="svc-no">04</span><span class="svc-nm">뉴스 — 검증 완료 기사</span></div>
+
+          <p class="ksd-shot-lbl">목록<span>NEWS-001</span></p>
+          <!-- 목록 목업 — templates/news/list.html + templates/news/_list.html + base.html.
+               ⚠️ 언론사(매체명)를 그리지 않았다. 실제 데이터가 전부 비어 있고, 화면에도
+                  언론사를 표시하는 자리가 없다 — 목록 카드는 날짜 · 제목 · 기업 배지만
+                  렌더한다. 데모 데이터가 허용됐지만 "값이 없는 상태"가 곧 실제 상태라
+                  채우면 현황을 왜곡한다.
+               ⚠️ 썸네일(news.image_url)도 조건부라 없는 기사가 많다 — 없는 쪽으로 그렸다.
+               검색 · 기간 · 기업 유형 · 출처 · 정렬 · 검색 · 초기화까지 필터 바 구성은
+               실제 순서 그대로다. 출처 선택지가 세 개(네이버 뉴스 · OpenDART · RSS)인 것도
+               코드 그대로이며, 실제로 등록돼 동작하는 데이터 소스는 네이버 뉴스 하나다. -->
+          <div class="ksd-shot" role="img"
+               aria-label="뉴스 목록 화면. 맨 위에 검색어, 기간, 기업 유형, 출처, 정렬 선택과 검색 버튼이 한 줄로 놓인 필터 바가 있다. 그 아래 총 건수가 표시되고, 날짜별로 묶인 기사 카드가 이어진다. 카드에는 발행일, 제목, 관련 기업 배지가 들어간다. 맨 아래에 페이지 번호가 있다.">
+            <div class="ksd-shot-nav">
+              <div class="bd"><em>DPLANEX</em><b>AI Market Watch</b></div>
+              <ul>
+                <li><svg class="ic"><use href="#nvDash"/></svg>대시보드</li>
+                <li><svg class="ic"><use href="#nvChart"/></svg>보고서</li>
+                <li><svg class="ic"><use href="#nvNet"/></svg>지식그래프</li>
+                <li class="on"><svg class="ic"><use href="#nvNews"/></svg>뉴스</li>
+                <li><svg class="ic"><use href="#nvSet"/></svg>설정</li>
+              </ul>
+              <div class="ft">
+                <div class="sv"><svg class="ic"><use href="#nvInfo"/></svg>서비스 소개</div>
+                <div class="lc"><em>마지막 수집</em><b>08/20 09:00</b></div>
+              </div>
+            </div>
+            <div class="ksd-shot-main">
+              <div class="ksd-shot-hd"><b>뉴스</b></div>
+              <div class="ksd-shot-bd">
+
+                <div class="s-fbar">
+                  <span class="s-inp grow"><svg><use href="#nvSearch"/></svg>뉴스를 검색해주세요</span>
+                  <span class="s-inp">연도-월-일</span>
+                  <span class="s-mt">~</span>
+                  <span class="s-inp">연도-월-일</span>
+                  <span class="s-inp">전체 기업<svg class="cv"><use href="#nvChev"/></svg></span>
+                  <span class="s-inp">전체 출처<svg class="cv"><use href="#nvChev"/></svg></span>
+                  <span class="s-inp">최신순<svg class="cv"><use href="#nvChev"/></svg></span>
+                  <span class="s-go">검색</span>
+                  <span class="s-reset">초기화</span>
+                </div>
+
+                <div class="s-mt" style="font-size:11.5px">총 <b style="color:var(--s-ink);font-weight:700">135</b>건</div>
+
+                <div class="s-day"><svg><use href="#nvCal"/></svg><b>2026년 08월 19일</b><i></i></div>
+                <div class="s-lst" style="margin-top:0">
+                  <div class="s-card s-pad">
+                    <div class="s-mt">2026.08.19</div>
+                    <div class="s-ttl tr" style="margin-top:5px">대상웰라이프·한화생명금융서비스, 건강데이터에 보험설계 더한다</div>
+                    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:7px">
+                      <span class="s-chip s ins">한화생명금융서비스</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="s-day" style="margin-top:4px"><svg><use href="#nvCal"/></svg><b>2026년 08월 18일</b><i></i></div>
+                <div class="s-lst" style="margin-top:0">
+                  <div class="s-card s-pad">
+                    <div class="s-mt">2026.08.18</div>
+                    <div class="s-ttl tr" style="margin-top:5px">[금융권 스타트업 협업①] KB국민은행은 왜 신생 '티냅스'를 택했나</div>
+                    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:7px">
+                      <span class="s-chip s fin">KB국민은행</span><span class="s-chip s ai">티냅스</span>
+                    </div>
+                  </div>
+                  <div class="s-card s-pad">
+                    <div class="s-mt">2026.08.18</div>
+                    <div class="s-ttl tr" style="margin-top:5px">다올금융그룹, AI 전환 속도…투자 서비스부터 내부 업무까지 확대</div>
+                    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:7px">
+                      <span class="s-chip s fin">다올투자증권</span>
+                    </div>
+                  </div>
+                  <div class="s-card s-pad">
+                    <div class="s-mt">2026.08.18</div>
+                    <div class="s-ttl tr" style="margin-top:5px">"여행보험 최단 1초만에 지급"…카카오페이손보, '바로지급' 실시</div>
+                    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:7px">
+                      <span class="s-chip s ins">카카오페이손해보험</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="s-page" style="margin-top:4px">
+                  <i class="on">1</i><i>2</i><i>3</i><i>다음</i>
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+          <p class="ksd-shot-lbl">상세<span>NEWS-002 · 목록에서 기사 하나를 연 화면</span></p>
+          <!-- 상세 목업 — templates/news/detail.html + templates/news/_orgs.html.
+               ⚠️ 여기도 언론사 자리가 없다. 헤더에 있는 건 발행일과 "원문 보기" 링크뿐이다.
+               ⚠️ "이슈 시사점" 카드는 이 기사가 속한 Insight 에 implication 이 있을 때만
+                  렌더된다 — 있는 상태로 그렸다. 이 화면의 특징이 드러나는 자리이기 때문이다.
+               ⚠️ 우측 "관련 기업" 배지의 x 버튼과 "기업 추가"는 태그를 수동 교정하는 장치다.
+                  카드 본문이 말하는 "잘못 부여된 태그는 수동으로 교정한다"가 이 UI다. -->
+          <div class="ksd-shot" role="img"
+               aria-label="뉴스 상세 화면. 위쪽에 뉴스 목록으로 돌아가는 경로와 이전·다음 이동이 있다. 본문 영역에는 발행일과 원문 보기 링크, 기사 제목, 이 기사가 속한 이슈의 시사점, 기사 본문이 차례로 놓인다. 오른쪽에는 관련 기업 배지와 기업 추가 버튼이 있는 패널이 붙는다.">
+            <div class="ksd-shot-nav">
+              <div class="bd"><em>DPLANEX</em><b>AI Market Watch</b></div>
+              <ul>
+                <li><svg class="ic"><use href="#nvDash"/></svg>대시보드</li>
+                <li><svg class="ic"><use href="#nvChart"/></svg>보고서</li>
+                <li><svg class="ic"><use href="#nvNet"/></svg>지식그래프</li>
+                <li class="on"><svg class="ic"><use href="#nvNews"/></svg>뉴스</li>
+                <li><svg class="ic"><use href="#nvSet"/></svg>설정</li>
+              </ul>
+              <div class="ft">
+                <div class="sv"><svg class="ic"><use href="#nvInfo"/></svg>서비스 소개</div>
+                <div class="lc"><em>마지막 수집</em><b>08/20 09:00</b></div>
+              </div>
+            </div>
+            <div class="ksd-shot-main">
+              <div class="ksd-shot-hd"><b>뉴스 상세</b></div>
+              <div class="ksd-shot-bd">
+
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+                  <div class="s-bc">뉴스<svg><use href="#nvChevR"/></svg><em>[금융권 스타트업 협업①] KB국민은행은 왜 …</em></div>
+                  <div style="display:flex;align-items:center;gap:7px">
+                    <span class="s-mt" style="display:inline-flex;align-items:center;gap:3px;color:#6B7280"><svg style="width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:2"><use href="#nvChevL"/></svg>이전</span>
+                    <span class="s-mt" style="color:#E5E7EB">|</span>
+                    <span class="s-mt" style="display:inline-flex;align-items:center;gap:3px;color:#6B7280">다음<svg style="width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:2"><use href="#nvChevR"/></svg></span>
+                  </div>
+                </div>
+
+                <div class="s-grow" style="align-items:flex-start">
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:12px">
+                    <div class="s-card" style="padding:17px 18px">
+                      <div style="display:flex;align-items:center;gap:8px">
+                        <span class="s-mt">2026년 08월 18일</span>
+                        <span class="s-link ext" style="margin-left:auto">원문 보기<svg><use href="#nvExt"/></svg></span>
+                      </div>
+                      <div class="s-art" style="margin-top:9px">[금융권 스타트업 협업①] KB국민은행은 왜 신생 '티냅스'를 택했나</div>
+                    </div>
+
+                    <div class="s-card s-pad">
+                      <div style="display:flex;align-items:center;gap:7px">
+                        <svg class="s-bulb"><use href="#nvBulb"/></svg>
+                        <span class="s-h" style="font-size:11.5px">이슈 시사점</span>
+                      </div>
+                      <div class="s-mt" style="display:block;margin:4px 0 9px 20px;white-space:normal">이 기사가 속한 이슈 · <span style="color:#6B7280">KB국민은행이 티냅스와 AI 답변 신뢰성 검증 체계 공동 구축</span></div>
+                      <div class="s-imp">
+                        <p class="s-tx">통과 · 차단 · 재검토로 판정을 나눈 점이 핵심이다. AI 답변을 쓰거나 버리는 두 갈래가 아니라 사람이 다시 보는 칸을 따로 둔 구조이며, 금융권이 생성형 AI를 고객 응대에 붙일 때 필요한 통제 지점을 보여 준다.</p>
+                      </div>
+                    </div>
+
+                    <div class="s-card" style="padding:17px 18px">
+                      <p class="s-tx">KB국민은행이 설립 3년 차 스타트업 티냅스와 손잡고 AI 답변의 신뢰성을 검증하는 체계를 공동 구축한다고 밝혔다.</p>
+                      <p class="s-tx" style="margin-top:11px">이 체계는 AI가 만든 답변을 통과 · 차단 · 재검토 세 가지로 판정한다. 재검토로 분류된 답변은 담당자가 직접 확인한 뒤에야 고객에게 전달된다.</p>
+                      <p class="s-tx" style="margin-top:11px">은행 측은 신생 기업을 택한 이유로 검증 영역에 특화된 기술과 빠른 적용 속도를 들었다.</p>
+                    </div>
+                  </div>
+
+                  <div class="s-gpanel">
+                    <div class="s-lbl">관련 기업</div>
+                    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:10px">
+                      <span class="s-chip x b fin">KB국민은행<svg><use href="#nvX"/></svg></span>
+                      <span class="s-chip x b ai">티냅스<svg><use href="#nvX"/></svg></span>
+                    </div>
+                    <div class="s-link" style="display:inline-flex;align-items:center;gap:4px;margin-top:11px">
+                      <svg style="width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round"><use href="#nvPlus"/></svg>기업 추가
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+          <p class="ksd-shot-note">
+            <b>기사 제목 · 발행일 · 총 135건은 실제 값</b>이고, 기업 배지도 실제 등록된 기업이다.
+            기사 본문 · 이슈 시사점 문구는 예시이며, 페이지 번호도 예시다.
+            <b>언론사 자리는 비어 있는 것이 아니라 화면에 아예 없다</b> — 목록과 상세 모두 발행일 · 제목 · 기업 배지만 보여 준다.
+            우측 배지의 x 표시와 "기업 추가"는 잘못 붙은 태그를 사람이 고치는 장치다.
+          </p>
+
           <div class="svc-bd">
             <p class="svc-tx">수집된 기사 원문과 요약을 대상으로 한다.</p>
             <p class="svc-tx">등록해 둔 기준으로 관련성을 판정하고, 통과하지 못한 기사는 화면에서 제외한다. 기업 · 기술 주제 태그를 부여하고, 잘못 부여된 태그는 수동으로 교정한다.</p>
