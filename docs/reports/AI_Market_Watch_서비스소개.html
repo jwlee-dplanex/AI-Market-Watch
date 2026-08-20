@@ -635,6 +635,51 @@ svg text{font-family:var(--font);}
 .ksd-shot .s-chip.x svg{width:9px;height:9px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;}
 .ksd-shot .s-chip.b.fin{background:#DBEAFE;color:#1D4ED8;}
 .ksd-shot .s-chip.b.ai{background:#F3E8FF;color:var(--violet-800);}
+/* ---- 설정 화면 (SET-002 키워드 · SET-006 로그) ---- */
+/* 설정 전용 좌측 서브 메뉴 — 사이드바(w-60)와 본문 사이에 한 겹 더 있는 구조다 */
+.ksd-shot .s-smenu{width:150px;flex:none;background:#fff;border:1px solid var(--s-line);
+  border-radius:9px;box-shadow:0 1px 2px rgba(39,38,57,.05);padding:7px;}
+.ksd-shot .s-smenu span{display:flex;align-items:center;gap:8px;padding:6px 9px;border-radius:9px;
+  font-size:11.5px;font-weight:500;color:#4B5563;}
+.ksd-shot .s-smenu span.on{background:rgba(96,38,158,.1);color:var(--violet-800);font-weight:700;}
+.ksd-shot .s-smenu svg{width:13px;height:13px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.ksd-shot .s-smenu svg.fill{fill:currentColor;stroke:none;}
+/* 카드 헤더(제목 + 부제) — 설정 카드는 제목 영역이 본문과 선으로 갈린다 */
+.ksd-shot .s-chd{padding:12px 15px;border-bottom:1px solid #F3F4F6;}
+.ksd-shot .s-csub{margin-top:2px;font-size:10px;font-weight:500;color:var(--s-mute);}
+/* 표 */
+.ksd-shot .s-tb{width:100%;border-collapse:collapse;}
+.ksd-shot .s-tb th{text-align:left;font-size:10px;font-weight:700;color:var(--s-mute2);padding:8px 0;
+  border-bottom:1px solid #F3F4F6;}
+.ksd-shot .s-tb th:first-child,.ksd-shot .s-tb td:first-child{padding-left:15px;}
+.ksd-shot .s-tb td{font-size:11px;font-weight:500;color:var(--s-ink);padding:8px 0;
+  border-bottom:1px solid #FAFAFA;}
+.ksd-shot .s-tb td.m{color:var(--s-mute2);font-weight:400;}
+.ksd-shot .s-tb .act{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding-right:14px;}
+.ksd-shot .s-tb .act svg{width:12px;height:12px;fill:none;stroke:#D1D5DB;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+/* 표 하단 입력 행 */
+.ksd-shot .s-add{display:flex;gap:7px;padding:12px 15px;border-top:1px solid #F3F4F6;}
+.ksd-shot .s-add .btn{font-size:10.5px;font-weight:600;color:#fff;background:var(--violet-800);
+  border-radius:9px;padding:6px 12px;flex:none;}
+.ksd-shot .s-add .btn.warn{background:#FF6C0E;}
+/* 정렬 배지 */
+.ksd-shot .s-sort{font-size:9.5px;font-weight:500;padding:1px 7px;border-radius:99px;
+  background:#EFF6FF;color:#2563EB;}
+.ksd-shot .s-sort.new{background:#F3EAFB;color:var(--violet-800);}
+/* 상태 배지 (성공/실패) */
+.ksd-shot .s-st{font-size:9.5px;font-weight:500;padding:1px 7px;border-radius:99px;
+  background:#DCFCE7;color:#15803D;}
+/* 검증 파이프라인 현황 — 지표 3+1 */
+.ksd-shot .s-kpi{display:flex;align-items:flex-start;gap:32px;flex-wrap:wrap;}
+.ksd-shot .s-kpi > div > .k{font-size:10px;font-weight:500;color:var(--s-mute);}
+.ksd-shot .s-kpi > div > .v{margin-top:3px;font-size:16px;font-weight:600;color:var(--s-ink);}
+.ksd-shot .s-ok{display:inline-flex;align-items:center;gap:4px;margin-top:2px;font-size:10px;font-weight:500;color:#16A34A;}
+.ksd-shot .s-ok svg{width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
+/* 로그 탭 */
+.ksd-shot .s-tabs{display:inline-flex;gap:4px;background:#fff;border:1px solid var(--s-line);
+  border-radius:9px;box-shadow:0 1px 2px rgba(39,38,57,.05);padding:4px;}
+.ksd-shot .s-tabs i{font-style:normal;font-size:10.5px;font-weight:500;padding:6px 14px;border-radius:9px;color:var(--s-mute2);}
+.ksd-shot .s-tabs i.on{background:var(--violet-800);color:#fff;}
 /* 목업 아래 한 줄 — "무엇이 실제 값이고 무엇이 예시인지"를 그림 옆에서 바로 밝힌다.
    같은 카드 안 .svc-fn 과 완전히 같은 형태를 쓴다(새 시각 요소를 만들지 않음). */
 .ksd-shot-note{margin:12px 20px 0;padding:10px 13px;border-radius:var(--radius-s);
@@ -1396,6 +1441,17 @@ svg text{font-family:var(--font);}
           <symbol id="nvX" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
           <symbol id="nvPlus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
           <symbol id="nvChevL" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+          <symbol id="nvDb" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></symbol>
+          <symbol id="nvTag" viewBox="0 0 24 24"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5"/></symbol>
+          <symbol id="nvBldg" viewBox="0 0 24 24"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></symbol>
+          <symbol id="nvCpu" viewBox="0 0 24 24"><rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></symbol>
+          <symbol id="nvFile" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></symbol>
+          <symbol id="nvClock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+          <symbol id="nvScroll" viewBox="0 0 24 24"><path d="M15 12h-5"/><path d="M15 8h-5"/><path d="M19 17V5a2 2 0 0 0-2-2H4"/><path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"/></symbol>
+          <symbol id="nvBan" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></symbol>
+          <symbol id="nvTrash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+          <symbol id="nvCheck" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></symbol>
+          <symbol id="nvSlack" viewBox="0 0 24 24"><path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zm10.122 2.521a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zm-1.268 0a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zm-2.523 10.122a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zm0-1.268a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"/></symbol>
         </defs>
       </svg>
 
@@ -1449,10 +1505,10 @@ svg text{font-family:var(--font);}
                     </div>
                     <div class="s-card s-hl s-pad">
                       <div class="s-top">
-                        <span class="s-ttl">카카오페이손해보험이 보험금 청구 24시간 내 지급분에 소요 시간 알림 — 해외여행보험 45%가 1분 이내</span>
-                        <span class="s-meta"><span class="s-gr">1급</span><span class="s-mt">08/18</span><span class="s-mt">관련 기사 1건</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
+                        <span class="s-ttl">삼성화재가 실손24로 청구부터 지급까지 평균 10분으로 단축하고, DB손해보험은 삼성SDS와 만든 음성 AI 에이전트로 사고 접수 30분 내 초기 안내</span>
+                        <span class="s-meta"><span class="s-gr">1급</span><span class="s-mt">08/19</span><span class="s-mt">관련 기사 2건</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
                       </div>
-                      <div class="s-div"><span class="s-pv">카카오페이손해보험이 보험금 청구 후 24시간 안에 지급된 건에 대해 실제 소요 시간을 알려 준다. 해외여행보험은 45%가 1분 이내에 지급됐다.</span></div>
+                      <div class="s-div"><span class="s-pv">삼성화재는 실손24로 청구부터 지급까지 걸리는 시간을 평균 10분으로 줄였고, DB손해보험은 삼성SDS와 만든 음성 AI 에이전트로 사고 접수 후 30분 안에 초기 안내를 보낸다.</span></div>
                     </div>
                   </div>
                 </div>
@@ -1460,11 +1516,22 @@ svg text{font-family:var(--font);}
                 <div class="s-g21">
                   <div class="s-card s-pad">
                     <div class="s-h">주요 이슈<span class="s-q">?</span></div>
-                    <!-- 제목·등급·근거 건수 모두 실제 값(2026-08-19 DB 조회). 이 목록의 제목은
-                         헤드라인과 달리 truncate 가 걸려 있어(.tr) 긴 제목이 한 줄에서 잘린다 —
-                         두 자리의 처리가 실제로 다르다. 헤드라인에 오른 3건은 여기 다시 넣지
-                         않았다(중복 노출 여부를 코드에서 확인하지 못함). -->
+                    <!-- 제목·등급 모두 실제 값(2026-08-20 DB 조회). 이 목록의 제목은 헤드라인과
+                         달리 truncate 가 걸려 있어(.tr) 긴 제목이 한 줄에서 잘린다 — 두 자리의
+                         처리가 실제로 다르다.
+                         ⚠️ 헤드라인에 오른 3건은 여기 다시 넣지 않는다(헤드라인은 이 목록에서
+                            제외된다는 것이 사용자 확인 사실). 그래서 헤드라인이 교체되면 이 목록도
+                            함께 손봐야 한다 — 실제로 카카오페이손해보험 건이 헤드라인에서 내려와
+                            이 목록 맨 아래로 옮겨졌다(2026-08-20). 한쪽만 고치면 같은 이슈가
+                            두 자리에 동시에 있거나 어느 쪽에도 없게 된다. -->
                     <div class="s-lst">
+                      <div class="s-card s-pad">
+                        <div class="s-top">
+                          <span class="s-ttl tr">NH농협은행이 '에이전틱 AI 은행' 구현을 논의하는 초개인화 토론회 개최 — 마케팅·AX·데이터·플랫폼·테크 부서 팀장급 참여</span>
+                          <span class="s-meta"><span class="s-gr g3">3급</span><span class="s-mt">08/19</span><span class="s-mt">관련 기사 1건</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
+                        </div>
+                        <div class="s-div"><span class="s-pv">NH농협은행이 마케팅 · AX · 데이터 · 플랫폼 · 테크 부서 팀장급이 참여하는 토론회를 열어 '에이전틱 AI 은행' 구현 방향을 논의했다.</span></div>
+                      </div>
                       <div class="s-card s-pad">
                         <div class="s-top">
                           <span class="s-ttl tr">대상웰라이프와 한화생명금융서비스가 건강데이터 기반 보험설계 업무협약 체결</span>
@@ -1481,17 +1548,17 @@ svg text{font-family:var(--font);}
                       </div>
                       <div class="s-card s-pad">
                         <div class="s-top">
-                          <span class="s-ttl tr">AI 오류로 난 손해는 현행 보험으로 보상 못 받는다 — 삼성화재 "AI 관련 특약 검토 중"</span>
-                          <span class="s-meta"><span class="s-gr g3">3급</span><span class="s-mt">08/15</span><span class="s-mt">관련 기사 1건</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
+                          <span class="s-ttl tr">KB국민은행이 티냅스와 AI 답변 신뢰성 검증 체계 공동 구축 — 통과·차단·재검토 판정</span>
+                          <span class="s-meta"><span class="s-gr g2">2급</span><span class="s-mt">08/18</span><span class="s-mt">관련 기사 1건</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
                         </div>
-                        <div class="s-div"><span class="s-pv">AI 오류로 발생한 손해는 현행 보험 약관으로 보상받기 어렵다. 삼성화재는 AI 관련 특약을 검토 중이라고 밝혔다.</span></div>
+                        <div class="s-div"><span class="s-pv">KB국민은행이 티냅스와 함께 AI 답변의 신뢰성을 검증하는 체계를 만든다. 판정은 통과 · 차단 · 재검토 세 갈래다.</span></div>
                       </div>
                       <div class="s-card s-pad">
                         <div class="s-top">
-                          <span class="s-ttl tr">한화생명 'AI STS' 사용 설계사 2만8,000명 — 인당 건강보험 월평균 판매실적 미사용자 대비 40% 이상</span>
-                          <span class="s-meta"><span class="s-gr g3">3급</span><span class="s-mt">08/13</span><span class="s-mt">관련 기사 1건</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
+                          <span class="s-ttl tr">카카오페이손해보험이 보험금 청구 24시간 내 지급분에 소요 시간 알림 — 해외여행보험 45%가 1분 이내</span>
+                          <span class="s-meta"><span class="s-gr">1급</span><span class="s-mt">08/18</span><span class="s-mt">관련 기사 1건</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
                         </div>
-                        <div class="s-div"><span class="s-pv">한화생명 'AI STS'를 쓰는 설계사가 2만8,000명으로 늘었고, 인당 건강보험 월평균 판매실적이 미사용자보다 40% 이상 높았다.</span></div>
+                        <div class="s-div"><span class="s-pv">카카오페이손해보험이 보험금 청구 후 24시간 안에 지급된 건에 대해 실제 소요 시간을 알려 준다. 해외여행보험은 45%가 1분 이내에 지급됐다.</span></div>
                       </div>
                     </div>
                   </div>
@@ -1501,23 +1568,23 @@ svg text{font-family:var(--font);}
                       <span class="s-h">최신 뉴스<span class="s-q">?</span></span>
                       <span class="s-link">전체 보기</span>
                     </div>
-                    <!-- 제목·발행일 모두 실제 값(검증 완료 최신 4건, 2026-08-19 DB 조회).
+                    <!-- 제목·발행일 모두 실제 값(검증 완료 최신 4건, 2026-08-20 DB 조회).
                          이 카드는 제목과 날짜만 렌더하므로 언론사가 비어 있는 것과 무관하다. -->
                     <div class="s-lst">
+                      <div class="s-card s-pad">
+                        <span class="s-nt">"AI가 알아서 맞춤 금융 추천한다"…NH농협은행, '에이전틱 AI' 전면 도입</span>
+                        <span class="s-dt">08/19</span>
+                      </div>
+                      <div class="s-card s-pad">
+                        <span class="s-nt">청구부터 입금까지 1분…보험사 '보험금 지급 속도전'</span>
+                        <span class="s-dt">08/19</span>
+                      </div>
                       <div class="s-card s-pad">
                         <span class="s-nt">대상웰라이프·한화생명금융서비스, 건강데이터에 보험설계 더한다</span>
                         <span class="s-dt">08/19</span>
                       </div>
                       <div class="s-card s-pad">
                         <span class="s-nt">[금융권 스타트업 협업①] KB국민은행은 왜 신생 '티냅스'를 택했나</span>
-                        <span class="s-dt">08/18</span>
-                      </div>
-                      <div class="s-card s-pad">
-                        <span class="s-nt">다올금융그룹, AI 전환 속도…투자 서비스부터 내부 업무까지 확대</span>
-                        <span class="s-dt">08/18</span>
-                      </div>
-                      <div class="s-card s-pad">
-                        <span class="s-nt">"여행보험 최단 1초만에 지급"…카카오페이손보, '바로지급' 실시</span>
                         <span class="s-dt">08/18</span>
                       </div>
                     </div>
@@ -1542,10 +1609,14 @@ svg text{font-family:var(--font);}
                            ⚠️ 버킷 단위 — 기간이 "전체"면 apps/dashboard/views.py 가
                               bucket_unit 을 "day"가 아니라 "week"(수집 전 기간이 364일 이하일 때)
                               로 잡는다. 그래서 카드 제목이 "주별"이고, 점 하나가 오늘부터 거꾸로
-                              굴린 7일 롤링 윈도우 하나다(_build_rolling_buckets). x축 라벨은 그
-                              윈도우의 시작일이다 — 마지막 점 라벨이 오늘(08/19)이 아니라 08/13인
-                              이유가 이것이다. 라벨 솎아내기 interval = round(n/6) 이므로 n=7 이면
-                              7개 전부 표시되고, 점 크기도 15개 이하라 축소되지 않는다.
+                              굴린 7일 롤링 윈도우 하나다(_build_rolling_buckets).
+                              ⚠️ x축 라벨은 윈도우의 **끝일**이다(2026-08-20 스펙 변경, design.md
+                                 trend_points.label 절). 시작일로 찍던 때는 마지막 점에 오늘보다
+                                 6일 전 날짜가 나와, 롤링 윈도우를 쓴 이유("마지막 점은 늘 오늘을
+                                 포함한 구간") 자체가 화면에서 가려졌다 — 사용자가 앱에서 발견한
+                                 버그다. 그래서 마지막 라벨이 오늘(08/20)이다.
+                              라벨 솎아내기 interval = round(n/6) 이므로 n=7 이면 7개 전부
+                              표시되고, 점 크기도 15개 이하라 축소되지 않는다.
 
                            ⚠️ 주별 건수는 예시값이다(9·14·21·18·26·23·24). 합이 정확히 135 —
                               검증 완료 뉴스 실제 총량과 같게 맞췄다. y축 최댓값(26)·중간값(13)도
@@ -1581,9 +1652,9 @@ svg text{font-family:var(--font);}
                           <text x="13" y="11">26</text><text x="13" y="48">13</text><text x="13" y="85">0</text>
                         </g>
                         <g font-size="9" font-weight="600" fill="#9CA3AF" text-anchor="middle">
-                          <text x="16" y="95">07/02</text><text x="62.33" y="95">07/09</text><text x="108.67" y="95">07/16</text>
-                          <text x="155" y="95">07/23</text><text x="201.33" y="95">07/30</text><text x="247.67" y="95">08/06</text>
-                          <text x="294" y="95" font-weight="800" fill="#60269E">08/13</text>
+                          <text x="16" y="95">07/09</text><text x="62.33" y="95">07/16</text><text x="108.67" y="95">07/23</text>
+                          <text x="155" y="95">07/30</text><text x="201.33" y="95">08/06</text><text x="247.67" y="95">08/13</text>
+                          <text x="294" y="95" font-weight="800" fill="#60269E">08/20</text>
                         </g>
                       </svg>
                     </div>
@@ -2088,6 +2159,20 @@ svg text{font-family:var(--font);}
                 <div class="s-lst" style="margin-top:0">
                   <div class="s-card s-pad">
                     <div class="s-mt">2026.08.19</div>
+                    <div class="s-ttl tr" style="margin-top:5px">"AI가 알아서 맞춤 금융 추천한다"…NH농협은행, '에이전틱 AI' 전면 도입</div>
+                    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:7px">
+                      <span class="s-chip s fin">NH농협은행</span>
+                    </div>
+                  </div>
+                  <div class="s-card s-pad">
+                    <div class="s-mt">2026.08.19</div>
+                    <div class="s-ttl tr" style="margin-top:5px">청구부터 입금까지 1분…보험사 '보험금 지급 속도전'</div>
+                    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:7px">
+                      <span class="s-chip s ins">삼성화재</span><span class="s-chip s ins">카카오페이손해보험</span>
+                    </div>
+                  </div>
+                  <div class="s-card s-pad">
+                    <div class="s-mt">2026.08.19</div>
                     <div class="s-ttl tr" style="margin-top:5px">대상웰라이프·한화생명금융서비스, 건강데이터에 보험설계 더한다</div>
                     <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:7px">
                       <span class="s-chip s ins">한화생명금융서비스</span>
@@ -2225,6 +2310,190 @@ svg text{font-family:var(--font);}
         <!-- 05 설정 -->
         <div class="svc rv" style="--d:240ms">
           <div class="svc-hd"><span class="svc-no">05</span><span class="svc-nm">설정 — 수집 기준과 처리 이력</span></div>
+
+          <p class="ksd-shot-lbl">수집 키워드<span>SET-002 · 설정 여덟 화면 중 하나</span></p>
+          <!-- SET-002 목업 — templates/setting/keywords.html + _keywords.html + base_setting.html.
+               ⚠️ 설정은 사이드바(앱 전체) 안에 좌측 서브 메뉴(설정 8개)가 한 겹 더 있는 구조다.
+                  이 두 겹을 그리지 않으면 "설정 안에서 이동한다"가 안 보인다.
+               ⚠️ 수집 키워드는 33건 전부 활성이고 형태가 {기업명} AI 로 일정하다 — 그 규칙이
+                  드러나도록 앞 6행을 실제 값으로 넣었다. 표 아래 "N건"류 표시는 실제 화면에
+                  없으므로 만들지 않았다.
+               ⚠️ 제외 키워드는 실제 등록 건수를 확인하지 못했다. 그래서 목록 행을 지어내지 않고
+                  실제로 존재하는 빈 상태 문구를 그대로 뒀다 — 화면에 있는 문구이고, 없는 값을
+                  채우는 것보다 정확하다. -->
+          <div class="ksd-shot" role="img"
+               aria-label="설정 화면의 키워드 관리. 왼쪽에 데이터 소스, 키워드, 기업, 기술 주제, 프롬프트, 스케줄, 슬랙, 로그 여덟 개 설정 메뉴가 있고 키워드가 선택돼 있다. 본문은 좌우 두 카드로 나뉜다. 왼쪽은 수집 키워드 표로 키워드와 정렬 방식이 행마다 놓이고, 오른쪽은 제외 키워드 표다. 두 카드 모두 아래에 새 키워드를 넣는 입력칸과 추가 버튼이 있다.">
+            <div class="ksd-shot-nav">
+              <div class="bd"><em>DPLANEX</em><b>AI Market Watch</b></div>
+              <ul>
+                <li><svg class="ic"><use href="#nvDash"/></svg>대시보드</li>
+                <li><svg class="ic"><use href="#nvChart"/></svg>보고서</li>
+                <li><svg class="ic"><use href="#nvNet"/></svg>지식그래프</li>
+                <li><svg class="ic"><use href="#nvNews"/></svg>뉴스</li>
+                <li class="on"><svg class="ic"><use href="#nvSet"/></svg>설정</li>
+              </ul>
+              <div class="ft">
+                <div class="sv"><svg class="ic"><use href="#nvInfo"/></svg>서비스 소개</div>
+                <div class="lc"><em>마지막 수집</em><b>08/20 09:00</b></div>
+              </div>
+            </div>
+            <div class="ksd-shot-main">
+              <div class="ksd-shot-hd"><b>설정</b></div>
+              <div class="ksd-shot-bd">
+                <div class="s-grow" style="align-items:flex-start;gap:16px">
+                  <div class="s-smenu">
+                    <span><svg><use href="#nvDb"/></svg>데이터 소스</span>
+                    <span class="on"><svg><use href="#nvTag"/></svg>키워드</span>
+                    <span><svg><use href="#nvBldg"/></svg>기업</span>
+                    <span><svg><use href="#nvCpu"/></svg>기술 주제</span>
+                    <span><svg><use href="#nvFile"/></svg>프롬프트</span>
+                    <span><svg><use href="#nvClock"/></svg>스케줄</span>
+                    <span><svg class="fill"><use href="#nvSlack"/></svg>Slack</span>
+                    <span><svg><use href="#nvScroll"/></svg>로그</span>
+                  </div>
+
+                  <div style="flex:1;min-width:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px">
+                    <div class="s-card">
+                      <div class="s-chd">
+                        <div class="s-h"><svg class="s-fl"><use href="#nvTag"/></svg>수집 키워드<span class="s-q">?</span></div>
+                        <div class="s-csub">네이버 뉴스에 직접 요청할 검색 쿼리</div>
+                      </div>
+                      <table class="s-tb">
+                        <thead><tr><th>키워드</th><th>정렬</th><th></th></tr></thead>
+                        <tbody>
+                          <tr><td>삼성화재 AI</td><td><span class="s-sort new">최신순</span></td><td><span class="act"><svg><use href="#nvPencil"/></svg><svg><use href="#nvTrash"/></svg></span></td></tr>
+                          <tr><td>한화생명 AI</td><td><span class="s-sort new">최신순</span></td><td><span class="act"><svg><use href="#nvPencil"/></svg><svg><use href="#nvTrash"/></svg></span></td></tr>
+                          <tr><td>현대해상 AI</td><td><span class="s-sort">관련도순</span></td><td><span class="act"><svg><use href="#nvPencil"/></svg><svg><use href="#nvTrash"/></svg></span></td></tr>
+                          <tr><td>NH농협 AI</td><td><span class="s-sort new">최신순</span></td><td><span class="act"><svg><use href="#nvPencil"/></svg><svg><use href="#nvTrash"/></svg></span></td></tr>
+                          <tr><td>KB금융 AI</td><td><span class="s-sort new">최신순</span></td><td><span class="act"><svg><use href="#nvPencil"/></svg><svg><use href="#nvTrash"/></svg></span></td></tr>
+                          <tr><td>케이뱅크 AI</td><td><span class="s-sort">관련도순</span></td><td><span class="act"><svg><use href="#nvPencil"/></svg><svg><use href="#nvTrash"/></svg></span></td></tr>
+                        </tbody>
+                      </table>
+                      <div class="s-add">
+                        <span class="s-inp grow">키워드를 입력해주세요</span>
+                        <span class="s-inp">최신순<svg class="cv"><use href="#nvChev"/></svg></span>
+                        <span class="btn">추가</span>
+                      </div>
+                    </div>
+
+                    <div class="s-card">
+                      <div class="s-chd">
+                        <div class="s-h"><svg class="s-fl" style="stroke:#FF6C0E"><use href="#nvBan"/></svg>제외 키워드</div>
+                        <div class="s-csub">수집된 뉴스에서 제목에 포함 시 필터링</div>
+                      </div>
+                      <table class="s-tb">
+                        <thead><tr><th>키워드</th><th></th></tr></thead>
+                        <tbody>
+                          <tr><td colspan="2" class="m" style="text-align:center;padding:34px 0">등록된 제외 키워드가 없어요. 아래에서 추가해보세요.</td></tr>
+                        </tbody>
+                      </table>
+                      <div class="s-add">
+                        <span class="s-inp grow">키워드를 입력해주세요</span>
+                        <span class="btn warn">추가</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <p class="ksd-shot-lbl">처리 이력<span>SET-006 · 검증이 밀렸는지 확인하는 자리</span></p>
+          <!-- SET-006 목업 — templates/setting/logs.html.
+               ⚠️ 맨 위 "검증 파이프라인 현황"은 탭 밖에 있어 두 탭 어느 쪽을 봐도 항상 보인다.
+                  검증 전 뉴스는 다른 화면에 아예 안 뜨므로, "검증이 밀린 것"과 "수집이 죽은 것"을
+                  구분하는 유일한 자리다 — 카드 본문이 말하는 내용이 이 블록이다.
+               ⚠️ 지표는 3+1 구조다(미검증 뉴스 · 가장 오래된 미검증 · 마지막 검증 완료 /
+                  구분선 아래 그래프에 안 보이는 관계). 0건일 때 초록 확인 문구가 뜨는 것도
+                  실제 동작이라 그대로 그렸다 — 미검증 0건은 실측값이다(전체 135건 모두 검증됨). -->
+          <div class="ksd-shot" role="img"
+               aria-label="설정 화면의 로그. 맨 위에 검증 파이프라인 현황 카드가 있고 미검증 뉴스 0건, 가장 오래된 미검증 뉴스 없음, 마지막 검증 완료 시각, 그래프에 안 보이는 관계 0건이 표시된다. 그 아래 수집 로그와 LLM 이력 두 탭이 있고, 수집 로그 표에는 시작 시각, 소스, 수집 건수, 크롤 실패, 상태, 오류 열이 있다.">
+            <div class="ksd-shot-nav">
+              <div class="bd"><em>DPLANEX</em><b>AI Market Watch</b></div>
+              <ul>
+                <li><svg class="ic"><use href="#nvDash"/></svg>대시보드</li>
+                <li><svg class="ic"><use href="#nvChart"/></svg>보고서</li>
+                <li><svg class="ic"><use href="#nvNet"/></svg>지식그래프</li>
+                <li><svg class="ic"><use href="#nvNews"/></svg>뉴스</li>
+                <li class="on"><svg class="ic"><use href="#nvSet"/></svg>설정</li>
+              </ul>
+              <div class="ft">
+                <div class="sv"><svg class="ic"><use href="#nvInfo"/></svg>서비스 소개</div>
+                <div class="lc"><em>마지막 수집</em><b>08/20 09:00</b></div>
+              </div>
+            </div>
+            <div class="ksd-shot-main">
+              <div class="ksd-shot-hd"><b>설정</b></div>
+              <div class="ksd-shot-bd">
+                <div class="s-grow" style="align-items:flex-start;gap:16px">
+                  <div class="s-smenu">
+                    <span><svg><use href="#nvDb"/></svg>데이터 소스</span>
+                    <span><svg><use href="#nvTag"/></svg>키워드</span>
+                    <span><svg><use href="#nvBldg"/></svg>기업</span>
+                    <span><svg><use href="#nvCpu"/></svg>기술 주제</span>
+                    <span><svg><use href="#nvFile"/></svg>프롬프트</span>
+                    <span><svg><use href="#nvClock"/></svg>스케줄</span>
+                    <span><svg class="fill"><use href="#nvSlack"/></svg>Slack</span>
+                    <span class="on"><svg><use href="#nvScroll"/></svg>로그</span>
+                  </div>
+
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:13px">
+                    <div class="s-card" style="padding:14px 16px">
+                      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:20px;flex-wrap:wrap">
+                        <div style="min-width:0">
+                          <div class="s-h">검증 파이프라인 현황<span class="s-mt" style="font-weight:400">운영자 전용</span></div>
+                          <div class="s-csub" style="margin-top:3px">RA가 아직 판정하지 않은 뉴스는 사용자 화면에 보이지 않아요. 여기서만 확인할 수 있어요.</div>
+                        </div>
+                        <div class="s-kpi">
+                          <div>
+                            <div class="k">미검증 뉴스</div><div class="v">0건</div>
+                            <div class="s-ok"><svg><use href="#nvCheck"/></svg>모두 검증을 마쳤어요</div>
+                          </div>
+                          <div><div class="k">가장 오래된 미검증 뉴스</div><div class="v">—</div></div>
+                          <div><div class="k">마지막 검증 완료</div><div class="v">08.20 10:40</div></div>
+                        </div>
+                      </div>
+                      <div style="margin-top:12px;padding-top:11px;border-top:1px solid #F3F4F6">
+                        <div class="k" style="font-size:10px;font-weight:500;color:var(--s-mute)">그래프에 안 보이는 관계</div>
+                        <div style="display:flex;align-items:center;gap:9px;margin-top:3px">
+                          <span style="font-size:16px;font-weight:600;color:var(--s-ink)">0건</span>
+                          <span class="s-ok" style="margin-top:0"><svg><use href="#nvCheck"/></svg>모두 그래프에 나타나고 있어요</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="s-tabs"><i class="on">수집 로그</i><i>LLM 이력</i></div>
+
+                    <div class="s-card">
+                      <div class="s-chd" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+                        <span class="s-h">수집 로그</span>
+                        <span style="display:flex;gap:7px">
+                          <span class="s-inp">전체 소스<svg class="cv"><use href="#nvChev"/></svg></span>
+                          <span class="s-inp">전체 상태<svg class="cv"><use href="#nvChev"/></svg></span>
+                        </span>
+                      </div>
+                      <table class="s-tb">
+                        <thead><tr><th>시작 시각</th><th>소스</th><th>수집 건수</th><th>크롤 실패</th><th>상태</th><th>오류</th></tr></thead>
+                        <tbody>
+                          <tr><td class="m">08.20 09:00</td><td>Naver News API</td><td>92건</td><td class="m">0건</td><td><span class="s-st">성공</span></td><td class="m">—</td></tr>
+                          <tr><td class="m">08.19 09:00</td><td>Naver News API</td><td>78건</td><td style="color:#F97316;font-weight:600">3건</td><td><span class="s-st">성공</span></td><td class="m">—</td></tr>
+                          <tr><td class="m">08.18 09:00</td><td>Naver News API</td><td>85건</td><td class="m">0건</td><td><span class="s-st">성공</span></td><td class="m">—</td></tr>
+                          <tr><td class="m">08.17 09:00</td><td>Naver News API</td><td>61건</td><td class="m">0건</td><td><span class="s-st">성공</span></td><td class="m">—</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="ksd-shot-note">
+            <b>수집 키워드 6건 · 데이터 소스 이름 · 미검증 0건은 실제 값</b>이다 — 키워드는 33건 전부 활성이고 형태가
+            <b>{기업명} AI</b>로 일정하며, 데이터 소스는 <b>Naver News API 하나</b>다.
+            제외 키워드는 등록 건수를 확인하지 못해 지어내지 않고 화면의 빈 상태 문구를 그대로 뒀다.
+            수집 로그의 시각 · 건수 · 크롤 실패 수는 예시다.
+          </p>
+
           <div class="svc-bd">
             <p class="svc-tx">수집 대상과 기준 데이터, 그리고 처리 기록을 대상으로 한다.</p>
             <p class="svc-tx">수집(데이터 소스 · 수집 키워드 · 스케줄), 판정과 알림(분석 프롬프트 · Slack), 기준 데이터(기업 · 기술 주제)를 관리한다.</p>
