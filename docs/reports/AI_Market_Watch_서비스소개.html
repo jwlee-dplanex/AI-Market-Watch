@@ -703,14 +703,26 @@ svg text{font-family:var(--font);}
    ⚠️ 상자 뒤를 가로지르던 배경선(.stem8 .flow / @keyframes s8Flow)은 2026-08-22에 없앴다.
       선이 상자 뒤에 숨었다 나왔다 하니 흐름이 아니라 배경 장식으로 읽혔다 — 사용자 지시로
       칸과 칸 사이 화살표 7개(가로 6 + 04→05 줄바꿈 1)로 바꿨다. 배경선을 되살리지 말 것.
-   ⚠️ .nd 는 화살표 7개에만 건다. 상자에는 절대 걸지 말 것 — 상자 안에 장면이 그려져
-      있는데 상자가 깜빡이면 읽으려는 대상이 움직여 가독성이 떨어진다(2026-08-22 사용자
-      지적으로 상자에서 뗐다). 상자 8개는 처음부터 정지 상태로 온전히 보인다.
-      흐름 설명은 화살표가 이어받는다 — 01→02 부터 07→08 까지 .52초 간격으로 하나씩
-      그어지면 순서가 그대로 읽힌다. 마지막(3.12s)이 끝난 뒤 8초 주기가 끝날 때까지 멈춘다.
-   ⚠️ 새 @keyframes 를 만들지 말 것. 주기가 둘이 되면 여러 요소가 동시에 움직인다. */
-.stem8 .nd{animation:s8Node 8s var(--ksd-ease) infinite both;}
-@keyframes s8Node{0%,3%{opacity:.26}11%{opacity:1}100%{opacity:1}}
+   ⚠️ 상자에는 애니메이션을 걸지 말 것 — 상자 안에 장면이 그려져 있는데 상자가 깜빡이면
+      읽으려는 대상이 움직여 가독성이 떨어진다(2026-08-22 사용자 지적). 상자 8개는 처음부터
+      정지 상태로 온전히 보인다. 흐름 설명은 화살표가 통째로 이어받는다.
+
+   ⚠️ 화살표는 "나타나는" 것이 아니라 "그어진다"(2026-08-22 2차 수정).
+      opacity 로 켜고 끄던 방식(s8Node)을 버린 이유 — 04→05 줄바꿈 화살표는 길이가 850px대라
+      opacity .26 에서도 또렷하게 보이는데 가로 화살표는 12px 라 같은 .26 에서 안 보인다.
+      그래서 긴 것 하나만 "늘 켜져 있는" 것처럼 읽혔다. 길이 차가 8배 나는 요소를 밝기로
+      제어하면 이 문제는 반드시 생긴다.
+   ⚠️ pathLength="100" 이 핵심이다. 없으면 850px 와 12px 가 같은 시간에 같은 속도로 그어지지
+      않아 긴 화살표만 느릿하게 기어간다. 100 으로 정규화해야 길이와 무관하게 같은 리듬이 된다.
+      (이 문서가 FIG 1-1 게이지에서 이미 쓰는 기법이다.)
+   ⚠️ 화살촉은 채워진 삼각형이라 dashoffset 으로 그릴 수 없다. 선이 다 그어진 직후(5%)에
+      이어서 짧게 페이드인한다(6.5%) — 선보다 먼저 뜨면 촉만 공중에 떠 보인다.
+   ⚠️ 한 화살표가 0.52초 안에 끝나므로(그리기 0.4초 + 촉 0.12초) 다음 화살표가 시작될 때
+      앞 화살표는 이미 끝나 있다. 간격을 좁히면 둘이 동시에 움직인다. */
+.stem8 .ar{stroke-dasharray:100;animation:s8Draw 8s var(--ksd-ease) infinite both;}
+.stem8 .ah{animation:s8Head 8s var(--ksd-ease) infinite both;}
+@keyframes s8Draw{0%{stroke-dashoffset:100}5%,100%{stroke-dashoffset:0}}
+@keyframes s8Head{0%,5%{opacity:0}6.5%,100%{opacity:1}}
 
 /* FIG 2-3 — 헤드라인 선정 (두 조건) */
 .hl .pass{animation:hlPass 8s cubic-bezier(.4,.05,.5,.95) infinite both;}
@@ -1009,6 +1021,9 @@ svg text{font-family:var(--font);}
   .ksd{max-width:640px;}
   .fig svg .pk,.fig svg .drift,
   .fig svg .pass,.fig svg .stop,.fig svg .ring{opacity:0 !important;}
+  /* 인쇄에서도 화살표는 온전히 그려진 상태여야 한다(위 reduce 블록과 같은 이유) */
+  .stem8 .ar{stroke-dashoffset:0 !important;}
+  .stem8 .ah{opacity:1 !important;}
 }
 
 /* ============================================================
@@ -1025,6 +1040,11 @@ svg text{font-family:var(--font);}
   .ksd-app,.ksd-app *,.ksd-ctl-bar i{animation:none !important;}
   .fig svg .pk,.fig svg .drift,
   .fig svg .pass,.fig svg .stop,.fig svg .ring{opacity:0 !important;}
+  /* ⚠️ animation 을 끄면 s8Draw 가 멈춘 자리의 stroke-dashoffset 이 남을 수 있다.
+     남으면 화살표 선이 통째로 사라진다 — 0 으로 못박아 온전히 그려진 상태를 보장한다.
+     화살촉(.ah)도 opacity 기본값이 1 이지만 같은 이유로 함께 명시한다. */
+  .stem8 .ar{stroke-dashoffset:0 !important;}
+  .stem8 .ah{opacity:1 !important;}
 }
 </style>
 </head>
@@ -1382,8 +1402,11 @@ svg text{font-family:var(--font);}
                     화살표 01→02 0 · 02→03 .52 · 03→04 1.04 · 04→05 1.56(줄바꿈) ·
                     05→06 2.08 · 06→07 2.6 · 07→08 3.12
                   흐름 설명은 화살표 순서가 통째로 이어받는다. 3.12초 뒤부터 8초 주기가
-                  끝날 때까지 멈춰 있고, 움직이는 면적은 화살표 하나(약 24px)뿐이다.
-                  새 @keyframes 는 없다 — 주기가 둘이 되면 여러 요소가 동시에 움직인다.
+                  끝날 때까지 멈춰 있다.
+               ⚠️ 화살표는 밝기가 아니라 길이로 나타난다(.ar 이 dashoffset 으로 그어지고
+                  .ah 화살촉이 뒤이어 뜬다). 밝기로 하면 850px 짜리 줄바꿈 화살표만 흐릿하게
+                  늘 보여 혼자 켜져 있는 것처럼 읽힌다 — 자세한 이유는 위 CSS 주석 참고.
+                  pathLength="100" 을 빼지 말 것.
 
                ⚠️ 좌표 — 상자 폭 256, x = 36 · 320 · 604 · 888.
                   1행 y 64~304, 2행 y 394~634. 번호 baseline 상자상단+28,
@@ -1527,36 +1550,37 @@ svg text{font-family:var(--font);}
                 <text x="1016" y="612" font-size="15" font-weight="800" fill="var(--violet-950)">기업 관계 등록</text>
               </g>
 
-              <g class="nd">
-                <path d="M294 184 H306" stroke="var(--violet-800)" stroke-width="3" fill="none" stroke-linecap="round"/>
-                <path d="M304 177 L318 184 L304 191 Z" fill="var(--violet-800)"/>
+              <g>
+                <path class="ar" pathLength="100" d="M294 184 H306" stroke="var(--violet-800)" stroke-width="3" fill="none" stroke-linecap="round"/>
+                <path class="ah" d="M304 177 L318 184 L304 191 Z" fill="var(--violet-800)"/>
               </g>
-              <g class="nd" style="animation-delay:.52s">
-                <path d="M578 184 H590" stroke="var(--violet-800)" stroke-width="3" fill="none" stroke-linecap="round"/>
-                <path d="M588 177 L602 184 L588 191 Z" fill="var(--violet-800)"/>
+              <g>
+                <path class="ar" pathLength="100" style="animation-delay:.52s" d="M578 184 H590" stroke="var(--violet-800)" stroke-width="3" fill="none" stroke-linecap="round"/>
+                <path class="ah" style="animation-delay:.52s" d="M588 177 L602 184 L588 191 Z" fill="var(--violet-800)"/>
               </g>
-              <g class="nd" style="animation-delay:1.04s">
-                <path d="M862 184 H874" stroke="var(--violet-800)" stroke-width="3" fill="none" stroke-linecap="round"/>
-                <path d="M872 177 L886 184 L872 191 Z" fill="var(--violet-800)"/>
+              <g>
+                <path class="ar" pathLength="100" style="animation-delay:1.04s" d="M862 184 H874" stroke="var(--violet-800)" stroke-width="3" fill="none" stroke-linecap="round"/>
+                <path class="ah" style="animation-delay:1.04s" d="M872 177 L886 184 L872 191 Z" fill="var(--violet-800)"/>
               </g>
 
-              <g class="nd" style="animation-delay:1.56s">
-                <path d="M1016 314 V336 Q1016 352 1000 352 H180 Q164 352 164 368 V378"
+              <g>
+                <path class="ar" pathLength="100" style="animation-delay:1.56s"
+                      d="M1016 314 V336 Q1016 352 1000 352 H180 Q164 352 164 368 V378"
                       stroke="var(--violet-800)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M156 376 L164 390 L172 376 Z" fill="var(--violet-800)"/>
+                <path class="ah" style="animation-delay:1.56s" d="M156 376 L164 390 L172 376 Z" fill="var(--violet-800)"/>
               </g>
 
-              <g class="nd" style="animation-delay:2.08s">
-                <path d="M294 514 H306" stroke="var(--violet-800)" stroke-width="3" fill="none" stroke-linecap="round"/>
-                <path d="M304 507 L318 514 L304 521 Z" fill="var(--violet-800)"/>
+              <g>
+                <path class="ar" pathLength="100" style="animation-delay:2.08s" d="M294 514 H306" stroke="var(--violet-800)" stroke-width="3" fill="none" stroke-linecap="round"/>
+                <path class="ah" style="animation-delay:2.08s" d="M304 507 L318 514 L304 521 Z" fill="var(--violet-800)"/>
               </g>
-              <g class="nd" style="animation-delay:2.6s">
-                <path d="M578 514 H590" stroke="var(--violet-800)" stroke-width="3" fill="none" stroke-linecap="round"/>
-                <path d="M588 507 L602 514 L588 521 Z" fill="var(--violet-800)"/>
+              <g>
+                <path class="ar" pathLength="100" style="animation-delay:2.6s" d="M578 514 H590" stroke="var(--violet-800)" stroke-width="3" fill="none" stroke-linecap="round"/>
+                <path class="ah" style="animation-delay:2.6s" d="M588 507 L602 514 L588 521 Z" fill="var(--violet-800)"/>
               </g>
-              <g class="nd" style="animation-delay:3.12s">
-                <path d="M862 514 H874" stroke="var(--violet-800)" stroke-width="3" fill="none" stroke-linecap="round"/>
-                <path d="M872 507 L886 514 L872 521 Z" fill="var(--violet-800)"/>
+              <g>
+                <path class="ar" pathLength="100" style="animation-delay:3.12s" d="M862 514 H874" stroke="var(--violet-800)" stroke-width="3" fill="none" stroke-linecap="round"/>
+                <path class="ah" style="animation-delay:3.12s" d="M872 507 L886 514 L872 521 Z" fill="var(--violet-800)"/>
               </g>
 
             </g>
