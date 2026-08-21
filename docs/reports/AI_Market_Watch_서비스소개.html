@@ -699,10 +699,14 @@ svg text{font-family:var(--font);}
 .lg.auto i{background:var(--violet-800);}
 .lg.human i{background:var(--indigo-600);}
 
-/* FIG 2-2 — 처리 단계 8단계 */
-.stem8 .flow{stroke-dasharray:100;animation:s8Flow 8s linear infinite both;}
+/* FIG 2-2 — 처리 단계 8단계
+   ⚠️ 상자 뒤를 가로지르던 배경선(.stem8 .flow / @keyframes s8Flow)은 2026-08-22에 없앴다.
+      선이 상자 뒤에 숨었다 나왔다 하니 흐름이 아니라 배경 장식으로 읽혔다 — 사용자 지시로
+      칸과 칸 사이 화살표 7개(가로 6 + 04→05 줄바꿈 1)로 바꿨다. 배경선을 되살리지 말 것.
+   ⚠️ .nd 하나로 상자 8개와 화살표 7개를 모두 굴린다. animation-delay 를 .31초 간격으로
+      번갈아 주면 "상자 → 화살표 → 상자 → 화살표" 순서가 되고, 한 순간에 움직이는 것은
+      늘 하나뿐이다. 새 @keyframes 를 만들면 두 주기가 겹쳐 여러 요소가 동시에 움직인다. */
 .stem8 .nd{animation:s8Node 8s var(--ksd-ease) infinite both;}
-@keyframes s8Flow{0%{stroke-dashoffset:100;opacity:0}5%{opacity:1}70%{stroke-dashoffset:0;opacity:1}80%,100%{stroke-dashoffset:0;opacity:0}}
 @keyframes s8Node{0%,3%{opacity:.26}11%{opacity:1}100%{opacity:1}}
 
 /* FIG 2-3 — 헤드라인 선정 (두 조건) */
@@ -998,9 +1002,9 @@ svg text{font-family:var(--font);}
   .chapter{break-before:page;}
   .chapter:first-of-type{break-before:auto;}
   .sec-head,.keymsg,.note,.card,.fig,.ksd{break-inside:avoid;}
-  .fig svg *,.ksd-app *,.ksd-ctl-bar i,.flow{animation:none !important;transition:none !important;}
+  .fig svg *,.ksd-app *,.ksd-ctl-bar i{animation:none !important;transition:none !important;}
   .ksd{max-width:640px;}
-  .fig svg .flow,.fig svg .pk,.fig svg .drift,
+  .fig svg .pk,.fig svg .drift,
   .fig svg .pass,.fig svg .stop,.fig svg .ring{opacity:0 !important;}
 }
 
@@ -1016,7 +1020,7 @@ svg text{font-family:var(--font);}
   /* ⚠️ 표지에는 애니메이션이 없다 — reduce에서 되돌릴 상태 자체가 없다 */
   .fig svg *,.f11 *,.stem8 *,.hl *,.rel *,
   .ksd-app,.ksd-app *,.ksd-ctl-bar i{animation:none !important;}
-  .fig svg .flow,.fig svg .pk,.fig svg .drift,
+  .fig svg .pk,.fig svg .drift,
   .fig svg .pass,.fig svg .stop,.fig svg .ring{opacity:0 !important;}
 }
 </style>
@@ -1342,140 +1346,220 @@ svg text{font-family:var(--font);}
         <figcaption class="fig-cap">
           <span class="fig-num">FIG 2-2</span>
           <span class="fig-ttl">처리 단계 — 수집에서 관계 등록까지 8단계</span>
-          <span class="fig-sub">수집한 기사가 이슈와 시사점을 거쳐 기업 관계로 등록되기까지 한 줄로 이어진다.</span>
+          <span class="fig-sub">수집한 기사가 이슈와 시사점을 거쳐 기업 관계로 등록되기까지, 여덟 칸이 끊기지 않고 이어진다.</span>
         </figcaption>
         <div class="fig-body">
-          <!-- 8칸 도형 (2026-08-19 사용자 승인안, 2026-08-22 구현)
-               ⚠️ 글자를 읽지 않아도 왼쪽에서 오른쪽으로 모양이 변해 가는 것이 보여야 한다.
-                  흩어짐(01~03) → 뭉침(04~05) → 줄세움(06~07) → 이어짐(08).
-               ⚠️ "많이 들어와서 걸러진다"를 도형의 개수로 보여 준다 — 조각 · 점의 수가
-                  14 → 8 → 6 → 6 → 5 → 3 → 3 → 2 로 줄어든다. 이게 사용자가 이번에
-                  덧붙인 축이다. 숫자는 박지 않는다 — 실측 수치는 2.3 운영 사례의 몫이고
-                  이 그림은 처리 단계를 설명하는 자리다. 양의 변화만 형태로 말한다.
-               ⚠️ 한 줄을 유지한다. 캡션이 "한 줄로 이어진다"고 못박고 fig-claim 이
-                  "8단계는 하나의 처리 흐름이다"라고 주장하므로 한 줄 자체가 논거다.
-                  도형 자리는 가로가 아니라 세로로 만들었다(rect 높이 66 → 134,
-                  viewBox 200 → 240).
-               ⚠️ 애니메이션을 새로 만들지 않았다. 도형을 기존 .nd 그룹 "안"에 넣어
-                  상자와 함께 한 번만 나타나게 했다 — 움직이는 면적이 늘 상자 하나(126px)로
-                  묶이고, .62초 간격 순차 등장이 곧 흐름 설명이 된다. 도형에 별도 등장
-                  효과를 얹으면 같은 순간에 두 겹이 움직여 면적이 커진다.
-               ⚠️ 좌표 재배치 — 상자 44~178, 번호 baseline 64, 도형 74~129,
-                  이름 152(한 줄) / 147·162(두 줄), 연결선 111(상자 세로 중앙),
-                  COLLECT·CONNECT 30, 하단 문장 212. 겹치는 곳 없음(§4.12 6번). -->
-          <svg class="stem8" viewBox="0 0 1180 240" role="img"
-               aria-label="처리 단계 8단계. 왼쪽에서 오른쪽으로 갈수록 상자 안 도형이 바뀌고 조각 수가 줄어든다. 01 수집은 낱개 조각이 여럿 쏟아져 들어오는 모습, 02 문서 분할은 한 덩어리가 여러 조각으로 갈라지는 모습, 03 의미 색인 생성은 조각이 점으로 바뀌는 모습, 04 색인 저장은 점들이 칸 안에 정렬된 모습, 05 유사 기사 그룹핑은 흩어진 점이 두 덩어리로 뭉치는 모습, 06 중요도 정렬은 덩어리가 위아래 순서를 갖는 모습, 07 근거 기반 시사점 작성은 글 몇 줄과 근거 표시, 08 기업 관계 등록은 점 두 개가 선으로 이어진 모습이다.">
-            <path d="M36 111 H1142" stroke="var(--lav-200)" stroke-width="2" stroke-dasharray="6 5" fill="none"/>
-            <path class="flow" pathLength="100" d="M36 111 H1142" stroke="var(--violet-800)" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+          <!-- 처리 단계 8칸 — 4칸씩 두 줄, 칸마다 "장면" (2026-08-22 재작업, 사용자 지시)
+               반려 이력이 두 번 있다. 되돌리지 않으려면 아래를 지킬 것.
+               ① 한 줄 8칸 → 칸당 126px 이라 도형이 7×4.5px 까지 작아져 안 보였다.
+               ② 도형만 키움 → "칸있고 글있고 라인따라 활성화만" 이라는 지적. 크기가 아니라
+                  성격이 문제였다. 아이콘을 붙인 목록은 장면이 아니다.
+
+               ⚠️ 판정 기준은 "라벨을 다 지워도 무슨 일이 일어나는지 알 수 있는가"다.
+                  그래서 칸마다 같은 문법을 쓴다 — 왼쪽에 들어온 것 / 가운데 화살표 /
+                  오른쪽에 그 결과. FIG 2-3 이 "항목 → 관문 → 슬롯"으로 읽히는 것과 같은 구조다.
+                  칸을 아이콘 하나로 되돌리지 말 것.
+                    01 흩어진 기사 9건 → 모아 담긴 목록      02 기사 1건 → 조각 4개
+                    03 조각 3개 → 좌표 위의 점 6개          04 떠 있는 점 → 저장소 안에 쌓임
+                    05 흩어진 점 5개 → 두 무리로 모임        06 순서 없는 두 무리 → 길이순 막대 3개
+                    07 맨 위 항목 → 글 3줄 + 근거 표시       08 떨어진 기업 둘 → 라벨 붙은 선으로 연결
+               ⚠️ 숫자는 박지 않는다 — 실측 수치는 2.3 운영 사례의 몫이다. 양의 변화만 형태로 말한다.
+
+               ⚠️ 배경선을 쓰지 않는다. 상자 뒤를 가로지르는 선은 숨었다 나왔다 하며 장식으로
+                  읽혔다(사용자 지시로 제거). 대신 칸 사이 여백에 화살표 7개를 둔다 —
+                  가로 6개(gap 중앙 x=306 · 590 · 874, y=184/514)와 04→05 줄바꿈 1개.
+                  줄바꿈 화살표가 fig-claim("하나의 처리 흐름")을 떠받치는 자리다. 지우지 말 것.
+               ⚠️ 화살표는 상자를 침범하지 않는다 — 가로 화살표는 28px 여백 안(294~318),
+                  줄바꿈 화살표는 1행 아래 304 와 2행 위 394 사이에서만 움직인다.
+
+               ⚠️ 애니메이션 — 새 @keyframes 를 만들지 않았다. 상자 8개와 화살표 7개가 모두
+                  .nd 하나를 쓰고 animation-delay 만 .31초 간격으로 번갈아 간다.
+                    상자01 0 · 화살표 .31 · 상자02 .62 · 화살표 .93 · … · 상자08 4.34
+                  그래서 "상자 → 화살표 → 상자" 순서로 하나씩만 나타나고, 4.34초 뒤부터
+                  8초 주기가 끝날 때까지 멈춰 있다. 칸 안 장면에는 따로 움직임을 넣지 않았다 —
+                  왼쪽·오른쪽이 이미 나란히 놓여 변화가 정지 상태로 읽히므로 증명할 주장이
+                  없고(§4.7), 넣으면 여덟 칸이 같은 주기를 공유해 한꺼번에 움직인다.
+
+               ⚠️ 좌표 — 상자 폭 256, x = 36 · 320 · 604 · 888.
+                  1행 y 64~304, 2행 y 394~634. 번호 baseline 상자상단+28,
+                  장면 +46~+190(좌 블록 +16~+104 / 화살표 / 우 블록 +152~+240), 이름 +218.
+                  COLLECT 48, CONNECT 662, 하단 문장 700, viewBox 1180×730.
+                  겹치는 곳 없음(§4.12 6번). -->
+          <svg class="stem8" viewBox="0 0 1180 730" role="img"
+               aria-label="처리 단계 8단계를 네 칸씩 두 줄로 보여 준다. 칸과 칸 사이에 화살표가 놓이고, 04에서 05로는 아래로 꺾여 되돌아오는 화살표가 이어 주므로 여덟 칸이 하나의 흐름이 된다. 칸마다 왼쪽에 들어온 것, 가운데에 화살표, 오른쪽에 그 결과가 놓여 무엇이 어떻게 바뀌는지 보인다. 01 수집은 흩어져 있던 기사 아홉 건이 한 곳에 모이는 장면, 02 문서 분할은 기사 한 건이 네 조각으로 갈라지는 장면, 03 의미 색인 생성은 조각이 좌표 위의 점으로 바뀌는 장면, 04 색인 저장은 떠 있던 점이 저장소 안에 쌓이는 장면, 05 유사 기사 그룹핑은 흩어진 점 다섯 개가 두 무리로 모이는 장면, 06 중요도 정렬은 순서가 없던 두 무리가 길이가 다른 막대 셋으로 줄 서는 장면, 07 근거 기반 시사점 작성은 맨 위 항목에서 글 세 줄이 나오고 그 아래 근거 표시가 붙는 장면, 08 기업 관계 등록은 떨어져 있던 기업 둘 사이에 관계 표시가 붙은 선이 생기는 장면이다.">
             <g text-anchor="middle">
 
               <g class="nd">
-                <rect x="36" y="44" width="126" height="134" rx="10" fill="#fff" stroke="var(--violet-500)"/>
-                <text x="99" y="64" font-size="10" font-weight="800" fill="var(--violet-500)">01</text>
+                <rect x="36" y="64" width="256" height="240" rx="12" fill="#fff" stroke="var(--violet-500)"/>
+                <text x="164" y="92" font-size="13" font-weight="800" fill="var(--violet-500)">01</text>
                 <g fill="var(--lav-200)">
-                  <rect x="57.5" y="74" width="7" height="4.5" rx="1.5"/><rect x="73.5" y="74" width="7" height="4.5" rx="1.5"/><rect x="89.5" y="74" width="7" height="4.5" rx="1.5"/><rect x="105.5" y="74" width="7" height="4.5" rx="1.5"/><rect x="121.5" y="74" width="7" height="4.5" rx="1.5"/>
-                  <rect x="65.5" y="86" width="7" height="4.5" rx="1.5"/><rect x="81.5" y="86" width="7" height="4.5" rx="1.5"/><rect x="97.5" y="86" width="7" height="4.5" rx="1.5"/><rect x="113.5" y="86" width="7" height="4.5" rx="1.5"/>
+                  <rect x="54" y="118" width="28" height="10" rx="3"/><rect x="88" y="112" width="28" height="10" rx="3"/><rect x="114" y="130" width="28" height="10" rx="3"/>
+                  <rect x="60" y="150" width="28" height="10" rx="3"/><rect x="96" y="144" width="28" height="10" rx="3"/><rect x="118" y="162" width="28" height="10" rx="3"/>
+                  <rect x="52" y="182" width="28" height="10" rx="3"/><rect x="86" y="190" width="28" height="10" rx="3"/><rect x="116" y="196" width="28" height="10" rx="3"/>
                 </g>
+                <path d="M144 182 H172" stroke="var(--violet-500)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                <path d="M170 175 L184 182 L170 189 Z" fill="var(--violet-500)"/>
+                <rect x="188" y="130" width="88" height="104" rx="8" fill="var(--lav-050)" stroke="var(--violet-500)"/>
                 <g fill="var(--violet-500)">
-                  <rect x="73.5" y="98" width="7" height="4.5" rx="1.5"/><rect x="89.5" y="98" width="7" height="4.5" rx="1.5"/><rect x="105.5" y="98" width="7" height="4.5" rx="1.5"/>
-                  <rect x="81.5" y="110" width="7" height="4.5" rx="1.5"/><rect x="97.5" y="110" width="7" height="4.5" rx="1.5"/>
+                  <rect x="200" y="142" width="64" height="10" rx="3"/><rect x="200" y="160" width="64" height="10" rx="3"/><rect x="200" y="178" width="64" height="10" rx="3"/><rect x="200" y="196" width="64" height="10" rx="3"/><rect x="200" y="214" width="64" height="10" rx="3"/>
                 </g>
-                <text x="99" y="152" font-size="11" font-weight="800" fill="var(--violet-950)">수집</text>
+                <text x="164" y="282" font-size="15" font-weight="800" fill="var(--violet-950)">수집</text>
               </g>
 
               <g class="nd" style="animation-delay:.62s">
-                <rect x="176" y="44" width="126" height="134" rx="10" fill="#fff" stroke="var(--violet-500)"/>
-                <text x="239" y="64" font-size="10" font-weight="800" fill="var(--violet-500)">02</text>
-                <rect x="209" y="76" width="60" height="12" rx="3" fill="var(--lav-200)"/>
-                <g stroke="var(--lav-200)" stroke-width="1.2" fill="none">
-                  <path d="M215 88 V108"/><path d="M231 88 V108"/><path d="M247 88 V108"/><path d="M263 88 V108"/>
+                <rect x="320" y="64" width="256" height="240" rx="12" fill="#fff" stroke="var(--violet-500)"/>
+                <text x="448" y="92" font-size="13" font-weight="800" fill="var(--violet-500)">02</text>
+                <rect x="336" y="146" width="84" height="76" rx="7" fill="var(--lav-050)" stroke="var(--violet-500)"/>
+                <g fill="var(--lav-200)">
+                  <rect x="350" y="164" width="56" height="8" rx="4"/><rect x="350" y="180" width="48" height="8" rx="4"/><rect x="350" y="196" width="40" height="8" rx="4"/>
                 </g>
+                <path d="M428 182 H456" stroke="var(--violet-500)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                <path d="M454 175 L468 182 L454 189 Z" fill="var(--violet-500)"/>
                 <g fill="var(--violet-500)">
-                  <rect x="209" y="108" width="12" height="10" rx="2"/><rect x="225" y="108" width="12" height="10" rx="2"/><rect x="241" y="108" width="12" height="10" rx="2"/><rect x="257" y="108" width="12" height="10" rx="2"/>
+                  <rect x="472" y="132" width="88" height="20" rx="5"/><rect x="472" y="160" width="88" height="20" rx="5"/><rect x="472" y="188" width="88" height="20" rx="5"/><rect x="472" y="216" width="88" height="20" rx="5"/>
                 </g>
-                <text x="239" y="152" font-size="11" font-weight="800" fill="var(--violet-950)">문서 분할</text>
+                <text x="448" y="282" font-size="15" font-weight="800" fill="var(--violet-950)">문서 분할</text>
               </g>
 
               <g class="nd" style="animation-delay:1.24s">
-                <rect x="316" y="44" width="126" height="134" rx="10" fill="#fff" stroke="var(--violet-500)"/>
-                <text x="379" y="64" font-size="10" font-weight="800" fill="var(--violet-500)">03</text>
+                <rect x="604" y="64" width="256" height="240" rx="12" fill="#fff" stroke="var(--violet-500)"/>
+                <text x="732" y="92" font-size="13" font-weight="800" fill="var(--violet-500)">03</text>
                 <g fill="var(--lav-200)">
-                  <rect x="337" y="84" width="13" height="8" rx="2"/><rect x="337" y="102" width="13" height="8" rx="2"/>
+                  <rect x="620" y="146" width="88" height="20" rx="5"/><rect x="620" y="174" width="88" height="20" rx="5"/><rect x="620" y="202" width="88" height="20" rx="5"/>
                 </g>
-                <path d="M358 92 L365 97 L358 102" stroke="var(--violet-500)" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M712 182 H740" stroke="var(--violet-500)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                <path d="M738 175 L752 182 L738 189 Z" fill="var(--violet-500)"/>
+                <g stroke="var(--lav-200)" stroke-width="1.2" fill="none">
+                  <path d="M756 182 H844"/><path d="M800 128 V240"/>
+                </g>
                 <g fill="var(--violet-500)">
-                  <circle cx="381" cy="88" r="3"/><circle cx="397" cy="88" r="3"/><circle cx="413" cy="88" r="3"/>
-                  <circle cx="381" cy="106" r="3"/><circle cx="397" cy="106" r="3"/><circle cx="413" cy="106" r="3"/>
+                  <circle cx="772" cy="148" r="7"/><circle cx="818" cy="140" r="7"/><circle cx="764" cy="198" r="7"/>
+                  <circle cx="812" cy="180" r="7"/><circle cx="836" cy="214" r="7"/><circle cx="786" cy="224" r="7"/>
                 </g>
-                <text x="379" y="147" font-size="11" font-weight="800" fill="var(--violet-950)">의미 색인</text>
-                <text x="379" y="162" font-size="11" font-weight="800" fill="var(--violet-950)">생성</text>
+                <text x="732" y="282" font-size="15" font-weight="800" fill="var(--violet-950)">의미 색인 생성</text>
               </g>
 
               <g class="nd" style="animation-delay:1.86s">
-                <rect x="456" y="44" width="126" height="134" rx="10" fill="#fff" stroke="var(--violet-500)"/>
-                <text x="519" y="64" font-size="10" font-weight="800" fill="var(--violet-500)">04</text>
-                <rect x="479" y="78" width="80" height="44" rx="6" fill="none" stroke="var(--lav-200)"/>
-                <path d="M479 100 H559" stroke="var(--lav-200)" stroke-width=".8" fill="none"/>
+                <rect x="888" y="64" width="256" height="240" rx="12" fill="#fff" stroke="var(--violet-500)"/>
+                <text x="1016" y="92" font-size="13" font-weight="800" fill="var(--violet-500)">04</text>
                 <g fill="var(--violet-500)">
-                  <circle cx="497" cy="90" r="3"/><circle cx="519" cy="90" r="3"/><circle cx="541" cy="90" r="3"/>
-                  <circle cx="497" cy="111" r="3"/><circle cx="519" cy="111" r="3"/><circle cx="541" cy="111" r="3"/>
+                  <circle cx="918" cy="148" r="7"/><circle cx="958" cy="136" r="7"/><circle cx="926" cy="190" r="7"/><circle cx="966" cy="202" r="7"/>
                 </g>
-                <text x="519" y="152" font-size="11" font-weight="800" fill="var(--violet-950)">색인 저장</text>
+                <path d="M996 182 H1024" stroke="var(--violet-500)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                <path d="M1022 175 L1036 182 L1022 189 Z" fill="var(--violet-500)"/>
+                <rect x="1040" y="128" width="88" height="112" rx="8" fill="var(--lav-050)" stroke="var(--violet-500)"/>
+                <g stroke="var(--lav-200)" stroke-width="1.2" fill="none">
+                  <path d="M1040 165 H1128"/><path d="M1040 202 H1128"/>
+                </g>
+                <g fill="var(--violet-800)">
+                  <circle cx="1070" cy="146" r="7"/><circle cx="1098" cy="146" r="7"/>
+                  <circle cx="1070" cy="183" r="7"/><circle cx="1098" cy="183" r="7"/>
+                  <circle cx="1070" cy="220" r="7"/><circle cx="1098" cy="220" r="7"/>
+                </g>
+                <text x="1016" y="282" font-size="15" font-weight="800" fill="var(--violet-950)">색인 저장</text>
               </g>
 
               <g class="nd" style="animation-delay:2.48s">
-                <rect x="596" y="44" width="126" height="134" rx="10" fill="#fff" stroke="var(--violet-500)"/>
-                <text x="659" y="64" font-size="10" font-weight="800" fill="var(--violet-500)">05</text>
-                <g fill="var(--lav-050)" stroke="var(--violet-500)" stroke-dasharray="3 3">
-                  <circle cx="637" cy="101" r="18"/><circle cx="681" cy="101" r="18"/>
+                <rect x="36" y="394" width="256" height="240" rx="12" fill="#fff" stroke="var(--violet-500)"/>
+                <text x="164" y="422" font-size="13" font-weight="800" fill="var(--violet-500)">05</text>
+                <g fill="var(--violet-500)">
+                  <circle cx="60" cy="462" r="7"/><circle cx="112" cy="450" r="7"/><circle cx="78" cy="512" r="7"/><circle cx="128" cy="524" r="7"/><circle cx="66" cy="566" r="7"/>
+                </g>
+                <path d="M144 512 H172" stroke="var(--violet-500)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                <path d="M170 505 L184 512 L170 519 Z" fill="var(--violet-500)"/>
+                <g fill="var(--lav-050)" stroke="var(--violet-500)" stroke-dasharray="4 4">
+                  <circle cx="232" cy="478" r="34"/><circle cx="232" cy="550" r="34"/>
                 </g>
                 <g fill="var(--violet-800)">
-                  <circle cx="629" cy="95" r="3"/><circle cx="643" cy="95" r="3"/><circle cx="636" cy="107" r="3"/>
-                  <circle cx="675" cy="97" r="3"/><circle cx="687" cy="106" r="3"/>
+                  <circle cx="220" cy="468" r="7"/><circle cx="244" cy="468" r="7"/><circle cx="232" cy="490" r="7"/>
+                  <circle cx="222" cy="542" r="7"/><circle cx="242" cy="556" r="7"/>
                 </g>
-                <text x="659" y="147" font-size="11" font-weight="800" fill="var(--violet-950)">유사 기사</text>
-                <text x="659" y="162" font-size="11" font-weight="800" fill="var(--violet-950)">그룹핑</text>
+                <text x="164" y="612" font-size="15" font-weight="800" fill="var(--violet-950)">유사 기사 그룹핑</text>
               </g>
 
               <g class="nd" style="animation-delay:3.1s">
-                <rect x="736" y="44" width="126" height="134" rx="10" fill="#fff" stroke="var(--violet-500)"/>
-                <text x="799" y="64" font-size="10" font-weight="800" fill="var(--violet-500)">06</text>
-                <rect x="763" y="82" width="72" height="12" rx="3" fill="var(--violet-800)"/>
-                <rect x="763" y="100" width="56" height="10" rx="3" fill="var(--lav-200)"/>
-                <rect x="763" y="116" width="40" height="10" rx="3" fill="var(--lav-200)"/>
-                <text x="799" y="152" font-size="11" font-weight="800" fill="var(--violet-950)">중요도 정렬</text>
+                <rect x="320" y="394" width="256" height="240" rx="12" fill="#fff" stroke="var(--violet-500)"/>
+                <text x="448" y="422" font-size="13" font-weight="800" fill="var(--violet-500)">06</text>
+                <g fill="var(--lav-050)" stroke="var(--violet-500)" stroke-dasharray="4 4">
+                  <circle cx="368" cy="472" r="30"/><circle cx="392" cy="552" r="30"/>
+                </g>
+                <path d="M428 512 H456" stroke="var(--violet-500)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                <path d="M454 505 L468 512 L454 519 Z" fill="var(--violet-500)"/>
+                <rect x="472" y="462" width="88" height="26" rx="6" fill="var(--violet-800)"/>
+                <rect x="472" y="498" width="70" height="22" rx="6" fill="var(--lav-200)"/>
+                <rect x="472" y="530" width="52" height="22" rx="6" fill="var(--lav-200)"/>
+                <text x="448" y="612" font-size="15" font-weight="800" fill="var(--violet-950)">중요도 정렬</text>
               </g>
 
               <g class="nd" style="animation-delay:3.72s">
-                <rect x="876" y="44" width="126" height="134" rx="10" fill="#fff" stroke="var(--violet-500)"/>
-                <text x="939" y="64" font-size="10" font-weight="800" fill="var(--violet-500)">07</text>
+                <rect x="604" y="394" width="256" height="240" rx="12" fill="#fff" stroke="var(--violet-500)"/>
+                <text x="732" y="422" font-size="13" font-weight="800" fill="var(--violet-500)">07</text>
+                <rect x="620" y="462" width="70" height="20" rx="5" fill="var(--lav-100)"/>
+                <rect x="620" y="494" width="88" height="28" rx="6" fill="var(--violet-800)"/>
+                <rect x="620" y="534" width="56" height="20" rx="5" fill="var(--lav-100)"/>
+                <path d="M712 512 H740" stroke="var(--violet-500)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                <path d="M738 505 L752 512 L738 519 Z" fill="var(--violet-500)"/>
                 <g fill="var(--lav-200)">
-                  <rect x="901" y="80" width="76" height="6" rx="3"/><rect x="901" y="92" width="64" height="6" rx="3"/><rect x="901" y="104" width="48" height="6" rx="3"/>
+                  <rect x="756" y="452" width="88" height="12" rx="6"/><rect x="756" y="474" width="76" height="12" rx="6"/><rect x="756" y="496" width="60" height="12" rx="6"/>
                 </g>
-                <rect x="901" y="116" width="46" height="13" rx="6.5" fill="none" stroke="var(--violet-800)" stroke-width="1.2"/>
-                <circle cx="910" cy="122.5" r="2.2" fill="var(--violet-800)"/>
-                <rect x="917" y="120" width="24" height="5" rx="2.5" fill="var(--lav-200)"/>
-                <text x="939" y="147" font-size="11" font-weight="800" fill="var(--violet-950)">근거 기반</text>
-                <text x="939" y="162" font-size="11" font-weight="800" fill="var(--violet-950)">시사점 작성</text>
+                <rect x="756" y="524" width="76" height="26" rx="13" fill="none" stroke="var(--violet-800)" stroke-width="2"/>
+                <circle cx="771" cy="537" r="5" fill="var(--violet-800)"/>
+                <rect x="782" y="532" width="40" height="10" rx="5" fill="var(--lav-200)"/>
+                <text x="732" y="612" font-size="15" font-weight="800" fill="var(--violet-950)">근거 기반 시사점 작성</text>
               </g>
 
               <g class="nd" style="animation-delay:4.34s">
-                <rect x="1016" y="44" width="126" height="134" rx="10" fill="#fff" stroke="var(--violet-800)"/>
-                <text x="1079" y="64" font-size="10" font-weight="800" fill="var(--violet-500)">08</text>
-                <path d="M1061 101 H1097" stroke="var(--violet-800)" stroke-width="2.5" fill="none"/>
-                <circle cx="1051" cy="101" r="10" fill="var(--violet-500)"/>
-                <circle cx="1107" cy="101" r="10" fill="var(--violet-800)"/>
-                <rect x="1067" y="94.5" width="24" height="13" rx="6.5" fill="#fff" stroke="var(--violet-800)"/>
-                <text x="1079" y="147" font-size="11" font-weight="800" fill="var(--violet-950)">기업 관계</text>
-                <text x="1079" y="162" font-size="11" font-weight="800" fill="var(--violet-950)">등록</text>
+                <rect x="888" y="394" width="256" height="240" rx="12" fill="#fff" stroke="var(--violet-800)"/>
+                <text x="1016" y="422" font-size="13" font-weight="800" fill="var(--violet-500)">08</text>
+                <circle cx="948" cy="470" r="20" fill="var(--violet-500)"/>
+                <circle cx="948" cy="554" r="20" fill="var(--violet-800)"/>
+                <path d="M996 512 H1024" stroke="var(--violet-500)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                <path d="M1022 505 L1036 512 L1022 519 Z" fill="var(--violet-500)"/>
+                <path d="M1084 490 V534" stroke="var(--violet-800)" stroke-width="5" fill="none"/>
+                <circle cx="1084" cy="470" r="20" fill="var(--violet-500)"/>
+                <circle cx="1084" cy="554" r="20" fill="var(--violet-800)"/>
+                <rect x="1052" y="500" width="64" height="24" rx="12" fill="#fff" stroke="var(--violet-800)" stroke-width="2"/>
+                <text x="1016" y="612" font-size="15" font-weight="800" fill="var(--violet-950)">기업 관계 등록</text>
+              </g>
+
+              <g class="nd" style="animation-delay:.31s">
+                <path d="M294 184 H306" stroke="var(--violet-800)" stroke-width="3" fill="none" stroke-linecap="round"/>
+                <path d="M304 177 L318 184 L304 191 Z" fill="var(--violet-800)"/>
+              </g>
+              <g class="nd" style="animation-delay:.93s">
+                <path d="M578 184 H590" stroke="var(--violet-800)" stroke-width="3" fill="none" stroke-linecap="round"/>
+                <path d="M588 177 L602 184 L588 191 Z" fill="var(--violet-800)"/>
+              </g>
+              <g class="nd" style="animation-delay:1.55s">
+                <path d="M862 184 H874" stroke="var(--violet-800)" stroke-width="3" fill="none" stroke-linecap="round"/>
+                <path d="M872 177 L886 184 L872 191 Z" fill="var(--violet-800)"/>
+              </g>
+
+              <g class="nd" style="animation-delay:2.17s">
+                <path d="M1016 314 V336 Q1016 352 1000 352 H180 Q164 352 164 368 V378"
+                      stroke="var(--violet-800)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M156 376 L164 390 L172 376 Z" fill="var(--violet-800)"/>
+              </g>
+
+              <g class="nd" style="animation-delay:2.79s">
+                <path d="M294 514 H306" stroke="var(--violet-800)" stroke-width="3" fill="none" stroke-linecap="round"/>
+                <path d="M304 507 L318 514 L304 521 Z" fill="var(--violet-800)"/>
+              </g>
+              <g class="nd" style="animation-delay:3.41s">
+                <path d="M578 514 H590" stroke="var(--violet-800)" stroke-width="3" fill="none" stroke-linecap="round"/>
+                <path d="M588 507 L602 514 L588 521 Z" fill="var(--violet-800)"/>
+              </g>
+              <g class="nd" style="animation-delay:4.03s">
+                <path d="M862 514 H874" stroke="var(--violet-800)" stroke-width="3" fill="none" stroke-linecap="round"/>
+                <path d="M872 507 L886 514 L872 521 Z" fill="var(--violet-800)"/>
               </g>
 
             </g>
-            <g font-size="9.5" font-weight="800" letter-spacing=".14em" fill="var(--muted)">
-              <text x="36" y="30">COLLECT</text>
-              <text x="1142" y="30" text-anchor="end">CONNECT</text>
+            <g font-size="10.5" font-weight="800" letter-spacing=".14em" fill="var(--muted)">
+              <text x="36" y="48">COLLECT</text>
+              <text x="1144" y="662" text-anchor="end">CONNECT</text>
             </g>
-            <text x="589" y="212" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--ink-2)">제외 판정과 이슈 그룹핑이 같은 단계 안에 있으므로, 화면에 도착한 시점에는 이미 남을 것이 정해져 있다.</text>
+            <text x="590" y="700" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--ink-2)">제외 판정과 이슈 그룹핑이 같은 단계 안에 있으므로, 화면에 도착한 시점에는 이미 남을 것이 정해져 있다.</text>
           </svg>
 
           <table class="tbl" style="margin-top:18px">
