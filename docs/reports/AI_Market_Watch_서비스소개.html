@@ -703,9 +703,12 @@ svg text{font-family:var(--font);}
    ⚠️ 상자 뒤를 가로지르던 배경선(.stem8 .flow / @keyframes s8Flow)은 2026-08-22에 없앴다.
       선이 상자 뒤에 숨었다 나왔다 하니 흐름이 아니라 배경 장식으로 읽혔다 — 사용자 지시로
       칸과 칸 사이 화살표 7개(가로 6 + 04→05 줄바꿈 1)로 바꿨다. 배경선을 되살리지 말 것.
-   ⚠️ .nd 하나로 상자 8개와 화살표 7개를 모두 굴린다. animation-delay 를 .31초 간격으로
-      번갈아 주면 "상자 → 화살표 → 상자 → 화살표" 순서가 되고, 한 순간에 움직이는 것은
-      늘 하나뿐이다. 새 @keyframes 를 만들면 두 주기가 겹쳐 여러 요소가 동시에 움직인다. */
+   ⚠️ .nd 는 화살표 7개에만 건다. 상자에는 절대 걸지 말 것 — 상자 안에 장면이 그려져
+      있는데 상자가 깜빡이면 읽으려는 대상이 움직여 가독성이 떨어진다(2026-08-22 사용자
+      지적으로 상자에서 뗐다). 상자 8개는 처음부터 정지 상태로 온전히 보인다.
+      흐름 설명은 화살표가 이어받는다 — 01→02 부터 07→08 까지 .52초 간격으로 하나씩
+      그어지면 순서가 그대로 읽힌다. 마지막(3.12s)이 끝난 뒤 8초 주기가 끝날 때까지 멈춘다.
+   ⚠️ 새 @keyframes 를 만들지 말 것. 주기가 둘이 되면 여러 요소가 동시에 움직인다. */
 .stem8 .nd{animation:s8Node 8s var(--ksd-ease) infinite both;}
 @keyframes s8Node{0%,3%{opacity:.26}11%{opacity:1}100%{opacity:1}}
 
@@ -1372,13 +1375,15 @@ svg text{font-family:var(--font);}
                ⚠️ 화살표는 상자를 침범하지 않는다 — 가로 화살표는 28px 여백 안(294~318),
                   줄바꿈 화살표는 1행 아래 304 와 2행 위 394 사이에서만 움직인다.
 
-               ⚠️ 애니메이션 — 새 @keyframes 를 만들지 않았다. 상자 8개와 화살표 7개가 모두
-                  .nd 하나를 쓰고 animation-delay 만 .31초 간격으로 번갈아 간다.
-                    상자01 0 · 화살표 .31 · 상자02 .62 · 화살표 .93 · … · 상자08 4.34
-                  그래서 "상자 → 화살표 → 상자" 순서로 하나씩만 나타나고, 4.34초 뒤부터
-                  8초 주기가 끝날 때까지 멈춰 있다. 칸 안 장면에는 따로 움직임을 넣지 않았다 —
-                  왼쪽·오른쪽이 이미 나란히 놓여 변화가 정지 상태로 읽히므로 증명할 주장이
-                  없고(§4.7), 넣으면 여덟 칸이 같은 주기를 공유해 한꺼번에 움직인다.
+               ⚠️ 애니메이션은 화살표 7개에만 있다. 상자에는 없다 — 상자에 걸었더니
+                  "칸에 주니까 가독성이 안좋아"라는 지적을 받았다(2026-08-22). 상자 안에
+                  장면이 그려져 있으므로 상자가 깜빡이면 읽으려는 대상이 움직인다.
+                  상자 8개와 그 안의 장면은 처음부터 정지 상태로 온전히 보인다.
+                    화살표 01→02 0 · 02→03 .52 · 03→04 1.04 · 04→05 1.56(줄바꿈) ·
+                    05→06 2.08 · 06→07 2.6 · 07→08 3.12
+                  흐름 설명은 화살표 순서가 통째로 이어받는다. 3.12초 뒤부터 8초 주기가
+                  끝날 때까지 멈춰 있고, 움직이는 면적은 화살표 하나(약 24px)뿐이다.
+                  새 @keyframes 는 없다 — 주기가 둘이 되면 여러 요소가 동시에 움직인다.
 
                ⚠️ 좌표 — 상자 폭 256, x = 36 · 320 · 604 · 888.
                   1행 y 64~304, 2행 y 394~634. 번호 baseline 상자상단+28,
@@ -1389,7 +1394,7 @@ svg text{font-family:var(--font);}
                aria-label="처리 단계 8단계를 네 칸씩 두 줄로 보여 준다. 칸과 칸 사이에 화살표가 놓이고, 04에서 05로는 아래로 꺾여 되돌아오는 화살표가 이어 주므로 여덟 칸이 하나의 흐름이 된다. 칸마다 왼쪽에 들어온 것, 가운데에 화살표, 오른쪽에 그 결과가 놓여 무엇이 어떻게 바뀌는지 보인다. 01 수집은 흩어져 있던 기사 아홉 건이 한 곳에 모이는 장면, 02 문서 분할은 기사 한 건이 네 조각으로 갈라지는 장면, 03 의미 색인 생성은 조각이 좌표 위의 점으로 바뀌는 장면, 04 색인 저장은 떠 있던 점이 저장소 안에 쌓이는 장면, 05 유사 기사 그룹핑은 흩어진 점 다섯 개가 두 무리로 모이는 장면, 06 중요도 정렬은 순서가 없던 두 무리가 길이가 다른 막대 셋으로 줄 서는 장면, 07 근거 기반 시사점 작성은 맨 위 항목에서 글 세 줄이 나오고 그 아래 근거 표시가 붙는 장면, 08 기업 관계 등록은 떨어져 있던 기업 둘 사이에 관계 표시가 붙은 선이 생기는 장면이다.">
             <g text-anchor="middle">
 
-              <g class="nd">
+              <g>
                 <rect x="36" y="64" width="256" height="240" rx="12" fill="#fff" stroke="var(--violet-500)"/>
                 <text x="164" y="92" font-size="13" font-weight="800" fill="var(--violet-500)">01</text>
                 <g fill="var(--lav-200)">
@@ -1406,7 +1411,7 @@ svg text{font-family:var(--font);}
                 <text x="164" y="282" font-size="15" font-weight="800" fill="var(--violet-950)">수집</text>
               </g>
 
-              <g class="nd" style="animation-delay:.62s">
+              <g>
                 <rect x="320" y="64" width="256" height="240" rx="12" fill="#fff" stroke="var(--violet-500)"/>
                 <text x="448" y="92" font-size="13" font-weight="800" fill="var(--violet-500)">02</text>
                 <rect x="336" y="146" width="84" height="76" rx="7" fill="var(--lav-050)" stroke="var(--violet-500)"/>
@@ -1421,7 +1426,7 @@ svg text{font-family:var(--font);}
                 <text x="448" y="282" font-size="15" font-weight="800" fill="var(--violet-950)">문서 분할</text>
               </g>
 
-              <g class="nd" style="animation-delay:1.24s">
+              <g>
                 <rect x="604" y="64" width="256" height="240" rx="12" fill="#fff" stroke="var(--violet-500)"/>
                 <text x="732" y="92" font-size="13" font-weight="800" fill="var(--violet-500)">03</text>
                 <g fill="var(--lav-200)">
@@ -1439,7 +1444,7 @@ svg text{font-family:var(--font);}
                 <text x="732" y="282" font-size="15" font-weight="800" fill="var(--violet-950)">의미 색인 생성</text>
               </g>
 
-              <g class="nd" style="animation-delay:1.86s">
+              <g>
                 <rect x="888" y="64" width="256" height="240" rx="12" fill="#fff" stroke="var(--violet-500)"/>
                 <text x="1016" y="92" font-size="13" font-weight="800" fill="var(--violet-500)">04</text>
                 <g fill="var(--violet-500)">
@@ -1459,7 +1464,7 @@ svg text{font-family:var(--font);}
                 <text x="1016" y="282" font-size="15" font-weight="800" fill="var(--violet-950)">색인 저장</text>
               </g>
 
-              <g class="nd" style="animation-delay:2.48s">
+              <g>
                 <rect x="36" y="394" width="256" height="240" rx="12" fill="#fff" stroke="var(--violet-500)"/>
                 <text x="164" y="422" font-size="13" font-weight="800" fill="var(--violet-500)">05</text>
                 <g fill="var(--violet-500)">
@@ -1477,7 +1482,7 @@ svg text{font-family:var(--font);}
                 <text x="164" y="612" font-size="15" font-weight="800" fill="var(--violet-950)">유사 기사 그룹핑</text>
               </g>
 
-              <g class="nd" style="animation-delay:3.1s">
+              <g>
                 <rect x="320" y="394" width="256" height="240" rx="12" fill="#fff" stroke="var(--violet-500)"/>
                 <text x="448" y="422" font-size="13" font-weight="800" fill="var(--violet-500)">06</text>
                 <g fill="var(--lav-050)" stroke="var(--violet-500)" stroke-dasharray="4 4">
@@ -1491,7 +1496,7 @@ svg text{font-family:var(--font);}
                 <text x="448" y="612" font-size="15" font-weight="800" fill="var(--violet-950)">중요도 정렬</text>
               </g>
 
-              <g class="nd" style="animation-delay:3.72s">
+              <g>
                 <rect x="604" y="394" width="256" height="240" rx="12" fill="#fff" stroke="var(--violet-500)"/>
                 <text x="732" y="422" font-size="13" font-weight="800" fill="var(--violet-500)">07</text>
                 <rect x="620" y="462" width="70" height="20" rx="5" fill="var(--lav-100)"/>
@@ -1508,7 +1513,7 @@ svg text{font-family:var(--font);}
                 <text x="732" y="612" font-size="15" font-weight="800" fill="var(--violet-950)">근거 기반 시사점 작성</text>
               </g>
 
-              <g class="nd" style="animation-delay:4.34s">
+              <g>
                 <rect x="888" y="394" width="256" height="240" rx="12" fill="#fff" stroke="var(--violet-800)"/>
                 <text x="1016" y="422" font-size="13" font-weight="800" fill="var(--violet-500)">08</text>
                 <circle cx="948" cy="470" r="20" fill="var(--violet-500)"/>
@@ -1522,34 +1527,34 @@ svg text{font-family:var(--font);}
                 <text x="1016" y="612" font-size="15" font-weight="800" fill="var(--violet-950)">기업 관계 등록</text>
               </g>
 
-              <g class="nd" style="animation-delay:.31s">
+              <g class="nd">
                 <path d="M294 184 H306" stroke="var(--violet-800)" stroke-width="3" fill="none" stroke-linecap="round"/>
                 <path d="M304 177 L318 184 L304 191 Z" fill="var(--violet-800)"/>
               </g>
-              <g class="nd" style="animation-delay:.93s">
+              <g class="nd" style="animation-delay:.52s">
                 <path d="M578 184 H590" stroke="var(--violet-800)" stroke-width="3" fill="none" stroke-linecap="round"/>
                 <path d="M588 177 L602 184 L588 191 Z" fill="var(--violet-800)"/>
               </g>
-              <g class="nd" style="animation-delay:1.55s">
+              <g class="nd" style="animation-delay:1.04s">
                 <path d="M862 184 H874" stroke="var(--violet-800)" stroke-width="3" fill="none" stroke-linecap="round"/>
                 <path d="M872 177 L886 184 L872 191 Z" fill="var(--violet-800)"/>
               </g>
 
-              <g class="nd" style="animation-delay:2.17s">
+              <g class="nd" style="animation-delay:1.56s">
                 <path d="M1016 314 V336 Q1016 352 1000 352 H180 Q164 352 164 368 V378"
                       stroke="var(--violet-800)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
                 <path d="M156 376 L164 390 L172 376 Z" fill="var(--violet-800)"/>
               </g>
 
-              <g class="nd" style="animation-delay:2.79s">
+              <g class="nd" style="animation-delay:2.08s">
                 <path d="M294 514 H306" stroke="var(--violet-800)" stroke-width="3" fill="none" stroke-linecap="round"/>
                 <path d="M304 507 L318 514 L304 521 Z" fill="var(--violet-800)"/>
               </g>
-              <g class="nd" style="animation-delay:3.41s">
+              <g class="nd" style="animation-delay:2.6s">
                 <path d="M578 514 H590" stroke="var(--violet-800)" stroke-width="3" fill="none" stroke-linecap="round"/>
                 <path d="M588 507 L602 514 L588 521 Z" fill="var(--violet-800)"/>
               </g>
-              <g class="nd" style="animation-delay:4.03s">
+              <g class="nd" style="animation-delay:3.12s">
                 <path d="M862 514 H874" stroke="var(--violet-800)" stroke-width="3" fill="none" stroke-linecap="round"/>
                 <path d="M872 507 L886 514 L872 521 Z" fill="var(--violet-800)"/>
               </g>
