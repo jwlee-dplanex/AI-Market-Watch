@@ -892,16 +892,10 @@ svg text{font-family:var(--font);}
 /* ============================================================
    CH 04 — 추진 과제
    ============================================================ */
-.role .bd{transform-box:fill-box;transform-origin:center;
-  animation:rlSolid 12s steps(1,end) infinite both, rlZoom 12s ease-in-out infinite both;}
-.role .wash{animation:rlWash 12s ease-in-out infinite both;}
-.role .rbadge{transform-box:fill-box;transform-origin:center;animation:rlBadge 12s ease-in-out infinite both;}
-.role .daily{animation:raPulse 2.2s ease-in-out infinite both;}
-@keyframes rlSolid{0%{stroke-dasharray:12 8}4%{stroke-dasharray:9999 0}25%,100%{stroke-dasharray:12 8}}
-@keyframes rlZoom{0%,3%{transform:scale(1)}7%{transform:scale(1.022)}25%,100%{transform:scale(1)}}
-@keyframes rlWash{0%,4%{opacity:0}8%{opacity:1}19%{opacity:1}25%,100%{opacity:0}}
-@keyframes rlBadge{0%,4%{transform:scale(1)}9%{transform:scale(1.15)}20%,100%{transform:scale(1)}}
-@keyframes raPulse{0%,100%{opacity:.3}50%{opacity:1}}
+/* FIG 4-1(.role) 애니메이션 CSS 9줄은 2026-08-21에 제거했다 — 도해 자체가 문서 끝 별첨의
+   표로 대체되면서 마크업이 사라졌고, 그 애니메이션(점선→실선 steps(1,end))이 증명하던
+   "구간이 확정된다"는 주장을 별첨에서는 하지 않기 때문이다(§4.7). rlSolid · rlZoom ·
+   rlWash · rlBadge · raPulse 는 이 도해 전용이라 함께 지웠다. */
 
 .now{margin-top:24px;border:1px solid var(--lav-200);border-radius:var(--radius);background:var(--lav-050);padding:22px 26px;}
 .now .lb{font-size:10.5px;font-weight:800;letter-spacing:.13em;color:var(--violet-800);}
@@ -1020,7 +1014,7 @@ svg text{font-family:var(--font);}
   }
   .rv{opacity:1 !important;transform:none !important;}
   /* ⚠️ 표지에는 애니메이션이 없다 — reduce에서 되돌릴 상태 자체가 없다 */
-  .fig svg *,.f11 *,.stem8 *,.hl *,.rel *,.role *,
+  .fig svg *,.f11 *,.stem8 *,.hl *,.rel *,
   .ksd-app,.ksd-app *,.ksd-ctl-bar i{animation:none !important;}
   .fig svg .flow,.fig svg .pk,.fig svg .drift,
   .fig svg .pass,.fig svg .stop,.fig svg .ring{opacity:0 !important;}
@@ -2934,91 +2928,30 @@ svg text{font-family:var(--font);}
         <span class="chap-label">NEXT STEPS</span>
         <h2 class="chap-title">추진 과제</h2>
         <p class="chap-desc">
-          현재 역할 분담과 앞으로 정해야 할 사항을 적는다.<br>
+          현재 상황과 앞으로 정해야 할 사항을 적는다.<br>
           협의 전에 결론을 미리 써 두지 않았다.
         </p>
       </div>
     </header>
   </div>
 
+  <!-- 역할 분담 절(id="s41")과 FIG 4-1 은 2026-08-21에 문서 끝 별첨으로 내렸다.
+       04장은 "앞으로 무엇을 할지"를 말하는 장인데 네 에이전트는 "이 제품을 어떻게 만들었는지"라
+       추진 계획의 일부처럼 읽혔다. 사실은 남기되 비중을 내린 것이다.
+       ⚠️ 아래 "현재 상황"(.now) 블록은 함께 내리지 않았다 — 역할 분담이 아니라 04장의 전제
+          ("전환 중이며 그 사이에도 판정은 매일 돌고 있다")를 말하는 자리다. 별첨의 RA 서술과
+          같은 사실을 두 번 쓰지 않도록, 별첨 쪽은 "개발이 끝난 뒤에도 계속 가동된다"는 층위만
+          담고 판정 항목 나열은 이 블록에만 둔다. -->
   <section class="sec" aria-labelledby="s41">
     <div class="wrap">
       <div class="sec-head rv">
-        <span class="sec-no">COLLABORATION</span>
-        <h3 class="sec-title" id="s41">역할 분담</h3>
+        <span class="sec-no">NEXT STEPS</span>
+        <h3 class="sec-title" id="s41">추진 과제 — 각 과제에서 정해야 하는 것</h3>
         <p class="sec-lead">
-          네 AI Agent가 구간을 나눠 맡는다. 그중 <b>research analyst 구간은 지금도 매일 가동 중이다.</b>
+          <b>결론 · 일정 · 담당 범위는 비워 두었다.</b> 협의 전에 정해진 것이 없으며, 협의 후 확정한다.
+          아래에는 각 과제가 <b>“무엇을 정해야 하는 일인지”</b>까지만 적었다.
         </p>
       </div>
-
-      <figure class="fig rv" id="fig41">
-        <figcaption class="fig-cap">
-          <span class="fig-num">FIG 4-1</span>
-          <span class="fig-ttl">역할 분담 — 네 AI Agent가 나눠 맡는 구간</span>
-          <span class="fig-sub">경계가 확정되는 순간은 한 프레임에 바뀌고, research analyst 구간만 상시 가동된다.</span>
-        </figcaption>
-        <div class="fig-body">
-          <svg class="role" viewBox="0 0 1180 250" role="img"
-               aria-label="네 AI Agent의 역할 분담. product manager는 기능 우선순위와 제품 정책을, product designer는 화면 설계와 디자인 시스템을, product engineer는 풀스택 구현을, research analyst는 뉴스 검증과 보고서 발행을 맡는다. research analyst 구간만 상시 가동 표시가 켜져 있다.">
-            <text x="34" y="26" font-size="10" font-weight="800" letter-spacing=".13em" fill="var(--muted)">FOUR AGENTS · 구간을 나눠 맡는다</text>
-
-            <g>
-              <rect x="34" y="40" width="266" height="160" rx="12" fill="#fff"/>
-              <rect class="wash" x="34" y="40" width="266" height="160" rx="12" fill="var(--lav-050)"/>
-              <rect class="bd" x="34" y="40" width="266" height="160" rx="12" fill="none" stroke="var(--violet-800)" stroke-width="1.6"/>
-              <g class="rbadge"><circle cx="60" cy="68" r="13" fill="var(--violet-800)"/><text x="60" y="72" text-anchor="middle" font-size="10.5" font-weight="800" fill="#fff">PM</text></g>
-              <text x="34" y="118" dx="24" font-size="13.5" font-weight="800" fill="var(--violet-950)">product manager</text>
-              <g font-size="10.5" font-weight="700" fill="var(--muted)">
-                <text x="58" y="144">기능 우선순위와 제품 정책을</text>
-                <text x="58" y="160">정의한다</text>
-              </g>
-            </g>
-
-            <g>
-              <rect x="316" y="40" width="266" height="160" rx="12" fill="#fff"/>
-              <rect class="wash" style="animation-delay:3s" x="316" y="40" width="266" height="160" rx="12" fill="var(--lav-050)"/>
-              <rect class="bd" style="animation-delay:3s" x="316" y="40" width="266" height="160" rx="12" fill="none" stroke="var(--violet-800)" stroke-width="1.6"/>
-              <g class="rbadge" style="animation-delay:3s"><circle cx="342" cy="68" r="13" fill="var(--violet-800)"/><text x="342" y="72" text-anchor="middle" font-size="10.5" font-weight="800" fill="#fff">PD</text></g>
-              <text x="340" y="118" font-size="13.5" font-weight="800" fill="var(--violet-950)">product designer</text>
-              <g font-size="10.5" font-weight="700" fill="var(--muted)">
-                <text x="340" y="144">화면을 설계하고</text>
-                <text x="340" y="160">디자인 시스템을 관리한다</text>
-              </g>
-            </g>
-
-            <g>
-              <rect x="598" y="40" width="266" height="160" rx="12" fill="#fff"/>
-              <rect class="wash" style="animation-delay:6s" x="598" y="40" width="266" height="160" rx="12" fill="var(--lav-050)"/>
-              <rect class="bd" style="animation-delay:6s" x="598" y="40" width="266" height="160" rx="12" fill="none" stroke="var(--violet-800)" stroke-width="1.6"/>
-              <g class="rbadge" style="animation-delay:6s"><circle cx="624" cy="68" r="13" fill="var(--violet-800)"/><text x="624" y="72" text-anchor="middle" font-size="10.5" font-weight="800" fill="#fff">PE</text></g>
-              <text x="622" y="118" font-size="13.5" font-weight="800" fill="var(--violet-950)">product engineer</text>
-              <g font-size="10.5" font-weight="700" fill="var(--muted)">
-                <text x="622" y="140">화면 구현, 데이터 모델,</text>
-                <text x="622" y="156">수집 파이프라인 등</text>
-                <text x="622" y="172">풀스택 구현을 맡는다</text>
-              </g>
-            </g>
-
-            <g>
-              <rect x="880" y="40" width="266" height="160" rx="12" fill="var(--lav-050)"/>
-              <rect class="wash" style="animation-delay:9s" x="880" y="40" width="266" height="160" rx="12" fill="var(--lav-100)"/>
-              <rect class="bd" style="animation-delay:9s" x="880" y="40" width="266" height="160" rx="12" fill="none" stroke="var(--violet-800)" stroke-width="1.6"/>
-              <g class="rbadge" style="animation-delay:9s"><circle cx="906" cy="68" r="13" fill="var(--violet-800)"/><text x="906" y="72" text-anchor="middle" font-size="10.5" font-weight="800" fill="#fff">RA</text></g>
-              <g class="daily"><circle cx="1114" cy="68" r="6" fill="var(--violet-800)"/></g>
-              <text x="1096" y="72" text-anchor="end" font-size="9.5" font-weight="800" letter-spacing=".08em" fill="var(--violet-800)">매일 가동</text>
-              <text x="904" y="118" font-size="13.5" font-weight="800" fill="var(--violet-950)">research analyst</text>
-              <g font-size="10.5" font-weight="700" fill="var(--ink-2)">
-                <text x="904" y="140">수집된 뉴스를 검증하고</text>
-                <text x="904" y="156">금융권 AI 도입 동향</text>
-                <text x="904" y="172">보고서를 발행한다</text>
-              </g>
-            </g>
-
-            <text x="34" y="230" font-size="11.5" font-weight="700" fill="var(--ink-2)">경계는 점선에서 실선으로 <tspan font-weight="800" fill="var(--violet-800)">한 프레임에</tspan> 바뀐다 — 맡는 구간이 확정됐다는 뜻이라 서서히 넘어가지 않는다.</text>
-          </svg>
-        </div>
-        <p class="fig-claim">네 구간은 순서대로 확정되지만, <b>research analyst 구간은 그 사이에도 계속 가동된다.</b></p>
-      </figure>
 
       <div class="now rv">
         <span class="lb">현재 상황</span>
@@ -3028,19 +2961,6 @@ svg text{font-family:var(--font);}
           <li><b>이것이 이 서비스의 강점이다.</b> 판단 기준이 문서로 이미 확정돼 있고, 매일 실제 기사에 적용되고 있다. 01장 <b>CONSISTENCY</b> 축은 앞으로 하겠다는 계획이 아니라 <b>이미 가동 중인 것</b>이며, <a href="#fig25" style="color:var(--violet-800);font-weight:800;text-decoration:underline">2.3 운영 사례(FIG 2-5)</a>가 그 근거다.</li>
           <li>따라서 자동화는 <b>없던 판단을 새로 만드는 일이 아니라, 이미 검증된 판단을 코드로 옮기는 일</b>이다.</li>
         </ul>
-      </div>
-    </div>
-  </section>
-
-  <section class="sec" aria-labelledby="s42">
-    <div class="wrap">
-      <div class="sec-head rv">
-        <span class="sec-no">NEXT STEPS</span>
-        <h3 class="sec-title" id="s42">추진 과제 — 각 과제에서 정해야 하는 것</h3>
-        <p class="sec-lead">
-          <b>결론 · 일정 · 담당 범위는 비워 두었다.</b> 협의 전에 정해진 것이 없으며, 협의 후 확정한다.
-          아래에는 각 과제가 <b>“무엇을 정해야 하는 일인지”</b>까지만 적었다.
-        </p>
       </div>
 
       <div class="fig rv" style="margin-top:0">
@@ -3116,6 +3036,51 @@ svg text{font-family:var(--font);}
         <span class="note-label">협의 후 확정</span>
         <strong>결론 · 일정 · 담당 범위는 비워 두었다.</strong> 협의 전에 정해진 것이 없으며, 협의 후 확정한다.
       </div>
+    </div>
+  </section>
+</article>
+
+<div class="divider"></div>
+
+<!-- 제작 방식 별첨 — 2026-08-21에 04장 "역할 분담" 절을 여기로 내렸다.
+     ⚠️ FIG 4-1(96행 SVG)은 그대로 옮기지 않았다. 그건 "구간이 순서대로 확정된다"를 증명하려고
+        만든 도해이고(점선→실선 steps(1,end)), 별첨에서는 그 주장을 하지 않는다 — §4.7 "증명할
+        주장이 없으면 정지가 맞다"에 따라 도해와 애니메이션을 함께 걷어내고 표 하나로 줄였다.
+        96행을 그대로 옮기는 것은 강등이 아니다.
+     ⚠️ RA 행은 나머지 셋과 성격이 다르다(개발이 끝나도 계속 돈다). 다만 04장 "현재 상황"
+        블록이 이미 "관련성 판정 · 이슈 그룹핑 · 시사점 작성 · 관계 확인을 매일 수행한다"를
+        말하고 있으므로, 여기서는 그 항목을 다시 나열하지 않고 "개발이 끝난 뒤에도 남는
+        역할"이라는 층위만 적는다 — 같은 사실을 두 자리에 다른 형태로 쓰지 않는다. -->
+<article id="appendix" class="chapter">
+  <section class="sec" aria-labelledby="sapx">
+    <div class="wrap">
+      <div class="sec-head rv">
+        <span class="sec-no">APPENDIX · HOW IT WAS BUILT</span>
+        <h3 class="sec-title" id="sapx">제작 방식 — AI Agent로 개발했다</h3>
+        <p class="sec-lead">
+          이 서비스는 <b>역할을 나눈 네 개의 AI Agent</b>로 개발했다. 아래는 참고용 기록이며,
+          04장 추진 과제와는 별개다.
+        </p>
+      </div>
+
+      <div class="fig rv" style="margin-top:18px">
+        <table class="tbl">
+          <caption class="sr-only">개발에 사용한 네 AI Agent와 각자 맡은 일</caption>
+          <thead><tr><th>Agent</th><th>맡은 일</th></tr></thead>
+          <tbody>
+            <tr><td class="k">product manager</td><td>기능 우선순위와 제품 정책을 정의한다</td></tr>
+            <tr><td class="k">product designer</td><td>화면을 설계하고 디자인 시스템을 관리한다</td></tr>
+            <tr><td class="k">product engineer</td><td>화면 구현 · 데이터 모델 · 수집 파이프라인 등 풀스택 구현을 맡는다</td></tr>
+            <tr><td class="k">research analyst</td><td>수집된 뉴스를 검증하고 금융권 AI 도입 동향 보고서를 발행한다</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p class="foot-note rv">
+        ※ 앞의 셋은 <b>개발 구간에서 역할을 나눠 맡았다.</b>
+        <b>research analyst만 성격이 다르다</b> — 개발이 끝난 뒤에도 계속 가동되는 운영 역할이며,
+        지금 무엇을 하고 있는지는 04장 <b>현재 상황</b>에 적었다.
+      </p>
     </div>
   </section>
 </article>
