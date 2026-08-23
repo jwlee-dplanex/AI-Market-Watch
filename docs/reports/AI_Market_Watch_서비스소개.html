@@ -1093,12 +1093,14 @@ svg text{font-family:var(--font);}
       금융·보험사의 AI 도입 동향과 관련 AI 기업의 협업 사례를<br>
       지속적으로 수집·요약한다
     </p>
+    <!-- 발행일은 2026-08-22에 뺐다. 문서가 계속 갱신되고 있어 날짜를 박아 두면 늘 뒤처진다
+         (사용자 지시). 구분점(.dot)도 함께 빼야 한다 — 안 그러면 끝에 점만 남는다.
+         ⚠️ 보고서 화면 목업 안의 기간 표시(2026.08.08 ~ 2026.08.14)와 씬 플레이어 코드
+            주석의 배치 날짜는 성격이 달라 그대로 둔다. -->
     <div class="cover-foot">
       <span>DPLANEX</span>
       <span class="dot" aria-hidden="true"></span>
       <span>전략기획팀</span>
-      <span class="dot" aria-hidden="true"></span>
-      <span>2026.08.14</span>
     </div>
   </div>
 </section>
@@ -3154,7 +3156,7 @@ svg text{font-family:var(--font);}
         <span class="chap-label">NEXT STEPS</span>
         <h2 class="chap-title">추진 과제</h2>
         <p class="chap-desc">
-          현재 상황과 앞으로 정해야 할 사항을 적는다.<br>
+          앞으로 정해야 할 사항을 적는다.<br>
           협의 전에 결론을 미리 써 두지 않았다.
         </p>
       </div>
@@ -3164,10 +3166,10 @@ svg text{font-family:var(--font);}
   <!-- 역할 분담 절(id="s41")과 FIG 4-1 은 2026-08-21에 문서 끝 별첨으로 내렸다.
        04장은 "앞으로 무엇을 할지"를 말하는 장인데 네 에이전트는 "이 제품을 어떻게 만들었는지"라
        추진 계획의 일부처럼 읽혔다. 사실은 남기되 비중을 내린 것이다.
-       ⚠️ 아래 "현재 상황"(.now) 블록은 함께 내리지 않았다 — 역할 분담이 아니라 04장의 전제
-          ("전환 중이며 그 사이에도 판정은 매일 돌고 있다")를 말하는 자리다. 별첨의 RA 서술과
-          같은 사실을 두 번 쓰지 않도록, 별첨 쪽은 "개발이 끝난 뒤에도 계속 가동된다"는 층위만
-          담고 판정 항목 나열은 이 블록에만 둔다. -->
+       ⚠️ 2026-08-22 — 여기 있던 "현재 상황"(.now) 카드도 사용자 지시로 제거했다.
+          그 카드가 말하던 "만드는 중이며 그동안에도 판정은 매일 이뤄진다"는 사실은
+          문서 끝 별첨의 research analyst 항목에 남아 있다. 04장은 이제 추진 과제만 다룬다.
+          ⚠️ .now CSS 는 지우지 않는다 — 아래 "논의 중인 확장 아이디어" 블록이 계속 쓴다. -->
   <section class="sec" aria-labelledby="s41">
     <div class="wrap">
       <div class="sec-head rv">
@@ -3179,17 +3181,7 @@ svg text{font-family:var(--font);}
         </p>
       </div>
 
-      <div class="now rv">
-        <span class="lb">현재 상황</span>
-        <h4>02장의 구조를 만드는 중이며, 그동안에도 판정은 매일 이뤄지고 있다.</h4>
-        <ul>
-          <li>02장의 8단계는 <b>지금 이 구조로 옮겨 가는 중</b>이다. 그 사이에도 <b>관련성 판정 · 이슈 그룹핑 · 시사점 작성 · 관계 확인은 research analyst가 같은 기준으로 계속하고 있다.</b></li>
-          <li><b>이것이 이 서비스의 강점이다.</b> 판단 기준이 문서로 이미 정해져 있고, 매일 실제 기사에 적용되고 있다. 01장 <b>CONSISTENCY</b> 축은 앞으로 하겠다는 계획이 아니라 <b>이미 돌아가고 있는 것</b>이다. <a href="#fig25" style="color:var(--violet-800);font-weight:800;text-decoration:underline">2.3 운영 사례(FIG 2-5)</a>가 그 근거다.</li>
-          <li>따라서 자동화는 <b>없던 판단을 새로 만드는 일이 아니라, 이미 검증된 판단을 코드로 옮기는 일</b>이다.</li>
-        </ul>
-      </div>
-
-      <div class="fig rv" style="margin-top:0">
+      <div class="fig rv" style="margin-top:18px">
         <table class="tbl">
           <caption class="sr-only">추진 과제 네 건과 각 과제에서 정해야 하는 것</caption>
           <thead><tr><th>#</th><th>과제</th><th>이 과제에서 정해야 하는 것</th><th>함께</th></tr></thead>
@@ -3268,10 +3260,10 @@ svg text{font-family:var(--font);}
         만든 도해이고(점선→실선 steps(1,end)), 별첨에서는 그 주장을 하지 않는다 — §4.7 "증명할
         주장이 없으면 정지가 맞다"에 따라 도해와 애니메이션을 함께 걷어내고 표 하나로 줄였다.
         96행을 그대로 옮기는 것은 강등이 아니다.
-     ⚠️ RA 행은 나머지 셋과 성격이 다르다(개발이 끝나도 계속 돈다). 다만 04장 "현재 상황"
-        블록이 이미 "관련성 판정 · 이슈 그룹핑 · 시사점 작성 · 관계 확인을 매일 수행한다"를
-        말하고 있으므로, 여기서는 그 항목을 다시 나열하지 않고 "개발이 끝난 뒤에도 남는
-        역할"이라는 층위만 적는다 — 같은 사실을 두 자리에 다른 형태로 쓰지 않는다. -->
+     ⚠️ RA 행은 나머지 셋과 성격이 다르다 — 개발이 끝나도 계속 돈다.
+        2026-08-22에 04장 "현재 상황" 카드가 제거되면서, 그 사실을 담고 있던 유일한 자리가
+        여기가 됐다. 그래서 각주에 매일 하는 일을 직접 적는다(종전에는 04장을 가리키기만 했다).
+        ⚠️ 04장으로 보내는 참조를 되살리지 말 것 — 가리킬 블록이 없다. -->
 <article id="appendix" class="chapter">
   <section class="sec" aria-labelledby="sapx">
     <div class="wrap">
@@ -3299,7 +3291,7 @@ svg text{font-family:var(--font);}
 
       <p class="foot-note rv">
         ※ 앞의 셋은 <b>서비스를 만드는 동안</b> 역할을 나눠 맡았다.
-        <b>research analyst는 만든 뒤에도 계속 일한다</b> — 지금 매일 무엇을 하고 있는지는 04장 <b>현재 상황</b>에 있다.
+        <b>research analyst는 만든 뒤에도 계속 일한다</b> — 지금도 매일 수집된 기사를 판정하고, 이슈로 묶고, 시사점을 쓰고, 기업 간 관계를 확인한다.
       </p>
     </div>
   </section>
