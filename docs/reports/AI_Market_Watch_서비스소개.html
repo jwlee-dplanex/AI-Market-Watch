@@ -940,6 +940,17 @@ svg text{font-family:var(--font);}
 /* ============================================================
    CH 04 — 진행 순서
    ============================================================ */
+/* FIG 4-1 — 샌드박스 구축 구성 (2026-08-24 신설).
+   사용자 요청: "aws 환경의 샌드박스에 구축하면 어떻게 해야하는지 상세하게, 기술용어도 사용해서".
+   ⚠️ 층을 나눈 이유 — 타임라인 표는 경영진이 "얼마나 걸리고 무엇이 나오나"를 보는 자리다.
+      기술 구성을 그 표에 글로 섞으면 둘 다 흐려지므로 도해를 따로 세워 필요한 사람만 본다.
+   ⚠️ 움직임 없음 — 4.7. 이 그림의 주장은 "무엇이 아직 없는가"이고 정지 상태로 읽힌다. */
+.sbx{width:100%;height:auto;display:block;}
+.sbx .lbl{font-size:10px;font-weight:800;letter-spacing:.11em;fill:var(--muted);}
+.sbx .box{font-size:12.5px;font-weight:800;fill:var(--violet-950);}
+.sbx .sub{font-size:10.5px;font-weight:700;fill:var(--muted);}
+.sbx .tag{font-size:9.5px;font-weight:800;letter-spacing:.06em;}
+
 /* 04장 타임라인 — 행 = 작업 / 열 = 1~15일 (2026-08-24 신설).
    사용자 지시: "과제라고 표현하지 말고 타임라인을, 행에는 작업 열에는 날짜, day 단위로".
    ⚠️ HTML 표로 그린다 — 사용자가 "행과 열로"라고 명시했고, 격자가 보이는 것이
@@ -3289,14 +3300,14 @@ svg text{font-family:var(--font);}
 
       <div class="fig rv" style="margin-top:18px">
         <table class="tl">
-          <caption class="sr-only">작업 다섯 가지와 각 작업이 걸리는 일수. 교보 키워드 추가는 1일차, 샌드박스 환경과 서비스 구동은 1일차부터 5일차까지, 판정과 이슈와 시사점 자동 처리는 6일차부터 10일차까지, 태블릿 대응과 앱 배포는 11일차부터 13일차까지, QA는 14일차다. 모두 14영업일이 걸린다.</caption>
+          <caption class="sr-only">작업 다섯 가지와 각 작업이 걸리는 일수. 교보 키워드 추가는 1일차, 샌드박스 환경과 서비스 구동은 1일차부터 5일차까지, RAG LLM 연동은 6일차부터 10일차까지, 태블릿 대응과 앱 배포는 11일차부터 13일차까지, QA는 14일차다. 모두 14영업일이 걸린다.</caption>
           <thead>
             <tr><th class="job">작업</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th class="w">6</th><th>7</th><th>8</th><th>9</th><th>10</th><th class="w">11</th><th>12</th><th>13</th><th>14</th></tr>
           </thead>
           <tbody>
             <tr><td class="job">교보 키워드 추가</td><td class="d on"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td></tr>
             <tr><td class="job">샌드박스 환경 · 서비스 구동</td><td class="d on b"></td><td class="d on b"></td><td class="d on b"></td><td class="d on b"></td><td class="d on b"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td></tr>
-            <tr><td class="job">판정 · 이슈 · 시사점 자동 처리</td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d on"></td><td class="d on"></td><td class="d on"></td><td class="d on"></td><td class="d on"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td></tr>
+            <tr><td class="job">RAG LLM 연동</td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d on"></td><td class="d on"></td><td class="d on"></td><td class="d on"></td><td class="d on"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td></tr>
             <tr><td class="job">태블릿 대응 · 앱 배포</td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d on b"></td><td class="d on b"></td><td class="d on b"></td><td class="d"></td></tr>
             <tr><td class="job">QA</td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d on"></td></tr>
           </tbody>
@@ -3311,12 +3322,52 @@ svg text{font-family:var(--font);}
           <tbody>
             <tr><td class="k">교보 키워드 추가</td><td>수집 키워드에 <b>교보 계열사</b>를 추가한다.</td></tr>
             <tr><td class="k">샌드박스 환경<br>서비스 구동</td><td>Django · Docker · PostgreSQL · pgvector를 샌드박스에 올려 <b>내부 직원이 웹에서 쓸 수 있게</b> 한다. <b>샌드박스 인프라 정책에 맞춰 구축한다.</b></td></tr>
-            <tr><td class="k">판정 · 이슈 · 시사점<br>자동 처리</td><td>수집한 기사를 <b>벡터 데이터베이스</b>에 적재하고 꺼내 쓰는 두 흐름을 만든다. 적재는 <b>load → split → embed → store</b>, 질의는 <b>request → embed → RAG</b> 순서다. 지금 research analyst가 사람 손으로 하는 관련성 판정 · 이슈 묶기 · 시사점 작성을 <b>AWS Bedrock AgentCore</b>로 처리한다.</td></tr>
+            <tr><td class="k">RAG LLM 연동</td><td>수집한 기사를 <b>벡터 데이터베이스</b>에 적재하고 꺼내 쓰는 두 흐름을 만든다. 적재는 <b>load → split → embed → store</b>, 질의는 <b>request → embed → RAG</b> 순서다. 지금 research analyst가 사람 손으로 하는 관련성 판정 · 이슈 묶기 · 시사점 작성을 <b>AWS Bedrock AgentCore</b>로 처리한다.</td></tr>
             <tr><td class="k">태블릿 대응<br>앱 배포</td><td>AI Market Watch를 <b>태블릿 동적 레이아웃</b>으로 수정하고, <b>TestFlight</b>에 업로드해 사내에서 받아 쓸 수 있게 한다.</td></tr>
             <tr><td class="k">QA</td><td>다섯 화면과 앱을 차례로 열어 확인한다.</td></tr>
           </tbody>
         </table>
       </div>
+
+      <figure class="fig rv" id="fig41" style="margin-top:26px">
+        <figcaption class="fig-cap">
+          <span class="fig-num">FIG 4-1</span>
+          <span class="fig-ttl">샌드박스 구축 구성 — 요청이 지나는 길과, 아직 없는 것</span>
+          <span class="fig-sub">테두리가 진한 칸은 이번에 만들어야 하는 것이고, 주황 칸은 지금 구조를 그대로 옮기면 샌드박스에서 문제가 되는 것이다.</span>
+        </figcaption>
+        <div class="fig-body">
+          <svg class="sbx" viewBox="0 0 1180 470" role="img"
+               aria-label="샌드박스 구축 구성. 바깥에서는 사내 공인 IP만 허용한다. 요청은 로드밸런서를 지나 Django와 gunicorn 컨테이너로 가고, 컨테이너는 PostgreSQL 16과 pgvector에 읽고 쓴다. 컨테이너 옆에는 정적 파일 서빙과 비밀값 저장소, Bedrock AgentCore가 붙는다. 뉴스 수집은 지금 앱 프로세스 안에서 돌아 컨테이너를 둘 이상 띄우면 같은 수집이 중복 실행된다. Django와 gunicorn 컨테이너, 정적 파일 서빙, 비밀값 저장소, AgentCore 연동은 아직 없어 이번에 만들어야 한다.">
+            <text class="lbl" x="36" y="24">OUTSIDE</text>
+            <rect x="36" y="36" width="300" height="50" rx="9" fill="#fff" stroke="var(--lav-200)"/><text class="box" x="186" y="65" text-anchor="middle">사내 공인 IP만 허용</text>
+            <path d="M186 86 V114" stroke="var(--violet-500)" stroke-width="2" fill="none"/><path d="M181 114 L186 122 L191 114 Z" fill="var(--violet-500)"/>
+            <rect x="16" y="112" width="1148" height="336" rx="14" fill="none" stroke="var(--violet-500)" stroke-dasharray="6 5"/>
+            <text class="lbl" x="36" y="136" fill="var(--violet-800)">SANDBOX</text>
+            <rect x="36" y="150" width="300" height="56" rx="9" fill="#fff" stroke="var(--lav-200)"/><text class="box" x="186" y="174" text-anchor="middle">로드밸런서</text><text class="sub" x="186" y="190" text-anchor="middle">도메인 · 인증서</text>
+            <path d="M186 206 V238" stroke="var(--violet-500)" stroke-width="2" fill="none"/><path d="M181 238 L186 246 L191 238 Z" fill="var(--violet-500)"/>
+            <rect x="36" y="246" width="300" height="70" rx="9" fill="var(--lav-050)" stroke="var(--violet-500)"/><text class="box" x="186" y="270" text-anchor="middle">Django + gunicorn 컨테이너</text><text class="sub" x="186" y="286" text-anchor="middle">WSGI 구동 · 이미지 빌드</text><text class="tag" x="186" y="307" text-anchor="middle" fill="var(--violet-800)">만들 것</text>
+            <path d="M186 316 V348" stroke="var(--violet-500)" stroke-width="2" fill="none"/><path d="M181 348 L186 356 L191 348 Z" fill="var(--violet-500)"/>
+            <rect x="36" y="356" width="300" height="70" rx="9" fill="#fff" stroke="var(--lav-200)"/><text class="box" x="186" y="380" text-anchor="middle">PostgreSQL 16 + pgvector</text><text class="sub" x="186" y="396" text-anchor="middle">뉴스 · 임베딩 · 이슈</text>
+            <rect x="392" y="246" width="250" height="70" rx="9" fill="var(--lav-050)" stroke="var(--violet-500)"/><text class="box" x="517" y="270" text-anchor="middle">정적 파일 서빙</text><text class="sub" x="517" y="286" text-anchor="middle">collectstatic 대상</text><text class="tag" x="517" y="307" text-anchor="middle" fill="var(--violet-800)">만들 것</text>
+            <rect x="392" y="356" width="250" height="70" rx="9" fill="var(--lav-050)" stroke="var(--violet-500)"/><text class="box" x="517" y="380" text-anchor="middle">비밀값 저장소</text><text class="sub" x="517" y="396" text-anchor="middle">API 키 12개</text><text class="tag" x="517" y="417" text-anchor="middle" fill="var(--violet-800)">만들 것</text>
+            <rect x="698" y="246" width="262" height="70" rx="9" fill="var(--lav-050)" stroke="var(--violet-500)"/><text class="box" x="829" y="270" text-anchor="middle">Bedrock AgentCore</text><text class="sub" x="829" y="286" text-anchor="middle">판정 · 이슈 · 시사점</text><text class="tag" x="829" y="307" text-anchor="middle" fill="var(--violet-800)">만들 것</text>
+            <text class="sub" x="829" y="338" text-anchor="middle">적재 load → split → embed → store</text>
+            <text class="sub" x="829" y="354" text-anchor="middle">질의 request → embed → RAG</text>
+            <rect x="698" y="372" width="262" height="54" rx="9" fill="var(--warn-bg)" stroke="var(--warn-line)"/><text class="box" x="829" y="396" text-anchor="middle">뉴스 수집</text><text class="sub" x="829" y="412" text-anchor="middle">앱 프로세스 안에서 실행</text><text class="tag" x="829" y="417" text-anchor="middle" fill="var(--warn)">지금 구조로는 문제</text>
+            <path d="M336 281 H392" stroke="var(--lav-200)" stroke-width="1.6" stroke-dasharray="4 4" fill="none"/>
+            <path d="M336 391 H392" stroke="var(--lav-200)" stroke-width="1.6" stroke-dasharray="4 4" fill="none"/>
+            <path d="M642 281 H698" stroke="var(--lav-200)" stroke-width="1.6" stroke-dasharray="4 4" fill="none"/>
+            <path d="M990 281 H1000" stroke="var(--lav-200)" stroke-width="1.6" stroke-dasharray="4 4" fill="none"/>
+            <rect x="1000" y="150" width="148" height="20" rx="5" fill="var(--lav-050)" stroke="var(--violet-500)"/>
+            <text class="tag" x="1074" y="164" text-anchor="middle" fill="var(--violet-800)">만들 것</text>
+            <rect x="1000" y="178" width="148" height="20" rx="5" fill="var(--warn-bg)" stroke="var(--warn-line)"/>
+            <text class="tag" x="1074" y="192" text-anchor="middle" fill="var(--warn)">지금 구조로는 문제</text>
+            <rect x="1000" y="206" width="148" height="20" rx="5" fill="#fff" stroke="var(--lav-200)"/>
+            <text class="tag" x="1074" y="220" text-anchor="middle" fill="var(--muted)">이미 있음</text>
+          </svg>
+        </div>
+        <p class="fig-claim">샌드박스에 올리는 일은 <b>있는 것을 옮기는 작업이 아니다.</b> 요청이 지나는 길에서 <b>네 칸이 아직 없고</b>, 수집은 <b>지금 구조로는 컨테이너를 늘리는 순간 중복으로 돈다.</b></p>
+      </figure>
 
       <!-- 2026-08-24: 04장에서 아래 세 블록을 지웠다 —
            ⑴ "수집 대상 확장의 검토 범위"(수집 경로 · 뉴스룸 · 개인화)
