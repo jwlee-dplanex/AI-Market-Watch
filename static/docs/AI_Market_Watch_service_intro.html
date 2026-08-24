@@ -274,9 +274,9 @@ svg text{font-family:var(--font);}
 .note strong{color:var(--violet-900);}
 .note + .note{margin-top:10px;}
 .note-label{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.08em;padding:3px 8px;border-radius:5px;margin-right:9px;vertical-align:1.5px;background:var(--violet-900);color:#fff;}
-.note.caution{background:var(--warn-bg);border-color:var(--warn-line);color:var(--warn);font-weight:700;font-size:13.5px;}
-.note.caution strong{color:var(--warn);}
-.note.caution .note-label{background:var(--warn-mid);}
+/* .note.caution(붉은 계열 변형) 3줄은 2026-08-22에 지웠다 — 이 변형을 쓰던 "협의 후 확정"
+   블록 네 개가 사용자 지시로 모두 삭제되면서 남는 사용처가 없어졌다. 되살릴 일이 생기면
+   변형이 아니라 그때 필요한 의미에 맞춰 새로 정의할 것. 기본 .note 는 04장에서 계속 쓴다. */
 .foot-note{margin-top:12px;font-size:12.5px;font-weight:600;color:var(--muted);line-height:1.7;}
 .foot-note + .foot-note{margin-top:5px;}
 
@@ -581,13 +581,6 @@ svg text{font-family:var(--font);}
 .ksd-shot .s-glegend b{width:8px;height:8px;border-radius:50%;display:block;flex:none;}
 .ksd-shot .s-gstat{position:absolute;top:12px;right:12px;z-index:2;font-size:10px;font-weight:500;
   color:var(--s-mute);background:rgba(255,255,255,.9);border:1px solid var(--s-line);border-radius:9px;padding:5px 9px;}
-/* 실선/점선 구분 범례 — 이 그림에만 있는 장치(실제 화면에는 점선 자체가 없다) */
-.ksd-shot .s-gkey{position:absolute;left:12px;bottom:12px;z-index:2;display:flex;flex-direction:column;gap:5px;
-  background:rgba(255,255,255,.92);border:1px solid var(--s-line);border-radius:9px;padding:7px 10px;
-  box-shadow:0 1px 2px rgba(39,38,57,.05);}
-.ksd-shot .s-gkey span{display:flex;align-items:center;gap:7px;font-size:9.5px;font-weight:500;color:#4B5563;}
-.ksd-shot .s-gkey i{width:20px;height:0;flex:none;border-top:1px dashed #C9CACC;}
-.ksd-shot .s-gkey i.on{border-top:2px solid #898A8D;}
 .ksd-shot .s-gsvg{display:block;width:100%;height:auto;}
 /* 우측 패널 — 실제로는 w-72(288px). 목업 축척(0.86)에 맞춰 248px */
 .ksd-shot .s-gpanel{width:248px;flex:none;background:#fff;border:1px solid var(--s-line);
@@ -606,6 +599,87 @@ svg text{font-family:var(--font);}
 .ksd-shot .s-edit{display:inline-flex;align-items:center;gap:3px;flex:none;font-size:10px;
   font-weight:500;color:var(--violet-800);}
 .ksd-shot .s-edit svg{width:9px;height:9px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+/* ---- 뉴스 화면 (NEWS-001 목록 · NEWS-002 상세) ---- */
+/* 검색·필터 바 — 실제로는 흰 카드 안에 input/select 가 한 줄로 놓인다 */
+.ksd-shot .s-fbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;background:#fff;
+  border:1px solid var(--s-line);border-radius:9px;box-shadow:0 1px 2px rgba(39,38,57,.05);padding:11px 12px;}
+.ksd-shot .s-inp{display:flex;align-items:center;gap:7px;border:1px solid #E5E7EB;border-radius:9px;
+  padding:6px 10px;font-size:11px;font-weight:500;color:var(--s-mute);background:#fff;}
+.ksd-shot .s-inp.grow{flex:1;min-width:150px;}
+.ksd-shot .s-inp svg{width:12px;height:12px;flex:none;fill:none;stroke:var(--s-mute);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.ksd-shot .s-inp .cv{margin-left:auto;}
+.ksd-shot .s-go{font-size:11px;font-weight:600;color:#fff;background:var(--violet-800);
+  border-radius:9px;padding:7px 15px;}
+.ksd-shot .s-reset{font-size:11px;font-weight:500;color:var(--s-mute);}
+/* 날짜 구분 행 (달력 아이콘 + 날짜 + 가는 선) */
+.ksd-shot .s-day{display:flex;align-items:center;gap:8px;}
+.ksd-shot .s-day svg{width:13px;height:13px;flex:none;fill:none;stroke:var(--violet-800);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.ksd-shot .s-day b{flex:none;font-size:11.5px;font-weight:700;color:#374151;}
+.ksd-shot .s-day i{flex:1;height:1px;background:#E5E7EB;display:block;}
+/* 페이지네이션 */
+.ksd-shot .s-page{display:flex;align-items:center;justify-content:center;gap:5px;}
+.ksd-shot .s-page i{font-style:normal;font-size:11px;font-weight:500;color:#4B5563;
+  border:1px solid #E5E7EB;border-radius:9px;padding:4px 10px;}
+.ksd-shot .s-page i.on{background:var(--violet-800);border-color:var(--violet-800);color:#fff;}
+/* 상세 — 기사 제목(세리프)과 본문 */
+.ksd-shot .s-art{font-family:var(--font-head);font-size:17px;font-weight:700;letter-spacing:-.02em;
+  color:var(--s-ink);line-height:1.45;}
+.ksd-shot .s-link.ext{display:inline-flex;align-items:center;gap:4px;}
+.ksd-shot .s-link.ext svg{width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+/* 이슈 시사점 블록 — 연보라 판 + 좌측 보라 굵은 보더 */
+.ksd-shot .s-imp{background:#FAF5FF;border-left:4px solid var(--violet-800);
+  border-radius:0 9px 9px 0;padding:11px 13px;}
+.ksd-shot .s-bulb{width:13px;height:13px;flex:none;fill:none;stroke:#93D500;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+/* 관련 기업 배지 — 닫기(x)가 붙는 형태 */
+.ksd-shot .s-chip.x{display:inline-flex;align-items:center;gap:4px;}
+.ksd-shot .s-chip.x svg{width:9px;height:9px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;}
+.ksd-shot .s-chip.b.fin{background:#DBEAFE;color:#1D4ED8;}
+.ksd-shot .s-chip.b.ai{background:#F3E8FF;color:var(--violet-800);}
+/* ---- 설정 화면 (SET-002 키워드 · SET-006 로그) ---- */
+/* 설정 전용 좌측 서브 메뉴 — 사이드바(w-60)와 본문 사이에 한 겹 더 있는 구조다 */
+.ksd-shot .s-smenu{width:150px;flex:none;background:#fff;border:1px solid var(--s-line);
+  border-radius:9px;box-shadow:0 1px 2px rgba(39,38,57,.05);padding:7px;}
+.ksd-shot .s-smenu span{display:flex;align-items:center;gap:8px;padding:6px 9px;border-radius:9px;
+  font-size:11.5px;font-weight:500;color:#4B5563;}
+.ksd-shot .s-smenu span.on{background:rgba(96,38,158,.1);color:var(--violet-800);font-weight:700;}
+.ksd-shot .s-smenu svg{width:13px;height:13px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.ksd-shot .s-smenu svg.fill{fill:currentColor;stroke:none;}
+/* 카드 헤더(제목 + 부제) — 설정 카드는 제목 영역이 본문과 선으로 갈린다 */
+.ksd-shot .s-chd{padding:12px 15px;border-bottom:1px solid #F3F4F6;}
+.ksd-shot .s-csub{margin-top:2px;font-size:10px;font-weight:500;color:var(--s-mute);}
+/* 표 */
+.ksd-shot .s-tb{width:100%;border-collapse:collapse;}
+.ksd-shot .s-tb th{text-align:left;font-size:10px;font-weight:700;color:var(--s-mute2);padding:8px 0;
+  border-bottom:1px solid #F3F4F6;}
+.ksd-shot .s-tb th:first-child,.ksd-shot .s-tb td:first-child{padding-left:15px;}
+.ksd-shot .s-tb td{font-size:11px;font-weight:500;color:var(--s-ink);padding:8px 0;
+  border-bottom:1px solid #FAFAFA;}
+.ksd-shot .s-tb td.m{color:var(--s-mute2);font-weight:400;}
+.ksd-shot .s-tb .act{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding-right:14px;}
+.ksd-shot .s-tb .act svg{width:12px;height:12px;fill:none;stroke:#D1D5DB;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+/* 표 하단 입력 행 */
+.ksd-shot .s-add{display:flex;gap:7px;padding:12px 15px;border-top:1px solid #F3F4F6;}
+.ksd-shot .s-add .btn{font-size:10.5px;font-weight:600;color:#fff;background:var(--violet-800);
+  border-radius:9px;padding:6px 12px;flex:none;}
+.ksd-shot .s-add .btn.warn{background:#FF6C0E;}
+/* 정렬 배지 */
+.ksd-shot .s-sort{font-size:9.5px;font-weight:500;padding:1px 7px;border-radius:99px;
+  background:#EFF6FF;color:#2563EB;}
+.ksd-shot .s-sort.new{background:#F3EAFB;color:var(--violet-800);}
+/* 상태 배지 (성공/실패) */
+.ksd-shot .s-st{font-size:9.5px;font-weight:500;padding:1px 7px;border-radius:99px;
+  background:#DCFCE7;color:#15803D;}
+/* 검증 파이프라인 현황 — 지표 3+1 */
+.ksd-shot .s-kpi{display:flex;align-items:flex-start;gap:32px;flex-wrap:wrap;}
+.ksd-shot .s-kpi > div > .k{font-size:10px;font-weight:500;color:var(--s-mute);}
+.ksd-shot .s-kpi > div > .v{margin-top:3px;font-size:16px;font-weight:600;color:var(--s-ink);}
+.ksd-shot .s-ok{display:inline-flex;align-items:center;gap:4px;margin-top:2px;font-size:10px;font-weight:500;color:#16A34A;}
+.ksd-shot .s-ok svg{width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
+/* 로그 탭 */
+.ksd-shot .s-tabs{display:inline-flex;gap:4px;background:#fff;border:1px solid var(--s-line);
+  border-radius:9px;box-shadow:0 1px 2px rgba(39,38,57,.05);padding:4px;}
+.ksd-shot .s-tabs i{font-style:normal;font-size:10.5px;font-weight:500;padding:6px 14px;border-radius:9px;color:var(--s-mute2);}
+.ksd-shot .s-tabs i.on{background:var(--violet-800);color:#fff;}
 /* 목업 아래 한 줄 — "무엇이 실제 값이고 무엇이 예시인지"를 그림 옆에서 바로 밝힌다.
    같은 카드 안 .svc-fn 과 완전히 같은 형태를 쓴다(새 시각 요소를 만들지 않음). */
 .ksd-shot-note{margin:12px 20px 0;padding:10px 13px;border-radius:var(--radius-s);
@@ -625,11 +699,30 @@ svg text{font-family:var(--font);}
 .lg.auto i{background:var(--violet-800);}
 .lg.human i{background:var(--indigo-600);}
 
-/* FIG 2-2 — 처리 단계 8단계 */
-.stem8 .flow{stroke-dasharray:100;animation:s8Flow 8s linear infinite both;}
-.stem8 .nd{animation:s8Node 8s var(--ksd-ease) infinite both;}
-@keyframes s8Flow{0%{stroke-dashoffset:100;opacity:0}5%{opacity:1}70%{stroke-dashoffset:0;opacity:1}80%,100%{stroke-dashoffset:0;opacity:0}}
-@keyframes s8Node{0%,3%{opacity:.26}11%{opacity:1}100%{opacity:1}}
+/* FIG 2-2 — 처리 단계 8단계
+   ⚠️ 상자 뒤를 가로지르던 배경선(.stem8 .flow / @keyframes s8Flow)은 2026-08-22에 없앴다.
+      선이 상자 뒤에 숨었다 나왔다 하니 흐름이 아니라 배경 장식으로 읽혔다 — 사용자 지시로
+      칸과 칸 사이 화살표 7개(가로 6 + 04→05 줄바꿈 1)로 바꿨다. 배경선을 되살리지 말 것.
+   ⚠️ 상자에는 애니메이션을 걸지 말 것 — 상자 안에 장면이 그려져 있는데 상자가 깜빡이면
+      읽으려는 대상이 움직여 가독성이 떨어진다(2026-08-22 사용자 지적). 상자 8개는 처음부터
+      정지 상태로 온전히 보인다. 흐름 설명은 화살표가 통째로 이어받는다.
+
+   ⚠️ 화살표는 "나타나는" 것이 아니라 "그어진다"(2026-08-22 2차 수정).
+      opacity 로 켜고 끄던 방식(s8Node)을 버린 이유 — 04→05 줄바꿈 화살표는 길이가 850px대라
+      opacity .26 에서도 또렷하게 보이는데 가로 화살표는 12px 라 같은 .26 에서 안 보인다.
+      그래서 긴 것 하나만 "늘 켜져 있는" 것처럼 읽혔다. 길이 차가 8배 나는 요소를 밝기로
+      제어하면 이 문제는 반드시 생긴다.
+   ⚠️ pathLength="100" 이 핵심이다. 없으면 850px 와 12px 가 같은 시간에 같은 속도로 그어지지
+      않아 긴 화살표만 느릿하게 기어간다. 100 으로 정규화해야 길이와 무관하게 같은 리듬이 된다.
+      (이 문서가 FIG 1-1 게이지에서 이미 쓰는 기법이다.)
+   ⚠️ 화살촉은 채워진 삼각형이라 dashoffset 으로 그릴 수 없다. 선이 다 그어진 직후(5%)에
+      이어서 짧게 페이드인한다(6.5%) — 선보다 먼저 뜨면 촉만 공중에 떠 보인다.
+   ⚠️ 한 화살표가 0.52초 안에 끝나므로(그리기 0.4초 + 촉 0.12초) 다음 화살표가 시작될 때
+      앞 화살표는 이미 끝나 있다. 간격을 좁히면 둘이 동시에 움직인다. */
+.stem8 .ar{stroke-dasharray:100;animation:s8Draw 8s var(--ksd-ease) infinite both;}
+.stem8 .ah{animation:s8Head 8s var(--ksd-ease) infinite both;}
+@keyframes s8Draw{0%{stroke-dashoffset:100}5%,100%{stroke-dashoffset:0}}
+@keyframes s8Head{0%,5%{opacity:0}6.5%,100%{opacity:1}}
 
 /* FIG 2-3 — 헤드라인 선정 (두 조건) */
 .hl .pass{animation:hlPass 8s cubic-bezier(.4,.05,.5,.95) infinite both;}
@@ -695,8 +788,16 @@ svg text{font-family:var(--font);}
 .ksd-zone.auto{background:var(--violet-800);}
 .ksd-zone.human{background:var(--indigo-600);}
 .ksd-stage{position:relative;flex:1;}
-.ksd-scene{display:none;position:absolute;inset:0;flex-direction:column;}
-.ksd-scene.is-on{display:flex;}
+/* 씬 전환 — 180ms 불투명도 교차 (2026-08-24 사용자 승인).
+   ⚠️ 이동은 넣지 말 것. 슬라이드 · 확대 · 회전 전부 금지다. 표지에서 세 번 반려된 것은
+      모두 "큰 면적이 이동하는" 것이었고, 이동 없는 밝기 변화는 그 종류가 아니라는 판단으로
+      허용됐다. transform 을 여기 추가하는 순간 그 판단의 전제가 깨진다.
+   ⚠️ display:none 을 그대로 두면 페이드가 걸리지 않는다(display 는 보간되지 않는다).
+      그래서 항상 flex 로 두고 opacity + visibility 로만 감춘다. visibility 를 빼면
+      꺼진 씬이 클릭·포커스를 가로챈다. */
+.ksd-scene{display:flex;position:absolute;inset:0;flex-direction:column;
+  opacity:0;visibility:hidden;transition:opacity .18s linear,visibility 0s linear .18s;}
+.ksd-scene.is-on{opacity:1;visibility:visible;transition:opacity .18s linear,visibility 0s;}
 .ksd-frame{flex:1;background:#fff;border-radius:16px;padding:22px 26px;display:flex;flex-direction:column;overflow:hidden;position:relative;}
 .ksd-h{display:flex;align-items:baseline;gap:10px;padding-bottom:12px;border-bottom:1px solid var(--line);}
 .ksd-h b{font-size:16px;font-weight:800;letter-spacing:-.025em;color:var(--violet-950);}
@@ -705,25 +806,16 @@ svg text{font-family:var(--font);}
 
 .ksd-fx{animation:ksdUp calc(.52s * var(--ksd-k)) var(--ksd-ease) calc(var(--d,0ms) * var(--ksd-k)) both;}
 .ksd-pop{transform-origin:center;animation:ksdPop calc(.5s * var(--ksd-k)) var(--ksd-ease) calc(var(--d,0ms) * var(--ksd-k)) both;}
-.ksd-out{animation:ksdOut calc(1.1s * var(--ksd-k)) var(--ksd-ease) calc(var(--d,0ms) * var(--ksd-k)) both;}
 @keyframes ksdUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 @keyframes ksdPop{0%{opacity:0;transform:scale(.82)}62%{opacity:1;transform:scale(1.06)}100%{opacity:1;transform:scale(1)}}
-@keyframes ksdOut{0%{opacity:1;transform:translateX(0)}22%{opacity:1;transform:translateX(0)}100%{opacity:0;transform:translateX(-190px)}}
-
-.ksd-typed{display:inline-block;overflow:hidden;white-space:nowrap;vertical-align:bottom;width:var(--tw,auto);
-  animation:ksdType calc(var(--tdur,2400ms) * var(--ksd-k)) steps(var(--tsteps,28),end) calc(var(--d,700ms) * var(--ksd-k)) both;}
-@keyframes ksdType{from{width:0}to{width:var(--tw,320px)}}
-.ksd-caret{display:inline-block;width:2px;height:15px;background:var(--violet-800);vertical-align:-2px;margin-left:2px;animation:ksdCaret 1s steps(1,end) infinite;}
-@keyframes ksdCaret{0%,50%{opacity:1}51%,100%{opacity:0}}
-.ksd-cursor{position:absolute;left:0;top:0;width:18px;height:24px;pointer-events:none;z-index:5;
-  animation:ksdCursor calc(2s * var(--ksd-k)) var(--ksd-ease) calc(140ms * var(--ksd-k)) both;}
-@keyframes ksdCursor{
-  0%{opacity:0;transform:translate(80px,420px) scale(1)}
-  14%{opacity:1}
-  62%{opacity:1;transform:translate(var(--cx,420px),var(--cy,300px)) scale(1)}
-  70%{transform:translate(var(--cx,420px),var(--cy,300px)) scale(.82)}
-  78%,100%{opacity:1;transform:translate(var(--cx,420px),var(--cy,300px)) scale(1)}
-}
+/* 2026-08-24에 지운 것 — .ksd-out(우측 이탈) · .ksd-typed / .ksd-caret(타이핑) ·
+   .ksd-cursor(마우스 커서) 와 각 @keyframes.
+   ⚠️ 전부 종전 ask · filter 씬 전용이었고 두 씬이 judge 하나로 합쳐지며 사용처가 0이 됐다.
+   ⚠️ 타이핑은 한 문장을 치는 데 2.4초를 썼다 — 그동안 화면이 안 변해 "루즈하다"는 지적의
+      직접적 원인이었다. 되살리지 말 것.
+   ⚠️ JS 의 measureAll() 이 아직 .ksd-typed / .ksd-cursor / [data-ksd-target] 을 찾지만
+      전부 null 검사를 거치므로 안전하다. 그 계측 코드도 함께 지우면 나중에 같은 연출을
+      다시 넣을 때 되살릴 근거가 사라지므로 남겨 둔다. */
 
 .ksd-rows{margin-top:12px;display:flex;flex-direction:column;gap:7px;}
 .ksd-row{display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg-soft);}
@@ -732,6 +824,36 @@ svg text{font-family:var(--font);}
 .ksd-lane{display:flex;align-items:center;gap:12px;padding:9px 13px;border:1px dashed var(--line-2);border-radius:10px;background:#fff;}
 .ksd-lane .no{width:22px;height:22px;border-radius:50%;background:var(--lav-100);color:var(--violet-800);font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none;}
 .ksd-lane p{font-size:12.5px;font-weight:700;color:var(--ink-2);}
+
+/* ---- 관련성 판정 씬(judge) — 여섯 관문을 세로로 지나며 걸러진다 ----
+   ⚠️ 가로로 늘어놓지 말 것. 관문이 여섯이라 가로로 나누면 칸당 130px 이 되고,
+      "금융·보험과 연결되지 않은 AI 기업 단독 동향인가" 같은 기준 이름이 들어가지 않는다.
+      세로 한 행에 한 관문이면 이름에 폭이 420px 생기고, 행 안에서는 왼쪽(이름) →
+      오른쪽(남은 조각) 이라는 FIG 2-2 문법이 그대로 산다.
+   ⚠️ 조각(.fl i)은 "남은 양"을 형태로만 말한다. 숫자를 붙이지 말 것 — 어떤 사유로 몇 건씩
+      갈렸는지는 싣지 않는다는 정책이 씬 하단 ※ 문장으로 살아 있다.
+   ⚠️ .dr 은 그 관문에서 빠지는 조각이다. 아래로 떨어지며 사라진다(이동 12px, 조각 하나가
+      10×9px 라 움직이는 면적이 아주 작다). 한 행씩 차례로만 움직인다. */
+.ksd-sift{margin-top:11px;display:flex;flex-direction:column;gap:7px;}
+.ksd-gate{display:flex;align-items:center;gap:12px;min-height:42px;padding:7px 13px;
+  border:1px solid var(--line);border-radius:10px;background:var(--bg-soft);}
+.ksd-gate.tall{min-height:56px;}
+.ksd-gate .no{width:22px;height:22px;border-radius:50%;background:var(--violet-800);color:#fff;
+  font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none;}
+.ksd-gate .nm{width:400px;flex:none;font-size:12.5px;font-weight:800;letter-spacing:-.02em;
+  color:var(--violet-950);line-height:1.42;}
+.ksd-gate .nm em{display:block;margin-top:3px;font-style:normal;font-size:10.5px;font-weight:700;
+  color:var(--muted);letter-spacing:-.01em;}
+.ksd-gate .fl{flex:1;display:flex;align-items:center;gap:4px;flex-wrap:nowrap;}
+.ksd-gate .fl i{width:10px;height:9px;border-radius:2px;background:var(--violet-500);flex:none;}
+.ksd-gate .fl i.dr{background:var(--lav-200);
+  animation:ksdDrop calc(.42s * var(--ksd-k)) var(--ksd-ease) calc(var(--d,0ms) * var(--ksd-k)) both;}
+@keyframes ksdDrop{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(12px)}}
+.ksd-left{display:flex;align-items:center;gap:12px;margin-top:2px;padding:9px 13px;
+  border:1px solid var(--violet-800);border-radius:10px;background:var(--lav-100);}
+.ksd-left .fl{display:flex;align-items:center;gap:4px;}
+.ksd-left .fl i{width:10px;height:9px;border-radius:2px;background:var(--violet-800);flex:none;}
+.ksd-left b{font-size:13px;font-weight:800;letter-spacing:-.02em;color:var(--violet-900);}
 .ksd-card{border:1px solid var(--lav-200);border-radius:11px;background:#fff;padding:12px 14px;box-shadow:var(--shadow-s);}
 .ksd-card .t{font-size:13px;font-weight:800;letter-spacing:-.02em;color:var(--violet-950);line-height:1.5;}
 .ksd-card .m{margin-top:5px;font-size:10.5px;font-weight:700;color:var(--muted);}
@@ -816,18 +938,45 @@ svg text{font-family:var(--font);}
 .effect-grid > .effect:nth-child(n+7){border-bottom:0;}
 
 /* ============================================================
-   CH 04 — 추진 과제
+   CH 04 — 진행 순서
    ============================================================ */
-.role .bd{transform-box:fill-box;transform-origin:center;
-  animation:rlSolid 12s steps(1,end) infinite both, rlZoom 12s ease-in-out infinite both;}
-.role .wash{animation:rlWash 12s ease-in-out infinite both;}
-.role .rbadge{transform-box:fill-box;transform-origin:center;animation:rlBadge 12s ease-in-out infinite both;}
-.role .daily{animation:raPulse 2.2s ease-in-out infinite both;}
-@keyframes rlSolid{0%{stroke-dasharray:12 8}4%{stroke-dasharray:9999 0}25%,100%{stroke-dasharray:12 8}}
-@keyframes rlZoom{0%,3%{transform:scale(1)}7%{transform:scale(1.022)}25%,100%{transform:scale(1)}}
-@keyframes rlWash{0%,4%{opacity:0}8%{opacity:1}19%{opacity:1}25%,100%{opacity:0}}
-@keyframes rlBadge{0%,4%{transform:scale(1)}9%{transform:scale(1.15)}20%,100%{transform:scale(1)}}
-@keyframes raPulse{0%,100%{opacity:.3}50%{opacity:1}}
+/* FIG 4-1 — 샌드박스 구축 구성 (2026-08-24 신설).
+   사용자 요청: "aws 환경의 샌드박스에 구축하면 어떻게 해야하는지 상세하게, 기술용어도 사용해서".
+   ⚠️ 층을 나눈 이유 — 타임라인 표는 경영진이 "얼마나 걸리고 무엇이 나오나"를 보는 자리다.
+      기술 구성을 그 표에 글로 섞으면 둘 다 흐려지므로 도해를 따로 세워 필요한 사람만 본다.
+   ⚠️ 움직임 없음 — 4.7. 이 그림의 주장은 "무엇이 아직 없는가"이고 정지 상태로 읽힌다. */
+.sbx{width:100%;height:auto;display:block;}
+.sbx .lbl{font-size:10px;font-weight:800;letter-spacing:.11em;fill:var(--muted);}
+.sbx .box{font-size:12.5px;font-weight:800;fill:var(--violet-950);}
+.sbx .sub{font-size:10.5px;font-weight:700;fill:var(--muted);}
+.sbx .tag{font-size:9.5px;font-weight:800;letter-spacing:.06em;}
+
+/* 04장 타임라인 — 행 = 작업 / 열 = 1~15일 (2026-08-24 신설).
+   사용자 지시: "과제라고 표현하지 말고 타임라인을, 행에는 작업 열에는 날짜, day 단위로".
+   ⚠️ HTML 표로 그린다 — 사용자가 "행과 열로"라고 명시했고, 격자가 보이는 것이
+      이 그림의 요구사항이다. SVG 로 그리면 격자를 다시 만들어야 한다.
+   ⚠️ 15개 열이라 셀이 좁다. 날짜 칸은 숫자만 두고 막대는 배경색으로 칠한다 —
+      칸 안에 글자를 넣으면 어느 폭에서도 안 읽힌다. */
+.tl{width:100%;border-collapse:collapse;font-size:11.5px;}
+.tl th,.tl td{border:1px solid var(--line);padding:0;text-align:center;}
+.tl thead th{background:var(--lav-050);color:var(--violet-800);font-weight:800;font-size:10.5px;height:26px;}
+.tl thead th.w{background:var(--lav-100);}
+.tl th.job{width:250px;text-align:left;padding:0 12px;font-size:10.5px;letter-spacing:.08em;color:var(--muted);}
+.tl td.job{text-align:left;padding:9px 12px;font-weight:800;color:var(--violet-950);font-size:12.5px;line-height:1.45;}
+/* ⚠️ 날짜 칸 15개는 폭이 같아야 한다. width:auto 로 두면 막대가 칠해진 칸과
+   빈 칸의 폭이 내용에 따라 달라져 격자가 어긋난다. table-layout:fixed 와 함께 쓴다. */
+.tl{table-layout:fixed;}
+.tl td.d{width:5%;height:38px;}
+.tl td.on{background:var(--violet-800);}
+.tl td.on.b{background:var(--violet-500);}
+.tl tbody tr:hover td.job{color:var(--violet-800);}
+.tl-sum{margin-top:11px;font-size:12px;font-weight:800;color:var(--violet-800);text-align:right;}
+.tl-sum span{color:var(--muted);font-weight:700;}
+
+/* FIG 4-1(.role) 애니메이션 CSS 9줄은 2026-08-21에 제거했다 — 도해 자체가 문서 끝 별첨의
+   표로 대체되면서 마크업이 사라졌고, 그 애니메이션(점선→실선 steps(1,end))이 증명하던
+   "구간이 확정된다"는 주장을 별첨에서는 하지 않기 때문이다(§4.7). rlSolid · rlZoom ·
+   rlWash · rlBadge · raPulse 는 이 도해 전용이라 함께 지웠다. */
 
 .now{margin-top:24px;border:1px solid var(--lav-200);border-radius:var(--radius);background:var(--lav-050);padding:22px 26px;}
 .now .lb{font-size:10.5px;font-weight:800;letter-spacing:.13em;color:var(--violet-800);}
@@ -930,10 +1079,13 @@ svg text{font-family:var(--font);}
   .chapter{break-before:page;}
   .chapter:first-of-type{break-before:auto;}
   .sec-head,.keymsg,.note,.card,.fig,.ksd{break-inside:avoid;}
-  .fig svg *,.ksd-app *,.ksd-ctl-bar i,.flow{animation:none !important;transition:none !important;}
+  .fig svg *,.ksd-app *,.ksd-ctl-bar i{animation:none !important;transition:none !important;}
   .ksd{max-width:640px;}
-  .fig svg .flow,.fig svg .pk,.fig svg .drift,
+  .fig svg .pk,.fig svg .drift,
   .fig svg .pass,.fig svg .stop,.fig svg .ring{opacity:0 !important;}
+  /* 인쇄에서도 화살표는 온전히 그려진 상태여야 한다(위 reduce 블록과 같은 이유) */
+  .stem8 .ar{stroke-dashoffset:0 !important;}
+  .stem8 .ah{opacity:1 !important;}
 }
 
 /* ============================================================
@@ -946,10 +1098,15 @@ svg text{font-family:var(--font);}
   }
   .rv{opacity:1 !important;transform:none !important;}
   /* ⚠️ 표지에는 애니메이션이 없다 — reduce에서 되돌릴 상태 자체가 없다 */
-  .fig svg *,.f11 *,.stem8 *,.hl *,.rel *,.role *,
+  .fig svg *,.f11 *,.stem8 *,.hl *,.rel *,
   .ksd-app,.ksd-app *,.ksd-ctl-bar i{animation:none !important;}
-  .fig svg .flow,.fig svg .pk,.fig svg .drift,
+  .fig svg .pk,.fig svg .drift,
   .fig svg .pass,.fig svg .stop,.fig svg .ring{opacity:0 !important;}
+  /* ⚠️ animation 을 끄면 s8Draw 가 멈춘 자리의 stroke-dashoffset 이 남을 수 있다.
+     남으면 화살표 선이 통째로 사라진다 — 0 으로 못박아 온전히 그려진 상태를 보장한다.
+     화살촉(.ah)도 opacity 기본값이 1 이지만 같은 이유로 함께 명시한다. */
+  .stem8 .ar{stroke-dashoffset:0 !important;}
+  .stem8 .ah{opacity:1 !important;}
 }
 </style>
 </head>
@@ -973,7 +1130,7 @@ svg text{font-family:var(--font);}
       <a href="#ch1">01 추진 배경</a>
       <a href="#ch2">02 서비스 설명</a>
       <a href="#ch3">03 기대 효과</a>
-      <a href="#ch4">04 추진 과제</a>
+      <a href="#ch4">04 진행 순서</a>
     </nav>
   </div>
   <div class="progress" id="progress" aria-hidden="true"></div>
@@ -998,12 +1155,14 @@ svg text{font-family:var(--font);}
       금융·보험사의 AI 도입 동향과 관련 AI 기업의 협업 사례를<br>
       지속적으로 수집·요약한다
     </p>
+    <!-- 발행일은 2026-08-22에 뺐다. 문서가 계속 갱신되고 있어 날짜를 박아 두면 늘 뒤처진다
+         (사용자 지시). 구분점(.dot)도 함께 빼야 한다 — 안 그러면 끝에 점만 남는다.
+         ⚠️ 보고서 화면 목업 안의 기간 표시(2026.08.08 ~ 2026.08.14)와 씬 플레이어 코드
+            주석의 배치 날짜는 성격이 달라 그대로 둔다. -->
     <div class="cover-foot">
       <span>DPLANEX</span>
       <span class="dot" aria-hidden="true"></span>
       <span>전략기획팀</span>
-      <span class="dot" aria-hidden="true"></span>
-      <span>2026.08.14</span>
     </div>
   </div>
 </section>
@@ -1274,28 +1433,226 @@ svg text{font-family:var(--font);}
         <figcaption class="fig-cap">
           <span class="fig-num">FIG 2-2</span>
           <span class="fig-ttl">처리 단계 — 수집에서 관계 등록까지 8단계</span>
-          <span class="fig-sub">수집한 기사가 이슈와 시사점을 거쳐 기업 관계로 등록되기까지 한 줄로 이어진다.</span>
+          <span class="fig-sub">수집한 기사가 이슈와 시사점을 거쳐 기업 관계로 등록되기까지, 여덟 칸이 끊기지 않고 이어진다.</span>
         </figcaption>
         <div class="fig-body">
-          <svg class="stem8" viewBox="0 0 1180 200" role="img"
-               aria-label="처리 단계 8단계. 수집, 문서 분할, 의미 색인 생성, 색인 저장, 유사 기사 그룹핑, 중요도 정렬, 근거 기반 시사점 작성, 기업 관계 등록 순으로 한 줄로 이어진다.">
-            <path d="M36 97 H1142" stroke="var(--lav-200)" stroke-width="2" stroke-dasharray="6 5" fill="none"/>
-            <path class="flow" pathLength="100" d="M36 97 H1142" stroke="var(--violet-800)" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+          <!-- 처리 단계 8칸 — 4칸씩 두 줄, 칸마다 "장면" (2026-08-22 재작업, 사용자 지시)
+               반려 이력이 두 번 있다. 되돌리지 않으려면 아래를 지킬 것.
+               ① 한 줄 8칸 → 칸당 126px 이라 도형이 7×4.5px 까지 작아져 안 보였다.
+               ② 도형만 키움 → "칸있고 글있고 라인따라 활성화만" 이라는 지적. 크기가 아니라
+                  성격이 문제였다. 아이콘을 붙인 목록은 장면이 아니다.
+
+               ⚠️ 판정 기준은 "라벨을 다 지워도 무슨 일이 일어나는지 알 수 있는가"다.
+                  그래서 칸마다 같은 문법을 쓴다 — 왼쪽에 들어온 것 / 가운데 화살표 /
+                  오른쪽에 그 결과. FIG 2-3 이 "항목 → 관문 → 슬롯"으로 읽히는 것과 같은 구조다.
+                  칸을 아이콘 하나로 되돌리지 말 것.
+                    01 흩어진 기사 9건 → 모아 담긴 목록      02 기사 1건 → 조각 4개
+                    03 조각 3개 → 좌표 위의 점 6개          04 떠 있는 점 → 저장소 안에 쌓임
+                    05 흩어진 점 5개 → 두 무리로 모임        06 순서 없는 두 무리 → 길이순 막대 3개
+                    07 맨 위 항목 → 글 3줄 + 근거 표시       08 떨어진 기업 둘 → 라벨 붙은 선으로 연결
+               ⚠️ 숫자는 박지 않는다 — 실측 수치는 2.3 운영 사례의 몫이다. 양의 변화만 형태로 말한다.
+
+               ⚠️ 배경선을 쓰지 않는다. 상자 뒤를 가로지르는 선은 숨었다 나왔다 하며 장식으로
+                  읽혔다(사용자 지시로 제거). 대신 칸 사이 여백에 화살표 7개를 둔다 —
+                  가로 6개(gap 중앙 x=306 · 590 · 874, y=184/514)와 04→05 줄바꿈 1개.
+                  줄바꿈 화살표가 fig-claim("하나의 처리 흐름")을 떠받치는 자리다. 지우지 말 것.
+               ⚠️ 화살표는 상자를 침범하지 않는다 — 가로 화살표는 28px 여백 안(294~318),
+                  줄바꿈 화살표는 1행 아래 304 와 2행 위 394 사이에서만 움직인다.
+
+               ⚠️ 애니메이션은 화살표 7개에만 있다. 상자에는 없다 — 상자에 걸었더니
+                  "칸에 주니까 가독성이 안좋아"라는 지적을 받았다(2026-08-22). 상자 안에
+                  장면이 그려져 있으므로 상자가 깜빡이면 읽으려는 대상이 움직인다.
+                  상자 8개와 그 안의 장면은 처음부터 정지 상태로 온전히 보인다.
+                    화살표 01→02 0 · 02→03 .52 · 03→04 1.04 · 04→05 1.56(줄바꿈) ·
+                    05→06 2.08 · 06→07 2.6 · 07→08 3.12
+                  흐름 설명은 화살표 순서가 통째로 이어받는다. 3.12초 뒤부터 8초 주기가
+                  끝날 때까지 멈춰 있다.
+               ⚠️ 화살표는 밝기가 아니라 길이로 나타난다(.ar 이 dashoffset 으로 그어지고
+                  .ah 화살촉이 뒤이어 뜬다). 밝기로 하면 850px 짜리 줄바꿈 화살표만 흐릿하게
+                  늘 보여 혼자 켜져 있는 것처럼 읽힌다 — 자세한 이유는 위 CSS 주석 참고.
+                  pathLength="100" 을 빼지 말 것.
+
+               ⚠️ 좌표 — 상자 폭 256, x = 36 · 320 · 604 · 888.
+                  1행 y 64~304, 2행 y 394~634. 번호 baseline 상자상단+28,
+                  장면 +46~+190(좌 블록 +16~+104 / 화살표 / 우 블록 +152~+240), 이름 +218.
+                  COLLECT 48, CONNECT 662, 하단 문장 700, viewBox 1180×730.
+                  겹치는 곳 없음(§4.12 6번). -->
+          <svg class="stem8" viewBox="0 0 1180 730" role="img"
+               aria-label="처리 단계 8단계를 네 칸씩 두 줄로 보여 준다. 칸과 칸 사이에 화살표가 놓이고, 04에서 05로는 아래로 꺾여 되돌아오는 화살표가 이어 주므로 여덟 칸이 하나의 흐름이 된다. 칸마다 왼쪽에 들어온 것, 가운데에 화살표, 오른쪽에 그 결과가 놓여 무엇이 어떻게 바뀌는지 보인다. 01 수집은 흩어져 있던 기사 아홉 건이 한 곳에 모이는 장면, 02 문서 분할은 기사 한 건이 네 조각으로 갈라지는 장면, 03 의미 색인 생성은 조각이 좌표 위의 점으로 바뀌는 장면, 04 색인 저장은 떠 있던 점이 저장소 안에 쌓이는 장면, 05 유사 기사 그룹핑은 흩어진 점 다섯 개가 두 무리로 모이는 장면, 06 중요도 정렬은 순서가 없던 두 무리가 길이가 다른 막대 셋으로 줄 서는 장면, 07 근거 기반 시사점 작성은 맨 위 항목에서 글 세 줄이 나오고 그 아래 근거 표시가 붙는 장면, 08 기업 관계 등록은 떨어져 있던 기업 둘 사이에 관계 표시가 붙은 선이 생기는 장면이다.">
             <g text-anchor="middle">
-              <g class="nd"><rect x="36" y="64" width="126" height="66" rx="10" fill="#fff" stroke="var(--violet-500)"/><text x="99" y="88" font-size="10" font-weight="800" fill="var(--violet-500)">01</text><text x="99" y="112" font-size="11" font-weight="800" fill="var(--violet-950)">수집</text></g>
-              <g class="nd" style="animation-delay:.62s"><rect x="176" y="64" width="126" height="66" rx="10" fill="#fff" stroke="var(--violet-500)"/><text x="239" y="88" font-size="10" font-weight="800" fill="var(--violet-500)">02</text><text x="239" y="112" font-size="11" font-weight="800" fill="var(--violet-950)">문서 분할</text></g>
-              <g class="nd" style="animation-delay:1.24s"><rect x="316" y="64" width="126" height="66" rx="10" fill="#fff" stroke="var(--violet-500)"/><text x="379" y="88" font-size="10" font-weight="800" fill="var(--violet-500)">03</text><text x="379" y="107" font-size="11" font-weight="800" fill="var(--violet-950)">의미 색인</text><text x="379" y="122" font-size="11" font-weight="800" fill="var(--violet-950)">생성</text></g>
-              <g class="nd" style="animation-delay:1.86s"><rect x="456" y="64" width="126" height="66" rx="10" fill="#fff" stroke="var(--violet-500)"/><text x="519" y="88" font-size="10" font-weight="800" fill="var(--violet-500)">04</text><text x="519" y="112" font-size="11" font-weight="800" fill="var(--violet-950)">색인 저장</text></g>
-              <g class="nd" style="animation-delay:2.48s"><rect x="596" y="64" width="126" height="66" rx="10" fill="#fff" stroke="var(--violet-500)"/><text x="659" y="88" font-size="10" font-weight="800" fill="var(--violet-500)">05</text><text x="659" y="107" font-size="11" font-weight="800" fill="var(--violet-950)">유사 기사</text><text x="659" y="122" font-size="11" font-weight="800" fill="var(--violet-950)">그룹핑</text></g>
-              <g class="nd" style="animation-delay:3.1s"><rect x="736" y="64" width="126" height="66" rx="10" fill="#fff" stroke="var(--violet-500)"/><text x="799" y="88" font-size="10" font-weight="800" fill="var(--violet-500)">06</text><text x="799" y="112" font-size="11" font-weight="800" fill="var(--violet-950)">중요도 정렬</text></g>
-              <g class="nd" style="animation-delay:3.72s"><rect x="876" y="64" width="126" height="66" rx="10" fill="#fff" stroke="var(--violet-500)"/><text x="939" y="88" font-size="10" font-weight="800" fill="var(--violet-500)">07</text><text x="939" y="107" font-size="11" font-weight="800" fill="var(--violet-950)">근거 기반</text><text x="939" y="122" font-size="11" font-weight="800" fill="var(--violet-950)">시사점 작성</text></g>
-              <g class="nd" style="animation-delay:4.34s"><rect x="1016" y="64" width="126" height="66" rx="10" fill="#fff" stroke="var(--violet-800)"/><text x="1079" y="88" font-size="10" font-weight="800" fill="var(--violet-500)">08</text><text x="1079" y="107" font-size="11" font-weight="800" fill="var(--violet-950)">기업 관계</text><text x="1079" y="122" font-size="11" font-weight="800" fill="var(--violet-950)">등록</text></g>
+
+              <g>
+                <rect x="36" y="64" width="256" height="240" rx="12" fill="#fff" stroke="var(--violet-500)"/>
+                <text x="164" y="92" font-size="13" font-weight="800" fill="var(--violet-500)">01</text>
+                <g fill="var(--lav-200)">
+                  <rect x="54" y="118" width="28" height="10" rx="3"/><rect x="88" y="112" width="28" height="10" rx="3"/><rect x="114" y="130" width="28" height="10" rx="3"/>
+                  <rect x="60" y="150" width="28" height="10" rx="3"/><rect x="96" y="144" width="28" height="10" rx="3"/><rect x="118" y="162" width="28" height="10" rx="3"/>
+                  <rect x="52" y="182" width="28" height="10" rx="3"/><rect x="86" y="190" width="28" height="10" rx="3"/><rect x="116" y="196" width="28" height="10" rx="3"/>
+                </g>
+                <path d="M144 182 H172" stroke="var(--violet-500)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                <path d="M170 175 L184 182 L170 189 Z" fill="var(--violet-500)"/>
+                <rect x="188" y="130" width="88" height="104" rx="8" fill="var(--lav-050)" stroke="var(--violet-500)"/>
+                <g fill="var(--violet-500)">
+                  <rect x="200" y="142" width="64" height="10" rx="3"/><rect x="200" y="160" width="64" height="10" rx="3"/><rect x="200" y="178" width="64" height="10" rx="3"/><rect x="200" y="196" width="64" height="10" rx="3"/><rect x="200" y="214" width="64" height="10" rx="3"/>
+                </g>
+                <text x="164" y="282" font-size="15" font-weight="800" fill="var(--violet-950)">수집</text>
+              </g>
+
+              <g>
+                <rect x="320" y="64" width="256" height="240" rx="12" fill="#fff" stroke="var(--violet-500)"/>
+                <text x="448" y="92" font-size="13" font-weight="800" fill="var(--violet-500)">02</text>
+                <rect x="336" y="146" width="84" height="76" rx="7" fill="var(--lav-050)" stroke="var(--violet-500)"/>
+                <g fill="var(--lav-200)">
+                  <rect x="350" y="164" width="56" height="8" rx="4"/><rect x="350" y="180" width="48" height="8" rx="4"/><rect x="350" y="196" width="40" height="8" rx="4"/>
+                </g>
+                <path d="M428 182 H456" stroke="var(--violet-500)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                <path d="M454 175 L468 182 L454 189 Z" fill="var(--violet-500)"/>
+                <g fill="var(--violet-500)">
+                  <rect x="472" y="132" width="88" height="20" rx="5"/><rect x="472" y="160" width="88" height="20" rx="5"/><rect x="472" y="188" width="88" height="20" rx="5"/><rect x="472" y="216" width="88" height="20" rx="5"/>
+                </g>
+                <text x="448" y="282" font-size="15" font-weight="800" fill="var(--violet-950)">문서 분할</text>
+              </g>
+
+              <g>
+                <rect x="604" y="64" width="256" height="240" rx="12" fill="#fff" stroke="var(--violet-500)"/>
+                <text x="732" y="92" font-size="13" font-weight="800" fill="var(--violet-500)">03</text>
+                <g fill="var(--lav-200)">
+                  <rect x="620" y="146" width="88" height="20" rx="5"/><rect x="620" y="174" width="88" height="20" rx="5"/><rect x="620" y="202" width="88" height="20" rx="5"/>
+                </g>
+                <path d="M712 182 H740" stroke="var(--violet-500)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                <path d="M738 175 L752 182 L738 189 Z" fill="var(--violet-500)"/>
+                <g stroke="var(--lav-200)" stroke-width="1.2" fill="none">
+                  <path d="M756 182 H844"/><path d="M800 128 V240"/>
+                </g>
+                <g fill="var(--violet-500)">
+                  <circle cx="772" cy="148" r="7"/><circle cx="818" cy="140" r="7"/><circle cx="764" cy="198" r="7"/>
+                  <circle cx="812" cy="180" r="7"/><circle cx="836" cy="214" r="7"/><circle cx="786" cy="224" r="7"/>
+                </g>
+                <text x="732" y="282" font-size="15" font-weight="800" fill="var(--violet-950)">의미 색인 생성</text>
+              </g>
+
+              <g>
+                <rect x="888" y="64" width="256" height="240" rx="12" fill="#fff" stroke="var(--violet-500)"/>
+                <text x="1016" y="92" font-size="13" font-weight="800" fill="var(--violet-500)">04</text>
+                <g fill="var(--violet-500)">
+                  <circle cx="918" cy="148" r="7"/><circle cx="958" cy="136" r="7"/><circle cx="926" cy="190" r="7"/><circle cx="966" cy="202" r="7"/>
+                </g>
+                <path d="M996 182 H1024" stroke="var(--violet-500)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                <path d="M1022 175 L1036 182 L1022 189 Z" fill="var(--violet-500)"/>
+                <rect x="1040" y="128" width="88" height="112" rx="8" fill="var(--lav-050)" stroke="var(--violet-500)"/>
+                <g stroke="var(--lav-200)" stroke-width="1.2" fill="none">
+                  <path d="M1040 165 H1128"/><path d="M1040 202 H1128"/>
+                </g>
+                <g fill="var(--violet-800)">
+                  <circle cx="1070" cy="146" r="7"/><circle cx="1098" cy="146" r="7"/>
+                  <circle cx="1070" cy="183" r="7"/><circle cx="1098" cy="183" r="7"/>
+                  <circle cx="1070" cy="220" r="7"/><circle cx="1098" cy="220" r="7"/>
+                </g>
+                <text x="1016" y="282" font-size="15" font-weight="800" fill="var(--violet-950)">색인 저장</text>
+              </g>
+
+              <g>
+                <rect x="36" y="394" width="256" height="240" rx="12" fill="#fff" stroke="var(--violet-500)"/>
+                <text x="164" y="422" font-size="13" font-weight="800" fill="var(--violet-500)">05</text>
+                <g fill="var(--violet-500)">
+                  <circle cx="60" cy="462" r="7"/><circle cx="112" cy="450" r="7"/><circle cx="78" cy="512" r="7"/><circle cx="128" cy="524" r="7"/><circle cx="66" cy="566" r="7"/>
+                </g>
+                <path d="M144 512 H172" stroke="var(--violet-500)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                <path d="M170 505 L184 512 L170 519 Z" fill="var(--violet-500)"/>
+                <g fill="var(--lav-050)" stroke="var(--violet-500)" stroke-dasharray="4 4">
+                  <circle cx="232" cy="478" r="34"/><circle cx="232" cy="550" r="34"/>
+                </g>
+                <g fill="var(--violet-800)">
+                  <circle cx="220" cy="468" r="7"/><circle cx="244" cy="468" r="7"/><circle cx="232" cy="490" r="7"/>
+                  <circle cx="222" cy="542" r="7"/><circle cx="242" cy="556" r="7"/>
+                </g>
+                <text x="164" y="612" font-size="15" font-weight="800" fill="var(--violet-950)">유사 기사 그룹핑</text>
+              </g>
+
+              <g>
+                <rect x="320" y="394" width="256" height="240" rx="12" fill="#fff" stroke="var(--violet-500)"/>
+                <text x="448" y="422" font-size="13" font-weight="800" fill="var(--violet-500)">06</text>
+                <g fill="var(--lav-050)" stroke="var(--violet-500)" stroke-dasharray="4 4">
+                  <circle cx="368" cy="472" r="30"/><circle cx="392" cy="552" r="30"/>
+                </g>
+                <path d="M428 512 H456" stroke="var(--violet-500)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                <path d="M454 505 L468 512 L454 519 Z" fill="var(--violet-500)"/>
+                <rect x="472" y="462" width="88" height="26" rx="6" fill="var(--violet-800)"/>
+                <rect x="472" y="498" width="70" height="22" rx="6" fill="var(--lav-200)"/>
+                <rect x="472" y="530" width="52" height="22" rx="6" fill="var(--lav-200)"/>
+                <text x="448" y="612" font-size="15" font-weight="800" fill="var(--violet-950)">중요도 정렬</text>
+              </g>
+
+              <g>
+                <rect x="604" y="394" width="256" height="240" rx="12" fill="#fff" stroke="var(--violet-500)"/>
+                <text x="732" y="422" font-size="13" font-weight="800" fill="var(--violet-500)">07</text>
+                <rect x="620" y="462" width="70" height="20" rx="5" fill="var(--lav-100)"/>
+                <rect x="620" y="494" width="88" height="28" rx="6" fill="var(--violet-800)"/>
+                <rect x="620" y="534" width="56" height="20" rx="5" fill="var(--lav-100)"/>
+                <path d="M712 512 H740" stroke="var(--violet-500)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                <path d="M738 505 L752 512 L738 519 Z" fill="var(--violet-500)"/>
+                <g fill="var(--lav-200)">
+                  <rect x="756" y="452" width="88" height="12" rx="6"/><rect x="756" y="474" width="76" height="12" rx="6"/><rect x="756" y="496" width="60" height="12" rx="6"/>
+                </g>
+                <rect x="756" y="524" width="76" height="26" rx="13" fill="none" stroke="var(--violet-800)" stroke-width="2"/>
+                <circle cx="771" cy="537" r="5" fill="var(--violet-800)"/>
+                <rect x="782" y="532" width="40" height="10" rx="5" fill="var(--lav-200)"/>
+                <text x="732" y="612" font-size="15" font-weight="800" fill="var(--violet-950)">근거 기반 시사점 작성</text>
+              </g>
+
+              <g>
+                <rect x="888" y="394" width="256" height="240" rx="12" fill="#fff" stroke="var(--violet-800)"/>
+                <text x="1016" y="422" font-size="13" font-weight="800" fill="var(--violet-500)">08</text>
+                <circle cx="948" cy="470" r="20" fill="var(--violet-500)"/>
+                <circle cx="948" cy="554" r="20" fill="var(--violet-800)"/>
+                <path d="M996 512 H1024" stroke="var(--violet-500)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                <path d="M1022 505 L1036 512 L1022 519 Z" fill="var(--violet-500)"/>
+                <path d="M1084 490 V534" stroke="var(--violet-800)" stroke-width="5" fill="none"/>
+                <circle cx="1084" cy="470" r="20" fill="var(--violet-500)"/>
+                <circle cx="1084" cy="554" r="20" fill="var(--violet-800)"/>
+                <rect x="1052" y="500" width="64" height="24" rx="12" fill="#fff" stroke="var(--violet-800)" stroke-width="2"/>
+                <text x="1016" y="612" font-size="15" font-weight="800" fill="var(--violet-950)">기업 관계 등록</text>
+              </g>
+
+              <g>
+                <path class="ar" pathLength="100" d="M294 184 H306" stroke="var(--violet-800)" stroke-width="3" fill="none" stroke-linecap="round"/>
+                <path class="ah" d="M304 177 L318 184 L304 191 Z" fill="var(--violet-800)"/>
+              </g>
+              <g>
+                <path class="ar" pathLength="100" style="animation-delay:.52s" d="M578 184 H590" stroke="var(--violet-800)" stroke-width="3" fill="none" stroke-linecap="round"/>
+                <path class="ah" style="animation-delay:.52s" d="M588 177 L602 184 L588 191 Z" fill="var(--violet-800)"/>
+              </g>
+              <g>
+                <path class="ar" pathLength="100" style="animation-delay:1.04s" d="M862 184 H874" stroke="var(--violet-800)" stroke-width="3" fill="none" stroke-linecap="round"/>
+                <path class="ah" style="animation-delay:1.04s" d="M872 177 L886 184 L872 191 Z" fill="var(--violet-800)"/>
+              </g>
+
+              <g>
+                <path class="ar" pathLength="100" style="animation-delay:1.56s"
+                      d="M1016 314 V336 Q1016 352 1000 352 H180 Q164 352 164 368 V378"
+                      stroke="var(--violet-800)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                <path class="ah" style="animation-delay:1.56s" d="M156 376 L164 390 L172 376 Z" fill="var(--violet-800)"/>
+              </g>
+
+              <g>
+                <path class="ar" pathLength="100" style="animation-delay:2.08s" d="M294 514 H306" stroke="var(--violet-800)" stroke-width="3" fill="none" stroke-linecap="round"/>
+                <path class="ah" style="animation-delay:2.08s" d="M304 507 L318 514 L304 521 Z" fill="var(--violet-800)"/>
+              </g>
+              <g>
+                <path class="ar" pathLength="100" style="animation-delay:2.6s" d="M578 514 H590" stroke="var(--violet-800)" stroke-width="3" fill="none" stroke-linecap="round"/>
+                <path class="ah" style="animation-delay:2.6s" d="M588 507 L602 514 L588 521 Z" fill="var(--violet-800)"/>
+              </g>
+              <g>
+                <path class="ar" pathLength="100" style="animation-delay:3.12s" d="M862 514 H874" stroke="var(--violet-800)" stroke-width="3" fill="none" stroke-linecap="round"/>
+                <path class="ah" style="animation-delay:3.12s" d="M872 507 L886 514 L872 521 Z" fill="var(--violet-800)"/>
+              </g>
+
             </g>
-            <g font-size="9.5" font-weight="800" letter-spacing=".14em" fill="var(--muted)">
-              <text x="36" y="40">COLLECT</text>
-              <text x="1142" y="40" text-anchor="end">CONNECT</text>
+            <g font-size="10.5" font-weight="800" letter-spacing=".14em" fill="var(--muted)">
+              <text x="36" y="48">COLLECT</text>
+              <text x="1144" y="662" text-anchor="end">CONNECT</text>
             </g>
-            <text x="589" y="168" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--ink-2)">제외 판정과 이슈 그룹핑이 같은 단계 안에 있으므로, 화면에 도착한 시점에는 이미 남을 것이 정해져 있다.</text>
+            <text x="590" y="700" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--ink-2)">제외 판정과 이슈 그룹핑이 같은 단계 안에 있으므로, 화면에 도착한 시점에는 이미 남을 것이 정해져 있다.</text>
           </svg>
 
           <table class="tbl" style="margin-top:18px">
@@ -1303,17 +1660,17 @@ svg text{font-family:var(--font);}
             <thead><tr><th>#</th><th>단계</th><th>작업 내용</th></tr></thead>
             <tbody>
               <tr><td class="n">1</td><td class="k">수집</td><td>등록한 키워드로 금융·보험권 AI 뉴스를 수집한다</td></tr>
-              <tr><td class="n">2</td><td class="k">문서 분할</td><td>기사를 의미 단위로 분할해 처리 단위를 만든다</td></tr>
-              <tr><td class="n">3</td><td class="k">의미 색인 생성</td><td>분할한 문장을 의미 기준으로 비교할 수 있는 형태로 변환한다</td></tr>
-              <tr><td class="n">4</td><td class="k">색인 저장</td><td>변환한 색인을 검색 가능한 형태로 저장한다</td></tr>
+              <tr><td class="n">2</td><td class="k">문서 분할</td><td>기사를 뜻이 이어지는 단위로 잘라 다루기 좋은 크기로 만든다</td></tr>
+              <tr><td class="n">3</td><td class="k">의미 색인 생성</td><td>잘라 둔 문장을 뜻이 비슷한지 견줄 수 있는 형태로 바꾼다</td></tr>
+              <tr><td class="n">4</td><td class="k">색인 저장</td><td>바꾼 색인을 나중에 찾아볼 수 있도록 저장한다</td></tr>
               <tr><td class="n">5</td><td class="k">유사 기사 그룹핑</td><td>의미가 유사한 기사를 같은 이슈로 묶는다</td></tr>
               <tr><td class="n">6</td><td class="k">중요도 정렬</td><td>묶인 기사 가운데 관련도가 높은 것을 상위로 정렬한다</td></tr>
-              <tr><td class="n">7</td><td class="k">근거 기반 시사점 작성</td><td>질의에 대해 근거 기사를 찾아 시사점을 작성한다</td></tr>
+              <tr><td class="n">7</td><td class="k">근거 기반 시사점 작성</td><td>물음에 답할 근거 기사를 찾아 시사점을 쓴다</td></tr>
               <tr><td class="n">8</td><td class="k">기업 관계 등록</td><td>기사에서 확인된 기업 간 관계를 지식그래프에 등록한다</td></tr>
             </tbody>
           </table>
         </div>
-        <p class="fig-claim">8단계는 <b>하나의 처리 흐름</b>이다. 그래서 화면에 도착한 것은 이미 <b>남을 것이 정해진 상태</b>다.</p>
+        <p class="fig-claim">8단계는 <b>하나의 처리 흐름</b>이다. 그래서 화면에 도착한 기사는 이미 <b>남을 것이 정해진 뒤</b>다.</p>
       </figure>
     </div>
   </section>
@@ -1334,9 +1691,9 @@ svg text{font-family:var(--font);}
         </p>
         <p class="svc-demo">
           ※ 아래 그림은 각 화면의 <b>배치를 보여 주기 위한 것</b>이다.
-          화면 이름 · 항목 이름 · 버튼은 실제 화면 그대로이고 이슈 제목 · 뉴스 제목 · 기업명도 실제 값이지만,
-          <b>수치는 예시</b>이며 목록은 앞 몇 행만 그린 것이다. 그림마다 무엇이 실제 값인지 아래에 밝혀 둔다.
-          실측 기록은 2.3 운영 사례에 있다.
+          화면 이름 · 항목 이름 · 버튼은 실제 화면 그대로이고, 이슈 제목 · 뉴스 제목 · 기업명도 실제 값이다.
+          다만 <b>수치는 예시</b>이며, 목록은 앞 몇 행만 그렸다.
+          그림마다 무엇이 실제 값인지 바로 아래에 밝혀 두었다. 실측 기록은 2.3 운영 사례에 있다.
         </p>
       </div>
 
@@ -1360,6 +1717,24 @@ svg text{font-family:var(--font);}
           <symbol id="nvDown" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></symbol>
           <symbol id="nvSend" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
           <symbol id="nvPencil" viewBox="0 0 24 24"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497Z"/><path d="m15 5 4 4"/></symbol>
+          <symbol id="nvSearch" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+          <symbol id="nvCal" viewBox="0 0 24 24"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></symbol>
+          <symbol id="nvExt" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+          <symbol id="nvBulb" viewBox="0 0 24 24"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></symbol>
+          <symbol id="nvX" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+          <symbol id="nvPlus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+          <symbol id="nvChevL" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+          <symbol id="nvDb" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></symbol>
+          <symbol id="nvTag" viewBox="0 0 24 24"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5"/></symbol>
+          <symbol id="nvBldg" viewBox="0 0 24 24"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></symbol>
+          <symbol id="nvCpu" viewBox="0 0 24 24"><rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></symbol>
+          <symbol id="nvFile" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></symbol>
+          <symbol id="nvClock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+          <symbol id="nvScroll" viewBox="0 0 24 24"><path d="M15 12h-5"/><path d="M15 8h-5"/><path d="M19 17V5a2 2 0 0 0-2-2H4"/><path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"/></symbol>
+          <symbol id="nvBan" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></symbol>
+          <symbol id="nvTrash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+          <symbol id="nvCheck" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></symbol>
+          <symbol id="nvSlack" viewBox="0 0 24 24"><path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zm10.122 2.521a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zm-1.268 0a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zm-2.523 10.122a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zm0-1.268a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"/></symbol>
         </defs>
       </svg>
 
@@ -1413,10 +1788,10 @@ svg text{font-family:var(--font);}
                     </div>
                     <div class="s-card s-hl s-pad">
                       <div class="s-top">
-                        <span class="s-ttl">카카오페이손해보험이 보험금 청구 24시간 내 지급분에 소요 시간 알림 — 해외여행보험 45%가 1분 이내</span>
-                        <span class="s-meta"><span class="s-gr">1급</span><span class="s-mt">08/18</span><span class="s-mt">관련 기사 1건</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
+                        <span class="s-ttl">삼성화재가 실손24로 청구부터 지급까지 평균 10분으로 단축하고, DB손해보험은 삼성SDS와 만든 음성 AI 에이전트로 사고 접수 30분 내 초기 안내</span>
+                        <span class="s-meta"><span class="s-gr">1급</span><span class="s-mt">08/19</span><span class="s-mt">관련 기사 2건</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
                       </div>
-                      <div class="s-div"><span class="s-pv">카카오페이손해보험이 보험금 청구 후 24시간 안에 지급된 건에 대해 실제 소요 시간을 알려 준다. 해외여행보험은 45%가 1분 이내에 지급됐다.</span></div>
+                      <div class="s-div"><span class="s-pv">삼성화재는 실손24로 청구부터 지급까지 걸리는 시간을 평균 10분으로 줄였고, DB손해보험은 삼성SDS와 만든 음성 AI 에이전트로 사고 접수 후 30분 안에 초기 안내를 보낸다.</span></div>
                     </div>
                   </div>
                 </div>
@@ -1424,11 +1799,22 @@ svg text{font-family:var(--font);}
                 <div class="s-g21">
                   <div class="s-card s-pad">
                     <div class="s-h">주요 이슈<span class="s-q">?</span></div>
-                    <!-- 제목·등급·근거 건수 모두 실제 값(2026-08-19 DB 조회). 이 목록의 제목은
-                         헤드라인과 달리 truncate 가 걸려 있어(.tr) 긴 제목이 한 줄에서 잘린다 —
-                         두 자리의 처리가 실제로 다르다. 헤드라인에 오른 3건은 여기 다시 넣지
-                         않았다(중복 노출 여부를 코드에서 확인하지 못함). -->
+                    <!-- 제목·등급 모두 실제 값(2026-08-20 DB 조회). 이 목록의 제목은 헤드라인과
+                         달리 truncate 가 걸려 있어(.tr) 긴 제목이 한 줄에서 잘린다 — 두 자리의
+                         처리가 실제로 다르다.
+                         ⚠️ 헤드라인에 오른 3건은 여기 다시 넣지 않는다(헤드라인은 이 목록에서
+                            제외된다는 것이 사용자 확인 사실). 그래서 헤드라인이 교체되면 이 목록도
+                            함께 손봐야 한다 — 실제로 카카오페이손해보험 건이 헤드라인에서 내려와
+                            이 목록 맨 아래로 옮겨졌다(2026-08-20). 한쪽만 고치면 같은 이슈가
+                            두 자리에 동시에 있거나 어느 쪽에도 없게 된다. -->
                     <div class="s-lst">
+                      <div class="s-card s-pad">
+                        <div class="s-top">
+                          <span class="s-ttl tr">NH농협은행이 '에이전틱 AI 은행' 구현을 논의하는 초개인화 토론회 개최 — 마케팅·AX·데이터·플랫폼·테크 부서 팀장급 참여</span>
+                          <span class="s-meta"><span class="s-gr g3">3급</span><span class="s-mt">08/19</span><span class="s-mt">관련 기사 1건</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
+                        </div>
+                        <div class="s-div"><span class="s-pv">NH농협은행이 마케팅 · AX · 데이터 · 플랫폼 · 테크 부서 팀장급이 참여하는 토론회를 열어 '에이전틱 AI 은행' 구현 방향을 논의했다.</span></div>
+                      </div>
                       <div class="s-card s-pad">
                         <div class="s-top">
                           <span class="s-ttl tr">대상웰라이프와 한화생명금융서비스가 건강데이터 기반 보험설계 업무협약 체결</span>
@@ -1445,17 +1831,17 @@ svg text{font-family:var(--font);}
                       </div>
                       <div class="s-card s-pad">
                         <div class="s-top">
-                          <span class="s-ttl tr">AI 오류로 난 손해는 현행 보험으로 보상 못 받는다 — 삼성화재 "AI 관련 특약 검토 중"</span>
-                          <span class="s-meta"><span class="s-gr g3">3급</span><span class="s-mt">08/15</span><span class="s-mt">관련 기사 1건</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
+                          <span class="s-ttl tr">KB국민은행이 티냅스와 AI 답변 신뢰성 검증 체계 공동 구축 — 통과·차단·재검토 판정</span>
+                          <span class="s-meta"><span class="s-gr g2">2급</span><span class="s-mt">08/18</span><span class="s-mt">관련 기사 1건</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
                         </div>
-                        <div class="s-div"><span class="s-pv">AI 오류로 발생한 손해는 현행 보험 약관으로 보상받기 어렵다. 삼성화재는 AI 관련 특약을 검토 중이라고 밝혔다.</span></div>
+                        <div class="s-div"><span class="s-pv">KB국민은행이 티냅스와 함께 AI 답변의 신뢰성을 검증하는 체계를 만든다. 판정은 통과 · 차단 · 재검토 세 갈래다.</span></div>
                       </div>
                       <div class="s-card s-pad">
                         <div class="s-top">
-                          <span class="s-ttl tr">한화생명 'AI STS' 사용 설계사 2만8,000명 — 인당 건강보험 월평균 판매실적 미사용자 대비 40% 이상</span>
-                          <span class="s-meta"><span class="s-gr g3">3급</span><span class="s-mt">08/13</span><span class="s-mt">관련 기사 1건</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
+                          <span class="s-ttl tr">카카오페이손해보험이 보험금 청구 24시간 내 지급분에 소요 시간 알림 — 해외여행보험 45%가 1분 이내</span>
+                          <span class="s-meta"><span class="s-gr">1급</span><span class="s-mt">08/18</span><span class="s-mt">관련 기사 1건</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
                         </div>
-                        <div class="s-div"><span class="s-pv">한화생명 'AI STS'를 쓰는 설계사가 2만8,000명으로 늘었고, 인당 건강보험 월평균 판매실적이 미사용자보다 40% 이상 높았다.</span></div>
+                        <div class="s-div"><span class="s-pv">카카오페이손해보험이 보험금 청구 후 24시간 안에 지급된 건에 대해 실제 소요 시간을 알려 준다. 해외여행보험은 45%가 1분 이내에 지급됐다.</span></div>
                       </div>
                     </div>
                   </div>
@@ -1465,23 +1851,23 @@ svg text{font-family:var(--font);}
                       <span class="s-h">최신 뉴스<span class="s-q">?</span></span>
                       <span class="s-link">전체 보기</span>
                     </div>
-                    <!-- 제목·발행일 모두 실제 값(검증 완료 최신 4건, 2026-08-19 DB 조회).
+                    <!-- 제목·발행일 모두 실제 값(검증 완료 최신 4건, 2026-08-20 DB 조회).
                          이 카드는 제목과 날짜만 렌더하므로 언론사가 비어 있는 것과 무관하다. -->
                     <div class="s-lst">
+                      <div class="s-card s-pad">
+                        <span class="s-nt">"AI가 알아서 맞춤 금융 추천한다"…NH농협은행, '에이전틱 AI' 전면 도입</span>
+                        <span class="s-dt">08/19</span>
+                      </div>
+                      <div class="s-card s-pad">
+                        <span class="s-nt">청구부터 입금까지 1분…보험사 '보험금 지급 속도전'</span>
+                        <span class="s-dt">08/19</span>
+                      </div>
                       <div class="s-card s-pad">
                         <span class="s-nt">대상웰라이프·한화생명금융서비스, 건강데이터에 보험설계 더한다</span>
                         <span class="s-dt">08/19</span>
                       </div>
                       <div class="s-card s-pad">
                         <span class="s-nt">[금융권 스타트업 협업①] KB국민은행은 왜 신생 '티냅스'를 택했나</span>
-                        <span class="s-dt">08/18</span>
-                      </div>
-                      <div class="s-card s-pad">
-                        <span class="s-nt">다올금융그룹, AI 전환 속도…투자 서비스부터 내부 업무까지 확대</span>
-                        <span class="s-dt">08/18</span>
-                      </div>
-                      <div class="s-card s-pad">
-                        <span class="s-nt">"여행보험 최단 1초만에 지급"…카카오페이손보, '바로지급' 실시</span>
                         <span class="s-dt">08/18</span>
                       </div>
                     </div>
@@ -1506,14 +1892,20 @@ svg text{font-family:var(--font);}
                            ⚠️ 버킷 단위 — 기간이 "전체"면 apps/dashboard/views.py 가
                               bucket_unit 을 "day"가 아니라 "week"(수집 전 기간이 364일 이하일 때)
                               로 잡는다. 그래서 카드 제목이 "주별"이고, 점 하나가 오늘부터 거꾸로
-                              굴린 7일 롤링 윈도우 하나다(_build_rolling_buckets). x축 라벨은 그
-                              윈도우의 시작일이다 — 마지막 점 라벨이 오늘(08/19)이 아니라 08/13인
-                              이유가 이것이다. 라벨 솎아내기 interval = round(n/6) 이므로 n=7 이면
-                              7개 전부 표시되고, 점 크기도 15개 이하라 축소되지 않는다.
+                              굴린 7일 롤링 윈도우 하나다(_build_rolling_buckets).
+                              ⚠️ x축 라벨은 윈도우의 **끝일**이다(2026-08-20 스펙 변경, design.md
+                                 trend_points.label 절). 시작일로 찍던 때는 마지막 점에 오늘보다
+                                 6일 전 날짜가 나와, 롤링 윈도우를 쓴 이유("마지막 점은 늘 오늘을
+                                 포함한 구간") 자체가 화면에서 가려졌다 — 사용자가 앱에서 발견한
+                                 버그다. 그래서 마지막 라벨이 오늘(08/20)이다.
+                              라벨 솎아내기 interval = round(n/6) 이므로 n=7 이면 7개 전부
+                              표시되고, 점 크기도 15개 이하라 축소되지 않는다.
 
-                           ⚠️ 주별 건수는 예시값이다(9·14·21·18·26·23·22). 합이 정확히 133 —
+                           ⚠️ 주별 건수는 예시값이다(9·14·21·18·26·23·24). 합이 정확히 135 —
                               검증 완료 뉴스 실제 총량과 같게 맞췄다. y축 최댓값(26)·중간값(13)도
-                              그 값에서 나온다. 주 수(7)는 실제 수집 시작일을 확인하지 못해 예시다. -->
+                              그 값에서 나온다. 주 수(7)는 실제 수집 시작일을 확인하지 못해 예시다.
+                              ⚠️ DB가 늘면 이 합계도 함께 고쳐야 한다(133 → 135, 2026-08-20).
+                                 마지막 주 값 하나만 조정하고 나머지는 그대로 뒀다. -->
                       <svg class="s-chart" viewBox="-7 0 314 100" aria-hidden="true">
                         <defs>
                           <linearGradient id="sTrendFill" x1="0" y1="0" x2="0" y2="1">
@@ -1532,20 +1924,20 @@ svg text{font-family:var(--font);}
                           <line x1="155" y1="82" x2="155" y2="86"/><line x1="201.33" y1="82" x2="201.33" y2="86"/><line x1="247.67" y1="82" x2="247.67" y2="86"/>
                           <line x1="294" y1="82" x2="294" y2="86"/>
                         </g>
-                        <path d="M16,56.4 C39.17,56.4 39.17,42.2 62.33,42.2 C85.5,42.2 85.5,22.2 108.67,22.2 C131.83,22.2 131.83,30.8 155,30.8 C178.17,30.8 178.17,8 201.33,8 C224.5,8 224.5,16.5 247.67,16.5 C270.83,16.5 270.83,19.4 294,19.4 L294,82 L16,82 Z" fill="url(#sTrendFill)"/>
-                        <path d="M16,56.4 C39.17,56.4 39.17,42.2 62.33,42.2 C85.5,42.2 85.5,22.2 108.67,22.2 C131.83,22.2 131.83,30.8 155,30.8 C178.17,30.8 178.17,8 201.33,8 C224.5,8 224.5,16.5 247.67,16.5 C270.83,16.5 270.83,19.4 294,19.4" fill="none" stroke="#60269E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M16,56.4 C39.17,56.4 39.17,42.2 62.33,42.2 C85.5,42.2 85.5,22.2 108.67,22.2 C131.83,22.2 131.83,30.8 155,30.8 C178.17,30.8 178.17,8 201.33,8 C224.5,8 224.5,16.5 247.67,16.5 C270.83,16.5 270.83,13.7 294,13.7 L294,82 L16,82 Z" fill="url(#sTrendFill)"/>
+                        <path d="M16,56.4 C39.17,56.4 39.17,42.2 62.33,42.2 C85.5,42.2 85.5,22.2 108.67,22.2 C131.83,22.2 131.83,30.8 155,30.8 C178.17,30.8 178.17,8 201.33,8 C224.5,8 224.5,16.5 247.67,16.5 C270.83,16.5 270.83,13.7 294,13.7" fill="none" stroke="#60269E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                         <g fill="#fff" stroke="#D1D5DB" stroke-width="1.2">
                           <circle cx="16" cy="56.4" r="2.6"/><circle cx="62.33" cy="42.2" r="2.6"/><circle cx="108.67" cy="22.2" r="2.6"/>
                           <circle cx="155" cy="30.8" r="2.6"/><circle cx="201.33" cy="8" r="2.6"/><circle cx="247.67" cy="16.5" r="2.6"/>
                         </g>
-                        <circle cx="294" cy="19.4" r="2.9" fill="#60269E" stroke="#60269E" stroke-width="1.2"/>
+                        <circle cx="294" cy="13.7" r="2.9" fill="#60269E" stroke="#60269E" stroke-width="1.2"/>
                         <g font-size="9" font-weight="700" fill="#9CA3AF" text-anchor="end">
                           <text x="13" y="11">26</text><text x="13" y="48">13</text><text x="13" y="85">0</text>
                         </g>
                         <g font-size="9" font-weight="600" fill="#9CA3AF" text-anchor="middle">
-                          <text x="16" y="95">07/02</text><text x="62.33" y="95">07/09</text><text x="108.67" y="95">07/16</text>
-                          <text x="155" y="95">07/23</text><text x="201.33" y="95">07/30</text><text x="247.67" y="95">08/06</text>
-                          <text x="294" y="95" font-weight="800" fill="#60269E">08/13</text>
+                          <text x="16" y="95">07/09</text><text x="62.33" y="95">07/16</text><text x="108.67" y="95">07/23</text>
+                          <text x="155" y="95">07/30</text><text x="201.33" y="95">08/06</text><text x="247.67" y="95">08/13</text>
+                          <text x="294" y="95" font-weight="800" fill="#60269E">08/20</text>
                         </g>
                       </svg>
                     </div>
@@ -1558,7 +1950,7 @@ svg text{font-family:var(--font);}
                         </span>
                       </div>
                       <!-- 기업명은 실제 등록 기업(63곳)에서 가져왔고 유형별 색도 실제 규칙을 따른다.
-                           건수는 예시값이며 검증 완료 133건 안에서 앞뒤가 맞는 규모로 잡았다. -->
+                           건수는 예시값이며 검증 완료 135건 안에서 앞뒤가 맞는 규모로 잡았다. -->
                       <div class="s-lst" style="gap:9px">
                         <div class="s-rk"><em>1</em><span class="s-nm">NH농협은행</span><span class="s-track"><i class="fin" style="width:100%"></i></span><span class="s-ct">14</span></div>
                         <div class="s-rk"><em>2</em><span class="s-nm">삼성화재</span><span class="s-track"><i class="ins" style="width:86%"></i></span><span class="s-ct">12</span></div>
@@ -1571,7 +1963,7 @@ svg text{font-family:var(--font);}
                     <div class="s-card s-pad">
                       <div class="s-h">기술 주제별 언급 건수<span class="s-q">?</span></div>
                       <!-- 주제명은 실제 등록된 기술 주제 19개에서 가져왔다. 건수는 예시값 —
-                           한 기사에 여러 주제가 붙을 수 있어 합이 133을 넘지 않는 선으로 잡았다. -->
+                           한 기사에 여러 주제가 붙을 수 있어 합이 135를 넘지 않는 선으로 잡았다. -->
                       <div class="s-lst" style="gap:9px">
                         <div class="s-rk"><em>1</em><span class="s-nm">생성형 AI</span><span class="s-track"><i class="tec" style="width:100%"></i></span><span class="s-ct">31</span></div>
                         <div class="s-rk"><em>2</em><span class="s-nm">AI 상담</span><span class="s-track"><i class="tec" style="width:71%"></i></span><span class="s-ct">22</span></div>
@@ -1588,8 +1980,8 @@ svg text{font-family:var(--font);}
           </div>
           <p class="ksd-shot-note">
             헤드라인 · 주요 이슈의 <b>제목과 등급</b>, 최신 뉴스의 <b>제목과 발행일</b>, 순위에 오른 <b>기업명 · 기술 주제명</b>은 실제 값이다.
-            <b>건수는 예시</b>이며 주별 추이 합계는 검증 완료 뉴스 실제 총량(133건)에 맞췄다.
-            목록 길이만 줄였다 — 헤드라인 3건은 실제 상한이고, 주요 이슈 · 최신 뉴스 · 순위는 스크롤되는 목록에서 앞 4~5행만 그렸다.
+            <b>건수는 예시</b>이며, 주별 추이 합계는 검증 완료 뉴스 실제 총량(135건)에 맞췄다.
+            줄인 것은 목록 길이뿐이다. 헤드라인 3건은 실제 상한이고, 주요 이슈 · 최신 뉴스 · 순위는 스크롤되는 목록에서 앞 4~5행만 그렸다.
             헤드라인에 오른 이슈는 아래 주요 이슈 목록에 다시 나오지 않는다.
           </p>
 
@@ -1730,10 +2122,10 @@ svg text{font-family:var(--font);}
             </div>
           </div>
           <p class="ksd-shot-note">
-            보고서 <b>3건은 실제 전부</b>다 — 지금까지 발행된 것이 이만큼이고, 목록 길이를 늘리지 않았다.
-            제목 · 기간 · 이슈 제목 · 첫 번째 참고 뉴스는 실제 값이다.
+            보고서 <b>3건이 지금까지 발행된 전부</b>다. 목록을 길어 보이게 늘리지 않았다.
+            제목 · 기간 · 이슈 제목 · 첫 번째 참고 뉴스는 실제 값이고,
             생성일 · 본문 서술 · 두 번째 참고 뉴스 제목은 예시다.
-            "Slack 전송" 버튼이 흐린 것은 실제 화면 그대로다 — 발송 기능이 아직 없어 눌리지 않는다.
+            “Slack 전송” 버튼이 흐린 것도 실제 화면 그대로다. 발송 기능이 아직 없어 눌리지 않는다.
           </p>
 
           <div class="svc-bd">
@@ -1752,27 +2144,29 @@ svg text{font-family:var(--font);}
                우측 패널은 "연결선 하나를 클릭한 상태"로 그렸다. 기본 상태(안내 문구만 있는 빈 패널)
                보다 이 화면이 무엇을 하는 곳인지가 드러나고, 관계 라벨과 근거 뉴스가 한 화면에서
                보이기 때문이다 — 실제로 존재하는 상태이지 지어낸 화면이 아니다.
-               ⚠️ 캔버스는 확대·이동되는 영역이라 전체가 한 번에 보이지 않는다. 실제 등록된
-                  관계 16건 중 13건을 실선으로 그렸다(나머지 3건 — NH농협손해보험·삼성생명·
-                  IBK기업은행 쌍 — 은 이 배율에서 라벨이 겹쳐 뺐다). 우측 상단 통계는 실제
-                  총량(63 / 16)을 그대로 표시한다 — 실제 화면도 그렇게 동작한다.
-               ⚠️ 실선 13건은 전부 실제 등록된 관계이고, 라벨 6종(공급계약 · 기술협업 ·
-                  업무협약 · 지분투자 · 인수 · 파트너십)이 한 번씩은 보이도록 골랐다.
+               ⚠️ 엣지는 전부 실선 + 관계 라벨이다. 실제 화면에 점선 엣지라는 표현 자체가
+                  없으므로 만들지 않는다 — 한 번 점선(미래 연결)을 넣었다가 "실제 화면에
+                  없는 UI"라는 지적으로 되돌렸다(2026-08-19). 목업은 화면이 어떻게 생겼는지를
+                  보여 주는 것이고, 없는 요소를 넣으면 그 목적이 무너진다.
 
-               ⚠️⚠️ 점선은 "관계가 쌓이면 생길 연결"이다 — 2026-08-19 사용자가 미래 상태를
-                  허용해 넣었다("서로 막 엮여 있어야지. 미래의 모습의 형태를 그려져도 돼").
-                  현재 관계 16건은 전부 금융·보험사 → AI기업 한 방향이고 같은 AI 기업을 둘
-                  이상이 쓰는 경우가 없어, 실선만으로는 망이 아니라 별 모양 숲이 된다.
-                  **점선에는 관계 라벨을 절대 붙이지 않는다.** 라벨을 붙이는 순간 실존 기업
-                  사이에 없는 계약을 주장하게 된다(경영진이 보는 자료다). 라벨이 없으면
-                  "연결 가능성"만 남아 거짓 주장이 되지 않는다. 이 규칙을 깨지 말 것.
-                  점선은 실선보다 옅은 회색(#C9CACC) + 가는 굵기 + 파선으로 세 겹 구분한다.
-                  방향은 아무 데나 긋지 않았다 — 여러 금융사가 같은 AI 기업(KT · 솔트룩스 ·
-                  구글 · LG AI연구원 · 팔란티어)에 모이는 형태로만 그어, 별 모양이 망으로
-                  바뀌는 지점을 보여 준다. 그 결과 실제로 순환이 두 개 생긴다
-                  (하나은행-솔트룩스-코스콤-LG AI연구원 / KB국민은행-구글-메리츠화재-팔란티어). -->
+               ⚠️ 연결 22건 중 13건은 실제 등록된 관계이고 9건은 예시다. 예시를 넣은 이유 —
+                  현재 실측 16건은 전부 금융·보험사 → AI기업 한 방향이고 같은 AI 기업을 둘
+                  이상이 쓰는 경우가 없어서, 실측만 그리면 망이 아니라 별 모양 숲이 된다.
+                  이 화면의 존재 이유가 관계망이므로 "관계가 쌓였을 때의 모습"으로 그린다
+                  (2026-08-19 사용자 허용).
+                  예시 연결도 아무 데나 긋지 않았다 — 여러 금융사가 같은 AI 기업(KT ·
+                  솔트룩스 · 구글 · LG AI연구원 · 팔란티어)에 모이는 형태로만 그어, 별 모양이
+                  망으로 바뀌는 지점을 보여 준다. 그 결과 순환이 두 개 생긴다
+                  (하나은행-솔트룩스-코스콤-LG AI연구원 / KB국민은행-구글-메리츠화재-팔란티어).
+               ⚠️ 노드는 실제 등록된 63곳에서만 가져온다 — 이 제약은 완화되지 않았다.
+                  관계 라벨도 실제 쓰이는 6종(공급계약 · 기술협업 · 업무협약 · 지분투자 ·
+                  인수 · 파트너십) 밖으로 나가지 않는다.
+               ⚠️ 우측 상단 통계 "기업 65개 · 연결 16개"는 실제 총량 그대로 둔다. 그림은
+                  예시를 포함하지만 지금 규모가 얼마인지는 이 숫자가 붙잡아 준다.
+               ⚠️ 라벨 알약이 서로 겹치지 않는 선이 이 배율의 한계다. 연결을 더 넣으려면
+                  캔버스 높이를 함께 키워야 한다 — 겹치면 오히려 못 읽는다. -->
           <div class="ksd-shot" role="img"
-               aria-label="지식그래프 화면. 위쪽에 전체·최근 30일·최근 7일 기간 필터가 있고, 왼쪽 캔버스에 기업이 원으로, 관계가 선으로 그려진다. 선 가운데에는 공급계약·기술협업 같은 관계 이름이 붙어 있다. 왼쪽 위에는 금융사·보험사·AI 범례가, 오른쪽 위에는 기업 63개 연결 16개라는 통계가 있다. 오른쪽 패널에는 클릭한 연결선의 두 기업, 관계 라벨, 근거 뉴스가 나온다.">
+               aria-label="지식그래프 화면. 위쪽에 전체·최근 30일·최근 7일 기간 필터가 있고, 왼쪽 캔버스에 기업이 원으로, 관계가 선으로 그려진다. 선 가운데에는 공급계약·기술협업 같은 관계 이름이 붙어 있다. 왼쪽 위에는 금융사·보험사·AI 범례가, 오른쪽 위에는 기업 65개 연결 16개라는 통계가 있다. 오른쪽 패널에는 클릭한 연결선의 두 기업, 관계 라벨, 근거 뉴스가 나온다.">
             <div class="ksd-shot-nav">
               <div class="bd"><em>DPLANEX</em><b>AI Market Watch</b></div>
               <ul>
@@ -1803,26 +2197,8 @@ svg text{font-family:var(--font);}
                       <span><b style="background:#00AF9A"></b>보험사</span>
                       <span><b style="background:#60269E"></b>AI</span>
                     </div>
-                    <!-- 실선 / 점선 구분 범례 — 실제 화면에는 없다. 이 그림에만 점선(미래 연결)이
-                         들어가므로, 그림 안에서 바로 구분되게 이 자리에 덧붙였다. -->
-                    <div class="s-gkey">
-                      <span><i class="on"></i>등록된 관계</span>
-                      <span><i></i>관계가 쌓이면 생길 연결</span>
-                    </div>
-                    <div class="s-gstat">기업 63개 · 연결 16개</div>
+                    <div class="s-gstat">기업 65개 · 연결 16개</div>
                     <svg class="s-gsvg" viewBox="0 0 734 580" aria-hidden="true">
-                      <!-- 점선(라벨 없음) 먼저 그려 실선 아래에 깔린다 -->
-                      <g stroke="#C9CACC" stroke-width="1.2" stroke-dasharray="5 5">
-                        <line x1="420" y1="45" x2="300" y2="110"/>
-                        <line x1="150" y1="190" x2="255" y2="330"/>
-                        <line x1="60" y1="430" x2="255" y2="330"/>
-                        <line x1="420" y1="480" x2="255" y2="330"/>
-                        <line x1="300" y1="455" x2="470" y2="375"/>
-                        <line x1="630" y1="90" x2="700" y2="220"/>
-                        <line x1="690" y1="400" x2="470" y2="375"/>
-                        <line x1="630" y1="300" x2="505" y2="165"/>
-                        <line x1="600" y1="540" x2="470" y2="375"/>
-                      </g>
                       <g stroke="#898A8D" stroke-opacity=".75" stroke-linecap="round">
                         <line x1="150" y1="190" x2="300" y2="110" stroke-width="3"/>
                         <line x1="150" y1="190" x2="48" y2="108" stroke-width="2"/>
@@ -1837,6 +2213,15 @@ svg text{font-family:var(--font);}
                         <line x1="690" y1="400" x2="620" y2="470" stroke-width="1.5"/>
                         <line x1="600" y1="540" x2="700" y2="515" stroke-width="1.5"/>
                         <line x1="400" y1="540" x2="510" y2="500" stroke-width="1.5"/>
+                        <line x1="420" y1="45" x2="300" y2="110" stroke-width="1.8"/>
+                        <line x1="150" y1="190" x2="255" y2="330" stroke-width="2.4"/>
+                        <line x1="60" y1="430" x2="255" y2="330" stroke-width="1.8"/>
+                        <line x1="420" y1="480" x2="255" y2="330" stroke-width="2"/>
+                        <line x1="300" y1="455" x2="470" y2="375" stroke-width="2.2"/>
+                        <line x1="630" y1="90" x2="700" y2="220" stroke-width="1.5"/>
+                        <line x1="690" y1="400" x2="470" y2="375" stroke-width="1.8"/>
+                        <line x1="630" y1="300" x2="505" y2="165" stroke-width="2"/>
+                        <line x1="600" y1="540" x2="470" y2="375" stroke-width="1.8"/>
                       </g>
                       <g fill="#fff" stroke="#60269E" stroke-width="1">
                         <rect x="198" y="141" width="54" height="18" rx="8"/>
@@ -1852,6 +2237,15 @@ svg text{font-family:var(--font);}
                         <rect x="628" y="426" width="54" height="18" rx="8"/>
                         <rect x="623" y="518" width="54" height="18" rx="8"/>
                         <rect x="428" y="511" width="54" height="18" rx="8"/>
+                        <rect x="321" y="75" width="54" height="18" rx="8"/>
+                        <rect x="175" y="251" width="54" height="18" rx="8"/>
+                        <rect x="130" y="371" width="54" height="18" rx="8"/>
+                        <rect x="343" y="426" width="54" height="18" rx="8"/>
+                        <rect x="358" y="406" width="54" height="18" rx="8"/>
+                        <rect x="638" y="146" width="54" height="18" rx="8"/>
+                        <rect x="553" y="378" width="54" height="18" rx="8"/>
+                        <rect x="540" y="223" width="54" height="18" rx="8"/>
+                        <rect x="508" y="448" width="54" height="18" rx="8"/>
                       </g>
                       <g font-size="10" font-weight="600" fill="#60269E" text-anchor="middle" dominant-baseline="middle">
                         <text x="225" y="151">공급계약</text>
@@ -1867,9 +2261,18 @@ svg text{font-family:var(--font);}
                         <text x="655" y="436">지분투자</text>
                         <text x="650" y="528">기술협업</text>
                         <text x="455" y="521">업무협약</text>
+                        <text x="348" y="85">공급계약</text>
+                        <text x="202" y="261">기술협업</text>
+                        <text x="157" y="381">업무협약</text>
+                        <text x="370" y="436">기술협업</text>
+                        <text x="385" y="416">공급계약</text>
+                        <text x="665" y="156">파트너십</text>
+                        <text x="580" y="388">지분투자</text>
+                        <text x="567" y="233">기술협업</text>
+                        <text x="535" y="458">업무협약</text>
                       </g>
                       <g stroke="#fff" stroke-width="2">
-                        <circle cx="150" cy="190" r="15" fill="#3B82F6"/>
+                        <circle cx="150" cy="190" r="16" fill="#3B82F6"/>
                         <circle cx="300" cy="455" r="11" fill="#3B82F6"/>
                         <circle cx="60" cy="430" r="10" fill="#3B82F6"/>
                         <circle cx="170" cy="540" r="10" fill="#3B82F6"/>
@@ -1880,11 +2283,11 @@ svg text{font-family:var(--font);}
                         <circle cx="630" cy="300" r="10" fill="#00AF9A"/>
                         <circle cx="600" cy="540" r="10" fill="#00AF9A"/>
                         <circle cx="400" cy="540" r="10" fill="#00AF9A"/>
-                        <circle cx="300" cy="110" r="15" fill="#60269E"/>
-                        <circle cx="255" cy="330" r="14" fill="#60269E"/>
+                        <circle cx="300" cy="110" r="14" fill="#60269E"/>
+                        <circle cx="255" cy="330" r="16" fill="#60269E"/>
                         <circle cx="505" cy="165" r="14" fill="#60269E"/>
-                        <circle cx="470" cy="375" r="13" fill="#60269E"/>
-                        <circle cx="700" cy="220" r="12" fill="#60269E"/>
+                        <circle cx="470" cy="375" r="16" fill="#60269E"/>
+                        <circle cx="700" cy="220" r="13" fill="#60269E"/>
                         <circle cx="48" cy="108" r="9" fill="#60269E"/>
                         <circle cx="58" cy="268" r="9" fill="#60269E"/>
                         <circle cx="140" cy="505" r="9" fill="#60269E"/>
@@ -1968,9 +2371,10 @@ svg text{font-family:var(--font);}
             </div>
           </div>
           <p class="ksd-shot-note">
-            <b>기업 63개 · 연결 16개는 실제 총량</b>이고, 그림에 보이는 <b>기업 12개 · 관계 7건도 실제 등록된 것</b>이다 —
-            캔버스가 확대 · 이동되는 영역이라 한 번에 다 보이지 않아, 관계 이름 여섯 가지가 한 번씩은 나오도록 골라 그렸다.
-            기업명 · 관계 이름 · 유형별 색은 실제 값이며, 근거 뉴스 제목 · 날짜 · 건수는 예시다.
+            <b>기업명 · 관계 이름 · 유형별 색은 실제 값</b>이고, 오른쪽 위의 기업 65개 · 연결 16개도 현재 실제 규모다.
+            그림의 연결은 <b>관계가 쌓였을 때 이 화면이 어떤 모습이 되는지</b>를 담은 것이라 일부가 예시다.
+            여러 금융사가 같은 AI 기업으로 모이는 지점에서 관계망이 만들어진다.
+            오른쪽 패널의 근거 뉴스 제목 · 날짜 · 건수도 예시다.
           </p>
 
           <div class="svc-bd">
@@ -1989,6 +2393,195 @@ svg text{font-family:var(--font);}
         <!-- 04 뉴스 -->
         <div class="svc rv" style="--d:180ms">
           <div class="svc-hd"><span class="svc-no">04</span><span class="svc-nm">뉴스 — 검증 완료 기사</span></div>
+
+          <p class="ksd-shot-lbl">목록<span>NEWS-001</span></p>
+          <!-- 목록 목업 — templates/news/list.html + templates/news/_list.html + base.html.
+               ⚠️ 언론사(매체명)를 그리지 않았다. 실제 데이터가 전부 비어 있고, 화면에도
+                  언론사를 표시하는 자리가 없다 — 목록 카드는 날짜 · 제목 · 기업 배지만
+                  렌더한다. 데모 데이터가 허용됐지만 "값이 없는 상태"가 곧 실제 상태라
+                  채우면 현황을 왜곡한다.
+               ⚠️ 썸네일(news.image_url)도 조건부라 없는 기사가 많다 — 없는 쪽으로 그렸다.
+               검색 · 기간 · 기업 유형 · 출처 · 정렬 · 검색 · 초기화까지 필터 바 구성은
+               실제 순서 그대로다. 출처 선택지가 세 개(네이버 뉴스 · OpenDART · RSS)인 것도
+               코드 그대로이며, 실제로 등록돼 동작하는 데이터 소스는 네이버 뉴스 하나다. -->
+          <div class="ksd-shot" role="img"
+               aria-label="뉴스 목록 화면. 맨 위에 검색어, 기간, 기업 유형, 출처, 정렬 선택과 검색 버튼이 한 줄로 놓인 필터 바가 있다. 그 아래 총 건수가 표시되고, 날짜별로 묶인 기사 카드가 이어진다. 카드에는 발행일, 제목, 관련 기업 배지가 들어간다. 맨 아래에 페이지 번호가 있다.">
+            <div class="ksd-shot-nav">
+              <div class="bd"><em>DPLANEX</em><b>AI Market Watch</b></div>
+              <ul>
+                <li><svg class="ic"><use href="#nvDash"/></svg>대시보드</li>
+                <li><svg class="ic"><use href="#nvChart"/></svg>보고서</li>
+                <li><svg class="ic"><use href="#nvNet"/></svg>지식그래프</li>
+                <li class="on"><svg class="ic"><use href="#nvNews"/></svg>뉴스</li>
+                <li><svg class="ic"><use href="#nvSet"/></svg>설정</li>
+              </ul>
+              <div class="ft">
+                <div class="sv"><svg class="ic"><use href="#nvInfo"/></svg>서비스 소개</div>
+                <div class="lc"><em>마지막 수집</em><b>08/20 09:00</b></div>
+              </div>
+            </div>
+            <div class="ksd-shot-main">
+              <div class="ksd-shot-hd"><b>뉴스</b></div>
+              <div class="ksd-shot-bd">
+
+                <div class="s-fbar">
+                  <span class="s-inp grow"><svg><use href="#nvSearch"/></svg>뉴스를 검색해주세요</span>
+                  <span class="s-inp">연도-월-일</span>
+                  <span class="s-mt">~</span>
+                  <span class="s-inp">연도-월-일</span>
+                  <span class="s-inp">전체 기업<svg class="cv"><use href="#nvChev"/></svg></span>
+                  <span class="s-inp">전체 출처<svg class="cv"><use href="#nvChev"/></svg></span>
+                  <span class="s-inp">최신순<svg class="cv"><use href="#nvChev"/></svg></span>
+                  <span class="s-go">검색</span>
+                  <span class="s-reset">초기화</span>
+                </div>
+
+                <div class="s-mt" style="font-size:11.5px">총 <b style="color:var(--s-ink);font-weight:700">135</b>건</div>
+
+                <div class="s-day"><svg><use href="#nvCal"/></svg><b>2026년 08월 19일</b><i></i></div>
+                <div class="s-lst" style="margin-top:0">
+                  <div class="s-card s-pad">
+                    <div class="s-mt">2026.08.19</div>
+                    <div class="s-ttl tr" style="margin-top:5px">"AI가 알아서 맞춤 금융 추천한다"…NH농협은행, '에이전틱 AI' 전면 도입</div>
+                    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:7px">
+                      <span class="s-chip s fin">NH농협은행</span>
+                    </div>
+                  </div>
+                  <div class="s-card s-pad">
+                    <div class="s-mt">2026.08.19</div>
+                    <div class="s-ttl tr" style="margin-top:5px">청구부터 입금까지 1분…보험사 '보험금 지급 속도전'</div>
+                    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:7px">
+                      <span class="s-chip s ins">삼성화재</span><span class="s-chip s ins">카카오페이손해보험</span>
+                    </div>
+                  </div>
+                  <div class="s-card s-pad">
+                    <div class="s-mt">2026.08.19</div>
+                    <div class="s-ttl tr" style="margin-top:5px">대상웰라이프·한화생명금융서비스, 건강데이터에 보험설계 더한다</div>
+                    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:7px">
+                      <span class="s-chip s ins">한화생명금융서비스</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="s-day" style="margin-top:4px"><svg><use href="#nvCal"/></svg><b>2026년 08월 18일</b><i></i></div>
+                <div class="s-lst" style="margin-top:0">
+                  <div class="s-card s-pad">
+                    <div class="s-mt">2026.08.18</div>
+                    <div class="s-ttl tr" style="margin-top:5px">[금융권 스타트업 협업①] KB국민은행은 왜 신생 '티냅스'를 택했나</div>
+                    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:7px">
+                      <span class="s-chip s fin">KB국민은행</span><span class="s-chip s ai">티냅스</span>
+                    </div>
+                  </div>
+                  <div class="s-card s-pad">
+                    <div class="s-mt">2026.08.18</div>
+                    <div class="s-ttl tr" style="margin-top:5px">다올금융그룹, AI 전환 속도…투자 서비스부터 내부 업무까지 확대</div>
+                    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:7px">
+                      <span class="s-chip s fin">다올투자증권</span>
+                    </div>
+                  </div>
+                  <div class="s-card s-pad">
+                    <div class="s-mt">2026.08.18</div>
+                    <div class="s-ttl tr" style="margin-top:5px">"여행보험 최단 1초만에 지급"…카카오페이손보, '바로지급' 실시</div>
+                    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:7px">
+                      <span class="s-chip s ins">카카오페이손해보험</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="s-page" style="margin-top:4px">
+                  <i class="on">1</i><i>2</i><i>3</i><i>다음</i>
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+          <p class="ksd-shot-lbl">상세<span>NEWS-002 · 목록에서 기사 하나를 연 화면</span></p>
+          <!-- 상세 목업 — templates/news/detail.html + templates/news/_orgs.html.
+               ⚠️ 여기도 언론사 자리가 없다. 헤더에 있는 건 발행일과 "원문 보기" 링크뿐이다.
+               ⚠️ "이슈 시사점" 카드는 이 기사가 속한 Insight 에 implication 이 있을 때만
+                  렌더된다 — 있는 상태로 그렸다. 이 화면의 특징이 드러나는 자리이기 때문이다.
+               ⚠️ 우측 "관련 기업" 배지의 x 버튼과 "기업 추가"는 태그를 수동 교정하는 장치다.
+                  카드 본문이 말하는 "잘못 부여된 태그는 수동으로 교정한다"가 이 UI다. -->
+          <div class="ksd-shot" role="img"
+               aria-label="뉴스 상세 화면. 위쪽에 뉴스 목록으로 돌아가는 경로와 이전·다음 이동이 있다. 본문 영역에는 발행일과 원문 보기 링크, 기사 제목, 이 기사가 속한 이슈의 시사점, 기사 본문이 차례로 놓인다. 오른쪽에는 관련 기업 배지와 기업 추가 버튼이 있는 패널이 붙는다.">
+            <div class="ksd-shot-nav">
+              <div class="bd"><em>DPLANEX</em><b>AI Market Watch</b></div>
+              <ul>
+                <li><svg class="ic"><use href="#nvDash"/></svg>대시보드</li>
+                <li><svg class="ic"><use href="#nvChart"/></svg>보고서</li>
+                <li><svg class="ic"><use href="#nvNet"/></svg>지식그래프</li>
+                <li class="on"><svg class="ic"><use href="#nvNews"/></svg>뉴스</li>
+                <li><svg class="ic"><use href="#nvSet"/></svg>설정</li>
+              </ul>
+              <div class="ft">
+                <div class="sv"><svg class="ic"><use href="#nvInfo"/></svg>서비스 소개</div>
+                <div class="lc"><em>마지막 수집</em><b>08/20 09:00</b></div>
+              </div>
+            </div>
+            <div class="ksd-shot-main">
+              <div class="ksd-shot-hd"><b>뉴스 상세</b></div>
+              <div class="ksd-shot-bd">
+
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+                  <div class="s-bc">뉴스<svg><use href="#nvChevR"/></svg><em>[금융권 스타트업 협업①] KB국민은행은 왜 …</em></div>
+                  <div style="display:flex;align-items:center;gap:7px">
+                    <span class="s-mt" style="display:inline-flex;align-items:center;gap:3px;color:#6B7280"><svg style="width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:2"><use href="#nvChevL"/></svg>이전</span>
+                    <span class="s-mt" style="color:#E5E7EB">|</span>
+                    <span class="s-mt" style="display:inline-flex;align-items:center;gap:3px;color:#6B7280">다음<svg style="width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:2"><use href="#nvChevR"/></svg></span>
+                  </div>
+                </div>
+
+                <div class="s-grow" style="align-items:flex-start">
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:12px">
+                    <div class="s-card" style="padding:17px 18px">
+                      <div style="display:flex;align-items:center;gap:8px">
+                        <span class="s-mt">2026년 08월 18일</span>
+                        <span class="s-link ext" style="margin-left:auto">원문 보기<svg><use href="#nvExt"/></svg></span>
+                      </div>
+                      <div class="s-art" style="margin-top:9px">[금융권 스타트업 협업①] KB국민은행은 왜 신생 '티냅스'를 택했나</div>
+                    </div>
+
+                    <div class="s-card s-pad">
+                      <div style="display:flex;align-items:center;gap:7px">
+                        <svg class="s-bulb"><use href="#nvBulb"/></svg>
+                        <span class="s-h" style="font-size:11.5px">이슈 시사점</span>
+                      </div>
+                      <div class="s-mt" style="display:block;margin:4px 0 9px 20px;white-space:normal">이 기사가 속한 이슈 · <span style="color:#6B7280">KB국민은행이 티냅스와 AI 답변 신뢰성 검증 체계 공동 구축</span></div>
+                      <div class="s-imp">
+                        <p class="s-tx">통과 · 차단 · 재검토로 판정을 나눈 점이 핵심이다. AI 답변을 쓰거나 버리는 두 갈래가 아니라 사람이 다시 보는 칸을 따로 둔 구조이며, 금융권이 생성형 AI를 고객 응대에 붙일 때 필요한 통제 지점을 보여 준다.</p>
+                      </div>
+                    </div>
+
+                    <div class="s-card" style="padding:17px 18px">
+                      <p class="s-tx">KB국민은행이 설립 3년 차 스타트업 티냅스와 손잡고 AI 답변의 신뢰성을 검증하는 체계를 공동 구축한다고 밝혔다.</p>
+                      <p class="s-tx" style="margin-top:11px">이 체계는 AI가 만든 답변을 통과 · 차단 · 재검토 세 가지로 판정한다. 재검토로 분류된 답변은 담당자가 직접 확인한 뒤에야 고객에게 전달된다.</p>
+                      <p class="s-tx" style="margin-top:11px">은행 측은 신생 기업을 택한 이유로 검증 영역에 특화된 기술과 빠른 적용 속도를 들었다.</p>
+                    </div>
+                  </div>
+
+                  <div class="s-gpanel">
+                    <div class="s-lbl">관련 기업</div>
+                    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:10px">
+                      <span class="s-chip x b fin">KB국민은행<svg><use href="#nvX"/></svg></span>
+                      <span class="s-chip x b ai">티냅스<svg><use href="#nvX"/></svg></span>
+                    </div>
+                    <div class="s-link" style="display:inline-flex;align-items:center;gap:4px;margin-top:11px">
+                      <svg style="width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round"><use href="#nvPlus"/></svg>기업 추가
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+          <p class="ksd-shot-note">
+            <b>기사 제목 · 발행일 · 총 135건은 실제 값</b>이고, 기업 배지도 실제 등록된 기업이다.
+            기사 본문 · 이슈 시사점 문구 · 페이지 번호는 예시다.
+            <b>언론사는 자리가 비어 있는 것이 아니라 화면에 아예 없다.</b> 목록과 상세 모두 발행일 · 제목 · 기업 배지만 보여 준다.
+            오른쪽 배지의 x 표시와 “기업 추가”는 잘못 붙은 태그를 사람이 고치는 자리다.
+          </p>
+
           <div class="svc-bd">
             <p class="svc-tx">수집된 기사 원문과 요약을 대상으로 한다.</p>
             <p class="svc-tx">등록해 둔 기준으로 관련성을 판정하고, 통과하지 못한 기사는 화면에서 제외한다. 기업 · 기술 주제 태그를 부여하고, 잘못 부여된 태그는 수동으로 교정한다.</p>
@@ -2000,18 +2593,198 @@ svg text{font-family:var(--font);}
         <!-- 05 설정 -->
         <div class="svc rv" style="--d:240ms">
           <div class="svc-hd"><span class="svc-no">05</span><span class="svc-nm">설정 — 수집 기준과 처리 이력</span></div>
+
+          <p class="ksd-shot-lbl">수집 키워드<span>SET-002 · 설정 여덟 화면 중 하나</span></p>
+          <!-- SET-002 목업 — templates/setting/keywords.html + _keywords.html + base_setting.html.
+               ⚠️ 설정은 사이드바(앱 전체) 안에 좌측 서브 메뉴(설정 8개)가 한 겹 더 있는 구조다.
+                  이 두 겹을 그리지 않으면 "설정 안에서 이동한다"가 안 보인다.
+               ⚠️ 수집 키워드는 33건 전부 활성이고 형태가 {기업명} AI 로 일정하다 — 그 규칙이
+                  드러나도록 앞 6행을 실제 값으로 넣었다. 표 아래 "N건"류 표시는 실제 화면에
+                  없으므로 만들지 않았다.
+               ⚠️ 제외 키워드는 실제 등록 건수를 확인하지 못했다. 그래서 목록 행을 지어내지 않고
+                  실제로 존재하는 빈 상태 문구를 그대로 뒀다 — 화면에 있는 문구이고, 없는 값을
+                  채우는 것보다 정확하다. -->
+          <div class="ksd-shot" role="img"
+               aria-label="설정 화면의 키워드 관리. 왼쪽에 데이터 소스, 키워드, 기업, 기술 주제, 프롬프트, 스케줄, 슬랙, 로그 여덟 개 설정 메뉴가 있고 키워드가 선택돼 있다. 본문은 좌우 두 카드로 나뉜다. 왼쪽은 수집 키워드 표로 키워드와 정렬 방식이 행마다 놓이고, 오른쪽은 제외 키워드 표다. 두 카드 모두 아래에 새 키워드를 넣는 입력칸과 추가 버튼이 있다.">
+            <div class="ksd-shot-nav">
+              <div class="bd"><em>DPLANEX</em><b>AI Market Watch</b></div>
+              <ul>
+                <li><svg class="ic"><use href="#nvDash"/></svg>대시보드</li>
+                <li><svg class="ic"><use href="#nvChart"/></svg>보고서</li>
+                <li><svg class="ic"><use href="#nvNet"/></svg>지식그래프</li>
+                <li><svg class="ic"><use href="#nvNews"/></svg>뉴스</li>
+                <li class="on"><svg class="ic"><use href="#nvSet"/></svg>설정</li>
+              </ul>
+              <div class="ft">
+                <div class="sv"><svg class="ic"><use href="#nvInfo"/></svg>서비스 소개</div>
+                <div class="lc"><em>마지막 수집</em><b>08/20 09:00</b></div>
+              </div>
+            </div>
+            <div class="ksd-shot-main">
+              <div class="ksd-shot-hd"><b>설정</b></div>
+              <div class="ksd-shot-bd">
+                <div class="s-grow" style="align-items:flex-start;gap:16px">
+                  <div class="s-smenu">
+                    <span><svg><use href="#nvDb"/></svg>데이터 소스</span>
+                    <span class="on"><svg><use href="#nvTag"/></svg>키워드</span>
+                    <span><svg><use href="#nvBldg"/></svg>기업</span>
+                    <span><svg><use href="#nvCpu"/></svg>기술 주제</span>
+                    <span><svg><use href="#nvFile"/></svg>프롬프트</span>
+                    <span><svg><use href="#nvClock"/></svg>스케줄</span>
+                    <span><svg class="fill"><use href="#nvSlack"/></svg>Slack</span>
+                    <span><svg><use href="#nvScroll"/></svg>로그</span>
+                  </div>
+
+                  <div style="flex:1;min-width:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px">
+                    <div class="s-card">
+                      <div class="s-chd">
+                        <div class="s-h"><svg class="s-fl"><use href="#nvTag"/></svg>수집 키워드<span class="s-q">?</span></div>
+                        <div class="s-csub">네이버 뉴스에 직접 요청할 검색 쿼리</div>
+                      </div>
+                      <table class="s-tb">
+                        <thead><tr><th>키워드</th><th>정렬</th><th></th></tr></thead>
+                        <tbody>
+                          <tr><td>삼성화재 AI</td><td><span class="s-sort new">최신순</span></td><td><span class="act"><svg><use href="#nvPencil"/></svg><svg><use href="#nvTrash"/></svg></span></td></tr>
+                          <tr><td>한화생명 AI</td><td><span class="s-sort new">최신순</span></td><td><span class="act"><svg><use href="#nvPencil"/></svg><svg><use href="#nvTrash"/></svg></span></td></tr>
+                          <tr><td>현대해상 AI</td><td><span class="s-sort">관련도순</span></td><td><span class="act"><svg><use href="#nvPencil"/></svg><svg><use href="#nvTrash"/></svg></span></td></tr>
+                          <tr><td>NH농협 AI</td><td><span class="s-sort new">최신순</span></td><td><span class="act"><svg><use href="#nvPencil"/></svg><svg><use href="#nvTrash"/></svg></span></td></tr>
+                          <tr><td>KB금융 AI</td><td><span class="s-sort new">최신순</span></td><td><span class="act"><svg><use href="#nvPencil"/></svg><svg><use href="#nvTrash"/></svg></span></td></tr>
+                          <tr><td>케이뱅크 AI</td><td><span class="s-sort">관련도순</span></td><td><span class="act"><svg><use href="#nvPencil"/></svg><svg><use href="#nvTrash"/></svg></span></td></tr>
+                        </tbody>
+                      </table>
+                      <div class="s-add">
+                        <span class="s-inp grow">키워드를 입력해주세요</span>
+                        <span class="s-inp">최신순<svg class="cv"><use href="#nvChev"/></svg></span>
+                        <span class="btn">추가</span>
+                      </div>
+                    </div>
+
+                    <div class="s-card">
+                      <div class="s-chd">
+                        <div class="s-h"><svg class="s-fl" style="stroke:#FF6C0E"><use href="#nvBan"/></svg>제외 키워드</div>
+                        <div class="s-csub">수집된 뉴스에서 제목에 포함 시 필터링</div>
+                      </div>
+                      <table class="s-tb">
+                        <thead><tr><th>키워드</th><th></th></tr></thead>
+                        <tbody>
+                          <tr><td colspan="2" class="m" style="text-align:center;padding:34px 0">등록된 제외 키워드가 없어요. 아래에서 추가해보세요.</td></tr>
+                        </tbody>
+                      </table>
+                      <div class="s-add">
+                        <span class="s-inp grow">키워드를 입력해주세요</span>
+                        <span class="btn warn">추가</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <p class="ksd-shot-lbl">처리 이력<span>SET-006 · 검증이 밀렸는지 확인하는 자리</span></p>
+          <!-- SET-006 목업 — templates/setting/logs.html.
+               ⚠️ 맨 위 "검증 파이프라인 현황"은 탭 밖에 있어 두 탭 어느 쪽을 봐도 항상 보인다.
+                  검증 전 뉴스는 다른 화면에 아예 안 뜨므로, "검증이 밀린 것"과 "수집이 죽은 것"을
+                  구분하는 유일한 자리다 — 카드 본문이 말하는 내용이 이 블록이다.
+               ⚠️ 지표는 3+1 구조다(미검증 뉴스 · 가장 오래된 미검증 · 마지막 검증 완료 /
+                  구분선 아래 그래프에 안 보이는 관계). 0건일 때 초록 확인 문구가 뜨는 것도
+                  실제 동작이라 그대로 그렸다 — 미검증 0건은 실측값이다(전체 135건 모두 검증됨). -->
+          <div class="ksd-shot" role="img"
+               aria-label="설정 화면의 로그. 맨 위에 검증 파이프라인 현황 카드가 있고 미검증 뉴스 0건, 가장 오래된 미검증 뉴스 없음, 마지막 검증 완료 시각, 그래프에 안 보이는 관계 0건이 표시된다. 그 아래 수집 로그와 LLM 이력 두 탭이 있고, 수집 로그 표에는 시작 시각, 소스, 수집 건수, 크롤 실패, 상태, 오류 열이 있다.">
+            <div class="ksd-shot-nav">
+              <div class="bd"><em>DPLANEX</em><b>AI Market Watch</b></div>
+              <ul>
+                <li><svg class="ic"><use href="#nvDash"/></svg>대시보드</li>
+                <li><svg class="ic"><use href="#nvChart"/></svg>보고서</li>
+                <li><svg class="ic"><use href="#nvNet"/></svg>지식그래프</li>
+                <li><svg class="ic"><use href="#nvNews"/></svg>뉴스</li>
+                <li class="on"><svg class="ic"><use href="#nvSet"/></svg>설정</li>
+              </ul>
+              <div class="ft">
+                <div class="sv"><svg class="ic"><use href="#nvInfo"/></svg>서비스 소개</div>
+                <div class="lc"><em>마지막 수집</em><b>08/20 09:00</b></div>
+              </div>
+            </div>
+            <div class="ksd-shot-main">
+              <div class="ksd-shot-hd"><b>설정</b></div>
+              <div class="ksd-shot-bd">
+                <div class="s-grow" style="align-items:flex-start;gap:16px">
+                  <div class="s-smenu">
+                    <span><svg><use href="#nvDb"/></svg>데이터 소스</span>
+                    <span><svg><use href="#nvTag"/></svg>키워드</span>
+                    <span><svg><use href="#nvBldg"/></svg>기업</span>
+                    <span><svg><use href="#nvCpu"/></svg>기술 주제</span>
+                    <span><svg><use href="#nvFile"/></svg>프롬프트</span>
+                    <span><svg><use href="#nvClock"/></svg>스케줄</span>
+                    <span><svg class="fill"><use href="#nvSlack"/></svg>Slack</span>
+                    <span class="on"><svg><use href="#nvScroll"/></svg>로그</span>
+                  </div>
+
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:13px">
+                    <div class="s-card" style="padding:14px 16px">
+                      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:20px;flex-wrap:wrap">
+                        <div style="min-width:0">
+                          <div class="s-h">검증 파이프라인 현황<span class="s-mt" style="font-weight:400">운영자 전용</span></div>
+                          <div class="s-csub" style="margin-top:3px">RA가 아직 판정하지 않은 뉴스는 사용자 화면에 보이지 않아요. 여기서만 확인할 수 있어요.</div>
+                        </div>
+                        <div class="s-kpi">
+                          <div>
+                            <div class="k">미검증 뉴스</div><div class="v">0건</div>
+                            <div class="s-ok"><svg><use href="#nvCheck"/></svg>모두 검증을 마쳤어요</div>
+                          </div>
+                          <div><div class="k">가장 오래된 미검증 뉴스</div><div class="v">—</div></div>
+                          <div><div class="k">마지막 검증 완료</div><div class="v">08.20 10:40</div></div>
+                        </div>
+                      </div>
+                      <div style="margin-top:12px;padding-top:11px;border-top:1px solid #F3F4F6">
+                        <div class="k" style="font-size:10px;font-weight:500;color:var(--s-mute)">그래프에 안 보이는 관계</div>
+                        <div style="display:flex;align-items:center;gap:9px;margin-top:3px">
+                          <span style="font-size:16px;font-weight:600;color:var(--s-ink)">0건</span>
+                          <span class="s-ok" style="margin-top:0"><svg><use href="#nvCheck"/></svg>모두 그래프에 나타나고 있어요</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="s-tabs"><i class="on">수집 로그</i><i>LLM 이력</i></div>
+
+                    <div class="s-card">
+                      <div class="s-chd" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+                        <span class="s-h">수집 로그</span>
+                        <span style="display:flex;gap:7px">
+                          <span class="s-inp">전체 소스<svg class="cv"><use href="#nvChev"/></svg></span>
+                          <span class="s-inp">전체 상태<svg class="cv"><use href="#nvChev"/></svg></span>
+                        </span>
+                      </div>
+                      <table class="s-tb">
+                        <thead><tr><th>시작 시각</th><th>소스</th><th>수집 건수</th><th>크롤 실패</th><th>상태</th><th>오류</th></tr></thead>
+                        <tbody>
+                          <tr><td class="m">08.20 09:00</td><td>Naver News API</td><td>92건</td><td class="m">0건</td><td><span class="s-st">성공</span></td><td class="m">—</td></tr>
+                          <tr><td class="m">08.19 09:00</td><td>Naver News API</td><td>78건</td><td style="color:#F97316;font-weight:600">3건</td><td><span class="s-st">성공</span></td><td class="m">—</td></tr>
+                          <tr><td class="m">08.18 09:00</td><td>Naver News API</td><td>85건</td><td class="m">0건</td><td><span class="s-st">성공</span></td><td class="m">—</td></tr>
+                          <tr><td class="m">08.17 09:00</td><td>Naver News API</td><td>61건</td><td class="m">0건</td><td><span class="s-st">성공</span></td><td class="m">—</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="ksd-shot-note">
+            <b>수집 키워드 6건 · 데이터 소스 이름 · 미검증 0건은 실제 값</b>이다.
+            키워드는 33건이 모두 켜져 있고, <b>“기업명 + AI”</b>라는 한 가지 형태를 따른다.
+            데이터 소스는 <b>Naver News API 하나</b>다.
+            제외 키워드는 등록 건수를 확인하지 못해, 지어내지 않고 화면의 빈 상태 문구를 그대로 뒀다.
+            수집 로그의 시각 · 건수 · 크롤 실패 수는 예시다.
+          </p>
+
           <div class="svc-bd">
             <p class="svc-tx">수집 대상과 기준 데이터, 그리고 처리 기록을 대상으로 한다.</p>
             <p class="svc-tx">수집(데이터 소스 · 수집 키워드 · 스케줄), 판정과 알림(분석 프롬프트 · Slack), 기준 데이터(기업 · 기술 주제)를 관리한다.</p>
             <p class="svc-tx"><b>처리 이력</b>에서 수집과 판정이 어디까지 진행됐는지, 검증 대기 중인 뉴스가 쌓여 있지는 않은지 확인한다. 검증 전 뉴스는 다른 화면에 노출되지 않으므로 이 화면이 그것을 확인하는 자리다.</p>
           </div>
-          <p class="svc-fn">※ 데이터 소스와 키워드는 이 화면에서 등록 · 관리하며, 키워드는 수집용과 제외용으로 나눠 개별적으로 켜고 끌 수 있다. 수집 대상 영역 확장은 04장 NEXT STEPS 과제 1에서 정한다.</p>
+          <p class="svc-fn">※ 데이터 소스와 키워드는 이 화면에서 등록 · 관리하며, 키워드는 수집용과 제외용으로 나눠 개별적으로 켜고 끌 수 있다. 수집 대상 영역을 어디까지 넓힐지는 04장 진행 순서에 적었다.</p>
         </div>
-      </div>
-
-      <div class="note caution rv">
-        <span class="note-label">협의 후 확정</span>
-        <strong>알림 전송 방식과 발송 범위</strong>는 관련 부서 협의 후 확정 예정이다.
       </div>
 
       <!-- ============== FIG 2-3 ============== -->
@@ -2152,7 +2925,7 @@ svg text{font-family:var(--font);}
         <span class="sec-no">2.3 · OPERATION RECORD</span>
         <h3 class="sec-title" id="s27">운영 사례</h3>
         <p class="sec-lead">
-          아래는 실제 처리 기록이다. 열 개 장면은 <b>실제로 일어난 순서 그대로</b>이며,
+          아래는 실제 처리 기록이다. 여덟 장면은 <b>실제로 일어난 순서 그대로</b>이며,
           숫자 · 회사명 · 기사 제목을 지어 넣지 않았다.
         </p>
       </div>
@@ -2161,13 +2934,15 @@ svg text{font-family:var(--font);}
         <figcaption class="fig-cap" style="border:1px solid var(--line);border-radius:var(--radius) var(--radius) 0 0">
           <span class="fig-num">FIG 2-5</span>
           <span class="fig-ttl">일자별 처리 흐름 — 수집에서 보고서 발행까지</span>
-          <span class="fig-sub">예외 상황 두 건을 포함한 열 개 장면이다.</span>
+          <span class="fig-sub">예외 상황 한 건을 포함한 여덟 장면이다.</span>
         </figcaption>
         <div style="border:1px solid var(--line);border-top:0;border-radius:0 0 var(--radius) var(--radius);background:#fff;padding:18px 22px 22px">
-          <div class="ksd" id="amwDemo" role="group" aria-label="배치 처리 흐름 재생 — 열 개 장면">
+          <div class="ksd" id="amwDemo" role="group" aria-label="배치 처리 흐름 재생 — 여덟 개 장면">
+            <!-- ⚠️ 라벨 6개. 종전 "제외 처리"는 "관련성 판정"에 흡수됐다(2026-08-24).
+                 순서와 개수가 SCENES 의 step 인덱스와 1:1로 대응하므로 한쪽만 고치지 말 것. -->
             <ol class="ksd-steps" data-ksd-steps aria-label="처리 단계">
-              <li><i>1</i>수집</li><li><i>2</i>관련성 판정</li><li><i>3</i>제외 처리</li><li><i>4</i>검증 통과</li>
-              <li><i>5</i>이슈 그룹핑</li><li><i>6</i>등급 부여</li><li><i>7</i>보고서 반영</li>
+              <li><i>1</i>수집</li><li><i>2</i>관련성 판정</li><li><i>3</i>검증 통과</li>
+              <li><i>4</i>이슈 그룹핑</li><li><i>5</i>등급 부여</li><li><i>6</i>보고서 반영</li>
             </ol>
 
             <div class="ksd-screen">
@@ -2198,41 +2973,94 @@ svg text{font-family:var(--font);}
                     </div>
                   </div>
 
-                  <!-- 2 ASK -->
-                  <div class="ksd-scene" data-scene="ask">
+                  <!-- 2 JUDGE — 종전 ask(14초) + filter(16초) 통합 (2026-08-24)
+                       ⚠️ 두 씬으로 나뉘어 있을 때 "판별 질문 하나로 끝난다"처럼 보였다.
+                          질문은 기준 1의 판별 도구일 뿐이고 실제로는 여섯 기준으로 갈린다 —
+                          그래서 질문을 ① 아래 부속으로 내리고 여섯 관문을 한 화면에 세웠다.
+                       ⚠️ 기준 여섯은 docs/planning.md "관련성 판단 기준" 1~6 원문이다.
+                          특히 ⑤(AI 기업 단독 동향)는 종전 화면에 아예 없었다 — 2026-07-28
+                          스코프 축소로 확정된 정책이므로 빼지 말 것.
+                       ⚠️ ⑤만 두 줄이다. "금융·보험과 연결되지 않은"이라는 조건이 곧 기준의
+                          핵심이라 줄이면 틀린 기준이 된다. 한 줄로 압축하지 말 것.
+                       ⚠️ 중간 숫자를 쓰지 않는다. 화면에 찍히는 숫자는 처음 92와 끝 5뿐이고
+                          나머지는 조각 수로만 드러난다 — 아래 ※ 문장이 그 정책이다.
+                          조각 24 → 19 → 15 → 12 → 9 → 7 → 5 로 끝이 실측값 5와 맞는다. -->
+                  <div class="ksd-scene" data-scene="judge">
                     <div class="ksd-frame">
-                      <div class="ksd-h"><b>한 건씩 판정한다</b><span>92건 가운데 한 건</span></div>
-                      <div class="ksd-card ksd-fx" data-ksd-target style="--d:180ms;margin-top:14px">
-                        <div class="t">수집된 기사 1건</div>
-                        <div class="m">제목 · 본문 · 발행일 · 매체</div>
-                        <div style="margin-top:9px;display:flex;flex-direction:column;gap:5px">
-                          <span style="display:block;height:6px;border-radius:3px;background:var(--lav-200);width:88%"></span>
-                          <span style="display:block;height:6px;border-radius:3px;background:var(--lav-200);width:71%"></span>
-                          <span style="display:block;height:6px;border-radius:3px;background:var(--lav-200);width:79%"></span>
+                      <!-- ⚠️ --d 와 SCENES[].dur 은 둘 다 --ksd-k(1.25)가 곱해진다.
+                           애니메이션 지연은 calc(var(--d) * var(--ksd-k)), 씬 길이는 durOf() 의
+                           dur * K 다. 배수가 같으므로 "마지막 --d + 애니메이션 길이 < dur" 만
+                           같은 단위로 확인하면 된다 — 여기서는 5920 + 420 = 6340 < 8500.
+                           실제 재생 시각이 궁금하면 1.25를 곱한다(행 간격 880 → 1.1초,
+                           씬 8500 → 10.6초). 한쪽에만 K 를 적용해 계산하지 말 것. -->
+                      <div class="ksd-h"><b>여섯 기준으로 갈린다</b><span>기사마다 같은 기준을 똑같이 적용한다</span><span class="big ksd-pop" style="--d:64ms">92</span></div>
+
+                      <div class="ksd-sift">
+                        <div class="ksd-gate ksd-fx" style="--d:400ms">
+                          <span class="no">1</span>
+                          <div class="nm">핵심 주제인가, 배경 · 부차 요소인가
+                            <em>판별 질문 — “AI를 빼도 이 기사가 성립하는가”</em>
+                          </div>
+                          <div class="fl">
+                            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+                            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+                            <i class="dr" style="--d:680ms"></i><i class="dr" style="--d:704ms"></i><i class="dr" style="--d:728ms"></i><i class="dr" style="--d:752ms"></i><i class="dr" style="--d:776ms"></i>
+                          </div>
+                        </div>
+
+                        <div class="ksd-gate ksd-fx" style="--d:1280ms">
+                          <span class="no">2</span>
+                          <div class="nm">같은 사건을 여러 매체가 쓴 중복인가</div>
+                          <div class="fl">
+                            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+                            <i></i><i></i><i></i><i></i><i></i>
+                            <i class="dr" style="--d:1560ms"></i><i class="dr" style="--d:1584ms"></i><i class="dr" style="--d:1608ms"></i><i class="dr" style="--d:1632ms"></i>
+                          </div>
+                        </div>
+
+                        <div class="ksd-gate ksd-fx" style="--d:2160ms">
+                          <span class="no">3</span>
+                          <div class="nm">회사 이름만 걸리고 AI 내용이 없는가</div>
+                          <div class="fl">
+                            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+                            <i class="dr" style="--d:2440ms"></i><i class="dr" style="--d:2464ms"></i><i class="dr" style="--d:2488ms"></i>
+                          </div>
+                        </div>
+
+                        <div class="ksd-gate ksd-fx" style="--d:3040ms">
+                          <span class="no">4</span>
+                          <div class="nm">매일 반복되는 정형 시황 기사인가</div>
+                          <div class="fl">
+                            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+                            <i class="dr" style="--d:3320ms"></i><i class="dr" style="--d:3344ms"></i><i class="dr" style="--d:3368ms"></i>
+                          </div>
+                        </div>
+
+                        <div class="ksd-gate tall ksd-fx" style="--d:3920ms">
+                          <span class="no">5</span>
+                          <div class="nm">금융 · 보험과 연결되지 않은<br>AI 기업 단독 동향인가</div>
+                          <div class="fl">
+                            <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+                            <i class="dr" style="--d:4200ms"></i><i class="dr" style="--d:4224ms"></i>
+                          </div>
+                        </div>
+
+                        <div class="ksd-gate ksd-fx" style="--d:4800ms">
+                          <span class="no">6</span>
+                          <div class="nm">여러 단신을 묶어 발행한 기사인가</div>
+                          <div class="fl">
+                            <i></i><i></i><i></i><i></i><i></i>
+                            <i class="dr" style="--d:5080ms"></i><i class="dr" style="--d:5104ms"></i>
+                          </div>
+                        </div>
+
+                        <div class="ksd-left ksd-fx" style="--d:5680ms">
+                          <div class="fl"><i></i><i></i><i></i><i></i><i></i></div>
+                          <b>5건이 남는다</b>
                         </div>
                       </div>
-                      <div class="ksd-fx" style="--d:1000ms;margin-top:16px;border:1px solid var(--violet-800);border-radius:12px;background:var(--lav-050);padding:16px 18px">
-                        <span style="font-size:9.5px;font-weight:800;letter-spacing:.14em;color:var(--violet-800)">RELEVANCE GATE · 판별 질문</span>
-                        <p style="margin-top:9px;font-size:19px;font-weight:800;letter-spacing:-.03em;color:var(--violet-950)"><span class="ksd-typed" data-text="AI를 빼도 이 기사가 성립하는가" style="--d:1450ms;--tdur:2400ms">AI를 빼도 이 기사가 성립하는가</span><span class="ksd-caret" aria-hidden="true"></span></p>
-                      </div>
-                      <p class="ksd-fx" style="--d:4200ms;margin-top:14px;font-size:12.5px;font-weight:700;color:var(--ink-2)">성립하면 <b style="color:var(--violet-300)">제외한다.</b> 성립하지 않으면 <b style="color:var(--violet-800)">남긴다.</b> 기사마다 같은 질문 하나다.</p>
-                      <span class="ksd-cursor" aria-hidden="true">
-                        <svg viewBox="0 0 18 24"><path d="M1 1 L1 19 L6 14.5 L9.5 22 L12.5 20.6 L9 13.4 L15.5 13.2 Z" fill="#fff" stroke="var(--violet-950)" stroke-width="1.3" stroke-linejoin="round"/></svg>
-                      </span>
-                    </div>
-                  </div>
 
-                  <!-- 3 FILTER -->
-                  <div class="ksd-scene" data-scene="filter">
-                    <div class="ksd-frame">
-                      <div class="ksd-h"><b>대부분이 제외된다</b><span>제외 사유는 몇 가지로 정해져 있다</span></div>
-                      <div style="margin-top:13px;display:flex;flex-direction:column;gap:9px">
-                        <div class="ksd-lane ksd-fx" style="--d:150ms"><span class="no">1</span><p>회사 이름만 걸리고 AI 내용이 없는 기사</p><span class="ksd-out" style="--d:900ms;margin-left:auto;font-size:10.5px;font-weight:800;color:var(--violet-300)">제외 →</span></div>
-                        <div class="ksd-lane ksd-fx" style="--d:300ms"><span class="no">2</span><p>같은 행사를 여러 매체가 쓴 중복 기사</p><span class="ksd-out" style="--d:1400ms;margin-left:auto;font-size:10.5px;font-weight:800;color:var(--violet-300)">제외 →</span></div>
-                        <div class="ksd-lane ksd-fx" style="--d:450ms"><span class="no">3</span><p>지수 · 환율을 나열하는 시황 기사, 여러 단신을 묶어 발행한 기사</p><span class="ksd-out" style="--d:1900ms;margin-left:auto;font-size:10.5px;font-weight:800;color:var(--violet-300)">제외 →</span></div>
-                        <div class="ksd-lane ksd-fx" style="--d:600ms"><span class="no">4</span><p>AI가 부수적으로만 등장하는 기사</p><span class="ksd-out" style="--d:2400ms;margin-left:auto;font-size:10.5px;font-weight:800;color:var(--violet-300)">제외 →</span></div>
-                      </div>
-                      <p class="ksd-fx" style="--d:3000ms;margin-top:auto;font-size:11.5px;font-weight:700;color:var(--muted)">※ 제외된 기사가 어떤 사유로 몇 건씩 갈렸는지는 이 자료에 싣지 않는다. 사유의 종류만 제시한다.</p>
+                      <p class="ksd-fx" style="--d:5920ms;margin-top:auto;font-size:11.5px;font-weight:700;color:var(--muted)">※ 제외된 기사가 어떤 사유로 몇 건씩 갈렸는지는 이 자료에 싣지 않는다. 사유의 종류만 제시한다.</p>
                     </div>
                   </div>
 
@@ -2294,35 +3122,37 @@ svg text{font-family:var(--font);}
                     </div>
                   </div>
 
-                  <!-- 8 SATURATED (예외) -->
-                  <div class="ksd-scene" data-scene="saturated">
+                  <!-- 7 EXCEPT (예외) — 종전 saturated(7초) + reask(15초) 통합 (2026-08-24)
+                       ⚠️ 둘은 질문과 답이라 나눠 두면 22초 동안 답이 안 나온다. 왼쪽에 상한이
+                          찬 키워드, 오른쪽에 다시 판정한 결과를 나란히 놓아 한 화면에서 끝낸다.
+                       ⚠️ 숫자·회사명은 실측이다. 바꾸지 말 것. -->
+                  <div class="ksd-scene" data-scene="except">
                     <div class="ksd-frame">
-                      <div class="ksd-h"><b>수집 상한에 도달했다</b><span>수집 키워드 · 하루 상한 10건</span></div>
-                      <div style="margin-top:14px;display:flex;flex-direction:column;gap:8px">
-                        <div class="ksd-kw ksd-fx" style="--d:150ms"><span class="nm">키워드 A</span><span class="cells"><i class="f"></i><i class="f"></i><i class="f"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="cnt">3 / 10</span></div>
-                        <div class="ksd-kw full ksd-pop" style="--d:500ms"><span class="nm">삼성화재 AI</span><span class="cells"><i class="w"></i><i class="w"></i><i class="w"></i><i class="w"></i><i class="w"></i><i class="w"></i><i class="w"></i><i class="w"></i><i class="w"></i><i class="w"></i></span><span class="cnt">10 / 10</span></div>
-                        <div class="ksd-kw ksd-fx" style="--d:300ms"><span class="nm">키워드 C</span><span class="cells"><i class="f"></i><i class="f"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="cnt">2 / 10</span></div>
-                        <div class="ksd-kw full ksd-pop" style="--d:1000ms"><span class="nm">다올투자증권 AI</span><span class="cells"><i class="w"></i><i class="w"></i><i class="w"></i><i class="w"></i><i class="w"></i><i class="w"></i><i class="w"></i><i class="w"></i><i class="w"></i><i class="w"></i></span><span class="cnt">10 / 10</span></div>
+                      <div class="ksd-h"><b>상한에 닿았다고 AI 기사가 많은 것은 아니다</b><span>수집 키워드 · 하루 상한 10건</span></div>
+                      <div style="margin-top:12px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start">
+                        <div>
+                          <p class="ksd-fx" style="--d:120ms;font-size:11px;font-weight:800;letter-spacing:.1em;color:var(--muted)">상한이 찬 키워드</p>
+                          <div style="margin-top:8px;display:flex;flex-direction:column;gap:7px">
+                            <div class="ksd-kw full ksd-fx" style="--d:260ms"><span class="nm">삼성화재 AI</span><span class="cells"><i class="w"></i><i class="w"></i><i class="w"></i><i class="w"></i><i class="w"></i><i class="w"></i><i class="w"></i><i class="w"></i><i class="w"></i><i class="w"></i></span><span class="cnt">10 / 10</span></div>
+                            <div class="ksd-kw full ksd-fx" style="--d:400ms"><span class="nm">다올투자증권 AI</span><span class="cells"><i class="w"></i><i class="w"></i><i class="w"></i><i class="w"></i><i class="w"></i><i class="w"></i><i class="w"></i><i class="w"></i><i class="w"></i><i class="w"></i></span><span class="cnt">10 / 10</span></div>
+                          </div>
+                          <p class="ksd-fx" style="--d:560ms;margin-top:11px;font-size:12px;font-weight:700;color:var(--ink-2)">같은 날 다올투자증권 AI도 10건이 찼는데 <b style="color:var(--violet-800)">AI 활용 교육 5건이 같은 사건</b>이었다.</p>
+                        </div>
+                        <div>
+                          <p class="ksd-fx" style="--d:900ms;font-size:11px;font-weight:800;letter-spacing:.1em;color:var(--violet-800)">한 번 더 판정한 결과</p>
+                          <div style="margin-top:8px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px">
+                            <div class="ksd-fx" style="--d:1040ms;border:1px solid var(--line);border-radius:10px;padding:9px 10px;background:var(--bg-soft)"><div style="font-size:18px;font-weight:800;color:var(--violet-300);letter-spacing:-.04em">6건</div><div style="margin-top:3px;font-size:10px;font-weight:800;color:var(--muted)">상반기 실적 기사</div></div>
+                            <div class="ksd-fx" style="--d:1160ms;border:1px solid var(--line);border-radius:10px;padding:9px 10px;background:var(--bg-soft)"><div style="font-size:18px;font-weight:800;color:var(--violet-300);letter-spacing:-.04em">공시</div><div style="margin-top:3px;font-size:10px;font-weight:800;color:var(--muted)">나머지를 채운 것</div></div>
+                            <div class="ksd-pop" style="--d:1300ms;border:1px solid var(--violet-800);border-radius:10px;padding:9px 10px;background:var(--lav-050)"><div style="font-size:18px;font-weight:800;color:var(--violet-800);letter-spacing:-.04em">2건</div><div style="margin-top:3px;font-size:10px;font-weight:800;color:var(--violet-800)">실제 AI 건</div></div>
+                          </div>
+                          <p class="ksd-fx" style="--d:1600ms;margin-top:11px;font-size:11.5px;font-weight:800;letter-spacing:.1em;color:var(--violet-800)">그래도 빈손은 아니다</p>
+                          <div style="margin-top:7px;display:flex;flex-direction:column;gap:7px">
+                            <div class="ksd-card ksd-fx" style="--d:1740ms"><div class="t">삼성화재 — 약물안전 AI 스타트업 피매치 투자</div><div class="m">그날의 이슈로 남았다</div></div>
+                            <div class="ksd-card ksd-fx" style="--d:1880ms"><div class="t">다올투자증권 — 전 임직원 AI 활용 교육</div><div class="m">그날의 이슈로 남았다</div></div>
+                          </div>
+                        </div>
                       </div>
-                      <p class="ksd-fx" style="--d:1500ms;margin-top:auto;font-size:12.5px;font-weight:800;color:var(--warn)">상한 도달은 AI 기사가 많다는 뜻인가?</p>
-                    </div>
-                  </div>
-
-                  <!-- 9 RE-ASK (예외) -->
-                  <div class="ksd-scene" data-scene="reask">
-                    <div class="ksd-frame">
-                      <div class="ksd-h"><b>한 번 더 판정한다</b><span>그래서 무엇이 남았나</span></div>
-                      <div style="margin-top:12px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
-                        <div class="ksd-fx" style="--d:150ms;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--bg-soft)"><div style="font-size:20px;font-weight:800;color:var(--violet-300);letter-spacing:-.04em">6건</div><div style="margin-top:3px;font-size:10.5px;font-weight:800;color:var(--muted)">삼성화재 · 상반기 실적 기사</div></div>
-                        <div class="ksd-fx" style="--d:300ms;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--bg-soft)"><div style="font-size:20px;font-weight:800;color:var(--violet-300);letter-spacing:-.04em">공시</div><div style="margin-top:3px;font-size:10.5px;font-weight:800;color:var(--muted)">나머지를 채운 것</div></div>
-                        <div class="ksd-fx" style="--d:450ms;border:1px solid var(--violet-800);border-radius:10px;padding:10px 12px;background:var(--lav-050)"><div style="font-size:20px;font-weight:800;color:var(--violet-800);letter-spacing:-.04em">2건</div><div style="margin-top:3px;font-size:10.5px;font-weight:800;color:var(--violet-800)">실제 AI 건</div></div>
-                      </div>
-                      <p class="ksd-fx" style="--d:900ms;margin-top:12px;font-size:12px;font-weight:700;color:var(--ink-2)">AI 기사가 많아서가 아니었다. 나머지는 <b style="color:var(--violet-800)">“AI를 빼도 기사가 성립”</b>하므로 제외된다. 같은 날 다올투자증권 AI도 10건이 찼는데 <b style="color:var(--violet-800)">AI 활용 교육 5건이 같은 사건</b>이었다.</p>
-                      <p class="ksd-fx" style="--d:1500ms;margin-top:14px;font-size:11.5px;font-weight:800;letter-spacing:.1em;color:var(--violet-800)">그래도 빈손은 아니다</p>
-                      <div style="margin-top:8px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px">
-                        <div class="ksd-card ksd-pop" style="--d:1750ms"><div class="t">삼성화재 — 약물안전 AI 스타트업 피매치 투자</div><div class="m">그날의 이슈로 남았다</div></div>
-                        <div class="ksd-card ksd-pop" style="--d:1950ms"><div class="t">다올투자증권 — 전 임직원 AI 활용 교육</div><div class="m">그날의 이슈로 남았다</div></div>
-                      </div>
+                      <p class="ksd-fx" style="--d:2100ms;margin-top:auto;font-size:11.5px;font-weight:700;color:var(--muted)">나머지는 <b style="color:var(--violet-800)">“AI를 빼도 기사가 성립”</b>하므로 제외된다. 상한은 관심의 양이 아니라 수집의 한도일 뿐이다.</p>
                     </div>
                   </div>
 
@@ -2443,195 +3273,158 @@ svg text{font-family:var(--font);}
       <div class="chap-no" aria-hidden="true">04</div>
       <div>
         <span class="chap-label">NEXT STEPS</span>
-        <h2 class="chap-title">추진 과제</h2>
+        <h2 class="chap-title">진행 순서</h2>
         <p class="chap-desc">
-          현재 역할 분담과 앞으로 정해야 할 사항을 적는다.<br>
+          앞으로 정해야 할 사항을 적는다.<br>
           협의 전에 결론을 미리 써 두지 않았다.
         </p>
       </div>
     </header>
   </div>
 
+  <!-- 역할 분담 절(id="s41")과 FIG 4-1 은 2026-08-21에 문서 끝 별첨으로 내렸다.
+       04장은 "앞으로 무엇을 할지"를 말하는 장인데 네 에이전트는 "이 제품을 어떻게 만들었는지"라
+       추진 계획의 일부처럼 읽혔다. 사실은 남기되 비중을 내린 것이다.
+       ⚠️ 2026-08-22 — 여기 있던 "현재 상황"(.now) 카드도 사용자 지시로 제거했다.
+          그 카드가 말하던 "만드는 중이며 그동안에도 판정은 매일 이뤄진다"는 사실은
+          문서 끝 별첨의 research analyst 항목에 남아 있다. 04장은 이제 진행 순서만 다룬다.
+          ⚠️ .now CSS 는 2026-08-24에 사용처가 0이 됐다("논의 중인 확장 아이디어" 블록을 지우면서).
+           지금은 죽은 규칙이다. 지우지 않은 이유는 다른 블록이 같은 형태를 다시 쓸 여지가 있어서이고,
+           정리한다면 CSS 정의만 빼면 된다 — 마크업에는 이미 남아 있지 않다. -->
   <section class="sec" aria-labelledby="s41">
     <div class="wrap">
       <div class="sec-head rv">
-        <span class="sec-no">COLLABORATION</span>
-        <h3 class="sec-title" id="s41">역할 분담</h3>
-        <p class="sec-lead">
-          네 AI Agent가 구간을 나눠 맡는다. 그중 <b>research analyst 구간은 지금도 매일 가동 중이다.</b>
-        </p>
+        <span class="sec-no">TIMELINE</span>
+        <h3 class="sec-title" id="s41">진행 순서</h3>
       </div>
 
-      <figure class="fig rv" id="fig41">
-        <figcaption class="fig-cap">
-          <span class="fig-num">FIG 4-1</span>
-          <span class="fig-ttl">역할 분담 — 네 AI Agent가 나눠 맡는 구간</span>
-          <span class="fig-sub">경계가 확정되는 순간은 한 프레임에 바뀌고, research analyst 구간만 상시 가동된다.</span>
-        </figcaption>
-        <div class="fig-body">
-          <svg class="role" viewBox="0 0 1180 250" role="img"
-               aria-label="네 AI Agent의 역할 분담. product manager는 기능 우선순위와 제품 정책을, product designer는 화면 설계와 디자인 시스템을, product engineer는 풀스택 구현을, research analyst는 뉴스 검증과 보고서 발행을 맡는다. research analyst 구간만 상시 가동 표시가 켜져 있다.">
-            <text x="34" y="26" font-size="10" font-weight="800" letter-spacing=".13em" fill="var(--muted)">FOUR AGENTS · 구간을 나눠 맡는다</text>
-
-            <g>
-              <rect x="34" y="40" width="266" height="160" rx="12" fill="#fff"/>
-              <rect class="wash" x="34" y="40" width="266" height="160" rx="12" fill="var(--lav-050)"/>
-              <rect class="bd" x="34" y="40" width="266" height="160" rx="12" fill="none" stroke="var(--violet-800)" stroke-width="1.6"/>
-              <g class="rbadge"><circle cx="60" cy="68" r="13" fill="var(--violet-800)"/><text x="60" y="72" text-anchor="middle" font-size="10.5" font-weight="800" fill="#fff">PM</text></g>
-              <text x="34" y="118" dx="24" font-size="13.5" font-weight="800" fill="var(--violet-950)">product manager</text>
-              <g font-size="10.5" font-weight="700" fill="var(--muted)">
-                <text x="58" y="144">기능 우선순위와 제품 정책을</text>
-                <text x="58" y="160">정의한다</text>
-              </g>
-            </g>
-
-            <g>
-              <rect x="316" y="40" width="266" height="160" rx="12" fill="#fff"/>
-              <rect class="wash" style="animation-delay:3s" x="316" y="40" width="266" height="160" rx="12" fill="var(--lav-050)"/>
-              <rect class="bd" style="animation-delay:3s" x="316" y="40" width="266" height="160" rx="12" fill="none" stroke="var(--violet-800)" stroke-width="1.6"/>
-              <g class="rbadge" style="animation-delay:3s"><circle cx="342" cy="68" r="13" fill="var(--violet-800)"/><text x="342" y="72" text-anchor="middle" font-size="10.5" font-weight="800" fill="#fff">PD</text></g>
-              <text x="340" y="118" font-size="13.5" font-weight="800" fill="var(--violet-950)">product designer</text>
-              <g font-size="10.5" font-weight="700" fill="var(--muted)">
-                <text x="340" y="144">화면을 설계하고</text>
-                <text x="340" y="160">디자인 시스템을 관리한다</text>
-              </g>
-            </g>
-
-            <g>
-              <rect x="598" y="40" width="266" height="160" rx="12" fill="#fff"/>
-              <rect class="wash" style="animation-delay:6s" x="598" y="40" width="266" height="160" rx="12" fill="var(--lav-050)"/>
-              <rect class="bd" style="animation-delay:6s" x="598" y="40" width="266" height="160" rx="12" fill="none" stroke="var(--violet-800)" stroke-width="1.6"/>
-              <g class="rbadge" style="animation-delay:6s"><circle cx="624" cy="68" r="13" fill="var(--violet-800)"/><text x="624" y="72" text-anchor="middle" font-size="10.5" font-weight="800" fill="#fff">PE</text></g>
-              <text x="622" y="118" font-size="13.5" font-weight="800" fill="var(--violet-950)">product engineer</text>
-              <g font-size="10.5" font-weight="700" fill="var(--muted)">
-                <text x="622" y="140">화면 구현, 데이터 모델,</text>
-                <text x="622" y="156">수집 파이프라인 등</text>
-                <text x="622" y="172">풀스택 구현을 맡는다</text>
-              </g>
-            </g>
-
-            <g>
-              <rect x="880" y="40" width="266" height="160" rx="12" fill="var(--lav-050)"/>
-              <rect class="wash" style="animation-delay:9s" x="880" y="40" width="266" height="160" rx="12" fill="var(--lav-100)"/>
-              <rect class="bd" style="animation-delay:9s" x="880" y="40" width="266" height="160" rx="12" fill="none" stroke="var(--violet-800)" stroke-width="1.6"/>
-              <g class="rbadge" style="animation-delay:9s"><circle cx="906" cy="68" r="13" fill="var(--violet-800)"/><text x="906" y="72" text-anchor="middle" font-size="10.5" font-weight="800" fill="#fff">RA</text></g>
-              <g class="daily"><circle cx="1114" cy="68" r="6" fill="var(--violet-800)"/></g>
-              <text x="1096" y="72" text-anchor="end" font-size="9.5" font-weight="800" letter-spacing=".08em" fill="var(--violet-800)">매일 가동</text>
-              <text x="904" y="118" font-size="13.5" font-weight="800" fill="var(--violet-950)">research analyst</text>
-              <g font-size="10.5" font-weight="700" fill="var(--ink-2)">
-                <text x="904" y="140">수집된 뉴스를 검증하고</text>
-                <text x="904" y="156">금융권 AI 도입 동향</text>
-                <text x="904" y="172">보고서를 발행한다</text>
-              </g>
-            </g>
-
-            <text x="34" y="230" font-size="11.5" font-weight="700" fill="var(--ink-2)">경계는 점선에서 실선으로 <tspan font-weight="800" fill="var(--violet-800)">한 프레임에</tspan> 바뀐다 — 맡는 구간이 확정됐다는 뜻이라 서서히 넘어가지 않는다.</text>
-          </svg>
-        </div>
-        <p class="fig-claim">네 구간은 순서대로 확정되지만, <b>research analyst 구간은 그 사이에도 계속 가동된다.</b></p>
-      </figure>
-
-      <div class="now rv">
-        <span class="lb">현재 상황</span>
-        <h4>02장의 구조를 구축하는 중이며, 그동안에도 판정은 이미 매일 수행되고 있다.</h4>
-        <ul>
-          <li>02장의 8단계는 <b>이 구조로 전환 중</b>이며, 그 사이에도 <b>관련성 판정 · 이슈 그룹핑 · 시사점 작성 · 관계 확인은 research analyst가 같은 기준으로 수행하고 있다.</b></li>
-          <li><b>이것이 이 서비스의 강점이다.</b> 판단 기준이 문서로 이미 확정돼 있고, 매일 실제 기사에 적용되고 있다. 01장 <b>CONSISTENCY</b> 축은 앞으로 하겠다는 계획이 아니라 <b>이미 가동 중인 것</b>이며, <a href="#fig25" style="color:var(--violet-800);font-weight:800;text-decoration:underline">2.3 운영 사례(FIG 2-5)</a>가 그 근거다.</li>
-          <li>따라서 자동화는 <b>없던 판단을 새로 만드는 일이 아니라, 이미 검증된 판단을 코드로 옮기는 일</b>이다.</li>
-        </ul>
-      </div>
-
-      <div class="note caution rv">
-        <span class="note-label">협의 후 확정</span>
-        <strong>전환 시점과 단계별 적용 범위</strong>는 아래 추진 과제에서 협의 후 확정 예정이다.
-      </div>
-    </div>
-  </section>
-
-  <section class="sec" aria-labelledby="s42">
-    <div class="wrap">
-      <div class="sec-head rv">
-        <span class="sec-no">NEXT STEPS</span>
-        <h3 class="sec-title" id="s42">추진 과제 — 각 과제에서 정해야 하는 것</h3>
-        <p class="sec-lead">
-          <b>결론 · 일정 · 담당 범위는 비워 두었다.</b> 협의 전에 정해진 것이 없으며, 협의 후 확정한다.
-          아래에는 각 과제가 <b>“무엇을 정해야 하는 일인지”</b>까지만 적었다.
-        </p>
-      </div>
-
-      <div class="fig rv" style="margin-top:0">
-        <table class="tbl">
-          <caption class="sr-only">추진 과제 네 건과 각 과제에서 정해야 하는 것</caption>
-          <thead><tr><th>#</th><th>과제</th><th>이 과제에서 정해야 하는 것</th><th>함께</th></tr></thead>
+      <div class="fig rv" style="margin-top:18px">
+        <table class="tl">
+          <caption class="sr-only">작업 다섯 가지와 각 작업이 걸리는 일수. 교보 키워드 추가는 1일차, 샌드박스 환경과 서비스 구동은 1일차부터 5일차까지, RAG LLM 연동은 6일차부터 10일차까지, 태블릿 대응과 앱 배포는 11일차부터 13일차까지, QA는 14일차다. 모두 14영업일이 걸린다.</caption>
+          <thead>
+            <tr><th class="job">작업</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th class="w">6</th><th>7</th><th>8</th><th>9</th><th>10</th><th class="w">11</th><th>12</th><th>13</th><th>14</th></tr>
+          </thead>
           <tbody>
-            <tr><td class="n">1</td><td class="k">자동 뉴스 수집 대상<br>영역 확장</td><td>지금 어떤 언론사를 어떤 형태로 받고 있는지 확인하고 현재 수집 경로와 어떻게 합칠지, <b>수집 경로 · 뉴스룸 · 개인화의 범위</b>(아래 별도 표), 그리고 <b>대상 지역을 어디까지 넓힐지</b>(아래 별도 표)</td><td class="k">w. 륜호님</td></tr>
-            <tr><td class="n">2</td><td class="k">내부 운영을 위한<br>샌드박스 환경 구축</td><td>계정 발급 절차와, 어떤 형태로 올릴지</td><td class="k">w. 용만님, 정섭님</td></tr>
-            <tr><td class="n">3</td><td class="k">태블릿 앱 구축에 필요한<br>주요 기능 구성 구체화</td><td>태블릿에서 지원할 기능의 범위</td><td></td></tr>
-            <tr><td class="n">4</td><td class="k">업무별 추진 일정<br>정리 후 공유</td><td>위 과제들의 순서와 시점</td><td></td></tr>
+            <tr><td class="job">교보 키워드 추가</td><td class="d on"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td></tr>
+            <tr><td class="job">샌드박스 환경 · 서비스 구동</td><td class="d on b"></td><td class="d on b"></td><td class="d on b"></td><td class="d on b"></td><td class="d on b"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td></tr>
+            <tr><td class="job">RAG LLM 연동</td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d on"></td><td class="d on"></td><td class="d on"></td><td class="d on"></td><td class="d on"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td></tr>
+            <tr><td class="job">태블릿 대응 · 앱 배포</td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d on b"></td><td class="d on b"></td><td class="d on b"></td><td class="d"></td></tr>
+            <tr><td class="job">QA</td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d on"></td></tr>
           </tbody>
         </table>
-      </div>
-
-      <!-- 아래 두 블록(검토 범위 · 확장 아이디어)은 과제 1에만 딸린 것이다 -->
-      <div class="sec-head rv" style="margin-top:38px;margin-bottom:0">
-        <span class="sec-no">TASK 1 · SCOPE</span>
-        <h3 class="sec-title" style="font-size:20px">과제 1의 검토 범위 — 수집 경로 · 뉴스룸 · 개인화</h3>
-        <p class="sec-lead" style="font-size:15px">륜호님과의 논의에서 나온 내용이며, <b>확정된 것은 없다.</b></p>
+        <p class="tl-sum">모두 <b>14영업일</b> <span>— 약 3주</span></p>
       </div>
 
       <div class="fig rv" style="margin-top:18px">
         <table class="tbl">
-          <caption class="sr-only">과제 1의 검토 범위 세 가지</caption>
-          <thead><tr><th>구분</th><th>검토 내용</th></tr></thead>
+          <caption class="sr-only">작업 다섯 가지와 각 작업에서 하는 일</caption>
+          <thead><tr><th>작업</th><th>하는 일</th></tr></thead>
           <tbody>
-            <tr><td class="k">수집 경로 확장</td><td>교보생명그룹 관련 뉴스, RSS API, 구글 알림을 수집 경로에 포함하고 <b>구글 RSS 리더까지 확장</b>한다. 알림 신청 건은 내 채널로 보낸다.</td></tr>
-            <tr><td class="k">뉴스룸</td><td>분야별로 섹션을 나눠 둔다.</td></tr>
-            <tr><td class="k">개인화</td><td>본인이 보고 싶은 것을 받으려면 로그인이 필요하므로 <b>구글 로그인</b>을 둔다. 사용자가 고른 카테고리만 받고, 받은 것은 <b>Slack 채널</b>로 보낸다. 개인화로 사용자의 시간을 줄이는 방향의 참고 사례로 <b>센서스튜디오 · 뉴밍</b>이 있다.</td></tr>
+            <tr><td class="k">교보 키워드 추가</td><td>수집 키워드에 <b>교보 계열사</b>를 추가한다.</td></tr>
+            <tr><td class="k">샌드박스 환경<br>서비스 구동</td><td>Django · Docker · PostgreSQL · pgvector를 샌드박스에 올려 <b>내부 직원이 웹에서 쓸 수 있게</b> 한다. <b>샌드박스 인프라 정책에 맞춰 구축한다.</b></td></tr>
+            <tr><td class="k">RAG LLM 연동</td><td>수집한 기사를 <b>벡터 데이터베이스</b>에 적재하고 꺼내 쓰는 두 흐름을 만든다. 적재는 <b>load → split → embed → store</b>, 질의는 <b>request → embed → RAG</b> 순서다. 지금 research analyst가 사람 손으로 하는 관련성 판정 · 이슈 묶기 · 시사점 작성을 <b>AWS Bedrock AgentCore</b>로 처리한다.</td></tr>
+            <tr><td class="k">태블릿 대응<br>앱 배포</td><td>AI Market Watch를 <b>태블릿 동적 레이아웃</b>으로 수정하고, <b>TestFlight</b>에 업로드해 사내에서 받아 쓸 수 있게 한다.</td></tr>
+            <tr><td class="k">QA</td><td>다섯 화면과 앱을 차례로 열어 확인한다.</td></tr>
           </tbody>
         </table>
       </div>
 
-      <div class="now rv">
-        <span class="lb">논의 중인 확장 아이디어</span>
-        <h4>정해야 하는 것이 아니라, 논의 단계의 방향이다.</h4>
-        <ul>
-          <li>채널별로 구독해 <b>Slack으로 메시지를 받는</b> 방식</li>
-          <li><b>SMA 연계</b> — 검증된 뉴스 기반으로 정보를 가져오고, 구독 요금으로 확장</li>
-          <li><b>KANDLE 연계</b></li>
-        </ul>
+      <figure class="fig rv" id="fig41" style="margin-top:26px">
+        <figcaption class="fig-cap">
+          <span class="fig-num">FIG 4-1</span>
+          <span class="fig-ttl">샌드박스 구축 구성</span>
+        </figcaption>
+        <div class="fig-body">
+          <svg class="sbx" viewBox="0 0 1180 496" role="img"
+               aria-label="샌드박스 구축 구성을 프런트엔드 · 백엔드 · AI 세 영역으로 나눈 그림. 접속은 사내 공인 IP만 허용하고 로드밸런서를 지난다. 프런트엔드에는 브라우저에서 도는 화면과 정적 파일 서빙이 있고, 별도 프런트 서버는 없이 Django가 화면을 직접 렌더한다. 백엔드에는 Django와 gunicorn 컨테이너, PostgreSQL 16과 pgvector, 뉴스 수집이 있다. AI 영역에는 Bedrock AgentCore와 비밀값 저장소가 있고, 적재는 load에서 split, embed, store 순서이며 질의는 request에서 embed, RAG 순서다. 정적 파일 서빙, Django와 gunicorn 컨테이너, Bedrock AgentCore, 비밀값 저장소는 아직 없어 이번에 만들어야 한다. 뉴스 수집은 앱 프로세스 안에서 돌아 컨테이너를 둘 이상 띄우면 같은 수집이 중복 실행된다.">
+            <text class="lbl" x="36" y="22">ACCESS</text>
+            <rect x="36" y="32" width="268" height="46" rx="9" fill="#fff" stroke="var(--lav-200)"/><text class="box" x="170" y="59" text-anchor="middle">사내 공인 IP만 허용</text>
+            <path d="M304 55 H344" stroke="var(--violet-500)" stroke-width="2" fill="none"/><path d="M344 50 L352 55 L344 60 Z" fill="var(--violet-500)"/>
+            <rect x="352" y="32" width="236" height="46" rx="9" fill="#fff" stroke="var(--lav-200)"/><text class="box" x="470" y="59" text-anchor="middle">로드밸런서</text>
+            <rect x="16" y="106" width="356" height="330" rx="14" fill="none" stroke="var(--violet-500)" stroke-dasharray="6 5"/>
+            <text class="lbl" x="36" y="128" fill="var(--violet-800)">FRONTEND</text>
+            <rect x="396" y="106" width="396" height="330" rx="14" fill="none" stroke="var(--violet-500)" stroke-dasharray="6 5"/>
+            <text class="lbl" x="416" y="128" fill="var(--violet-800)">BACKEND</text>
+            <rect x="812" y="106" width="352" height="330" rx="14" fill="none" stroke="var(--violet-500)" stroke-dasharray="6 5"/>
+            <text class="lbl" x="832" y="128" fill="var(--violet-800)">AI</text>
+            <rect x="36" y="142" width="316" height="68" rx="9" fill="#fff" stroke="var(--lav-200)"/><text class="box" x="194" y="165" text-anchor="middle">브라우저 화면</text><text class="sub" x="194" y="181" text-anchor="middle">Tailwind · HTMX · Alpine</text>
+            <rect x="36" y="226" width="316" height="68" rx="9" fill="var(--lav-050)" stroke="var(--violet-500)"/><text class="box" x="194" y="249" text-anchor="middle">정적 파일 서빙</text><text class="sub" x="194" y="265" text-anchor="middle">collectstatic 대상</text>
+            <text class="sub" x="194" y="330" text-anchor="middle">별도 프런트 서버는 없다.</text>
+            <text class="sub" x="194" y="346" text-anchor="middle">Django 가 화면을 직접 렌더한다(SSR).</text>
+            <rect x="416" y="142" width="356" height="68" rx="9" fill="var(--lav-050)" stroke="var(--violet-500)"/><text class="box" x="594" y="165" text-anchor="middle">Django + gunicorn 컨테이너</text><text class="sub" x="594" y="181" text-anchor="middle">WSGI 구동 · 이미지 빌드</text>
+            <path d="M594 210 V238" stroke="var(--violet-500)" stroke-width="2" fill="none"/><path d="M589 238 L594 246 L599 238 Z" fill="var(--violet-500)"/>
+            <rect x="416" y="246" width="356" height="68" rx="9" fill="#fff" stroke="var(--lav-200)"/><text class="box" x="594" y="269" text-anchor="middle">PostgreSQL 16 + pgvector</text><text class="sub" x="594" y="285" text-anchor="middle">뉴스 · 임베딩 · 이슈</text>
+            <rect x="416" y="330" width="356" height="68" rx="9" fill="var(--warn-bg)" stroke="var(--warn-line)"/><text class="box" x="594" y="353" text-anchor="middle">뉴스 수집</text><text class="sub" x="594" y="369" text-anchor="middle">앱 프로세스 안에서 실행</text><text class="tag" x="594" y="388" text-anchor="middle" fill="var(--warn)">지금 구조로는 문제</text>
+            <rect x="832" y="142" width="312" height="68" rx="9" fill="var(--lav-050)" stroke="var(--violet-500)"/><text class="box" x="988" y="165" text-anchor="middle">Bedrock AgentCore</text><text class="sub" x="988" y="181" text-anchor="middle">판정 · 이슈 · 시사점</text>
+            <rect x="832" y="226" width="312" height="68" rx="9" fill="var(--lav-050)" stroke="var(--violet-500)"/><text class="box" x="988" y="249" text-anchor="middle">비밀값 저장소</text><text class="sub" x="988" y="265" text-anchor="middle">API 키 12개</text>
+            <text class="sub" x="988" y="330" text-anchor="middle">적재 load → split → embed → store</text>
+            <text class="sub" x="988" y="348" text-anchor="middle">질의 request → embed → RAG</text>
+            <path d="M352 176 H408" stroke="var(--violet-500)" stroke-width="2" fill="none"/><path d="M408 171 L416 176 L408 181 Z" fill="var(--violet-500)"/>
+            <path d="M772 176 H824" stroke="var(--violet-500)" stroke-width="2" fill="none"/><path d="M824 171 L832 176 L824 181 Z" fill="var(--violet-500)"/>
+            <path d="M416 280 H352 V294" stroke="var(--lav-200)" stroke-width="1.6" stroke-dasharray="4 4" fill="none"/>
+            <path d="M772 280 H812" stroke="var(--lav-200)" stroke-width="1.6" stroke-dasharray="4 4" fill="none"/>
+            <rect x="640" y="460" width="168" height="22" rx="5" fill="var(--lav-050)" stroke="var(--violet-500)"/>
+            <text class="tag" x="724" y="475" text-anchor="middle" fill="var(--violet-800)">이번에 만들 것</text>
+            <rect x="816" y="460" width="168" height="22" rx="5" fill="var(--warn-bg)" stroke="var(--warn-line)"/>
+            <text class="tag" x="900" y="475" text-anchor="middle" fill="var(--warn)">지금 구조로는 문제</text>
+            <rect x="992" y="460" width="168" height="22" rx="5" fill="#fff" stroke="var(--lav-200)"/>
+            <text class="tag" x="1076" y="475" text-anchor="middle" fill="var(--muted)">이미 있음</text>
+          </svg>
+        </div>
+        <p class="fig-claim">샌드박스에 올리는 일은 <b>있는 것을 옮기는 작업이 아니다.</b> 요청이 지나는 길에서 <b>네 칸이 아직 없고</b>, 수집은 <b>지금 구조로는 컨테이너를 늘리는 순간 중복으로 돈다.</b></p>
+      </figure>
+
+      <!-- 2026-08-24: 04장에서 아래 세 블록을 지웠다 —
+           ⑴ "수집 대상 확장의 검토 범위"(수집 경로 · 뉴스룸 · 개인화)
+           ⑵ "논의 중인 확장 아이디어"(채널별 구독 · SMA · KANDLE)
+           ⑶ "수집 대상 지역"(국내→일본→미국→글로벌 + 답 없는 물음 4개 + 형태 판단)
+           이 장은 경영진 보고용이고, 위 타임라인이 결정된 것만 담는다. 지운 셋은 전부
+           결정 대상이 아니라 논의 단계였고, ⑶은 "일본만 한다"로 좁혀지면서 나머지 지역을
+           로드맵처럼 남길 이유가 없어졌다. 원문은 research/ 와 커밋 이력에 남아 있다. -->
+    </div>
+  </section>
+</article>
+
+<div class="divider"></div>
+
+<!-- 제작 방식 별첨 — 2026-08-21에 04장 "역할 분담" 절을 여기로 내렸다.
+     ⚠️ FIG 4-1(96행 SVG)은 그대로 옮기지 않았다. 그건 "구간이 순서대로 확정된다"를 증명하려고
+        만든 도해이고(점선→실선 steps(1,end)), 별첨에서는 그 주장을 하지 않는다 — §4.7 "증명할
+        주장이 없으면 정지가 맞다"에 따라 도해와 애니메이션을 함께 걷어내고 표 하나로 줄였다.
+        96행을 그대로 옮기는 것은 강등이 아니다.
+     ⚠️ RA 행은 나머지 셋과 성격이 다르다 — 개발이 끝나도 계속 돈다.
+        2026-08-22에 04장 "현재 상황" 카드가 제거되면서, 그 사실을 담고 있던 유일한 자리가
+        여기가 됐다. 그래서 각주에 매일 하는 일을 직접 적는다(종전에는 04장을 가리키기만 했다).
+        ⚠️ 04장으로 보내는 참조를 되살리지 말 것 — 가리킬 블록이 없다. -->
+<article id="appendix" class="chapter">
+  <section class="sec" aria-labelledby="sapx">
+    <div class="wrap">
+      <div class="sec-head rv">
+        <span class="sec-no">APPENDIX · HOW IT WAS BUILT</span>
+        <h3 class="sec-title" id="sapx">이 서비스를 만든 방법 — 네 개의 AI Agent가 역할을 나눠 맡았다</h3>
+        <p class="sec-lead">
+          기획 · 화면 설계 · 구현 · 리서치를 <b>각각 다른 AI Agent가 맡아</b> 이 서비스를 만들었다.
+          <b>AI Agent로 실제 서비스를 만든 사례</b>이므로, 역할을 어떻게 나눴는지 기록으로 남긴다.
+        </p>
       </div>
 
-      <div class="sec-head rv" style="margin-top:38px;margin-bottom:0">
-        <span class="sec-no">EXPANSION AXIS</span>
-        <h3 class="sec-title" style="font-size:20px">과제 1의 확장 축 — 대상 지역</h3>
-        <p class="sec-lead" style="font-size:15px">수집 대상 지역을 어디까지 넓힐지에 대한 검토 순서다.</p>
+      <div class="fig rv" style="margin-top:18px">
+        <table class="tbl">
+          <caption class="sr-only">개발에 참여한 네 AI Agent와 각자 맡은 일</caption>
+          <thead><tr><th>Agent</th><th>맡은 일</th></tr></thead>
+          <tbody>
+            <tr><td class="k">product manager</td><td>어떤 기능을 먼저 만들지 정하고, 제품이 지킬 기준을 세운다</td></tr>
+            <tr><td class="k">product designer</td><td>화면을 설계하고, 화면 전체가 같은 규칙을 따르도록 관리한다</td></tr>
+            <tr><td class="k">product engineer</td><td>화면 · 데이터 구조 · 수집 과정을 실제로 구현한다</td></tr>
+            <tr><td class="k">research analyst</td><td>수집된 뉴스를 검증하고 금융권 AI 도입 동향 보고서를 발행한다</td></tr>
+          </tbody>
+        </table>
       </div>
 
-      <div class="expand rv">
-        <div><span class="s">현재</span><span class="t">국내 금융사 · 보험사</span></div>
-        <div><span class="s">다음</span><span class="t">일본</span></div>
-        <div><span class="s">그다음</span><span class="t">미국</span></div>
-        <div><span class="s">이후</span><span class="t">글로벌</span></div>
-      </div>
-
-      <p class="foot-note rv" style="margin-top:16px"><b>이 축에서 답해야 하는 물음</b> — 답은 아직 없다. 정해진 것이 하나도 없어 물음만 적는다.</p>
-      <ul class="qs rv">
-        <li>어떤 매체를 볼 것인가.</li>
-        <li><b>합법적인 접근 경로는 무엇인가.</b> 막지 않는 경로만 쓴다 — 모든 지역에 걸리는 상위 제약이다.</li>
-        <li class="key"><b>판정 기준을 나라별로 나눌 것인가, 하나로 공용할 것인가.</b> 이 과제의 핵심 논점이다. 나라마다 금융 제도와 규제가 달라 기준을 나누고 싶어지지만, <b>기준을 나라마다 따로 두는 순간 01장 CONSISTENCY 축이 무너진다.</b> 같은 사안을 지역에 따라 다르게 판정하면 쌓인 자산을 나란히 놓고 볼 수 없다. <b>공용 기준을 두되 지역별 예외를 어디까지 허용할지</b>가 실제로 정해야 할 선이다.</li>
-        <li>화면에서 지역을 어떻게 구분해 보여줄 것인가.</li>
-      </ul>
-
-      <div class="note rv">
-        <span class="note-label">형태에 대한 기존 판단</span>
-        일본 확장은 <strong>별도 서비스를 하나 더 띄우는 것이 아니라 같은 화면의 대상 범위를 넓히는 방식</strong>으로 이미 결론이 나 있다.
-        미국 · 글로벌도 같은 판단선이 적용될 것으로 보이지만, 지역이 셋 이상으로 늘어날 때도 한 화면이 읽히는지는 화면 설계 단계에서 다시 확인해야 한다.
-      </div>
-
-      <div class="note caution rv">
-        <span class="note-label">협의 후 확정</span>
-        <strong>결론 · 일정 · 담당 범위는 비워 두었다.</strong> 협의 전에 정해진 것이 없으며, 협의 후 확정한다.
-      </div>
+      <p class="foot-note rv">
+        ※ 앞의 셋은 <b>서비스를 만드는 동안</b> 역할을 나눠 맡았다.
+        <b>research analyst는 만든 뒤에도 계속 일한다</b> — 지금도 매일 수집된 기사를 판정하고, 이슈로 묶고, 시사점을 쓰고, 기업 간 관계를 확인한다.
+      </p>
     </div>
   </section>
 </article>
@@ -2699,7 +3492,7 @@ svg text{font-family:var(--font);}
 </script>
 <script>
 /* ============================================================
-   2.3 씬 플레이어 — 2026-08-14 배치 10씬
+   2.3 씬 플레이어 — 2026-08-14 배치, 여덟 장면
    전역 노출은 window.AmwScenarioDemo 하나뿐
    ============================================================ */
 window.AmwScenarioDemo = (function(){
@@ -2709,37 +3502,39 @@ window.AmwScenarioDemo = (function(){
 
   var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  /* 2026-08-24 축약 — 10씬 97.2초 → 8씬 46.0초.
+     ⚠️ ask(14s) + filter(16s) 를 judge(8.5s) 하나로 합쳤다. 두 씬으로 나뉘어 있을 때
+        30초 동안 화면이 거의 안 변했고, "판별 질문 하나로 끝난다"처럼 보였다.
+     ⚠️ saturated(7s) + reask(15s) 도 except(7s) 하나로 합쳤다. 둘은 질문과 답이라
+        나눠 두면 22초 동안 답이 안 나온다.
+     ⚠️ dur 을 줄일 때는 씬 안의 --d 지연도 함께 당겨야 한다. 안 그러면 애니메이션이
+        끝나기 전에 다음 씬으로 넘어간다. 각 씬의 마지막 --d + 약 1초가 dur 의 하한이다.
+     ⚠️ step 은 상단 라벨 인덱스다. 라벨이 7개에서 6개로 줄어(제외 처리가 관련성 판정에
+        흡수) 3~5번 씬의 step 이 하나씩 당겨졌다. 라벨을 고치면 여기도 함께 고칠 것. */
   var SCENES = [
-    { key:'intake',    step:0,  dur:5400,  name:'수집',
+    { key:'intake',    step:0,  dur:5000,  name:'수집',
       eb:'DATA COLLECTION', tagType:'auto',  tag:'파이프라인 · 자동',
-      msg:'그날 <b>92건</b>을 수집했다 — 당일 34건과, 전날 늦게 올라온 58건이다.' },
-    { key:'ask',       step:1,  dur:14000, name:'관련성 판정',
+      msg:'그날 <b>92건</b>을 수집했다. 당일 34건과, 전날 늦게 올라온 58건이다.' },
+    { key:'judge',     step:1,  dur:8500,  name:'관련성 판정',
       eb:'RELEVANCE GATE', tagType:'human', tag:'research analyst · 사람 검증',
-      msg:'기사마다 같은 질문 하나로 판정한다 — <b>“AI를 빼도 이 기사가 성립하는가”</b>' },
-    { key:'filter',    step:2,  dur:16000, name:'제외 처리',
-      eb:'NOISE FILTER', tagType:'human', tag:'research analyst · 사람 검증',
-      msg:'제외 사유는 <b>몇 가지로 정해져</b> 있다.' },
-    { key:'keep',      step:3,  dur:11000, name:'검증 통과',
+      msg:'질문은 하나지만, <b>갈리는 자리는 여섯</b>이다. 92건 가운데 <b>5건</b>이 남는다.' },
+    { key:'keep',      step:2,  dur:5000,  name:'검증 통과',
       eb:'WHAT REMAINS', tagType:'human', tag:'research analyst · 사람 검증',
       msg:'<b>87건이 제외되고 5건이 남았다.</b>' },
-    { key:'group',     step:4,  dur:9000,  name:'이슈 그룹핑',
+    { key:'group',     step:3,  dur:5000,  name:'이슈 그룹핑',
       eb:'ISSUE GROUPING', tagType:'human', tag:'research analyst · 사람 검증',
       msg:'남은 5건이 <b>5개 이슈</b>가 된다.' },
-    { key:'grade',     step:5,  dur:9000,  name:'등급 부여',
+    { key:'grade',     step:4,  dur:5500,  name:'등급 부여',
       eb:'PRIORITY GRADE', tagType:'human', tag:'research analyst · 사람 검증',
       msg:'그날 새로 생긴 이슈는 <b>전부 2급</b>이다. 도구 도입 · 교육 · 투자 · 시범 적용 단계라 업무가 얼마나 바뀌었는지가 아직 나오지 않았기 때문이다.' },
-    { key:'publish',   step:6,  dur:5400,  name:'보고서 반영',
+    { key:'publish',   step:5,  dur:5000,  name:'보고서 반영',
       eb:'WEEKLY REPORT', tagType:'human', tag:'research analyst · 사람 검증',
       msg:'그 주 <b>1급 세 건</b>이 보고서 상단에 배치된다.' },
-    { key:'saturated', step:-1, dur:7000,  name:'수집 상한 도달',
+    { key:'except',    step:-1, dur:7000,  name:'예외 — 상한과 재판정',
       eb:'KEYWORD SATURATED', badge:'EXCEPTION', badgeType:'warn', warn:true,
-      tagType:'auto', tag:'파이프라인 · 자동',
-      msg:'<b>삼성화재 AI</b> 키워드가 그날 상한 10건에 도달했다.' },
-    { key:'reask',     step:-1, dur:15000, name:'재판정 결과',
-      eb:'ASK AGAIN', badge:'EXCEPTION', badgeType:'warn', warn:true,
       tagType:'human', tag:'research analyst · 사람 검증',
-      msg:'AI 기사가 많아서가 아니었다 — 상반기 실적 기사 6건과 공시가 채운 것이고, <b>AI 건은 2건뿐</b>이었다. <b>그래도 빈손은 아니다.</b>' },
-    { key:'inuse',     step:-1, dur:5400,  name:'활용 현황',
+      msg:'상한에 닿은 것이 AI 기사가 많아서는 아니었다. 상반기 실적 기사와 공시가 채운 것이고 <b>AI 건은 2건뿐</b>이었다. <b>그래도 빈손은 아니다.</b>' },
+    { key:'inuse',     step:-1, dur:5000,  name:'활용 현황',
       eb:'IN USE NOW', tagType:'auto', tag:'전 화면 · 동시',
       msg:'그날 남은 다섯 건은 지금 이 순간 <b>여러 화면에서 동시에</b> 활용되고 있다.' }
   ];
