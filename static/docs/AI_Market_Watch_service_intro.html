@@ -2796,7 +2796,7 @@ svg text{font-family:var(--font);}
         </figcaption>
         <div class="fig-body">
           <svg class="hl" viewBox="0 0 1180 330" role="img"
-               aria-label="주요 이슈가 두 개의 조건을 통과한다. 첫 번째 조건인 등급 1급을 통과한 네 건 가운데, 두 번째 조건인 근거 뉴스의 최신성에서 한 건이 탈락하고 세 건만 헤드라인으로 선정된다.">
+               aria-label="주요 이슈가 두 개의 조건을 통과한다. 왼쪽 목록의 이슈 여섯 건 가운데 등급이 1급인 A, C, D, F 네 건이 첫 번째 조건을 지나고, 2급인 B와 3급인 E는 출발하지 않는다. 두 번째 조건인 근거 뉴스의 최신성에서 근거가 오래된 C가 탈락하고, A와 D와 F 세 건이 헤드라인 1, 2, 3에 들어간다. 움직이는 동그라미 안의 글자가 그 이슈의 이름이다.">
             <g font-size="10.5" font-weight="800">
               <text x="36" y="26" letter-spacing=".13em" fill="var(--muted)">주요 이슈</text>
               <text x="380" y="26" letter-spacing=".13em" fill="var(--violet-800)">CONDITION 1</text>
@@ -2828,15 +2828,15 @@ svg text{font-family:var(--font);}
               <g class="slot" style="animation-delay:.24s"><rect x="890" y="256" width="254" height="52" rx="10" fill="var(--lav-100)" stroke="var(--violet-800)"/><text x="906" y="280">헤드라인 3</text><text x="906" y="298" font-size="9.5" font-weight="700" fill="var(--muted)">이슈 F</text></g>
             </g>
 
-            <g fill="var(--violet-800)">
-              <circle class="pass" cx="292" cy="62" r="5.5" style="--dx:600px;--dy:8px"/>
-              <circle class="pass" cx="292" cy="194" r="5.5" style="--dx:600px;--dy:-18px"/>
-              <circle class="pass" cx="292" cy="282" r="5.5" style="--dx:600px;--dy:0px"/>
-              <circle class="stop" cx="292" cy="150" r="5.5" style="--dx:418px;--dy:0px" fill="var(--violet-300)"/>
+            <g>
+              <g class="pass" style="--dx:580px;--dy:8px;"><circle cx="300" cy="62" r="9" fill="var(--violet-800)"/><text x="300" y="65.4" text-anchor="middle" font-size="9.5" font-weight="800" fill="#fff">A</text></g>
+              <g class="pass" style="--dx:580px;--dy:-18px;"><circle cx="300" cy="194" r="9" fill="var(--violet-800)"/><text x="300" y="197.4" text-anchor="middle" font-size="9.5" font-weight="800" fill="#fff">D</text></g>
+              <g class="pass" style="--dx:580px;--dy:0px;"><circle cx="300" cy="282" r="9" fill="var(--violet-800)"/><text x="300" y="285.4" text-anchor="middle" font-size="9.5" font-weight="800" fill="#fff">F</text></g>
+              <g class="stop" style="--dx:410px;--dy:0px;"><circle cx="300" cy="150" r="9" fill="var(--violet-300)"/><text x="300" y="153.4" text-anchor="middle" font-size="9.5" font-weight="800" fill="var(--violet-900)">C</text></g>
             </g>
-            <circle class="ring" cx="710" cy="150" r="16" fill="none" stroke="var(--violet-300)" stroke-width="1.6" style="animation:relRing 8s ease-out infinite both"/>
-            <g class="xmk" stroke="var(--violet-300)" stroke-width="3" stroke-linecap="round">
-              <path d="M702 142 L718 158"/><path d="M718 142 L702 158"/>
+            <circle class="ring" cx="710" cy="150" r="20" fill="none" stroke="var(--violet-300)" stroke-width="1.6" style="animation:relRing 8s ease-out infinite both"/>
+            <g class="xmk" stroke="var(--violet-800)" stroke-width="3" stroke-linecap="round">
+              <path d="M698 138 L722 162"/><path d="M722 138 L698 162"/>
             </g>
 
             <text x="36" y="322" font-size="11" font-weight="700" fill="var(--muted)">1급이어도 근거 뉴스가 오래된 이슈 C는 두 번째 조건에서 제외된다 — 등급만으로는 선정되지 않는다.</text>
