@@ -308,6 +308,11 @@ svg text{font-family:var(--font);}
 .tbl tbody tr:last-child td{border-bottom:0;}
 .tbl td.k{font-weight:800;color:var(--violet-900);white-space:nowrap;}
 .tbl td.n{width:44px;font-weight:800;color:var(--violet-500);text-align:center;}
+/* 04장 준비물 표의 상태 칸 — 확정된 것과 아직 확인이 필요한 것을 색으로 가른다.
+   ⚠️ 색만으로 구분하지 않는다. 글자 자체가 "확정"·"확인 필요"라 색을 못 봐도 읽힌다. */
+.tbl td.st{width:92px;white-space:nowrap;font-weight:800;font-size:12.5px;}
+.tbl td.st.ok{color:var(--violet-800);}
+.tbl td.st.chk{color:var(--warn);}
 .tbl td b{color:var(--violet-900);}
 
 /* 스크롤 등장 */
@@ -3327,9 +3332,26 @@ svg text{font-family:var(--font);}
           <tbody>
             <tr><td class="k">교보 키워드 추가</td><td>수집 키워드에 <b>교보 계열사</b>를 추가한다.</td></tr>
             <tr><td class="k">샌드박스 환경<br>서비스 구동</td><td>Django · Docker · PostgreSQL · pgvector를 샌드박스에 올려 <b>내부 직원이 웹에서 쓸 수 있게</b> 한다. <b>샌드박스 인프라 정책에 맞춰 구축한다.</b></td></tr>
-            <tr><td class="k">LLM 연동</td><td>수집한 기사를 <b>벡터 데이터베이스</b>에 적재하고 꺼내 쓰는 두 흐름을 만든다. 적재는 <b>load → split → embed → store</b> 순서로 색인을 만들고, 질의는 <b>request → embed → search → generate</b> 순서로 답을 만든다. 이 질의 방식을 <b>RAG</b>라고 부른다. 지금 research analyst가 사람 손으로 하는 관련성 판정 · 이슈 묶기 · 시사점 작성을 <b>AWS Bedrock AgentCore</b>로 처리한다.</td></tr>
+            <tr><td class="k">LLM 연동</td><td>수집한 기사를 <b>벡터 데이터베이스</b>에 적재하고 꺼내 쓰는 두 흐름을 만든다. 적재는 <b>load → split → embed → store</b> 순서로 색인을 만들고, 질의는 <b>request → embed → search → generate</b> 순서로 답을 만든다. 지금 research analyst가 수작업으로 수행하는 관련성 판정 · 이슈 묶기 · 시사점 작성을 <b>AWS Bedrock AgentCore</b>로 처리한다.</td></tr>
             <tr><td class="k">태블릿 대응<br>앱 배포</td><td>AI Market Watch를 <b>태블릿 동적 레이아웃</b>으로 수정하고, <b>TestFlight</b>에 업로드해 사내에서 받아 쓸 수 있게 한다.</td></tr>
             <tr><td class="k">QA</td><td>다섯 화면과 앱을 차례로 열어 확인한다.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+
+      <div class="fig rv" style="margin-top:18px">
+        <table class="tbl">
+          <caption class="sr-only">샌드박스 구축을 시작하기 전에 준비해야 하는 것과 각각의 상태. IAM 권한은 관리자 권한으로 발급하기로 확정했고, 외부 서비스 키와 Apple Developer 계정은 이미 보유하고 있다. AWS 계정과 Bedrock 모델 사용 승인, 접속 허용 IP 목록은 아직 확인이 필요하며, 데이터베이스 비밀번호와 Django 비밀키는 샌드박스용으로 새로 발급한다.</caption>
+          <thead><tr><th>시작 전에 필요한 것</th><th>내용</th><th>상태</th></tr></thead>
+          <tbody>
+            <tr><td class="k">IAM 권한</td><td>샌드박스 구축에 필요한 <b>관리자 권한</b>으로 발급한다.</td><td class="st ok">확정</td></tr>
+            <tr><td class="k">외부 서비스 키</td><td>Naver 검색 · OpenDART · Slack 은 지금 쓰는 값을 그대로 옮긴다. Anthropic · Voyage 키는 <b>Bedrock 으로 옮기면 필요 없어진다</b> — AWS 권한으로 대신 부른다.</td><td class="st ok">보유</td></tr>
+            <tr><td class="k">Apple Developer 계정</td><td>태블릿 앱을 TestFlight 에 올릴 때 쓴다.</td><td class="st ok">보유</td></tr>
+            <tr><td class="k">AWS 계정</td><td>샌드박스 전용 계정을 새로 여는지, 기존 계정 안에 두는지 정해야 한다.</td><td class="st chk">확인 필요</td></tr>
+            <tr><td class="k">Bedrock 모델 사용 승인</td><td>쓸 모델을 <b>리전마다 따로 신청해</b> 열어야 한다. 신청 없이는 호출이 거부된다.</td><td class="st chk">확인 필요</td></tr>
+            <tr><td class="k">접속 허용 IP</td><td>사내 공인 IP 목록을 받아야 한다. 이 목록이 없으면 아무도 못 들어온다.</td><td class="st chk">확인 필요</td></tr>
+            <tr><td class="k">데이터베이스 비밀번호<br>Django 비밀키</td><td>로컬 값을 그대로 쓰지 않고 샌드박스용으로 새로 만든다.</td><td class="st chk">신규 발급</td></tr>
           </tbody>
         </table>
       </div>
@@ -3341,7 +3363,7 @@ svg text{font-family:var(--font);}
         </figcaption>
         <div class="fig-body">
           <svg class="sbx" viewBox="0 0 1180 560" role="img"
-               aria-label="샌드박스 구축 구성을 프런트엔드 · 백엔드 · AI 세 영역으로 나눈 그림. 접속은 사내 공인 IP만 허용하고 로드밸런서를 지난다. 프런트엔드에는 브라우저에서 도는 화면과 정적 파일 서빙이 있고, 별도 프런트 서버는 없이 Django가 화면을 직접 렌더한다. 백엔드에는 Django와 gunicorn 컨테이너, PostgreSQL 16과 pgvector, 환경 설정값 19개, 뉴스 수집이 있다. AI 영역에는 Bedrock AgentCore가 있고 그 안에 Runtime, Gateway, 임베딩, 프롬프트 캐싱 네 가지를 쓴다. Runtime은 리서치 배치를 서버 없이 실행하고, Gateway는 Django 기능을 에이전트 도구로 노출하며, 임베딩은 기사 벡터를 만들고, 프롬프트 캐싱은 판정 기준 문서를 매번 보내지 않게 한다. 적재는 load에서 split, embed, store 순서로 색인을 만들고, 질의는 request에서 embed, search, generate 순서로 답을 만든다. 이 질의 방식을 RAG라고 부른다. 정적 파일 서빙, Django와 gunicorn 컨테이너, 환경 설정값, Bedrock AgentCore는 아직 없어 이번에 만들어야 한다. 임베딩은 지금 데이터베이스가 1024 차원으로 잡혀 있어 모델을 고르기 전에 차원을 맞춰야 한다. 뉴스 수집은 웹 서버 프로세스 안에서 돌아, 컨테이너를 둘 이상 띄우면 컨테이너마다 수집이 따로 실행돼 같은 기사가 여러 번 저장된다.">
+               aria-label="샌드박스 구축 구성을 프런트엔드 · 백엔드 · AI 세 영역으로 나눈 그림. 접속은 사내 공인 IP만 허용하고 로드밸런서를 지난다. 프런트엔드에는 브라우저에서 도는 화면과 정적 파일 서빙이 있고, 별도 프런트 서버는 없이 Django가 화면을 직접 렌더한다. 백엔드에는 Django와 gunicorn 컨테이너, PostgreSQL 16과 pgvector, 환경 설정값 19개, 뉴스 수집이 있다. AI 영역에는 Bedrock AgentCore가 있고 그 안에 Runtime, Gateway, 임베딩, 프롬프트 캐싱 네 가지를 쓴다. Runtime은 리서치 배치를 서버 없이 실행하고, Gateway는 Django 기능을 에이전트 도구로 노출하며, 임베딩은 기사 벡터를 만들고, 프롬프트 캐싱은 판정 기준 문서를 매번 보내지 않게 한다. 적재는 load에서 split, embed, store 순서로 색인을 만들고, 질의는 request에서 embed, search, generate 순서로 답을 만든다. 정적 파일 서빙, Django와 gunicorn 컨테이너, 환경 설정값, Bedrock AgentCore는 아직 없어 이번에 만들어야 한다. 임베딩은 지금 데이터베이스가 1024 차원으로 잡혀 있어 모델을 고르기 전에 차원을 맞춰야 한다. 뉴스 수집은 웹 서버 프로세스 안에서 돌아, 컨테이너를 둘 이상 띄우면 컨테이너마다 수집이 따로 실행돼 같은 기사가 여러 번 저장된다.">
               <text class="lbl" x="36" y="22">ACCESS</text>
               <rect x="36" y="32" width="268" height="46" rx="9" fill="#fff" stroke="var(--lav-200)"/><text class="box" x="170" y="59" text-anchor="middle">사내 공인 IP만 허용</text>
               <path d="M304 55 H344" stroke="var(--violet-500)" stroke-width="2" fill="none"/><path d="M344 50 L352 55 L344 60 Z" fill="var(--violet-500)"/>
