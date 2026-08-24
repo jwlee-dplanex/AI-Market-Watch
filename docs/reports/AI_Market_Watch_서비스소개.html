@@ -3332,38 +3332,43 @@ svg text{font-family:var(--font);}
       <figure class="fig rv" id="fig41" style="margin-top:26px">
         <figcaption class="fig-cap">
           <span class="fig-num">FIG 4-1</span>
-          <span class="fig-ttl">샌드박스 구축 구성 — 요청이 지나는 길과, 아직 없는 것</span>
-          <span class="fig-sub">테두리가 진한 칸은 이번에 만들어야 하는 것이고, 주황 칸은 지금 구조를 그대로 옮기면 샌드박스에서 문제가 되는 것이다.</span>
+          <span class="fig-ttl">샌드박스 구축 구성</span>
         </figcaption>
         <div class="fig-body">
-          <svg class="sbx" viewBox="0 0 1180 470" role="img"
-               aria-label="샌드박스 구축 구성. 바깥에서는 사내 공인 IP만 허용한다. 요청은 로드밸런서를 지나 Django와 gunicorn 컨테이너로 가고, 컨테이너는 PostgreSQL 16과 pgvector에 읽고 쓴다. 컨테이너 옆에는 정적 파일 서빙과 비밀값 저장소, Bedrock AgentCore가 붙는다. 뉴스 수집은 지금 앱 프로세스 안에서 돌아 컨테이너를 둘 이상 띄우면 같은 수집이 중복 실행된다. Django와 gunicorn 컨테이너, 정적 파일 서빙, 비밀값 저장소, AgentCore 연동은 아직 없어 이번에 만들어야 한다.">
-            <text class="lbl" x="36" y="24">OUTSIDE</text>
-            <rect x="36" y="36" width="300" height="50" rx="9" fill="#fff" stroke="var(--lav-200)"/><text class="box" x="186" y="65" text-anchor="middle">사내 공인 IP만 허용</text>
-            <path d="M186 86 V114" stroke="var(--violet-500)" stroke-width="2" fill="none"/><path d="M181 114 L186 122 L191 114 Z" fill="var(--violet-500)"/>
-            <rect x="16" y="112" width="1148" height="336" rx="14" fill="none" stroke="var(--violet-500)" stroke-dasharray="6 5"/>
-            <text class="lbl" x="36" y="136" fill="var(--violet-800)">SANDBOX</text>
-            <rect x="36" y="150" width="300" height="56" rx="9" fill="#fff" stroke="var(--lav-200)"/><text class="box" x="186" y="174" text-anchor="middle">로드밸런서</text><text class="sub" x="186" y="190" text-anchor="middle">도메인 · 인증서</text>
-            <path d="M186 206 V238" stroke="var(--violet-500)" stroke-width="2" fill="none"/><path d="M181 238 L186 246 L191 238 Z" fill="var(--violet-500)"/>
-            <rect x="36" y="246" width="300" height="70" rx="9" fill="var(--lav-050)" stroke="var(--violet-500)"/><text class="box" x="186" y="270" text-anchor="middle">Django + gunicorn 컨테이너</text><text class="sub" x="186" y="286" text-anchor="middle">WSGI 구동 · 이미지 빌드</text><text class="tag" x="186" y="307" text-anchor="middle" fill="var(--violet-800)">만들 것</text>
-            <path d="M186 316 V348" stroke="var(--violet-500)" stroke-width="2" fill="none"/><path d="M181 348 L186 356 L191 348 Z" fill="var(--violet-500)"/>
-            <rect x="36" y="356" width="300" height="70" rx="9" fill="#fff" stroke="var(--lav-200)"/><text class="box" x="186" y="380" text-anchor="middle">PostgreSQL 16 + pgvector</text><text class="sub" x="186" y="396" text-anchor="middle">뉴스 · 임베딩 · 이슈</text>
-            <rect x="392" y="246" width="250" height="70" rx="9" fill="var(--lav-050)" stroke="var(--violet-500)"/><text class="box" x="517" y="270" text-anchor="middle">정적 파일 서빙</text><text class="sub" x="517" y="286" text-anchor="middle">collectstatic 대상</text><text class="tag" x="517" y="307" text-anchor="middle" fill="var(--violet-800)">만들 것</text>
-            <rect x="392" y="356" width="250" height="70" rx="9" fill="var(--lav-050)" stroke="var(--violet-500)"/><text class="box" x="517" y="380" text-anchor="middle">비밀값 저장소</text><text class="sub" x="517" y="396" text-anchor="middle">API 키 12개</text><text class="tag" x="517" y="417" text-anchor="middle" fill="var(--violet-800)">만들 것</text>
-            <rect x="698" y="246" width="262" height="70" rx="9" fill="var(--lav-050)" stroke="var(--violet-500)"/><text class="box" x="829" y="270" text-anchor="middle">Bedrock AgentCore</text><text class="sub" x="829" y="286" text-anchor="middle">판정 · 이슈 · 시사점</text><text class="tag" x="829" y="307" text-anchor="middle" fill="var(--violet-800)">만들 것</text>
-            <text class="sub" x="829" y="338" text-anchor="middle">적재 load → split → embed → store</text>
-            <text class="sub" x="829" y="354" text-anchor="middle">질의 request → embed → RAG</text>
-            <rect x="698" y="372" width="262" height="54" rx="9" fill="var(--warn-bg)" stroke="var(--warn-line)"/><text class="box" x="829" y="396" text-anchor="middle">뉴스 수집</text><text class="sub" x="829" y="412" text-anchor="middle">앱 프로세스 안에서 실행</text><text class="tag" x="829" y="417" text-anchor="middle" fill="var(--warn)">지금 구조로는 문제</text>
-            <path d="M336 281 H392" stroke="var(--lav-200)" stroke-width="1.6" stroke-dasharray="4 4" fill="none"/>
-            <path d="M336 391 H392" stroke="var(--lav-200)" stroke-width="1.6" stroke-dasharray="4 4" fill="none"/>
-            <path d="M642 281 H698" stroke="var(--lav-200)" stroke-width="1.6" stroke-dasharray="4 4" fill="none"/>
-            <path d="M990 281 H1000" stroke="var(--lav-200)" stroke-width="1.6" stroke-dasharray="4 4" fill="none"/>
-            <rect x="1000" y="150" width="148" height="20" rx="5" fill="var(--lav-050)" stroke="var(--violet-500)"/>
-            <text class="tag" x="1074" y="164" text-anchor="middle" fill="var(--violet-800)">만들 것</text>
-            <rect x="1000" y="178" width="148" height="20" rx="5" fill="var(--warn-bg)" stroke="var(--warn-line)"/>
-            <text class="tag" x="1074" y="192" text-anchor="middle" fill="var(--warn)">지금 구조로는 문제</text>
-            <rect x="1000" y="206" width="148" height="20" rx="5" fill="#fff" stroke="var(--lav-200)"/>
-            <text class="tag" x="1074" y="220" text-anchor="middle" fill="var(--muted)">이미 있음</text>
+          <svg class="sbx" viewBox="0 0 1180 496" role="img"
+               aria-label="샌드박스 구축 구성을 프런트엔드 · 백엔드 · AI 세 영역으로 나눈 그림. 접속은 사내 공인 IP만 허용하고 로드밸런서를 지난다. 프런트엔드에는 브라우저에서 도는 화면과 정적 파일 서빙이 있고, 별도 프런트 서버는 없이 Django가 화면을 직접 렌더한다. 백엔드에는 Django와 gunicorn 컨테이너, PostgreSQL 16과 pgvector, 뉴스 수집이 있다. AI 영역에는 Bedrock AgentCore와 비밀값 저장소가 있고, 적재는 load에서 split, embed, store 순서이며 질의는 request에서 embed, RAG 순서다. 정적 파일 서빙, Django와 gunicorn 컨테이너, Bedrock AgentCore, 비밀값 저장소는 아직 없어 이번에 만들어야 한다. 뉴스 수집은 앱 프로세스 안에서 돌아 컨테이너를 둘 이상 띄우면 같은 수집이 중복 실행된다.">
+            <text class="lbl" x="36" y="22">ACCESS</text>
+            <rect x="36" y="32" width="268" height="46" rx="9" fill="#fff" stroke="var(--lav-200)"/><text class="box" x="170" y="59" text-anchor="middle">사내 공인 IP만 허용</text>
+            <path d="M304 55 H344" stroke="var(--violet-500)" stroke-width="2" fill="none"/><path d="M344 50 L352 55 L344 60 Z" fill="var(--violet-500)"/>
+            <rect x="352" y="32" width="236" height="46" rx="9" fill="#fff" stroke="var(--lav-200)"/><text class="box" x="470" y="59" text-anchor="middle">로드밸런서</text>
+            <rect x="16" y="106" width="356" height="330" rx="14" fill="none" stroke="var(--violet-500)" stroke-dasharray="6 5"/>
+            <text class="lbl" x="36" y="128" fill="var(--violet-800)">FRONTEND</text>
+            <rect x="396" y="106" width="396" height="330" rx="14" fill="none" stroke="var(--violet-500)" stroke-dasharray="6 5"/>
+            <text class="lbl" x="416" y="128" fill="var(--violet-800)">BACKEND</text>
+            <rect x="812" y="106" width="352" height="330" rx="14" fill="none" stroke="var(--violet-500)" stroke-dasharray="6 5"/>
+            <text class="lbl" x="832" y="128" fill="var(--violet-800)">AI</text>
+            <rect x="36" y="142" width="316" height="68" rx="9" fill="#fff" stroke="var(--lav-200)"/><text class="box" x="194" y="165" text-anchor="middle">브라우저 화면</text><text class="sub" x="194" y="181" text-anchor="middle">Tailwind · HTMX · Alpine</text>
+            <rect x="36" y="226" width="316" height="68" rx="9" fill="var(--lav-050)" stroke="var(--violet-500)"/><text class="box" x="194" y="249" text-anchor="middle">정적 파일 서빙</text><text class="sub" x="194" y="265" text-anchor="middle">collectstatic 대상</text>
+            <text class="sub" x="194" y="330" text-anchor="middle">별도 프런트 서버는 없다.</text>
+            <text class="sub" x="194" y="346" text-anchor="middle">Django 가 화면을 직접 렌더한다(SSR).</text>
+            <rect x="416" y="142" width="356" height="68" rx="9" fill="var(--lav-050)" stroke="var(--violet-500)"/><text class="box" x="594" y="165" text-anchor="middle">Django + gunicorn 컨테이너</text><text class="sub" x="594" y="181" text-anchor="middle">WSGI 구동 · 이미지 빌드</text>
+            <path d="M594 210 V238" stroke="var(--violet-500)" stroke-width="2" fill="none"/><path d="M589 238 L594 246 L599 238 Z" fill="var(--violet-500)"/>
+            <rect x="416" y="246" width="356" height="68" rx="9" fill="#fff" stroke="var(--lav-200)"/><text class="box" x="594" y="269" text-anchor="middle">PostgreSQL 16 + pgvector</text><text class="sub" x="594" y="285" text-anchor="middle">뉴스 · 임베딩 · 이슈</text>
+            <rect x="416" y="330" width="356" height="68" rx="9" fill="var(--warn-bg)" stroke="var(--warn-line)"/><text class="box" x="594" y="353" text-anchor="middle">뉴스 수집</text><text class="sub" x="594" y="369" text-anchor="middle">앱 프로세스 안에서 실행</text><text class="tag" x="594" y="388" text-anchor="middle" fill="var(--warn)">지금 구조로는 문제</text>
+            <rect x="832" y="142" width="312" height="68" rx="9" fill="var(--lav-050)" stroke="var(--violet-500)"/><text class="box" x="988" y="165" text-anchor="middle">Bedrock AgentCore</text><text class="sub" x="988" y="181" text-anchor="middle">판정 · 이슈 · 시사점</text>
+            <rect x="832" y="226" width="312" height="68" rx="9" fill="var(--lav-050)" stroke="var(--violet-500)"/><text class="box" x="988" y="249" text-anchor="middle">비밀값 저장소</text><text class="sub" x="988" y="265" text-anchor="middle">API 키 12개</text>
+            <text class="sub" x="988" y="330" text-anchor="middle">적재 load → split → embed → store</text>
+            <text class="sub" x="988" y="348" text-anchor="middle">질의 request → embed → RAG</text>
+            <path d="M352 176 H408" stroke="var(--violet-500)" stroke-width="2" fill="none"/><path d="M408 171 L416 176 L408 181 Z" fill="var(--violet-500)"/>
+            <path d="M772 176 H824" stroke="var(--violet-500)" stroke-width="2" fill="none"/><path d="M824 171 L832 176 L824 181 Z" fill="var(--violet-500)"/>
+            <path d="M416 280 H352 V294" stroke="var(--lav-200)" stroke-width="1.6" stroke-dasharray="4 4" fill="none"/>
+            <path d="M772 280 H812" stroke="var(--lav-200)" stroke-width="1.6" stroke-dasharray="4 4" fill="none"/>
+            <rect x="640" y="460" width="168" height="22" rx="5" fill="var(--lav-050)" stroke="var(--violet-500)"/>
+            <text class="tag" x="724" y="475" text-anchor="middle" fill="var(--violet-800)">이번에 만들 것</text>
+            <rect x="816" y="460" width="168" height="22" rx="5" fill="var(--warn-bg)" stroke="var(--warn-line)"/>
+            <text class="tag" x="900" y="475" text-anchor="middle" fill="var(--warn)">지금 구조로는 문제</text>
+            <rect x="992" y="460" width="168" height="22" rx="5" fill="#fff" stroke="var(--lav-200)"/>
+            <text class="tag" x="1076" y="475" text-anchor="middle" fill="var(--muted)">이미 있음</text>
           </svg>
         </div>
         <p class="fig-claim">샌드박스에 올리는 일은 <b>있는 것을 옮기는 작업이 아니다.</b> 요청이 지나는 길에서 <b>네 칸이 아직 없고</b>, 수집은 <b>지금 구조로는 컨테이너를 늘리는 순간 중복으로 돈다.</b></p>
