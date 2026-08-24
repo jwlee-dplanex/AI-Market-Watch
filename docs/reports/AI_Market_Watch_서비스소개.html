@@ -954,7 +954,10 @@ svg text{font-family:var(--font);}
 .tl th.who{width:104px;font-size:10.5px;letter-spacing:.08em;color:var(--muted);}
 .tl td.job{text-align:left;padding:9px 12px;font-weight:800;color:var(--violet-950);font-size:12.5px;line-height:1.45;}
 .tl td.who{font-weight:700;color:var(--violet-800);font-size:11px;white-space:nowrap;}
-.tl td.d{width:auto;height:38px;}
+/* ⚠️ 날짜 칸 15개는 폭이 같아야 한다. width:auto 로 두면 막대가 칠해진 칸과
+   빈 칸의 폭이 내용에 따라 달라져 격자가 어긋난다. table-layout:fixed 와 함께 쓴다. */
+.tl{table-layout:fixed;}
+.tl td.d{width:4.6%;height:38px;}
 .tl td.on{background:var(--violet-800);}
 .tl td.on.b{background:var(--violet-500);}
 .tl tbody tr:hover td.job{color:var(--violet-800);}
@@ -3284,22 +3287,18 @@ svg text{font-family:var(--font);}
       <div class="sec-head rv">
         <span class="sec-no">TIMELINE</span>
         <h3 class="sec-title" id="s41">진행 순서 — 무엇을 언제 하는가</h3>
-        <p class="sec-lead">
-          작업은 다섯 가지이며 <b>15영업일</b>이 걸린다. 앞의 작업이 끝나야 뒤가 시작되는 순서다.
-          <b>시작일은 협의에서 정한다</b> — 그래서 아래 날짜는 첫날을 1일로 둔 상대 일수다.
-        </p>
       </div>
 
       <div class="fig rv" style="margin-top:18px">
         <table class="tl">
-          <caption class="sr-only">작업 다섯 가지와 각 작업이 걸리는 일수. 교보 뉴스룸은 1일차, AWS ECS 인프라와 서비스 가동은 2일차부터 6일차까지, LLM API 연동은 7일차부터 11일차까지, 태블릿 · 모바일 대응 및 앱 배포는 12일차부터 14일차까지, QA는 15일차다. 모두 15영업일이 걸린다.</caption>
+          <caption class="sr-only">작업 다섯 가지와 각 작업이 걸리는 일수. 교보 뉴스룸은 1일차, 샌드박스 환경과 서비스 구동은 2일차부터 6일차까지, 판정과 이슈와 시사점 자동 처리는 7일차부터 11일차까지, 태블릿 · 모바일 대응 및 앱 배포는 12일차부터 14일차까지, QA는 15일차다. 모두 15영업일이 걸린다.</caption>
           <thead>
             <tr><th class="job">작업</th><th class="who">함께</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th class="w">6</th><th>7</th><th>8</th><th>9</th><th>10</th><th class="w">11</th><th>12</th><th>13</th><th>14</th><th>15</th></tr>
           </thead>
           <tbody>
             <tr><td class="job">교보 뉴스룸</td><td class="who">w. 륜호님</td><td class="d on"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td></tr>
-            <tr><td class="job">AWS ECS 인프라 · 서비스 가동</td><td class="who">w. 용만님</td><td class="d"></td><td class="d on b"></td><td class="d on b"></td><td class="d on b"></td><td class="d on b"></td><td class="d on b"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td></tr>
-            <tr><td class="job">LLM API 연동</td><td class="who"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d on"></td><td class="d on"></td><td class="d on"></td><td class="d on"></td><td class="d on"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td></tr>
+            <tr><td class="job">샌드박스 환경 · 서비스 구동</td><td class="who">w. 용만님</td><td class="d"></td><td class="d on b"></td><td class="d on b"></td><td class="d on b"></td><td class="d on b"></td><td class="d on b"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td></tr>
+            <tr><td class="job">판정 · 이슈 · 시사점 자동 처리</td><td class="who"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d on"></td><td class="d on"></td><td class="d on"></td><td class="d on"></td><td class="d on"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td></tr>
             <tr><td class="job">태블릿 · 모바일 대응 및 앱 배포</td><td class="who"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d on b"></td><td class="d on b"></td><td class="d on b"></td><td class="d"></td></tr>
             <tr><td class="job">QA</td><td class="who"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d on"></td></tr>
           </tbody>
@@ -3313,8 +3312,8 @@ svg text{font-family:var(--font);}
           <thead><tr><th>작업</th><th>하는 일</th></tr></thead>
           <tbody>
             <tr><td class="k">교보 뉴스룸</td><td>기업을 그룹으로 묶어 보는 화면을 만든다. 사이드바에 <b>교보 뉴스룸</b>을 두고, 교보생명 · 교보라이프플래닛을 한 그룹으로 묶어 그 안의 내용을 채운다.</td></tr>
-            <tr><td class="k">AWS ECS 인프라<br>서비스 가동</td><td>Django · Docker · PostgreSQL · pgvector를 ECS에 올려 화면과 서버가 함께 돌게 한다. 외부에서 안전하게 접속할 수 있도록 <b>HTTPS</b>까지 갖춘다.</td></tr>
-            <tr><td class="k">LLM API 연동</td><td>지금 research analyst가 사람 손으로 하는 <b>관련성 판정 · 이슈 묶기 · 시사점 작성</b>을 LLM API로 연동한다.</td></tr>
+            <tr><td class="k">샌드박스 환경<br>서비스 구동</td><td>Django · Docker · PostgreSQL · pgvector를 샌드박스에 올려 <b>내부 직원이 웹에서 쓸 수 있게</b> 한다. 어떤 인스턴스에 올릴지는 <b>인프라 정책에 맞춰 정한다.</b> 접속은 <b>사내 공인 IP만 허용</b>하며, 도메인 사용 여부는 확인 중이다.</td></tr>
+            <tr><td class="k">판정 · 이슈 · 시사점<br>자동 처리</td><td>지금 research analyst가 사람 손으로 하는 <b>관련성 판정 · 이슈 묶기 · 시사점 작성</b>을 자동으로 처리한다. <b>모델이 후보 목록까지 만들고 사람이 확인한 뒤 반영한다</b> — 삭제와 발행은 사람 손을 거친다.</td></tr>
             <tr><td class="k">태블릿 · 모바일 대응<br>앱 배포</td><td>화면을 태블릿과 휴대폰 폭에서도 읽히게 맞춘다(사이드바는 <b>햄버거 버튼</b>으로 접는다). 그 화면을 앱으로 감싸 <b>TestFlight</b>에 올려 사내에서 받아 쓸 수 있게 한다.</td></tr>
             <tr><td class="k">QA</td><td>다섯 화면과 앱을 차례로 열어 확인한다.</td></tr>
           </tbody>
