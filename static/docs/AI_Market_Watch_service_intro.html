@@ -1414,9 +1414,6 @@ svg text{font-family:var(--font);}
       <div>
         <span class="chap-label">SERVICE</span>
         <h2 class="chap-title">서비스 설명</h2>
-        <p class="chap-desc">
-          서비스 개요와 화면 구성, 그리고 <b>실제 운영 기록</b>을 정리한다.
-        </p>
       </div>
     </header>
   </div>
@@ -1669,14 +1666,14 @@ svg text{font-family:var(--font);}
             <caption class="sr-only">처리 단계 8단계와 각 단계의 작업 내용</caption>
             <thead><tr><th>#</th><th>단계</th><th>작업 내용</th></tr></thead>
             <tbody>
-              <tr><td class="n">1</td><td class="k">수집</td><td>등록한 키워드로 금융·보험권 AI 뉴스를 수집한다</td></tr>
-              <tr><td class="n">2</td><td class="k">문서 분할</td><td>기사를 뜻이 이어지는 단위로 잘라 다루기 좋은 크기로 만든다</td></tr>
-              <tr><td class="n">3</td><td class="k">의미 색인 생성</td><td>잘라 둔 문장을 뜻이 비슷한지 견줄 수 있는 형태로 바꾼다</td></tr>
-              <tr><td class="n">4</td><td class="k">색인 저장</td><td>바꾼 색인을 나중에 찾아볼 수 있도록 저장한다</td></tr>
-              <tr><td class="n">5</td><td class="k">유사 기사 그룹핑</td><td>의미가 유사한 기사를 같은 이슈로 묶는다</td></tr>
-              <tr><td class="n">6</td><td class="k">중요도 정렬</td><td>묶인 기사 가운데 관련도가 높은 것을 상위로 정렬한다</td></tr>
-              <tr><td class="n">7</td><td class="k">근거 기반 시사점 작성</td><td>물음에 답할 근거 기사를 찾아 시사점을 쓴다</td></tr>
-              <tr><td class="n">8</td><td class="k">기업 관계 등록</td><td>기사에서 확인된 기업 간 관계를 지식그래프에 등록한다</td></tr>
+              <tr><td class="n">1</td><td class="k">수집</td><td>등록한 키워드로 금융·보험권 AI 뉴스를 수집함</td></tr>
+              <tr><td class="n">2</td><td class="k">문서 분할</td><td>기사를 뜻이 이어지는 단위로 잘라 다루기 좋은 크기로 만듦</td></tr>
+              <tr><td class="n">3</td><td class="k">의미 색인 생성</td><td>잘라 둔 문장을 뜻이 비슷한지 견줄 수 있는 형태로 바꿈</td></tr>
+              <tr><td class="n">4</td><td class="k">색인 저장</td><td>바꾼 색인을 나중에 찾아볼 수 있도록 저장함</td></tr>
+              <tr><td class="n">5</td><td class="k">유사 기사 그룹핑</td><td>의미가 유사한 기사를 같은 이슈로 묶음</td></tr>
+              <tr><td class="n">6</td><td class="k">중요도 정렬</td><td>묶인 기사 가운데 관련도가 높은 것을 상위로 정렬함</td></tr>
+              <tr><td class="n">7</td><td class="k">근거 기반 시사점 작성</td><td>물음에 답할 근거 기사를 찾아 시사점을 씀</td></tr>
+              <tr><td class="n">8</td><td class="k">기업 관계 등록</td><td>기사에서 확인된 기업 간 관계를 지식그래프에 등록함</td></tr>
             </tbody>
           </table>
         </div>
@@ -3267,7 +3264,7 @@ svg text{font-family:var(--font);}
         <li class="effect rv" style="--d:300ms">
           <span class="idx" aria-hidden="true">07</span>
           <span class="tx">외부 조사 범위 축소
-            <span class="d">공개 자료로 확인되는 현황·동향은 내부에서 확보한다. 외부에는 내부 인터뷰처럼 직접 수행해야 하는 부분만 의뢰한다.</span>
+            <span class="d">공개 자료로 확인되는 현황·동향은 내부에서 확보함. 외부에는 내부 인터뷰처럼 직접 수행해야 하는 부분만 의뢰함</span>
           </span>
         </li>
       </ol>
@@ -3284,10 +3281,6 @@ svg text{font-family:var(--font);}
       <div>
         <span class="chap-label">NEXT STEPS</span>
         <h2 class="chap-title">구축 계획</h2>
-        <p class="chap-desc">
-          앞으로 정해야 할 사항을 적는다.<br>
-          협의 전에 결론을 미리 써 두지 않았다.
-        </p>
       </div>
     </header>
   </div>
@@ -3330,11 +3323,11 @@ svg text{font-family:var(--font);}
           <caption class="sr-only">작업 다섯 가지와 각 작업에서 하는 일</caption>
           <thead><tr><th>작업</th><th>하는 일</th></tr></thead>
           <tbody>
-            <tr><td class="k">교보 키워드 추가</td><td>수집 키워드에 <b>교보 계열사</b>를 추가한다.</td></tr>
-            <tr><td class="k">샌드박스 환경<br>서비스 구동</td><td>Django · Docker · PostgreSQL · pgvector를 샌드박스에 올려 <b>내부 직원이 웹에서 쓸 수 있게</b> 한다. <b>샌드박스 인프라 정책에 맞춰 구축한다.</b></td></tr>
-            <tr><td class="k">LLM 연동</td><td>수집한 기사를 <b>벡터 데이터베이스</b>에 적재하고 꺼내 쓰는 두 흐름을 만든다. 적재는 <b>load → split → embed → store</b> 순서로 색인을 만들고, 질의는 <b>request → embed → search → generate</b> 순서로 답을 만든다. 지금 research analyst가 수작업으로 수행하는 관련성 판정 · 이슈 묶기 · 시사점 작성을 <b>AWS Bedrock AgentCore</b>로 처리한다.</td></tr>
-            <tr><td class="k">태블릿 대응<br>앱 배포</td><td>AI Market Watch를 <b>태블릿 동적 레이아웃</b>으로 수정하고, <b>TestFlight</b>에 업로드해 사내에서 받아 쓸 수 있게 한다.</td></tr>
-            <tr><td class="k">QA</td><td>다섯 화면과 앱을 차례로 열어 확인한다.</td></tr>
+            <tr><td class="k">교보 키워드 추가</td><td>수집 키워드에 <b>교보 계열사</b>를 추가함</td></tr>
+            <tr><td class="k">샌드박스 환경<br>서비스 구동</td><td>Django · Docker · PostgreSQL · pgvector를 샌드박스에 올려 <b>내부 직원이 웹에서 쓸 수 있게</b> 함. <b>샌드박스 인프라 정책에 맞춰 구축함</b></td></tr>
+            <tr><td class="k">LLM 연동</td><td>수집한 기사를 <b>벡터 데이터베이스</b>에 적재하고 꺼내 쓰는 두 흐름을 만듦. 적재는 <b>load → split → embed → store</b> 순서로 색인을 만들고, 질의는 <b>request → embed → search → generate</b> 순서로 답을 만듦. 지금 research analyst가 수작업으로 수행하는 관련성 판정 · 이슈 묶기 · 시사점 작성을 <b>AWS Bedrock AgentCore</b>로 처리함</td></tr>
+            <tr><td class="k">태블릿 대응<br>앱 배포</td><td>AI Market Watch를 <b>태블릿 동적 레이아웃</b>으로 수정하고, <b>TestFlight</b>에 업로드해 사내에서 받아 쓸 수 있게 함</td></tr>
+            <tr><td class="k">QA</td><td>다섯 화면과 앱을 차례로 열어 확인함</td></tr>
           </tbody>
         </table>
       </div>
@@ -3345,10 +3338,10 @@ svg text{font-family:var(--font);}
           <caption class="sr-only">샌드박스 구축을 시작하기 전에 준비해야 하는 것과 각각의 상태. 네이버 검색 키는 지금 쓰던 값을 그대로 쓰고, Apple Developer 계정은 SMA 와 같은 계정을 쓴다. AWS 계정과 관리자 권한은 요청하면 바로 발급받을 수 있고, 도메인은 논의를 거쳐 발급할 예정이며, 구축과 별개로 진행할 수 있어 후순위다.</caption>
           <thead><tr><th>시작 전에 필요한 것</th><th>내용</th><th>상태</th></tr></thead>
           <tbody>
-            <tr><td class="k">외부 서비스 키</td><td>네이버 검색 키는 지금 쓰던 값을 그대로 쓴다.</td><td class="st ok">보유</td></tr>
-            <tr><td class="k">Apple Developer 계정</td><td><b>SMA</b> 와 같은 계정을 쓴다.</td><td class="st ok">보유</td></tr>
-            <tr><td class="k">AWS 계정 · 관리자 키</td><td><b>용만님</b>께 요청하면 바로 발급 가능하다.</td><td class="st ok">확정</td></tr>
-            <tr><td class="k">도메인</td><td><b>용만님 · 혜진님</b> 논의 후 발급 예정이다. 도메인을 연결하는 일이라 구축과 별개로 진행할 수 있다.</td><td class="st later">후순위</td></tr>
+            <tr><td class="k">외부 서비스 키</td><td>네이버 검색 키는 지금 쓰던 값을 그대로 씀</td><td class="st ok">보유</td></tr>
+            <tr><td class="k">Apple Developer 계정</td><td><b>SMA</b> 와 같은 계정을 씀</td><td class="st ok">보유</td></tr>
+            <tr><td class="k">AWS 계정 · 관리자 키</td><td><b>용만님</b>께 요청하면 바로 발급 가능</td><td class="st ok">확정</td></tr>
+            <tr><td class="k">도메인</td><td><b>용만님 · 혜진님</b> 논의 후 발급 예정. 도메인을 연결하는 일이라 구축과 별개로 진행 가능</td><td class="st later">후순위</td></tr>
           </tbody>
         </table>
               <p class="foot-note" style="margin:14px 16px 15px">※ 샌드박스 영역의 개발 스펙과 운영 모니터링은 현재 별도로 진행되고 있지 않다. Bedrock 모델 사용 승인처럼 미리 열어 두어야 하는 항목을 사전에 점검하는 절차도 아직 없다.</p>
@@ -3453,10 +3446,10 @@ svg text{font-family:var(--font);}
           <caption class="sr-only">개발에 참여한 네 AI Agent와 각자 맡은 일</caption>
           <thead><tr><th>Agent</th><th>맡은 일</th></tr></thead>
           <tbody>
-            <tr><td class="k">product manager</td><td>어떤 기능을 먼저 만들지 정하고, 제품이 지킬 기준을 세운다</td></tr>
-            <tr><td class="k">product designer</td><td>화면을 설계하고, 화면 전체가 같은 규칙을 따르도록 관리한다</td></tr>
-            <tr><td class="k">product engineer</td><td>화면 · 데이터 구조 · 수집 과정을 실제로 구현한다</td></tr>
-            <tr><td class="k">research analyst</td><td>수집된 뉴스를 검증하고 금융권 AI 도입 동향 보고서를 발행한다</td></tr>
+            <tr><td class="k">product manager</td><td>어떤 기능을 먼저 만들지 정하고, 제품이 지킬 기준을 세움</td></tr>
+            <tr><td class="k">product designer</td><td>화면을 설계하고, 화면 전체가 같은 규칙을 따르도록 관리함</td></tr>
+            <tr><td class="k">product engineer</td><td>화면 · 데이터 구조 · 수집 과정을 실제로 구현함</td></tr>
+            <tr><td class="k">research analyst</td><td>수집된 뉴스를 검증하고 금융권 AI 도입 동향 보고서를 발행함</td></tr>
           </tbody>
         </table>
       </div>
