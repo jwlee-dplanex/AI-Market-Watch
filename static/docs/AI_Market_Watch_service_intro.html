@@ -3339,7 +3339,7 @@ svg text{font-family:var(--font);}
         </figcaption>
         <div class="fig-body">
           <svg class="sbx" viewBox="0 0 1180 560" role="img"
-               aria-label="샌드박스 구축 구성을 프런트엔드 · 백엔드 · AI 세 영역으로 나눈 그림. 접속은 사내 공인 IP만 허용하고 로드밸런서를 지난다. 프런트엔드에는 브라우저에서 도는 화면과 정적 파일 서빙이 있고, 별도 프런트 서버는 없이 Django가 화면을 직접 렌더한다. 백엔드에는 Django와 gunicorn 컨테이너, PostgreSQL 16과 pgvector, 환경 설정값 19개, 뉴스 수집이 있다. AI 영역에는 Bedrock AgentCore가 있고 그 안에 Runtime, Gateway, 임베딩, 프롬프트 캐싱 네 가지를 쓴다. Runtime은 리서치 배치를 서버 없이 실행하고, Gateway는 Django 기능을 에이전트 도구로 노출하며, 임베딩은 기사 벡터를 만들고, 프롬프트 캐싱은 판정 기준 문서를 매번 보내지 않게 한다. 적재는 load에서 split, embed, store 순서이며 질의는 request에서 embed, RAG 순서다. 정적 파일 서빙, Django와 gunicorn 컨테이너, 환경 설정값, Bedrock AgentCore는 아직 없어 이번에 만들어야 한다. 임베딩은 지금 데이터베이스가 1024 차원으로 잡혀 있어 모델을 고르기 전에 차원을 맞춰야 한다. 뉴스 수집은 앱 프로세스 안에서 돌아 컨테이너를 둘 이상 띄우면 같은 수집이 중복 실행된다.">
+               aria-label="샌드박스 구축 구성을 프런트엔드 · 백엔드 · AI 세 영역으로 나눈 그림. 접속은 사내 공인 IP만 허용하고 로드밸런서를 지난다. 프런트엔드에는 브라우저에서 도는 화면과 정적 파일 서빙이 있고, 별도 프런트 서버는 없이 Django가 화면을 직접 렌더한다. 백엔드에는 Django와 gunicorn 컨테이너, PostgreSQL 16과 pgvector, 환경 설정값 19개, 뉴스 수집이 있다. AI 영역에는 Bedrock AgentCore가 있고 그 안에 Runtime, Gateway, 임베딩, 프롬프트 캐싱 네 가지를 쓴다. Runtime은 리서치 배치를 서버 없이 실행하고, Gateway는 Django 기능을 에이전트 도구로 노출하며, 임베딩은 기사 벡터를 만들고, 프롬프트 캐싱은 판정 기준 문서를 매번 보내지 않게 한다. 적재는 load에서 split, embed, store 순서이며 질의는 request에서 embed, RAG 순서다. 정적 파일 서빙, Django와 gunicorn 컨테이너, 환경 설정값, Bedrock AgentCore는 아직 없어 이번에 만들어야 한다. 임베딩은 지금 데이터베이스가 1024 차원으로 잡혀 있어 모델을 고르기 전에 차원을 맞춰야 한다. 뉴스 수집은 웹 서버 프로세스 안에서 돌아, 컨테이너를 둘 이상 띄우면 컨테이너마다 수집이 따로 실행돼 같은 기사가 여러 번 저장된다.">
               <text class="lbl" x="36" y="22">ACCESS</text>
               <rect x="36" y="32" width="268" height="46" rx="9" fill="#fff" stroke="var(--lav-200)"/><text class="box" x="170" y="59" text-anchor="middle">사내 공인 IP만 허용</text>
               <path d="M304 55 H344" stroke="var(--violet-500)" stroke-width="2" fill="none"/><path d="M344 50 L352 55 L344 60 Z" fill="var(--violet-500)"/>
@@ -3358,7 +3358,7 @@ svg text{font-family:var(--font);}
               <path d="M594 210 V238" stroke="var(--violet-500)" stroke-width="2" fill="none"/><path d="M589 238 L594 246 L599 238 Z" fill="var(--violet-500)"/>
               <rect x="416" y="246" width="356" height="68" rx="9" fill="#fff" stroke="var(--lav-200)"/><text class="box" x="594" y="269" text-anchor="middle">PostgreSQL 16 + pgvector</text><text class="sub" x="594" y="285" text-anchor="middle">뉴스 · 임베딩 · 이슈</text>
               <rect x="416" y="330" width="356" height="68" rx="9" fill="var(--lav-050)" stroke="var(--violet-500)"/><text class="box" x="594" y="353" text-anchor="middle">환경 설정값 · .env 19개</text><text class="sub" x="594" y="369" text-anchor="middle">DB 접속 · Django 비밀키 · 외부 API 키</text>
-              <rect x="416" y="414" width="356" height="68" rx="9" fill="var(--warn-bg)" stroke="var(--warn-line)"/><text class="box" x="594" y="437" text-anchor="middle">뉴스 수집</text><text class="sub" x="594" y="453" text-anchor="middle">앱 프로세스 안에서 실행</text><text class="tag" x="594" y="472" text-anchor="middle" fill="var(--warn)">지금 구조로는 문제</text>
+              <g><title>수집 작업이 웹 서버 프로세스 안에서 함께 돌아간다. 컨테이너를 둘 이상 띄우면 컨테이너마다 수집이 따로 실행돼 같은 기사가 여러 번 저장된다. 샌드박스에서는 수집을 별도 작업으로 떼어내야 한다.</title><rect x="416" y="414" width="356" height="68" rx="9" fill="var(--warn-bg)" stroke="var(--warn-line)"/><text class="box" x="594" y="437" text-anchor="middle">뉴스 수집</text><text class="sub" x="594" y="453" text-anchor="middle">앱 프로세스 안에서 실행</text><text class="tag" x="594" y="472" text-anchor="middle" fill="var(--warn)">컨테이너 2대면 중복 수집</text></g>
               <rect x="832" y="142" width="312" height="292" rx="9" fill="var(--lav-050)" stroke="var(--violet-500)"/>
             <text class="box" x="988" y="166" text-anchor="middle">Bedrock AgentCore</text>
             <path d="M848 182 H1128" stroke="var(--violet-500)" stroke-width="1" opacity=".45" fill="none"/>
@@ -3368,9 +3368,10 @@ svg text{font-family:var(--font);}
             <text class="box" x="988" y="258" text-anchor="middle">Gateway</text>
             <text class="sub" x="988" y="275" text-anchor="middle">Django 기능을 에이전트 도구로</text>
             <path d="M848 293 H1128" stroke="var(--violet-500)" stroke-width="1" opacity=".28" fill="none"/>
+            <g><title>기사 본문을 숫자 벡터로 바꿔 저장한다. 지금 데이터베이스 칸이 1024개 숫자를 담도록 잡혀 있어, 고르는 모델이 내놓는 숫자 개수가 다르면 칸을 다시 만들어야 한다. 모델을 정하기 전에 이 숫자부터 맞춰야 한다.</title>
             <text class="box" x="988" y="312" text-anchor="middle">임베딩</text>
             <text class="sub" x="988" y="329" text-anchor="middle">기사 벡터 생성</text>
-            <text class="tag" x="988" y="346" text-anchor="middle" fill="var(--warn)">차원 확인 필요 · 현재 1024</text>
+            <text class="tag" x="988" y="346" text-anchor="middle" fill="var(--warn)">차원 확인 필요 · 현재 1024</text></g>
             <path d="M848 365 H1128" stroke="var(--violet-500)" stroke-width="1" opacity=".28" fill="none"/>
             <text class="box" x="988" y="384" text-anchor="middle">프롬프트 캐싱</text>
             <text class="sub" x="988" y="401" text-anchor="middle">판정 기준을 매번 보내지 않는다</text>
