@@ -1175,7 +1175,11 @@ svg text{font-family:var(--font);}
       <div>
         <span class="chap-label">BACKGROUND</span>
         <h2 class="chap-title">추진 배경</h2>
-        <p class="chap-desc">금융사·보험사의 AI 도입은 다양한 기술 흐름을 중심으로 빠르게 변화하고 있다.</p>
+        <p class="chap-desc">금융사·보험사의 AI 도입은 여러 기술 흐름을 중심으로 빠르게 변하고 있다.</p>
+        <!-- ⚠️ 아래 두 문단(전략기획팀은~ / 따라서~)은 FIG 1-1 안의 머리 라벨 ·
+             꼬리 라벨("원문 그대로" 주석이 붙은 <text> 묶음)과 글자 하나까지 같은 쌍이다.
+             한쪽만 고치면 그림과 본문이 어긋난다. 2026-08-24 문장 격 점검에서도 이 이유로
+             손대지 않았다. 고쳐야 한다면 SVG 라벨의 줄바꿈 위치까지 함께 다시 잡아야 한다. -->
         <p class="chap-desc">전략기획팀은 이러한 시장 변화를 지속적으로 모니터링하고 DPLANEX 사업 방향과 연결해 해석할 필요가 있다. 그러나 기존 방식은 담당자가 직접 뉴스를 검색하고 문서로 정리하는 수작업 중심이어서 정보 수집과 정리에 많은 시간이 소요된다.</p>
         <p class="chap-desc">따라서 AI 시장 정보를 자동으로 수집하고, DPLANEX 관점에서 분류·요약·해석하여 전략기획팀이 시장 변화와 사업 기회를 빠르게 파악할 수 있는 체계가 필요하다.</p>
       </div>
@@ -1195,7 +1199,7 @@ svg text{font-family:var(--font);}
           <figcaption class="fig-cap">
             <span class="fig-num">FIG 1-1</span>
             <span class="fig-ttl">기존 리서치 방식의 세 가지 한계 — 시간이 들고, 기준이 흔들리고, 쌓이지 않는다</span>
-            <span class="fig-sub">여섯 개의 한계를 세 축으로 묶은 것이며, 각 라벨은 원문 그대로다.</span>
+            <span class="fig-sub">여섯 개의 한계를 세 축으로 묶은 것이며, 그림 안의 문장은 한계 목록에 적힌 그대로다.</span>
           </figcaption>
           <div class="fig-body">
             <!--
@@ -1363,32 +1367,32 @@ svg text{font-family:var(--font);}
         <li class="core rv">
           <span class="idx" aria-hidden="true">01</span>
           <h4>AI 시장 정보 수집 자동화</h4>
-          <p>뉴스, 기업 블로그, RSS, API 등 다양한 데이터 소스를 기반으로 AI Agent, 생성형 AI, AX, 금융권 AI 활용 사례를 자동 수집한다.</p>
+          <p>뉴스, 기업 블로그, RSS, API 등 여러 데이터 소스에서 자동으로 수집한다. 수집 대상은 AI Agent, 생성형 AI, AX(AI 전환), 금융권 AI 활용 사례다.</p>
         </li>
         <li class="core rv" style="--d:60ms">
           <span class="idx" aria-hidden="true">02</span>
           <h4>뉴스 요약 및 주제 분류 자동화</h4>
-          <p>수집된 정보를 LLM API를 활용해 핵심 내용 중심으로 요약하고, 기술 흐름·기업 사례·금융권 활용·규제·경쟁사 동향 등으로 분류한다.</p>
+          <p>수집한 정보를 LLM API를 이용해 핵심 내용 중심으로 요약한다. 그리고 기술 흐름·기업 사례·금융권 활용·규제·경쟁사 동향 등으로 분류한다.</p>
         </li>
         <li class="core rv" style="--d:120ms">
           <span class="idx" aria-hidden="true">03</span>
           <h4>유사 기사 검색과 이슈 그룹핑</h4>
-          <p>개별 기사 단위가 아니라 유사한 이슈를 묶어 시장 흐름과 반복적으로 등장하는 주요 주제를 파악할 수 있도록 지원한다.</p>
+          <p>기사를 하나씩 따로 보지 않고 비슷한 이슈끼리 묶는다. 그래서 시장 흐름과 반복해서 나오는 주요 주제를 파악할 수 있다.</p>
         </li>
         <li class="core rv" style="--d:180ms">
           <span class="idx" aria-hidden="true">04</span>
           <h4>DPLANEX 관점의 사업 시사점 도출</h4>
-          <p>단순 뉴스 요약을 넘어 DPLANEX의 KANDLE, AI Studio, 관계사 AX 지원 관점에서 활용 가능성과 사업 기회를 정리한다.</p>
+          <p>뉴스 요약에서 그치지 않는다. DPLANEX의 KANDLE, AI Studio, 관계사 AX 지원 관점에서 활용 가능성과 사업 기회를 정리한다.</p>
         </li>
         <li class="core rv" style="--d:240ms">
           <span class="idx" aria-hidden="true">05</span>
           <h4>주간 AI 인사이트 보고서 자동 생성</h4>
-          <p>수집된 뉴스와 인사이트를 기반으로 전략기획팀이 정기적으로 공유할 수 있는 주간 AI 인사이트 보고서를 자동 생성한다.</p>
+          <p>수집한 뉴스와 시사점을 모아 주간 AI 인사이트 보고서를 자동으로 만든다. 전략기획팀이 정기적으로 공유할 수 있는 자료다.</p>
         </li>
         <li class="core rv" style="--d:300ms">
           <span class="idx" aria-hidden="true">06</span>
           <h4>내부 시장 정보 자산 축적</h4>
-          <p>일회성 리서치가 아니라 수집 기사, 요약, 태그, 유사 기사, 시사점, 보고서가 누적되는 내부 AI 시장 정보 자산을 구축한다.</p>
+          <p>한 번 쓰고 마는 리서치가 아니다. 수집 기사, 요약, 태그, 유사 기사, 시사점, 보고서가 쌓이는 내부 AI 시장 정보 자산을 구축한다.</p>
         </li>
       </ol>
     </div>
@@ -3247,7 +3251,7 @@ svg text{font-family:var(--font);}
         <li class="effect rv"><span class="idx" aria-hidden="true">01</span>시장 리서치 수작업 시간 절감</li>
         <li class="effect rv" style="--d:50ms"><span class="idx" aria-hidden="true">02</span>AI 시장 변화 조기 파악</li>
         <li class="effect rv" style="--d:100ms"><span class="idx" aria-hidden="true">03</span>유사 기사 기반 이슈 흐름 분석</li>
-        <li class="effect rv" style="--d:150ms"><span class="idx" aria-hidden="true">04</span>DPLANEX 사업 관점의 인사이트 확보</li>
+        <li class="effect rv" style="--d:150ms"><span class="idx" aria-hidden="true">04</span>DPLANEX 사업 관점의 시사점 확보</li>
         <li class="effect rv" style="--d:200ms"><span class="idx" aria-hidden="true">05</span>주간 보고서 생성 및 공유 자동화</li>
         <li class="effect rv" style="--d:250ms"><span class="idx" aria-hidden="true">06</span>내부 시장 정보 자산 축적</li>
         <!-- 07 — 01장 한계 ⑥과 짝이다. ⚠️ 설명 줄(.d)을 떼지 말 것: 제목만 남으면
@@ -3257,7 +3261,7 @@ svg text{font-family:var(--font);}
         <li class="effect rv" style="--d:300ms">
           <span class="idx" aria-hidden="true">07</span>
           <span class="tx">외부 조사 범위 축소
-            <span class="d">공개 자료로 확인되는 현황·동향은 내부에서 확보하고, 외부에는 내부 인터뷰처럼 직접 수행해야 하는 부분만 의뢰한다.</span>
+            <span class="d">공개 자료로 확인되는 현황·동향은 내부에서 확보한다. 외부에는 내부 인터뷰처럼 직접 수행해야 하는 부분만 의뢰한다.</span>
           </span>
         </li>
       </ol>
