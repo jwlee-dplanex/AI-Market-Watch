@@ -309,9 +309,10 @@ svg text{font-family:var(--font);}
 .tbl td.k{font-weight:800;color:var(--violet-900);white-space:nowrap;}
 .tbl td.n{width:44px;font-weight:800;color:var(--violet-500);text-align:center;}
 /* 04장 준비물 표의 상태 칸 — 확정된 것과 아직 확인이 필요한 것을 색으로 가른다.
-   ⚠️ 색만으로 구분하지 않는다. 칸에 "보유"·"확정"이 글자로 적혀 있다. */
+   ⚠️ 색만으로 구분하지 않는다. 칸에 "보유"·"확정"·"후순위"가 글자로 적혀 있다. */
 .tbl td.st{width:92px;white-space:nowrap;font-weight:800;font-size:12.5px;}
 .tbl td.st.ok{color:var(--violet-800);}
+.tbl td.st.later{color:var(--muted);}
 .tbl td b{color:var(--violet-900);}
 
 /* 스크롤 등장 */
@@ -3341,13 +3342,13 @@ svg text{font-family:var(--font);}
 
       <div class="fig rv" style="margin-top:18px">
         <table class="tbl">
-          <caption class="sr-only">샌드박스 구축을 시작하기 전에 준비해야 하는 것과 각각의 상태. 네이버 검색 키는 지금 쓰던 값을 그대로 쓰고, Apple Developer 계정은 SMA 와 같은 계정을 쓴다. AWS 계정과 관리자 권한은 요청하면 바로 발급받을 수 있고, 도메인은 논의를 거쳐 발급할 예정이다.</caption>
+          <caption class="sr-only">샌드박스 구축을 시작하기 전에 준비해야 하는 것과 각각의 상태. 네이버 검색 키는 지금 쓰던 값을 그대로 쓰고, Apple Developer 계정은 SMA 와 같은 계정을 쓴다. AWS 계정과 관리자 권한은 요청하면 바로 발급받을 수 있고, 도메인은 논의를 거쳐 발급할 예정이며, 구축과 별개로 진행할 수 있어 후순위다.</caption>
           <thead><tr><th>시작 전에 필요한 것</th><th>내용</th><th>상태</th></tr></thead>
           <tbody>
             <tr><td class="k">외부 서비스 키</td><td>네이버 검색 키는 지금 쓰던 값을 그대로 쓴다.</td><td class="st ok">보유</td></tr>
             <tr><td class="k">Apple Developer 계정</td><td><b>SMA</b> 와 같은 계정을 쓴다.</td><td class="st ok">보유</td></tr>
             <tr><td class="k">AWS 계정 · 관리자 키</td><td><b>용만님</b>께 요청하면 바로 발급 가능하다.</td><td class="st ok">확정</td></tr>
-            <tr><td class="k">도메인</td><td><b>용만님 · 혜진님</b> 논의 후 발급 예정이다.</td><td class="st ok">확정</td></tr>
+            <tr><td class="k">도메인</td><td><b>용만님 · 혜진님</b> 논의 후 발급 예정이다. 도메인을 연결하는 일이라 구축과 별개로 진행할 수 있다.</td><td class="st later">후순위</td></tr>
           </tbody>
         </table>
               <p class="foot-note" style="margin:14px 16px 15px">※ 샌드박스 영역의 개발 스펙과 운영 모니터링은 현재 별도로 진행되고 있지 않다. Bedrock 모델 사용 승인처럼 미리 열어 두어야 하는 항목을 사전에 점검하는 절차도 아직 없다.</p>
