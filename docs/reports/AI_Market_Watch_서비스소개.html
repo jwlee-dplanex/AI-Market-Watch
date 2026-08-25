@@ -313,6 +313,11 @@ svg text{font-family:var(--font);}
 .tbl td.st{width:92px;white-space:nowrap;font-weight:800;font-size:12.5px;}
 .tbl td.st.ok{color:var(--violet-800);}
 .tbl td.st.later{color:var(--muted);}
+/* 04장 작업 표에 더한 칸 (2026-08-25). KANDLE 설명회 준비표 형식을 따랐다.
+   ⚠️ 구분 칸은 같은 값이 이어지면 빈칸으로 둔다 — 같은 말을 세 줄 연달아 읽히지 않는다.
+      그래서 경계선을 위 행에서 지운다(.tbl td.g.same 이 아니라 이전 행 처리). */
+.tbl td.g{width:56px;white-space:nowrap;font-size:11.5px;font-weight:800;color:var(--violet-500);letter-spacing:.02em;}
+.tbl td.who{width:96px;white-space:nowrap;font-size:12.5px;font-weight:700;color:var(--ink-2);}
 .tbl td b{color:var(--violet-900);}
 
 /* 스크롤 등장 */
@@ -3303,16 +3308,14 @@ svg text{font-family:var(--font);}
 
       <div class="fig rv" style="margin-top:18px">
         <table class="tl">
-          <caption class="sr-only">작업 다섯 가지와 각 작업이 걸리는 일수. 교보 키워드 추가는 1일차, 샌드박스 환경과 서비스 구동은 1일차부터 5일차까지, LLM 연동은 6일차부터 10일차까지, 태블릿 대응과 앱 배포는 11일차부터 13일차까지, QA는 14일차다. 총 14일이 걸린다.</caption>
-          <thead>
-            <tr><th class="job">작업</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th class="w">6</th><th>7</th><th>8</th><th>9</th><th>10</th><th class="w">11</th><th>12</th><th>13</th><th>14</th></tr>
-          </thead>
+          <caption class="sr-only">작업 다섯 가지와 각 작업에서 하는 일, 진행자, 상태. 준비 단계는 교보 키워드 추가로 진욱님이 맡는다. 구축 단계는 샌드박스 환경과 서비스 구동을 진욱님과 용만님이 함께 맡고, LLM 연동과 태블릿 대응 및 앱 배포는 진욱님이 맡는다. 검증 단계의 QA도 진욱님이 맡는다. 다섯 가지 모두 아직 시작하지 않은 예정 상태다.</caption>
+          <thead><tr><th>구분</th><th>작업</th><th>하는 일</th><th>진행자</th><th>상태</th></tr></thead>
           <tbody>
-            <tr><td class="job">교보 키워드 추가</td><td class="d on"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td></tr>
-            <tr><td class="job">샌드박스 환경 · 서비스 구동</td><td class="d on b"></td><td class="d on b"></td><td class="d on b"></td><td class="d on b"></td><td class="d on b"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td></tr>
-            <tr><td class="job">LLM 연동</td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d on"></td><td class="d on"></td><td class="d on"></td><td class="d on"></td><td class="d on"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td></tr>
-            <tr><td class="job">태블릿 대응 · 앱 배포</td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d on b"></td><td class="d on b"></td><td class="d on b"></td><td class="d"></td></tr>
-            <tr><td class="job">QA</td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d on"></td></tr>
+            <tr><td class="g">준비</td><td class="k">교보 키워드 추가</td><td>수집 키워드에 <b>교보 계열사</b>를 추가함</td><td class="who">진욱님</td><td class="st ok">예정</td></tr>
+            <tr><td class="g">구축</td><td class="k">샌드박스 환경<br>서비스 구동</td><td>Django · Docker · PostgreSQL · pgvector를 샌드박스에 올려 <b>내부 직원이 웹에서 쓸 수 있게</b> 함. <b>샌드박스 인프라 정책에 맞춰 구축함</b></td><td class="who">진욱님 · 용만님</td><td class="st ok">예정</td></tr>
+            <tr><td class="g"></td><td class="k">LLM 연동</td><td>수집한 기사를 <b>벡터 데이터베이스</b>에 적재하고 꺼내 쓰는 두 흐름을 만듦. 적재는 <b>load → split → embed → store</b> 순서로 색인을 만들고, 질의는 <b>request → embed → search → generate</b> 순서로 답을 만듦. 지금 research analyst가 수작업으로 수행하는 관련성 판정 · 이슈 묶기 · 시사점 작성을 <b>AWS Bedrock AgentCore</b>로 처리함</td><td class="who">진욱님</td><td class="st ok">예정</td></tr>
+            <tr><td class="g"></td><td class="k">태블릿 대응<br>앱 배포</td><td>AI Market Watch를 <b>태블릿 동적 레이아웃</b>으로 수정하고, <b>TestFlight</b>에 업로드해 사내에서 받아 쓸 수 있게 함</td><td class="who">진욱님</td><td class="st ok">예정</td></tr>
+            <tr><td class="g">검증</td><td class="k">QA</td><td>다섯 화면과 앱을 차례로 열어 확인함</td><td class="who">진욱님</td><td class="st ok">예정</td></tr>
           </tbody>
         </table>
         <p class="tl-sum">총 <b>14일</b></p>
