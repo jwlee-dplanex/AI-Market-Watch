@@ -318,6 +318,10 @@ svg text{font-family:var(--font);}
       그래서 경계선을 위 행에서 지운다(.tbl td.g.same 이 아니라 이전 행 처리). */
 .tbl td.g{width:56px;white-space:nowrap;font-size:11.5px;font-weight:800;color:var(--violet-500);letter-spacing:.02em;}
 .tbl td.who{width:96px;white-space:nowrap;font-size:12.5px;font-weight:700;color:var(--ink-2);}
+/* 여러 문장이 든 칸은 문장마다 줄을 바꾼다 (2026-08-25 사용자 지적 — 한 줄이 너무 길다).
+   ⚠️ <br> 만 쓰면 줄이 붙어 오히려 덩어리로 읽힌다. 줄 사이를 5px 띄운다. */
+.tbl td .s{display:block;}
+.tbl td .s + .s{margin-top:5px;}
 .tbl td b{color:var(--violet-900);}
 
 /* 스크롤 등장 */
@@ -3329,8 +3333,8 @@ svg text{font-family:var(--font);}
           <thead><tr><th>구분</th><th>작업</th><th>하는 일</th><th>진행자</th><th>상태</th></tr></thead>
           <tbody>
             <tr><td class="g">준비</td><td class="k">교보 키워드 추가</td><td>수집 키워드에 <b>교보 계열사</b>를 추가함</td><td class="who">진욱님</td><td class="st ok">예정</td></tr>
-            <tr><td class="g">구축</td><td class="k">샌드박스 환경<br>서비스 구동</td><td>Django · Docker · PostgreSQL · pgvector를 샌드박스에 올려 <b>내부 직원이 웹에서 쓸 수 있게</b> 함. <b>샌드박스 인프라 정책에 맞춰 구축함</b></td><td class="who">진욱님 · 용만님</td><td class="st ok">예정</td></tr>
-            <tr><td class="g"></td><td class="k">LLM 연동</td><td>수집한 기사를 <b>벡터 데이터베이스</b>에 적재하고 꺼내 쓰는 두 흐름을 만듦. 적재는 <b>load → split → embed → store</b> 순서로 색인을 만들고, 질의는 <b>request → embed → search → generate</b> 순서로 답을 만듦. 지금 research analyst가 수작업으로 수행하는 관련성 판정 · 이슈 묶기 · 시사점 작성을 <b>AWS Bedrock AgentCore</b>로 처리함</td><td class="who">진욱님</td><td class="st ok">예정</td></tr>
+            <tr><td class="g">구축</td><td class="k">샌드박스 환경<br>서비스 구동</td><td><span class="s"><b>프런트엔드</b>는 별도 서버를 두지 않고 Django 가 화면을 직접 렌더함. Tailwind · HTMX · Alpine 정적 파일을 함께 올림.</span><span class="s"><b>백엔드</b>는 Django 를 gunicorn 으로 띄운 컨테이너와 PostgreSQL 16 · pgvector 로 구성함.</span><span class="s">내부 직원이 웹에서 쓸 수 있게 하고, <b>샌드박스 인프라 정책에 맞춰 구축함</b></span></td><td class="who">진욱님 · 용만님</td><td class="st ok">예정</td></tr>
+            <tr><td class="g"></td><td class="k">LLM 연동</td><td><span class="s">수집한 기사를 <b>벡터 데이터베이스</b>에 적재하고 꺼내 쓰는 두 흐름을 만듦.</span><span class="s">적재는 <b>load → split → embed → store</b> 순서로 색인을 만들고, 질의는 <b>request → embed → search → generate</b> 순서로 답을 만듦.</span><span class="s">지금 research analyst가 수작업으로 수행하는 관련성 판정 · 이슈 묶기 · 시사점 작성을 <b>AWS Bedrock AgentCore</b>로 처리함</span></td><td class="who">진욱님</td><td class="st ok">예정</td></tr>
             <tr><td class="g"></td><td class="k">태블릿 대응<br>앱 배포</td><td>AI Market Watch를 <b>태블릿 동적 레이아웃</b>으로 수정하고, <b>TestFlight</b>에 업로드해 사내에서 받아 쓸 수 있게 함</td><td class="who">진욱님</td><td class="st ok">예정</td></tr>
             <tr><td class="g">검증</td><td class="k">QA</td><td>다섯 화면과 앱을 차례로 열어 확인함</td><td class="who">진욱님</td><td class="st ok">예정</td></tr>
           </tbody>
@@ -3346,7 +3350,7 @@ svg text{font-family:var(--font);}
             <tr><td class="k">외부 서비스 키</td><td>네이버 검색 키는 지금 쓰던 값을 그대로 씀</td><td class="st ok">보유</td></tr>
             <tr><td class="k">Apple Developer 계정</td><td><b>SMA</b> 와 같은 계정을 씀</td><td class="st ok">보유</td></tr>
             <tr><td class="k">AWS 계정 · 관리자 키</td><td><b>용만님</b>께 요청하면 바로 발급 가능</td><td class="st ok">확정</td></tr>
-            <tr><td class="k">도메인</td><td><b>용만님 · 혜진님</b> 논의 후 발급 예정. 도메인을 연결하는 일이라 구축과 별개로 진행 가능</td><td class="st later">후순위</td></tr>
+            <tr><td class="k">도메인</td><td><span class="s"><b>용만님 · 혜진님</b> 논의 후 발급 예정.</span><span class="s">도메인을 연결하는 일이라 구축과 별개로 진행 가능</span></td><td class="st later">후순위</td></tr>
           </tbody>
         </table>
               <p class="foot-note" style="margin:14px 16px 15px">※ 샌드박스 영역의 개발 스펙과 운영 모니터링은 현재 별도로 진행되고 있지 않다. Bedrock 모델 사용 승인처럼 미리 열어 두어야 하는 항목을 사전에 점검하는 절차도 아직 없다.</p>
