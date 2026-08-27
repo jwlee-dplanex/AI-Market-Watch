@@ -711,11 +711,9 @@ svg text{font-family:var(--font);}
 
 @media (max-width:700px){ .ksd-shot-nav{display:none;} }
 
-.legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;}
-.lg{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;font-weight:800;color:var(--ink-2);letter-spacing:-.01em;}
-.lg i{width:11px;height:11px;border-radius:3px;display:inline-block;flex:none;}
-.lg.auto i{background:var(--violet-800);}
-.lg.human i{background:var(--indigo-600);}
+/* 2026-08-27에 지운 것 — .legend / .lg(+auto·human).
+   2.3 의 그림 아래에 붙던 두 줄짜리 범례였고, 다섯 장면이 전부 "동향을 확인하는 화면"이
+   되면서 가를 것이 없어졌다(관리자 화면인 설정 장면을 뺐다). 쓰는 곳이 0이라 지운다. */
 
 /* FIG 2-2 — 처리 단계 8단계
    ⚠️ 상자 뒤를 가로지르던 배경선(.stem8 .flow / @keyframes s8Flow)은 2026-08-22에 없앴다.
@@ -1162,7 +1160,7 @@ svg text{font-family:var(--font);}
   <div class="cover-inner">
     <span class="pill solid">서비스 소개</span>
     <h1 id="cover-title">AI Market Watch</h1>
-    <p class="cover-subtitle">금융·보험사 AI 동향을 AI Agent가 읽고 해석하는 리서치 체계</p>
+    <p class="cover-subtitle">금융·보험사의 AI 도입 동향을 수집하고 해석하는 리서치 체계</p>
     <div class="cover-rule" aria-hidden="true"></div>
     <p class="cover-desc">
       금융·보험사의 AI 도입 동향과 관련 AI 기업의 협업 사례를<br>
