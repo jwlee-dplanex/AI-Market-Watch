@@ -954,6 +954,19 @@ svg text{font-family:var(--font);}
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .ksd-hit > .ksd-chip{flex:none;}
 
+/* 목록이 통째로 바뀐다 — 검색 전 전체 목록과 검색 뒤 좁혀진 목록.
+   ⚠️ 두 목록을 같은 그리드 칸에 겹쳐 두고 불투명도만 교차한다. 위아래로 갈아 끼우면
+      아래 문장이 통째로 밀려 큰 면적이 이동한다 — 그건 금지다.
+   ⚠️ 두 목록 모두 다섯 줄이고 한 줄짜리(.ksd-hit 는 nowrap + ellipsis)라 칸 높이가 같다.
+      줄 수를 다르게 바꾸면 칸이 큰 쪽에 맞춰져 빈자리가 생긴다.
+   ⚠️ --dout 은 앞 목록이 사라지는 시각이다. --d 를 쓰지 않는 이유는 안쪽 행들이
+      저마다 --d 로 등장 시각을 갖기 때문이다 — 상속으로 덮이면 등장이 어그러진다.
+   ⚠️ 뒤 목록(.b)에는 컨테이너 애니메이션을 걸지 않는다. 안쪽 행의 .ksd-fx 가
+      이미 등장 시각을 갖고 있어(그전까지 opacity 0) 이중으로 켤 필요가 없다. */
+.ksd-listswap{display:grid;margin-top:8px;}
+.ksd-listswap > div{grid-area:1/1;display:flex;flex-direction:column;gap:6px;}
+.ksd-listswap > div.a{animation:ksdOut calc(.3s * var(--ksd-k)) linear calc(var(--dout,0ms) * var(--ksd-k)) both;}
+
 /* 근거 기사 줄 — 보고서 본문 이슈 아래에 붙는다 */
 .ksd-ref{display:flex;align-items:center;gap:10px;margin-top:11px;padding-top:10px;
   border-top:1px solid var(--line);font-size:10.5px;font-weight:800;letter-spacing:.08em;color:var(--muted);}
@@ -3222,8 +3235,17 @@ svg text{font-family:var(--font);}
                           오른쪽 열이 5~8위로 읽힌다. 순위대로 나열하면 열이 뒤섞인다.
 
                        ---- 이 장면의 조작 : 검색창에 입력한다 ----
-                       ⚠️ 커서가 검색창으로 가서 "신한" 두 글자를 친다. 152건 → 11건 이고
-                          둘 다 실측이다(2026-08-27 확인). 중간값을 지어 끼우지 말 것.
+                       ⚠️ 커서가 검색창으로 가서 "신한" 두 글자를 치고 검색을 누른다.
+                          152건 → 11건 이고 둘 다 실측이다. 중간값을 지어 끼우지 말 것.
+                       ⚠️ 검색 전 전체 목록 다섯 줄도 실측 제목 · 발행일 · 기업 배지다
+                          (2026-08-27 확인). 배지는 각 기사에 실제로 붙은 것 중 앞의 둘이며,
+                          더 붙어 있을 수 있으나 확인된 것만 넣었다 — 배지를 추가하지 말 것.
+                       ⚠️ 제목 끝의 말줄임은 화면 폭에 맞춰 자른 표시다. 문장을 고쳐 쓰지 말 것.
+                       ⚠️ 전체 목록의 "08.24 AI 대필 시대…" 기사에는 신한은행 배지가 붙어 있는데
+                          검색 결과 11건에는 들어가지 않는다. 제목에 "신한"이 없기 때문이고,
+                          검색이 제목만 훑는다(title__icontains)는 것이 이 대비로 드러난다.
+                          의도한 대비이므로 목록을 갈아 끼우지 말 것. 다만 화면에 그 설명을
+                          글로 적지는 않는다 — 두 목록을 나란히 보면 알아채는 자리다.
                        🔴 검색은 제목만 훑는다(apps/news/views.py:35, title__icontains).
                           본문은 보지 않는다 — 소제목에 그 사실을 적어 두었으니 지우지 말 것.
                           "제목에 든 기사만"을 빼면 본문까지 뒤지는 것으로 오해된다.
@@ -3241,26 +3263,28 @@ svg text{font-family:var(--font);}
                       <!-- ⚠️ --d 와 SCENES[].dur 은 둘 다 --ksd-k(1.25)가 곱해진다.
                            애니메이션 지연은 calc(var(--d) * var(--ksd-k)), 씬 길이는 durOf() 의
                            dur * K 다. 배수가 같으므로 "마지막 --d + 애니메이션 길이 < dur" 만
-                           같은 단위로 확인하면 된다 — 여기서는 3400 + 520 = 3920 < 9000.
+                           같은 단위로 확인하면 된다 — 여기서는 3600 + 520 = 4120 < 10000.
                            실제 재생 시각이 궁금하면 1.25를 곱한다. 한쪽에만 K 를 적용해
                            계산하지 말 것. -->
                       <div class="ksd-h"><b>뉴스 목록</b><span>찾는 말로 목록을 좁힌다</span></div>
 
-                      <!-- 커서 ① 중앙(512,292) → 검색창(90,88). 누르는 시각 520 + 900 = 1420ms.
-                           커서 ② .cont 로 검색창(90,88) → 검색 버튼(904,88). 누르는 시각 2060 + 610 = 2670ms.
-                           결과(건수 · 목록)는 전부 2740ms 이후다 — 검색 버튼을 누른 뒤다. -->
-                      <span class="ksd-cursor gone" style="--d:520ms;--fx:422px;--fy:204px;left:90px;top:88px">
+                      <!-- 커서 ① 중앙(512,292) → 검색창(90,88). 누르는 시각 800 + 900 = 1700ms.
+                           커서 ② .cont 로 검색창(90,88) → 검색 버튼(904,88). 누르는 시각 2340 + 610 = 2950ms.
+                           결과(건수 · 목록 교체)는 전부 3020ms 이후다 — 검색 버튼을 누른 뒤다.
+                           ⚠️ 커서 ①은 화면이 다 그려진(100~700ms) 뒤에 등장한다. 렌더 도중에
+                              끼어들면 "무엇이 있는 화면인지"를 읽기 전에 조작이 시작된다. -->
+                      <span class="ksd-cursor gone" style="--d:800ms;--fx:422px;--fy:204px;left:90px;top:88px">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 2.5 L5 19.8 L9.6 15.4 L12.4 21.6 L15.6 20.1 L12.9 14 L18.9 13.6 Z"/></svg>
                       </span>
-                      <span class="ksd-cursor cont" style="--d:2060ms;--fx:-814px;--fy:0px;left:904px;top:88px">
+                      <span class="ksd-cursor cont" style="--d:2340ms;--fx:-814px;--fy:0px;left:904px;top:88px">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 2.5 L5 19.8 L9.6 15.4 L12.4 21.6 L15.6 20.1 L12.9 14 L18.9 13.6 Z"/></svg>
                       </span>
 
                       <div class="ksd-fbar ksd-fx" style="--d:100ms">
                         <span class="ksd-inp grow" style="justify-content:flex-start">
-                          <span class="ksd-swap" style="--d:1480ms">
+                          <span class="ksd-swap" style="--d:1760ms">
                             <i>뉴스를 검색해주세요</i>
-                            <b style="display:inline-flex;align-items:center;color:var(--violet-900);font-weight:800"><span class="ksd-typed" data-text="신한" style="--d:1560ms">신한</span><span class="ksd-in" style="--d:1480ms"><span class="ksd-caret"></span></span></b>
+                            <b style="display:inline-flex;align-items:center;color:var(--violet-900);font-weight:800"><span class="ksd-typed" data-text="신한" style="--d:1840ms">신한</span><span class="ksd-in" style="--d:1760ms"><span class="ksd-caret"></span></span></b>
                           </span>
                         </span>
                         <span class="ksd-inp">연도-월-일</span>
@@ -3273,24 +3297,33 @@ svg text{font-family:var(--font);}
                         <span class="ksd-inp">초기화</span>
                       </div>
 
-                      <p class="ksd-act ksd-fx" style="--d:340ms;margin-top:13px"><em>조작</em>검색창을 누르고 <b>신한</b>을 친 다음 <b>검색</b>을 누른다</p>
+                      <p class="ksd-act ksd-fx" style="--d:320ms;margin-top:13px"><em>조작</em>검색창을 누르고 <b>신한</b>을 친 다음 <b>검색</b>을 누른다</p>
 
                       <div class="ksd-fx" style="--d:220ms;display:flex;align-items:baseline;gap:12px;margin-top:15px">
                         <span style="font-size:11px;font-weight:800;letter-spacing:.1em;color:var(--muted)">결과</span>
-                        <span style="font-size:15px;font-weight:800;letter-spacing:-.02em;color:var(--violet-900)">총 <span class="ksd-swap" style="--d:2740ms;color:var(--violet-800)"><i>152</i><b>11</b></span>건</span>
+                        <span style="font-size:15px;font-weight:800;letter-spacing:-.02em;color:var(--violet-900)">총 <span class="ksd-swap" style="--d:3020ms;color:var(--violet-800)"><i>152</i><b>11</b></span>건</span>
                         <span style="font-size:11.5px;font-weight:700;color:var(--muted)">검색은 <b style="color:var(--ink-2)">제목만</b> 훑는다 — 제목에 그 말이 든 기사만 남는다</span>
                       </div>
 
-                      <p class="ksd-fx" style="--d:2820ms;margin-top:15px;font-size:11px;font-weight:800;letter-spacing:.1em;color:var(--violet-800)">좁혀진 목록 — 최신순</p>
-                      <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">
-                        <div class="ksd-hit ksd-fx" style="--d:2900ms"><em>08.24</em><span>[Biz &amp; Now] 신한투자증권, AX 챔피언스데이 개최</span><span class="ksd-chip fin">신한투자증권</span></div>
-                        <div class="ksd-hit ksd-fx" style="--d:2960ms"><em>08.03</em><span>신한투자증권, 국내 금융사 최초 'AI 에이전트부' 신설 外</span><span class="ksd-chip fin">신한투자증권</span></div>
-                        <div class="ksd-hit ksd-fx" style="--d:3020ms"><em>08.03</em><span>[은행 Talk Talk] 신한은행, 금융권 최초 감정평가서 AI 점검 外</span><span class="ksd-chip fin">신한은행</span></div>
-                        <div class="ksd-hit ksd-fx" style="--d:3080ms"><em>08.03</em><span>신한투자증권, AI 에이전트로만 구성된 독립부서 신설</span><span class="ksd-chip fin">신한투자증권</span></div>
-                        <div class="ksd-hit ksd-fx" style="--d:3140ms"><em>08.03</em><span>"AI가 AI에게 업무 지시"…신한證, 금융권 첫 'AI 에이전트부' 신설</span><span class="ksd-chip fin">신한투자증권</span></div>
+                      <p class="ksd-fx" style="--d:420ms;margin-top:15px;font-size:11px;font-weight:800;letter-spacing:.1em;color:var(--violet-800)"><span class="ksd-swap" style="--d:3020ms"><i>전체 목록</i><b>좁혀진 목록</b></span> — 최신순</p>
+                      <div class="ksd-listswap">
+                        <div class="a" style="--dout:3020ms">
+                          <div class="ksd-hit ksd-fx" style="--d:500ms"><em>08.27</em><span>[인터뷰] 김희준 카카오페이손보 CTO "AI 프로젝트 열에 일곱 실패… 도…</span><span class="ksd-chip ins">카카오페이손해보험</span><span class="ksd-chip ai">아마존</span></div>
+                          <div class="ksd-hit ksd-fx" style="--d:550ms"><em>08.26</em><span>삼성생명, 'AI CX 글쓰기' 과기정통부 장관상 생성형…AI로 보험용어 …</span><span class="ksd-chip ins">삼성생명</span></div>
+                          <div class="ksd-hit ksd-fx" style="--d:600ms"><em>08.26</em><span>"누구는 1년 수익률이 40%" AI에 IRP 맡기는 은행 고객 왜 늘었나 봤더…</span><span class="ksd-chip fin">우리은행</span><span class="ksd-chip fin">하나은행</span></div>
+                          <div class="ksd-hit ksd-fx" style="--d:650ms"><em>08.24</em><span>AI 결제 격돌···카드 '신뢰' vs 코인 '초소액'</span><span class="ksd-chip fin">BC카드</span><span class="ksd-chip fin">KB금융지주</span></div>
+                          <div class="ksd-hit ksd-fx" style="--d:700ms"><em>08.24</em><span>AI 대필 시대… 은행·보험·카드 분쟁조정 3만 6천건, 셋 중 하나 중복</span><span class="ksd-chip fin">신한은행</span><span class="ksd-chip fin">케이뱅크</span></div>
+                        </div>
+                        <div class="b">
+                          <div class="ksd-hit ksd-fx" style="--d:3100ms"><em>08.24</em><span>[Biz &amp; Now] 신한투자증권, AX 챔피언스데이 개최</span><span class="ksd-chip fin">신한투자증권</span></div>
+                          <div class="ksd-hit ksd-fx" style="--d:3160ms"><em>08.03</em><span>신한투자증권, 국내 금융사 최초 'AI 에이전트부' 신설 外</span><span class="ksd-chip fin">신한투자증권</span></div>
+                          <div class="ksd-hit ksd-fx" style="--d:3220ms"><em>08.03</em><span>[은행 Talk Talk] 신한은행, 금융권 최초 감정평가서 AI 점검 外</span><span class="ksd-chip fin">신한은행</span></div>
+                          <div class="ksd-hit ksd-fx" style="--d:3280ms"><em>08.03</em><span>신한투자증권, AI 에이전트로만 구성된 독립부서 신설</span><span class="ksd-chip fin">신한투자증권</span></div>
+                          <div class="ksd-hit ksd-fx" style="--d:3340ms"><em>08.03</em><span>"AI가 AI에게 업무 지시"…신한證, 금융권 첫 'AI 에이전트부' 신설</span><span class="ksd-chip fin">신한투자증권</span></div>
+                        </div>
                       </div>
 
-                      <p class="ksd-fx" style="--d:3400ms;margin-top:auto;padding-top:12px;font-size:11.5px;font-weight:700;color:var(--muted)">152건을 전부 훑지 않는다. <b style="color:var(--violet-800)">두 글자면 11건으로 좁혀진다.</b> 남는 것은 모두 검증을 통과한 기사다.</p>
+                      <p class="ksd-fx" style="--d:3600ms;margin-top:auto;padding-top:12px;font-size:11.5px;font-weight:700;color:var(--muted)">152건을 전부 훑지 않는다. <b style="color:var(--violet-800)">두 글자면 11건으로 좁혀진다.</b> 남는 것은 모두 검증을 통과한 기사다.</p>
                     </div>
                   </div>
 
@@ -3947,7 +3980,7 @@ window.AmwScenarioDemo = (function(){
      ⚠️ dur 은 씬 안의 --d 지연과 함께 움직인다. "마지막 --d + 약 0.5초 < dur" 이 하한인데
         전부 여유가 크다 — 여기서는 재생 속도가 아니라 읽는 시간이 하한을 정한다.
         문장 수를 줄이지 않은 채 dur 만 깎지 말 것.
-     🔴 2026-08-27에 커서 연출을 넣으며 다섯 씬 모두 길어졌다(34.0 → 44.5초).
+     🔴 2026-08-27에 커서 연출을 넣으며 다섯 씬 모두 길어졌다(34.0 → 45.5초).
         길어진 것이 맞다. 한 씬은 "화면 렌더 → 커서 등장 → 이동 → 클릭 → 결과" 다섯 단계를
         겹치지 않고 차례로 밟아야 하고, 뉴스 목록 · 보고서 · 지식그래프는 클릭이 두 번이다.
         dur 을 깎아 겹치게 만들지 말 것 — 결과가 클릭보다 먼저 뜨면 무엇이 무엇을
@@ -3959,9 +3992,9 @@ window.AmwScenarioDemo = (function(){
     { key:'dash',   step:0, dur:9000, name:'대시보드',
       eb:'DASHBOARD', tagType:'auto', tag:'대시보드 · ALL-001',
       msg:'기간에서 <b>전체</b>를 누르면 화면을 떠나지 않고 목록과 지표가 다시 계산된다. 헤드라인 세 건이 맨 위에 서고, 그 아래로 등급이 붙은 이슈가 이어진다.' },
-    { key:'news',   step:1, dur:9000, name:'뉴스 목록',
+    { key:'news',   step:1, dur:10000, name:'뉴스 목록',
       eb:'NEWS LIST', tagType:'auto', tag:'뉴스 목록 · NEWS-001',
-      msg:'검색창에 <b>신한</b> 두 글자를 치면 <b>152건이 11건</b>으로 좁혀진다. 검색은 제목만 훑는다.' },
+      msg:'검색창에 <b>신한</b> 두 글자를 치고 검색을 누르면 목록이 통째로 바뀐다. <b>152건이 11건</b>으로 좁혀진다.' },
     { key:'detail', step:2, dur:7500, name:'뉴스 상세',
       eb:'NEWS DETAIL', tagType:'auto', tag:'뉴스 상세 · NEWS-002',
       msg:'이슈의 근거 기사를 누르면 이 화면으로 넘어온다. <b>원문 보기</b>를 누르면 새 창으로 언론사 원문이 열린다.' },
