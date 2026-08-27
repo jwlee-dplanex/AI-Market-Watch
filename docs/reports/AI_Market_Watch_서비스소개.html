@@ -847,10 +847,11 @@ svg text{font-family:var(--font);}
 .ksd-card{border:1px solid var(--lav-200);border-radius:11px;background:#fff;padding:12px 14px;box-shadow:var(--shadow-s);}
 .ksd-card .t{font-size:13px;font-weight:800;letter-spacing:-.02em;color:var(--violet-950);line-height:1.5;}
 .ksd-card .m{margin-top:5px;font-size:10.5px;font-weight:700;color:var(--muted);}
-.ksd-num{display:flex;align-items:center;justify-content:center;gap:34px;flex:1;}
-.ksd-num .b{text-align:center;}
-.ksd-num .v{font-size:64px;font-weight:800;letter-spacing:-.05em;line-height:1;color:var(--violet-800);}
-.ksd-num .l{margin-top:8px;font-size:11.5px;font-weight:800;letter-spacing:.04em;color:var(--muted);}
+/* 기업 배지 — 실제 화면의 유형별 배지 색(2.2 목업 .s-chip 과 같은 값)을 그대로 쓴다 */
+.ksd-chip{font-size:11px;font-weight:800;letter-spacing:-.02em;padding:4px 11px;border-radius:99px;white-space:nowrap;}
+.ksd-chip.fin{background:#DBEAFE;color:#1D4ED8;}
+.ksd-chip.ins{background:#E6F7F5;color:#00AF9A;}
+.ksd-chip.ai{background:#F3EAFB;color:var(--violet-800);}
 
 /* 보라 알약 배지 — 실제 화면의 1 · 2 · 3급 등급 표시를 그대로 옮겼다(보라 / 청록 / 회색).
    지식그래프 씬의 관계 라벨("공급계약")도 실제 화면에서 같은 형태라 기본형을 그대로 쓴다. */
@@ -893,6 +894,86 @@ svg text{font-family:var(--font);}
 .ksd-ref{display:flex;align-items:center;gap:10px;margin-top:11px;padding-top:10px;
   border-top:1px solid var(--line);font-size:10.5px;font-weight:800;letter-spacing:.08em;color:var(--muted);}
 .ksd-ref b{font-size:11.5px;letter-spacing:-.01em;color:var(--violet-800);}
+
+/* ============================================================
+   조작 연출 — 화면마다 "실제로 무엇을 누르는가"를 보여 준다 (2026-08-27 추가)
+   ============================================================
+   🔴 이동 연출을 쓰지 않는다. 여기서 움직이는 것은 26px 짜리 탭 링 하나뿐이고
+      나머지는 전부 색과 불투명도만 바뀐다. 큰 면적이 이동하는 연출은 표지에서
+      세 번 반려됐다 — 슬라이드 · 큰 블록 이동 · 확대 · 회전 전부 금지다.
+      씬 전환도 여전히 .ksd-scene 의 180ms 불투명도 교차 하나뿐이다.
+   ⚠️ .ksd-fx · .ksd-pop 과 같은 요소에 겹쳐 쓰지 말 것. 셋 다 animation 속성을 쓰므로
+      나중 선언이 앞을 덮는다. "나타나는 것"은 부모(.ksd-fx)에 맡기고
+      "상태가 바뀌는 것"만 자식에 건다.
+   ⚠️ --d 는 상속된다. 부모에 --d 를 주면 자식 전환도 같은 시각에 일어난다 —
+      .ksd-org.sw 의 막대 색과 건수 색이 그렇게 함께 바뀐다.
+   ⚠️ 상태 전환은 steps(1,end) 다. 색을 보간하면 "누르는 순간"이 흐려져서
+      무엇이 언제 바뀌었는지 안 보인다. 한 프레임에 바뀌어야 한다. */
+
+/* 탭 표시 — 부모에 position:relative 를 주고 left/top 으로 누르는 자리에 얹는다 */
+.ksd-tap{position:absolute;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;
+  border:2px solid var(--violet-800);pointer-events:none;z-index:2;
+  animation:ksdTap calc(.8s * var(--ksd-k)) var(--ksd-ease) calc(var(--d,0ms) * var(--ksd-k)) both;}
+@keyframes ksdTap{0%{opacity:0;transform:scale(.5)}28%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:scale(1.55)}}
+
+/* 무엇을 누르는지 한 줄로 말하는 알약
+   ⚠️ align-self:flex-start 가 있어야 한다. .ksd-frame 이 세로 flex 라 직계 자식은
+      inline-flex 라도 블록화되고, 기본 align-items:stretch 때문에 알약이 프레임 폭
+      전체로 늘어난다. 가로 flex 줄 안에 넣을 때만 인라인으로 align-self:center 를 준다. */
+.ksd-act{display:inline-flex;align-self:flex-start;align-items:baseline;gap:9px;
+  border:1px solid var(--lav-200);background:var(--lav-050);border-radius:99px;padding:5px 15px;
+  font-size:11.5px;font-weight:700;letter-spacing:-.015em;color:var(--ink-2);}
+.ksd-act em{flex:none;font-style:normal;font-size:9.5px;font-weight:800;letter-spacing:.13em;color:var(--violet-500);}
+.ksd-act b{font-weight:800;color:var(--violet-800);}
+
+/* 값이 제자리에서 바뀐다 — inline-grid 로 두 값을 같은 칸에 겹쳐 두고 불투명도만 교차한다.
+   ⚠️ absolute 로 겹치면 칸 폭이 앞 값에 맞춰져 뒤 값이 넘친다("전체 기업" → "NH농협은행").
+      grid-area:1/1 이면 넓은 쪽에 맞춰지므로 글자가 잘리지 않고 이동도 0이다. */
+.ksd-swap{display:inline-grid;vertical-align:baseline;}
+.ksd-swap > i,.ksd-swap > b{grid-area:1/1;font-style:normal;font-weight:inherit;color:inherit;white-space:nowrap;}
+.ksd-swap > i{animation:ksdOut calc(.3s * var(--ksd-k)) linear calc(var(--d,0ms) * var(--ksd-k)) both;}
+.ksd-swap > b{animation:ksdIn calc(.3s * var(--ksd-k)) linear calc(var(--d,0ms) * var(--ksd-k)) both;}
+@keyframes ksdOut{0%{opacity:1}100%{opacity:0}}
+@keyframes ksdIn{0%{opacity:0}100%{opacity:1}}
+
+/* 제자리에서 나타남(이동 0) — SVG 요소처럼 translate 를 걸기 곤란한 자리에 쓴다 */
+.ksd-in{animation:ksdIn calc(.34s * var(--ksd-k)) linear calc(var(--d,0ms) * var(--ksd-k)) both;}
+
+/* 선택 상태가 옮겨간다 — 색만 바뀐다 */
+.ksd-seg i.sw-on{animation:ksdSegOn calc(.32s * var(--ksd-k)) steps(1,end) calc(var(--d,0ms) * var(--ksd-k)) both;}
+.ksd-seg i.sw-off{animation:ksdSegOff calc(.32s * var(--ksd-k)) steps(1,end) calc(var(--d,0ms) * var(--ksd-k)) both;}
+@keyframes ksdSegOn{0%{background:transparent;color:var(--muted)}100%{background:var(--violet-800);color:#fff}}
+@keyframes ksdSegOff{0%{background:var(--violet-800);color:#fff}100%{background:transparent;color:var(--muted)}}
+
+.ksd-inp.sw{animation:ksdInpOn calc(.32s * var(--ksd-k)) steps(1,end) calc(var(--d,0ms) * var(--ksd-k)) both;}
+@keyframes ksdInpOn{0%{border-color:var(--line-2);background:#fff;color:var(--muted)}
+  100%{border-color:var(--violet-800);background:var(--lav-050);color:var(--violet-900)}}
+
+/* 나타난 뒤에 상태까지 바뀌는 행 — animation 두 개를 한 요소에 얹는다.
+   ⚠️ .ksd-fx 와 상태 전환 클래스를 같은 요소에 함께 붙이지 말 것. 둘 다 animation 속성이라
+      뒤에 선언된 쪽이 앞을 통째로 덮어, 행이 아예 안 나타나거나 색이 안 바뀐다.
+      그럴 때는 이 클래스 하나를 쓴다 — ksdUp(나타남)과 ksdOrgOn(선택됨)이 함께 돈다.
+   ⚠️ --d 는 나타나는 시각, --d2 는 상태가 바뀌는 시각이다. 반드시 --d < --d2 여야 한다.
+      뒤집으면 아직 보이지도 않는 행이 먼저 선택돼 "눌러서 바뀌었다"가 사라진다. */
+.ksd-org.fxsw{animation:
+  ksdUp calc(.52s * var(--ksd-k)) var(--ksd-ease) calc(var(--d,0ms) * var(--ksd-k)) both,
+  ksdOrgOn calc(.32s * var(--ksd-k)) steps(1,end) calc(var(--d2,0ms) * var(--ksd-k)) both;}
+.ksd-org.fxsw .tk i{animation:ksdOrgBar calc(.32s * var(--ksd-k)) steps(1,end) calc(var(--d2,0ms) * var(--ksd-k)) both;}
+.ksd-org.fxsw .ct{animation:ksdOrgCt calc(.32s * var(--ksd-k)) steps(1,end) calc(var(--d2,0ms) * var(--ksd-k)) both;}
+@keyframes ksdOrgOn{0%{border-color:var(--line);background:var(--bg-soft)}100%{border-color:var(--violet-800);background:var(--lav-050)}}
+@keyframes ksdOrgBar{0%{background:var(--lav-200)}100%{background:var(--violet-800)}}
+@keyframes ksdOrgCt{0%{color:var(--muted)}100%{color:var(--violet-800)}}
+
+/* 목록에서 고른 항목 — border-left 굵기는 인라인으로 두고 색만 바꾼다 */
+.ksd-card.sw{animation:ksdCardOn calc(.32s * var(--ksd-k)) steps(1,end) calc(var(--d,0ms) * var(--ksd-k)) both;}
+@keyframes ksdCardOn{0%{border-left-color:var(--lav-200);background:#fff}
+  100%{border-left-color:var(--violet-800);background:var(--lav-050)}}
+
+/* 새 창 — "원문 보기"가 열어 주는 자리를 작은 상자로만 표시한다(실제 화면이 아니라 도해다) */
+.ksd-win{display:inline-flex;flex-direction:column;gap:5px;border:1px dashed var(--line-2);
+  border-radius:10px;padding:10px 14px;background:var(--bg-soft);}
+.ksd-win em{font-style:normal;font-size:9.5px;font-weight:800;letter-spacing:.13em;color:var(--muted);}
+.ksd-win b{font-size:12.5px;font-weight:800;letter-spacing:-.02em;color:var(--ink-2);}
 
 .ksd-msg{padding:14px 20px;border-top:1px solid var(--line);background:#fff;font-size:14px;font-weight:700;color:var(--ink-2);line-height:1.66;letter-spacing:-.015em;}
 .ksd-msg b{color:var(--violet-800);}
@@ -2942,10 +3023,10 @@ svg text{font-family:var(--font);}
     <div class="wrap">
       <div class="sec-head rv">
         <span class="sec-no">2.3 · IN PRACTICE</span>
-        <h3 class="sec-title" id="s27">동향은 이렇게 확인한다.</h3>
+        <h3 class="sec-title" id="s27">이용 흐름</h3>
         <p class="sec-lead">
-          금융사 · 보험사의 AI 도입 동향을 확인하려는 사람은 다음 다섯 화면을 쓴다.
-          아래 다섯 장면은 <b>그때 실제로 쓰는 자리만 확대한 것</b>이며,
+          금융사 · 보험사의 AI 도입 동향을 확인하려는 사람은 다음 다섯 화면을 차례로 쓴다.
+          아래 다섯 장면은 <b>그때 실제로 쓰는 자리만 확대하고, 실제로 누르는 조작을 그대로</b> 옮긴 것이며,
           숫자 · 회사명 · 기사 제목을 지어 넣지 않았다.
         </p>
       </div>
@@ -2953,16 +3034,16 @@ svg text{font-family:var(--font);}
       <figure class="fig rv" id="fig25" style="box-shadow:none;border:0;background:transparent">
         <figcaption class="fig-cap" style="border:1px solid var(--line);border-radius:var(--radius) var(--radius) 0 0">
           <span class="fig-num">FIG 2-5</span>
-          <span class="fig-ttl">확인 동선 — 무엇을 알고 싶을 때 어디를 여는가</span>
-          <span class="fig-sub">앞 네 화면은 동향을 확인하는 자리이고, 마지막 하나는 수집 범위를 정하는 관리자 화면이다.</span>
+          <span class="fig-ttl">이용 흐름 — 대시보드에서 시작해 원문 · 보고서 · 관계망까지</span>
+          <span class="fig-sub">장면마다 실제로 누르는 조작이 하나씩 들어 있다. 보라색 링이 뜨는 자리가 사용자가 누르는 자리다.</span>
         </figcaption>
         <div style="border:1px solid var(--line);border-top:0;border-radius:0 0 var(--radius) var(--radius);background:#fff;padding:18px 22px 22px">
           <div class="ksd" id="amwDemo" role="group" aria-label="화면별 확인 동선 재생 — 다섯 개 장면">
             <!-- ⚠️ 라벨 5개. 순서와 개수가 SCENES 의 step 인덱스와 1:1로 대응하므로
                  한쪽만 고치지 말 것 — 어긋나면 없는 라벨을 가리켜 단계 표시가 죽는다. -->
-            <ol class="ksd-steps" data-ksd-steps aria-label="확인 순서">
-              <li><i>1</i>대시보드</li><li><i>2</i>뉴스</li><li><i>3</i>보고서</li>
-              <li><i>4</i>지식그래프</li><li><i>5</i>설정</li>
+            <ol class="ksd-steps" data-ksd-steps aria-label="이용 순서">
+              <li><i>1</i>대시보드</li><li><i>2</i>뉴스 목록</li><li><i>3</i>뉴스 상세</li>
+              <li><i>4</i>보고서</li><li><i>5</i>지식그래프</li>
             </ol>
 
             <div class="ksd-screen">
@@ -2993,58 +3074,72 @@ svg text{font-family:var(--font);}
                        ⚠️ 아래를 얇은 행으로 둔 것은 크기 차가 곧 자리 차이기 때문이다. 여덟 건을
                           같은 크기로 그리면 "무엇부터 읽을지가 화면에서 정해진다"가 사라진다.
                        ⚠️ 왼쪽 보라 세로선은 실제 헤드라인 카드의 border-left 다(2.2 목업의
-                          .s-hl 과 같은 자리). 장식이 아니므로 지우지 말 것. -->
+                          .s-hl 과 같은 자리). 장식이 아니므로 지우지 말 것.
+
+                       ---- 이 장면의 조작 : 기간 세그먼트 ----
+                       ⚠️ 최근 7일 → 전체 로 바뀌는 방향이다. 반대로 뒤집지 말 것 —
+                          "전체 기간 152건"만 실측이고 최근 7일 · 최근 30일 값은 확인되지 않았다.
+                          전체를 누른 뒤에 실측 숫자가 나오는 순서라야 지어낸 값이 화면에 안 뜬다.
+                       ⚠️ 세그먼트는 hx-get 이라 화면을 떠나지 않고 그 자리에서 다시 그려진다.
+                          그래서 이동 없이 색만 바뀌는 연출이 실제 동작과도 맞다. -->
+
                   <div class="ksd-scene" data-scene="dash">
                     <div class="ksd-frame">
                       <div class="ksd-h"><b>대시보드</b><span>오늘 무슨 일이 있었는지부터 본다</span></div>
 
-                      <div class="ksd-fx" style="--d:180ms;display:flex;align-items:center;gap:12px;margin-top:12px">
-                        <span style="font-size:11px;font-weight:800;letter-spacing:.1em;color:var(--muted)">기간</span>
-                        <span class="ksd-seg"><i class="on">전체</i><i>최근 30일</i><i>최근 7일</i></span>
-                        <span style="margin-left:auto;font-size:12.5px;font-weight:700;color:var(--ink-2)">전체 기간 검증 완료 뉴스 <b style="color:var(--violet-800)">152건</b></span>
+                      <div class="ksd-fx" style="--d:180ms;display:flex;align-items:center;gap:13px;margin-top:12px">
+                        <span class="ksd-seg" style="position:relative">
+                          <i class="sw-on" style="--d:640ms">전체</i><i>최근 30일</i><i class="sw-off" style="--d:640ms">최근 7일</i>
+                          <span class="ksd-tap" style="--d:520ms;left:28px;top:16px"></span>
+                        </span>
+                        <span class="ksd-act" style="align-self:center"><em>조작</em><b>전체</b>를 누르면 아래 목록과 지표가 다시 계산된다</span>
+                        <span class="ksd-in" style="--d:740ms;margin-left:auto;font-size:12.5px;font-weight:700;color:var(--ink-2)">검증 완료 뉴스 <b style="color:var(--violet-800)">152건</b></span>
                       </div>
 
-                      <p class="ksd-fx" style="--d:380ms;margin-top:14px;font-size:11px;font-weight:800;letter-spacing:.1em;color:var(--violet-800)">헤드라인 — 1급이면서 근거 기사가 최근인 이슈 세 건</p>
+                      <p class="ksd-fx" style="--d:900ms;margin-top:13px;font-size:11px;font-weight:800;letter-spacing:.1em;color:var(--violet-800)">헤드라인 — 1급이면서 근거 기사가 최근인 이슈 세 건</p>
                       <div style="margin-top:8px;display:flex;flex-direction:column;gap:7px">
-                        <div class="ksd-card ksd-fx" style="--d:500ms;display:flex;align-items:flex-start;gap:11px;padding:10px 14px;border-left:4px solid var(--violet-800)">
+                        <div class="ksd-card ksd-fx" style="--d:1020ms;display:flex;align-items:center;gap:11px;padding:9px 14px;border-left:4px solid var(--violet-800)">
                           <span class="ksd-gr">1급</span>
-                          <div class="t" style="font-size:14px">하나은행이 기업 신용평가 심사의견 작성을 평균 30분 이상에서 10초로 줄이고, 신한투자증권은 50쪽짜리 파일을 요약</div>
+                          <div class="t" style="flex:1;min-width:0;font-size:13.5px">하나은행이 기업 신용평가 심사의견 작성을 평균 30분 이상에서 10초로 줄이고, 신한투자증권은 50쪽짜리 파일을 요약</div>
+                          <span class="m" style="flex:none;margin-top:0">근거 1건</span>
                         </div>
-                        <div class="ksd-card ksd-fx" style="--d:620ms;display:flex;align-items:flex-start;gap:11px;padding:10px 14px;border-left:4px solid var(--violet-800)">
+                        <div class="ksd-card ksd-fx" style="--d:1140ms;display:flex;align-items:center;gap:11px;padding:9px 14px;border-left:4px solid var(--violet-800)">
                           <span class="ksd-gr">1급</span>
-                          <div class="t" style="font-size:14px">NH농협은행이 대면 실명확인을 비밀번호 입력에서 AI 안면인증으로 바꾼 통합인증단말기 전국 100개 영업점 시범 도입</div>
+                          <div class="t" style="flex:1;min-width:0;font-size:13.5px">NH농협은행이 대면 실명확인을 비밀번호 입력에서 AI 안면인증으로 바꾼 통합인증단말기 전국 100개 영업점 시범 도입</div>
+                          <span class="m" style="flex:none;margin-top:0">근거 1건</span>
                         </div>
-                        <div class="ksd-card ksd-fx" style="--d:740ms;display:flex;align-items:flex-start;gap:11px;padding:10px 14px;border-left:4px solid var(--violet-800)">
+                        <div class="ksd-card ksd-fx" style="--d:1260ms;display:flex;align-items:center;gap:11px;padding:9px 14px;border-left:4px solid var(--violet-800)">
                           <span class="ksd-gr">1급</span>
-                          <div class="t" style="font-size:14px">토스증권이 오픈 API를 전체 고객에게 개방해 챗GPT · 클로드에서 주식 주문까지 연결, 메리츠증권은 위불 인수</div>
+                          <div class="t" style="flex:1;min-width:0;font-size:13.5px">토스증권이 오픈 API를 전체 고객에게 개방해 챗GPT · 클로드에서 주식 주문까지 연결, 메리츠증권은 위불 인수</div>
+                          <span class="m" style="flex:none;margin-top:0">근거 2건</span>
                         </div>
                       </div>
 
-                      <p class="ksd-fx" style="--d:1060ms;margin-top:14px;font-size:11px;font-weight:800;letter-spacing:.1em;color:var(--muted)">주요 이슈 — 헤드라인에 오른 것은 여기 다시 나오지 않는다</p>
-                      <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">
-                        <div class="ksd-card ksd-fx" style="--d:1180ms;display:flex;align-items:center;gap:11px;padding:8px 14px">
+                      <p class="ksd-fx" style="--d:1560ms;margin-top:13px;font-size:11px;font-weight:800;letter-spacing:.1em;color:var(--muted)">주요 이슈 — 헤드라인에 오른 것은 여기 다시 나오지 않는다 · 다섯 건 모두 근거 1건</p>
+                      <div style="margin-top:8px;display:flex;flex-direction:column;gap:5px">
+                        <div class="ksd-card ksd-fx" style="--d:1680ms;display:flex;align-items:center;gap:11px;padding:7px 14px">
                           <span class="ksd-gr">1급</span>
                           <span style="font-size:12.5px;font-weight:700;letter-spacing:-.02em;color:var(--ink-2)">삼성생명이 삼성SDS 패브릭스에 자체 글쓰기 지침을 결합한 고객 안내문 작성 AI를 지난해 12월 사내 가동</span>
                         </div>
-                        <div class="ksd-card ksd-fx" style="--d:1290ms;display:flex;align-items:center;gap:11px;padding:8px 14px">
+                        <div class="ksd-card ksd-fx" style="--d:1780ms;display:flex;align-items:center;gap:11px;padding:7px 14px">
                           <span class="ksd-gr">1급</span>
                           <span style="font-size:12.5px;font-weight:700;letter-spacing:-.02em;color:var(--ink-2)">KB국민 · 하나 · 우리 · NH농협 4개 은행의 퇴직연금 AI 일임 이용자가 7개월 만에 8,561명에서 1만2,035명으로 증가</span>
                         </div>
-                        <div class="ksd-card ksd-fx" style="--d:1400ms;display:flex;align-items:center;gap:11px;padding:8px 14px">
+                        <div class="ksd-card ksd-fx" style="--d:1880ms;display:flex;align-items:center;gap:11px;padding:7px 14px">
                           <span class="ksd-gr g2">2급</span>
                           <span style="font-size:12.5px;font-weight:700;letter-spacing:-.02em;color:var(--ink-2)">카카오페이손해보험이 해외 의료비 보상 심사 AI를 아마존웹서비스 개발 도구로 자체 구축해 건당 심사를 40분~2시간에서 2~3분으로 단축</span>
                         </div>
-                        <div class="ksd-card ksd-fx" style="--d:1510ms;display:flex;align-items:center;gap:11px;padding:8px 14px">
+                        <div class="ksd-card ksd-fx" style="--d:1980ms;display:flex;align-items:center;gap:11px;padding:7px 14px">
                           <span class="ksd-gr g3">3급</span>
                           <span style="font-size:12.5px;font-weight:700;letter-spacing:-.02em;color:var(--ink-2)">금융감독원이 분쟁조정 민원 분류와 답변 초안에 소형언어모델 가동</span>
                         </div>
-                        <div class="ksd-card ksd-fx" style="--d:1620ms;display:flex;align-items:center;gap:11px;padding:8px 14px">
+                        <div class="ksd-card ksd-fx" style="--d:2080ms;display:flex;align-items:center;gap:11px;padding:7px 14px">
                           <span class="ksd-gr g3">3급</span>
                           <span style="font-size:12.5px;font-weight:700;letter-spacing:-.02em;color:var(--ink-2)">신한투자증권이 AI 전환 코디네이터 109명이 모이는 AI 에이전트 사례 공유 행사 개최</span>
                         </div>
                       </div>
 
-                      <p class="ksd-fx" style="--d:1900ms;margin-top:auto;padding-top:11px;font-size:11.5px;font-weight:700;color:var(--muted)">헤드라인 세 칸을 먼저 보고, 그 아래는 등급으로 훑는다. <b style="color:var(--violet-800)">무엇부터 읽을지</b>가 화면에서 정해진다.</p>
+                      <p class="ksd-fx" style="--d:2350ms;margin-top:auto;padding-top:10px;font-size:11.5px;font-weight:700;color:var(--muted)">헤드라인 세 칸을 먼저 보고, 그 아래는 등급으로 훑는다. 이슈를 누르면 <b style="color:var(--violet-800)">근거 기사로 넘어간다.</b></p>
                     </div>
                   </div>
 
@@ -3059,7 +3154,13 @@ svg text{font-family:var(--font);}
                           우리은행 · 케이뱅크 · KB국민은행 · 카카오뱅크는 은행이므로 금융사다.
                        ⚠️ 배치 순서에 주의 — 2열 그리드가 행 방향으로 채워지므로 마크업은
                           1, 5, 2, 6, 3, 7, 4, 8 순서다. 화면에서는 왼쪽 열이 1~4위,
-                          오른쪽 열이 5~8위로 읽힌다. 순위대로 나열하면 열이 뒤섞인다. -->
+                          오른쪽 열이 5~8위로 읽힌다. 순위대로 나열하면 열이 뒤섞인다.
+
+                       ---- 이 장면의 조작 : 기업 필터 ----
+                       ⚠️ 세 곳이 같은 --d(1250ms)에 함께 바뀐다 — 필터 바의 "전체 기업"이
+                          "NH농협은행"으로, 그 칸이 선택 상태로, 총 건수가 152 → 26 으로.
+                          하나라도 시각이 어긋나면 "한 번 눌러서 한꺼번에 좁혀졌다"가 안 읽힌다.
+                       ⚠️ 152 와 26 둘 다 실측이다. 중간값을 지어 끼우지 말 것. -->
                   <div class="ksd-scene" data-scene="news">
                     <div class="ksd-frame">
                       <!-- ⚠️ --d 와 SCENES[].dur 은 둘 다 --ksd-k(1.25)가 곱해진다.
@@ -3068,41 +3169,100 @@ svg text{font-family:var(--font);}
                            같은 단위로 확인하면 된다 — 여기서는 1450 + 520 = 1970 < 6500.
                            실제 재생 시각이 궁금하면 1.25를 곱한다. 한쪽에만 K 를 적용해
                            계산하지 말 것. -->
-                      <div class="ksd-h"><b>뉴스</b><span>특정 기업만 좁혀 본다</span><span class="big ksd-pop" style="--d:60ms">152</span></div>
+                      <div class="ksd-h"><b>뉴스 목록</b><span>특정 기업만 좁혀 본다</span></div>
 
-                      <div class="ksd-fbar ksd-fx" style="--d:220ms">
+                      <div class="ksd-fbar ksd-fx" style="--d:180ms">
                         <span class="ksd-inp grow">뉴스를 검색해주세요</span>
                         <span class="ksd-inp">연도-월-일</span>
                         <span style="font-size:12px;font-weight:700;color:var(--muted)">~</span>
                         <span class="ksd-inp">연도-월-일</span>
-                        <span class="ksd-inp on">NH농협은행<em>▼</em></span>
+                        <span class="ksd-inp sw" style="--d:1430ms"><span class="ksd-swap"><i>전체 기업</i><b>NH농협은행</b></span><em>▼</em></span>
+                        <span class="ksd-inp">전체 출처<em>▼</em></span>
                         <span class="ksd-inp">최신순<em>▼</em></span>
                         <span class="ksd-inp go">검색</span>
+                        <span class="ksd-inp">초기화</span>
                       </div>
 
-                      <p class="ksd-fx" style="--d:420ms;margin-top:17px;font-size:11px;font-weight:800;letter-spacing:.1em;color:var(--violet-800)">기업 선택 — 검증 완료 뉴스가 많은 순</p>
+                      <p class="ksd-act ksd-fx" style="--d:340ms;margin-top:13px"><em>조작</em>기업에서 <b>NH농협은행</b>을 고른다 — 고른 기업 기사만 남는다</p>
+
+                      <p class="ksd-fx" style="--d:480ms;margin-top:14px;font-size:11px;font-weight:800;letter-spacing:.1em;color:var(--violet-800)">기업 선택 — 검증 완료 뉴스가 많은 순 · 파랑 금융사 · 청록 보험사</p>
                       <div class="ksd-orgs">
-                        <div class="ksd-org on ksd-fx" style="--d:560ms"><b class="fin"></b><span class="nm">NH농협은행</span><span class="tk"><i style="width:100%"></i></span><span class="ct">26</span></div>
-                        <div class="ksd-org ksd-fx" style="--d:640ms"><b class="fin"></b><span class="nm">우리은행</span><span class="tk"><i style="width:65%"></i></span><span class="ct">17</span></div>
+                        <div class="ksd-org fxsw" style="--d:600ms;--d2:1430ms;position:relative"><b class="fin"></b><span class="nm">NH농협은행</span><span class="tk"><i style="width:100%"></i></span><span class="ct">26</span><span class="ksd-tap" style="--d:1300ms;left:96px;top:50%"></span></div>
+                        <div class="ksd-org ksd-fx" style="--d:660ms"><b class="fin"></b><span class="nm">우리은행</span><span class="tk"><i style="width:65%"></i></span><span class="ct">17</span></div>
                         <div class="ksd-org ksd-fx" style="--d:720ms"><b class="ins"></b><span class="nm">삼성화재</span><span class="tk"><i style="width:96%"></i></span><span class="ct">25</span></div>
-                        <div class="ksd-org ksd-fx" style="--d:800ms"><b class="fin"></b><span class="nm">케이뱅크</span><span class="tk"><i style="width:62%"></i></span><span class="ct">16</span></div>
-                        <div class="ksd-org ksd-fx" style="--d:880ms"><b class="ins"></b><span class="nm">삼성생명</span><span class="tk"><i style="width:85%"></i></span><span class="ct">22</span></div>
-                        <div class="ksd-org ksd-fx" style="--d:960ms"><b class="fin"></b><span class="nm">KB국민은행</span><span class="tk"><i style="width:62%"></i></span><span class="ct">16</span></div>
-                        <div class="ksd-org ksd-fx" style="--d:1040ms"><b class="fin"></b><span class="nm">신한은행</span><span class="tk"><i style="width:81%"></i></span><span class="ct">21</span></div>
-                        <div class="ksd-org ksd-fx" style="--d:1120ms"><b class="fin"></b><span class="nm">카카오뱅크</span><span class="tk"><i style="width:58%"></i></span><span class="ct">15</span></div>
+                        <div class="ksd-org ksd-fx" style="--d:780ms"><b class="fin"></b><span class="nm">케이뱅크</span><span class="tk"><i style="width:62%"></i></span><span class="ct">16</span></div>
+                        <div class="ksd-org ksd-fx" style="--d:840ms"><b class="ins"></b><span class="nm">삼성생명</span><span class="tk"><i style="width:85%"></i></span><span class="ct">22</span></div>
+                        <div class="ksd-org ksd-fx" style="--d:900ms"><b class="fin"></b><span class="nm">KB국민은행</span><span class="tk"><i style="width:62%"></i></span><span class="ct">16</span></div>
+                        <div class="ksd-org ksd-fx" style="--d:960ms"><b class="fin"></b><span class="nm">신한은행</span><span class="tk"><i style="width:81%"></i></span><span class="ct">21</span></div>
+                        <div class="ksd-org ksd-fx" style="--d:1020ms"><b class="fin"></b><span class="nm">카카오뱅크</span><span class="tk"><i style="width:58%"></i></span><span class="ct">15</span></div>
                       </div>
 
-                      <div class="ksd-fx" style="--d:1300ms;display:flex;align-items:center;gap:11px;margin-top:15px">
+                      <!-- 결과 줄은 탭보다 먼저 떠 있어야 152 → 26 으로 바뀌는 것이 보인다.
+                           줄이 뜨는 시각(1100)이 값이 바뀌는 시각(1430)보다 늦으면 26만 보인다. -->
+                      <div class="ksd-fx" style="--d:1100ms;display:flex;align-items:baseline;gap:12px;margin-top:16px">
                         <span style="font-size:11px;font-weight:800;letter-spacing:.1em;color:var(--muted)">결과</span>
-                        <span style="font-size:14px;font-weight:800;letter-spacing:-.02em;color:var(--violet-900)">NH농협은행 · <b style="color:var(--violet-800)">26건</b></span>
-                        <span style="font-size:11.5px;font-weight:700;color:var(--muted)">점 색은 기업 유형이다 — 파랑 금융사 · 청록 보험사</span>
+                        <span style="font-size:15px;font-weight:800;letter-spacing:-.02em;color:var(--violet-900)">총 <span class="ksd-swap" style="--d:1430ms;color:var(--violet-800)"><i>152</i><b>26</b></span>건</span>
+                        <span style="font-size:11.5px;font-weight:700;color:var(--muted)">한 번 누르는 것으로 목록 · 총 건수 · 필터 표시가 함께 바뀐다</span>
                       </div>
 
-                      <p class="ksd-fx" style="--d:1450ms;margin-top:auto;padding-top:12px;font-size:11.5px;font-weight:700;color:var(--muted)">152건을 전부 훑지 않고 <b style="color:var(--violet-800)">기업 하나와 기간</b>으로 좁힌다. 남는 26건은 모두 검증을 통과한 기사다.</p>
+                      <p class="ksd-fx" style="--d:1700ms;margin-top:auto;padding-top:12px;font-size:11.5px;font-weight:700;color:var(--muted)">152건을 전부 훑지 않고 <b style="color:var(--violet-800)">기업 하나와 기간</b>으로 좁힌다. 남는 26건은 모두 검증을 통과한 기사다.</p>
                     </div>
                   </div>
 
-                  <!-- 3 보고서 — 주간 보고서에서 이슈와 시사점을 읽는다
+                  <!-- 3 뉴스 상세 — 기사 하나를 열고 원문으로 넘어간다
+                       ⚠️ 대시보드에 "누르면 요약이 펼쳐지는 드롭다운"은 없다. 이슈의 근거 기사를
+                          누르면 news_detail 로 페이지가 넘어가고, "원문 보기"는 그 상세 화면에
+                          있다(detail.html:93, target="_blank"). 실제 동선은
+                          대시보드 → 뉴스 상세 → 원문 이며, 이 장면이 그 가운데 칸이다.
+                          드롭다운 연출을 만들지 말 것 — 제품에 없는 UI다.
+                       ⚠️ 이 화면에 "요약"이라는 별도 항목은 없다. 있는 것은 제목 · 관련 기업 ·
+                          이슈 · 원문 보기 넷뿐이다. 없는 항목을 만들지 말 것.
+                       🔴 시사점 본문을 넣지 않았다. 이 기사가 속한 이슈의 실제 시사점 원문을
+                          받지 못했고, 다른 이슈의 시사점을 가져다 붙이면 없는 관계를 만드는
+                          것이 된다. 원문을 받으면 이슈 줄 아래에 그대로 채울 것.
+                       ⚠️ 기사 제목 · 발행일 · 기업 배지 · 이슈 제목 · 등급은 전부 실제 값이며
+                          2.2 뉴스 목업(NEWS-001 · NEWS-002)에서 이미 실측으로 확인된 같은 건이다.
+                          그래서 2.2 를 읽고 온 사람이 같은 기사를 다시 만나게 된다.
+                       ⚠️ 제목만 세리프(--font-head)다. 실제 화면의 h1 이 그렇다.
+                       ⚠️ 오른쪽 "새 창" 상자는 실제 화면이 아니라 도해다. 점선 테두리로 두어
+                          화면과 구분한다 — 실선으로 바꾸면 제품에 있는 패널로 오해된다. -->
+                  <div class="ksd-scene" data-scene="detail">
+                    <div class="ksd-frame">
+                      <div class="ksd-h"><b>뉴스 상세</b><span>목록에서 기사 하나를 연 화면</span></div>
+
+                      <div class="ksd-card ksd-fx" style="--d:180ms;margin-top:14px">
+                        <div style="display:flex;align-items:center;gap:10px">
+                          <span style="font-size:11px;font-weight:700;color:var(--muted)">2026년 08월 18일</span>
+                          <!-- 탭 링은 누르는 버튼 안에 둔다 — 버튼에 position:relative 를 주고
+                               left/top 50% 로 얹으면 버튼 크기가 바뀌어도 가운데를 유지한다.
+                               카드 기준 right/top px 로 잡으면 글자 폭이 조금만 달라져도 어긋난다. -->
+                          <span class="ksd-inp" style="margin-left:auto;position:relative;padding:6px 12px;border-color:var(--lav-200);color:var(--violet-800)">원문 보기 <em style="font-size:12px;color:var(--violet-500)">&#8599;</em><span class="ksd-tap" style="--d:1150ms;left:50%;top:50%"></span></span>
+                        </div>
+                        <div style="margin-top:9px;font-family:var(--font-head);font-size:19px;font-weight:700;letter-spacing:-.02em;color:var(--violet-950);line-height:1.5">[금융권 스타트업 협업&#9312;] KB국민은행은 왜 신생 '티냅스'를 택했나</div>
+                      </div>
+
+                      <p class="ksd-fx" style="--d:400ms;margin-top:15px;font-size:11px;font-weight:800;letter-spacing:.1em;color:var(--muted)">관련 기업 — 잘못 붙은 태그는 이 자리에서 사람이 고친다</p>
+                      <div class="ksd-fx" style="--d:500ms;margin-top:8px;display:flex;gap:7px">
+                        <span class="ksd-chip fin">KB국민은행</span>
+                        <span class="ksd-chip ai">티냅스</span>
+                      </div>
+
+                      <p class="ksd-fx" style="--d:680ms;margin-top:15px;font-size:11px;font-weight:800;letter-spacing:.1em;color:var(--violet-800)">이 기사가 속한 이슈</p>
+                      <div class="ksd-card ksd-fx" style="--d:780ms;margin-top:8px;display:flex;align-items:center;gap:11px;padding:9px 14px">
+                        <span class="ksd-gr g2">2급</span>
+                        <span style="font-size:13px;font-weight:700;letter-spacing:-.02em;color:var(--ink-2)">KB국민은행이 티냅스와 AI 답변 신뢰성 검증 체계 공동 구축 — 통과 · 차단 · 재검토 판정</span>
+                      </div>
+
+                      <div style="margin-top:16px;display:flex;align-items:center;gap:16px">
+                        <span class="ksd-act ksd-fx" style="--d:1000ms;align-self:center"><em>조작</em><b>원문 보기</b>를 누르면 새 창으로 언론사 원문이 열린다</span>
+                        <span class="ksd-win ksd-in" style="--d:1350ms"><em>새 창</em><b>언론사 원문</b></span>
+                      </div>
+
+                      <p class="ksd-fx" style="--d:1600ms;margin-top:auto;padding-top:12px;font-size:11.5px;font-weight:700;color:var(--muted)">요약을 읽고 끝내지 않는다. <b style="color:var(--violet-800)">근거가 된 원문까지 한 번에 닿는 것</b>이 이 화면의 목적이다.</p>
+                    </div>
+                  </div>
+
+                  <!-- 4 보고서 — 주간 보고서에서 이슈와 시사점을 읽는다
                        ⚠️ 좌(목록에서 고른다) → 우(그 보고서를 연다) 로 실제 관계가 이어진다.
                           왼쪽 첫 카드가 선택 상태이고, 오른쪽은 바로 그 보고서의 본문이다.
                        ⚠️ 한때 이 자리에 카카오페이손해보험 이슈를 넣고 좌우를 일부러 끊어 뒀는데,
@@ -3115,42 +3275,54 @@ svg text{font-family:var(--font);}
                           행을 지어 넣지 말 것 — 목록 길이 자체가 현재 상태다.
                        ⚠️ 하나은행 이슈는 대시보드 씬의 헤드라인 1번과 같은 건이다. 일부러 같은
                           것을 두 번 쓴다 — "같은 처리 결과를 화면마다 다른 관점으로 본다"는 것이
-                          2.2 도입부터 이어지는 이 서비스의 구조이기 때문이다. -->
+                          2.2 도입부터 이어지는 이 서비스의 구조이기 때문이다.
+
+                       ---- 이 장면의 조작 : 목록에서 한 주를 고른다 ----
+                       ⚠️ 애니메이션으로 보여 주는 조작은 "목록에서 8월 3주차를 누른다"이다.
+                          카드가 선택 상태로 바뀐 뒤에 오른쪽 본문이 나타난다.
+                       🔴 짧은 버전 ↔ 긴 버전 토글은 세그먼트만 두고 전환을 애니메이션으로
+                          보여 주지 않았다. 긴 버전 본문 원문을 받지 못해, 선택만 옮기면
+                          "바꿔도 내용이 그대로"라는 틀린 말이 된다. 짧은 버전이 기본값이므로
+                          그 상태로 세워 두었다. 긴 버전 본문을 받으면 전환을 켤 것 —
+                          .ksd-seg i.sw-on / .sw-off 를 붙이면 끝난다. -->
                   <div class="ksd-scene" data-scene="report">
                     <div class="ksd-frame">
                       <div class="ksd-h"><b>보고서</b><span>주간 보고서에서 이슈와 시사점을 읽는다</span></div>
 
-                      <div style="margin-top:15px;display:grid;grid-template-columns:320px minmax(0,1fr);gap:24px;align-items:start">
+                      <p class="ksd-act ksd-fx" style="--d:150ms;margin-top:13px"><em>조작</em>목록에서 <b>8월 3주차</b>를 누른다 — 그 주의 보고서가 열린다</p>
+
+                      <div style="margin-top:14px;display:grid;grid-template-columns:320px minmax(0,1fr);gap:24px;align-items:start">
                         <div>
-                          <p class="ksd-fx" style="--d:180ms;font-size:11px;font-weight:800;letter-spacing:.1em;color:var(--muted)">발행된 주간 보고서</p>
-                          <div style="margin-top:9px;display:flex;flex-direction:column;gap:8px">
-                            <div class="ksd-card ksd-fx" style="--d:300ms;border-left:4px solid var(--violet-800);background:var(--lav-050)">
+                          <p class="ksd-fx" style="--d:280ms;font-size:11px;font-weight:800;letter-spacing:.1em;color:var(--muted)">발행된 주간 보고서</p>
+                          <div class="ksd-fx" style="--d:380ms;margin-top:9px;display:flex;flex-direction:column;gap:8px">
+                            <div class="ksd-card sw" style="--d:690ms;position:relative;border-left:4px solid var(--lav-200)">
                               <div class="t">8월 3주차 금융권 AI 도입 동향 보고서</div>
                               <div class="m">2026년 8월 3주차 · 08.15 ~ 08.21</div>
+                              <span class="ksd-tap" style="--d:560ms;left:120px;top:50%"></span>
                             </div>
-                            <div class="ksd-card ksd-fx" style="--d:420ms">
+                            <div class="ksd-card">
                               <div class="t">8월 2주차 금융권 AI 도입 동향 보고서</div>
                               <div class="m">2026년 8월 2주차 · 08.08 ~ 08.14</div>
                             </div>
                           </div>
-                          <p class="ksd-fx" style="--d:560ms;margin-top:11px;font-size:11.5px;font-weight:700;color:var(--muted);line-height:1.66">주 단위로 발행한다. 한 주에 무엇이 있었는지를 이 목록에서 고른다.</p>
+                          <p class="ksd-fx" style="--d:820ms;margin-top:11px;font-size:11.5px;font-weight:700;color:var(--muted);line-height:1.66">주 단위로 발행한다. 한 주에 무엇이 있었는지를 이 목록에서 고른다.</p>
                         </div>
 
                         <div style="border-left:1px solid var(--line);padding-left:24px">
-                          <p class="ksd-fx" style="--d:700ms;font-size:11px;font-weight:800;letter-spacing:.1em;color:var(--violet-800)">8월 3주차 보고서를 연 화면</p>
+                          <p class="ksd-fx" style="--d:900ms;font-size:11px;font-weight:800;letter-spacing:.1em;color:var(--violet-800)">8월 3주차 보고서를 연 화면</p>
 
-                          <div class="ksd-card ksd-fx" style="--d:820ms;margin-top:9px">
+                          <div class="ksd-card ksd-fx" style="--d:1020ms;margin-top:9px">
                             <div style="font-size:10.5px;font-weight:800;letter-spacing:.08em;color:var(--muted)">주요 동향</div>
                             <p style="margin-top:6px;font-size:12.5px;font-weight:700;color:var(--ink-2);line-height:1.68">하나은행이 기업 신용평가 심사의견 작성을 평균 30분 이상에서 10초로 줄였다고 밝힌 주에, 삼성화재는 AI 오류로 생긴 손해를 받아 줄 보험이 아직 없다고 확인했다.</p>
                           </div>
 
-                          <div class="ksd-fx" style="--d:980ms;display:flex;align-items:center;gap:11px;margin-top:12px">
+                          <div class="ksd-fx" style="--d:1180ms;display:flex;align-items:center;gap:11px;margin-top:12px">
                             <span style="font-size:11px;font-weight:800;letter-spacing:.1em;color:var(--muted)">버전</span>
                             <span class="ksd-seg"><i class="on">짧은 버전</i><i>긴 버전</i></span>
-                            <span style="font-size:11.5px;font-weight:700;color:var(--muted)">같은 이슈를 두 형태로 발행한다</span>
+                            <span style="font-size:11.5px;font-weight:700;color:var(--muted)">짧은 버전이 기본이고, 눌러서 긴 버전으로 바꿔 읽는다</span>
                           </div>
 
-                          <div class="ksd-card ksd-fx" style="--d:1120ms;margin-top:10px">
+                          <div class="ksd-card ksd-fx" style="--d:1320ms;margin-top:10px">
                             <div style="display:flex;align-items:flex-start;gap:11px">
                               <span class="ksd-gr">1급</span>
                               <div class="t" style="font-size:14px">하나은행이 기업 신용평가 심사의견 작성을 평균 30분 이상에서 10초로 줄이고, 신한투자증권은 50쪽짜리 파일을 요약</div>
@@ -3160,11 +3332,11 @@ svg text{font-family:var(--font);}
                         </div>
                       </div>
 
-                      <p class="ksd-fx" style="--d:1450ms;margin-top:auto;padding-top:12px;font-size:11.5px;font-weight:700;color:var(--muted)">대시보드에서 헤드라인으로 본 그 건을, 보고서에서는 <b style="color:var(--violet-800)">한 주의 맥락과 근거까지 붙은 문장</b>으로 읽는다.</p>
+                      <p class="ksd-fx" style="--d:1600ms;margin-top:auto;padding-top:12px;font-size:11.5px;font-weight:700;color:var(--muted)">대시보드에서 헤드라인으로 본 그 건을, 보고서에서는 <b style="color:var(--violet-800)">한 주의 맥락과 근거까지 붙은 문장</b>으로 읽는다.</p>
                     </div>
                   </div>
 
-                  <!-- 4 지식그래프 — 그 기업이 어느 AI 기업과 무엇을 했나
+                  <!-- 5 지식그래프 — 그 기업이 어느 AI 기업과 무엇을 했나
                        ⚠️ 전체 관계망을 그리지 않았다. 실측이 관계 22건 · 노드 38개인데
                           등록 기업 88곳 중 50곳은 연결이 하나도 없고, 연결이 둘 이상인 노드가
                           다섯 곳뿐이다(NH농협은행 · IBK기업은행 · 애자일소다 · 우리금융지주 ·
@@ -3178,14 +3350,26 @@ svg text{font-family:var(--font);}
                        ⚠️ 관계 설명 두 문장은 DB 원문 그대로다. 다듬지 말 것.
                        ⚠️ 데모 관계를 더해 그래프를 풍성하게 만들지 말 것 — 2.2 지식그래프 목업은
                           "관계가 쌓였을 때의 모습"이라 예시 연결을 허용받았지만, 이 절은 실측만
-                          싣는다는 것이 절 전체의 전제다. 22건뿐이어도 한 덩어리면 말이 선다. -->
+                          싣는다는 것이 절 전체의 전제다. 22건뿐이어도 한 덩어리면 말이 선다.
+
+                       ---- 이 장면의 조작 : 노드를 누른다 ----
+                       ⚠️ 한국딥러닝 노드를 누르면 그 기업에 걸린 관계가 펼쳐진다. 탭 링은
+                          HTML 요소라 SVG 안에 넣을 수 없다 — 감싼 div 를 position:relative 로
+                          두고 그 위에 얹었다. 가로 위치는 left:50% 로 정확히 맞는다
+                          (노드가 viewBox 900 의 정중앙인 450 이라서다). 세로는 rem 이 아니라
+                          렌더 높이 기준 px 이므로 viewBox 를 바꾸면 top 값도 다시 잡을 것.
+                       ⚠️ 노드 강조 링은 SVG circle 이라 .ksd-fx(translateY)를 걸 수 없다.
+                          이동 없이 불투명도만 켜는 .ksd-in 을 쓴다. -->
                   <div class="ksd-scene" data-scene="graph">
                     <div class="ksd-frame">
                       <div class="ksd-h"><b>지식그래프</b><span>그 기업이 어느 AI 기업과 무엇을 했나</span><span class="big ksd-pop" style="--d:60ms">22</span></div>
 
-                      <p class="ksd-fx" style="--d:200ms;margin-top:13px;font-size:11px;font-weight:800;letter-spacing:.1em;color:var(--violet-800)">등록된 관계 22건 가운데 한 덩어리를 확대했다</p>
+                      <p class="ksd-act ksd-fx" style="--d:200ms;margin-top:12px"><em>조작</em><b>한국딥러닝</b>을 누르면 그 기업에 걸린 관계가 펼쳐진다</p>
 
-                      <div class="ksd-fx" style="--d:340ms;margin-top:6px">
+                      <p class="ksd-fx" style="--d:360ms;margin-top:13px;font-size:11px;font-weight:800;letter-spacing:.1em;color:var(--violet-800)">등록된 관계 22건 가운데 한 덩어리를 확대했다</p>
+
+                      <div class="ksd-fx" style="--d:480ms;margin-top:6px;position:relative">
+                        <span class="ksd-tap" style="--d:1000ms;left:50%;top:76px"></span>
                         <svg viewBox="0 0 900 172" style="width:100%;height:auto" role="img"
                              aria-label="현대캐피탈과 IBK기업은행이 각각 공급계약으로 한국딥러닝에 연결된 세 개 노드 관계도. 가운데가 AI 기업 한국딥러닝이고 양옆이 금융사다.">
                           <g stroke="#D6BFEF" stroke-width="2.6" stroke-linecap="round">
@@ -3200,6 +3384,7 @@ svg text{font-family:var(--font);}
                             <text x="300" y="74.5">공급계약</text>
                             <text x="600" y="74.5">공급계약</text>
                           </g>
+                          <circle class="ksd-in" style="--d:1120ms" cx="450" cy="70" r="38" fill="none" stroke="#60269E" stroke-width="1.6" stroke-dasharray="5 4"/>
                           <g stroke="#FFFFFF" stroke-width="2.5">
                             <circle cx="150" cy="70" r="22" fill="#3B82F6"/>
                             <circle cx="450" cy="70" r="28" fill="#60269E"/>
@@ -3218,15 +3403,16 @@ svg text{font-family:var(--font);}
                         </svg>
                       </div>
 
-                      <div style="margin-top:4px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
-                        <div class="ksd-card ksd-fx" style="--d:900ms">
+                      <p class="ksd-fx" style="--d:1240ms;margin-top:4px;font-size:11px;font-weight:800;letter-spacing:.1em;color:var(--violet-800)">한국딥러닝에 걸린 관계 두 건</p>
+                      <div style="margin-top:7px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
+                        <div class="ksd-card ksd-fx" style="--d:1340ms">
                           <div style="display:flex;align-items:center;gap:9px">
                             <span style="font-size:12.5px;font-weight:800;letter-spacing:-.02em;color:var(--violet-950)">현대캐피탈 × 한국딥러닝</span>
                             <span class="ksd-gr">공급계약</span>
                           </div>
                           <p style="margin-top:7px;font-size:12.5px;font-weight:700;color:var(--ink-2);line-height:1.62">한국딥러닝의 문서 AI 에이전트로 여신 업무 관련 46종 문서 처리를 자동화, 관련 업무시간 약 96% 절감(2026-08).</p>
                         </div>
-                        <div class="ksd-card ksd-fx" style="--d:1060ms">
+                        <div class="ksd-card ksd-fx" style="--d:1480ms">
                           <div style="display:flex;align-items:center;gap:9px">
                             <span style="font-size:12.5px;font-weight:800;letter-spacing:-.02em;color:var(--violet-950)">IBK기업은행 × 한국딥러닝</span>
                             <span class="ksd-gr">공급계약</span>
@@ -3235,37 +3421,22 @@ svg text{font-family:var(--font);}
                         </div>
                       </div>
 
-                      <p class="ksd-fx" style="--d:1450ms;margin-top:auto;padding-top:12px;font-size:11.5px;font-weight:700;color:var(--muted)"><b style="color:var(--violet-800)">같은 AI 기업이 서로 다른 두 금융사에 같은 것을 공급했다.</b> 기사를 한 건씩 읽어서는 보이지 않고, 이 화면에서만 드러난다.</p>
+                      <p class="ksd-fx" style="--d:1780ms;margin-top:auto;padding-top:12px;font-size:11.5px;font-weight:700;color:var(--muted)"><b style="color:var(--violet-800)">같은 AI 기업이 서로 다른 두 금융사에 같은 것을 공급했다.</b> 기사를 한 건씩 읽어서는 보이지 않고, 이 화면에서만 드러난다.</p>
                     </div>
                   </div>
 
-                  <!-- 5 설정 — 수집 키워드와 기업을 관리한다
-                       ⚠️ 앞 네 장면과 성격이 다르다. 관리자만 쓰는 화면이라 "동향을 확인하고
-                          싶은 사람"의 동선에 들어가지 않는다. 그래서 맨 끝에 한 장면만 두고,
-                          길이도 가장 짧게(4.5초) 잡았다. 여기에 설정 여덟 화면을 늘어놓지 말 것 —
-                          늘리는 순간 관리자 화면이 사용자 동선의 일부처럼 읽힌다.
-                       ⚠️ 우측 칩 색도 여기서만 남색(.human)이다. 색으로 "성격이 다른 화면"임을
-                          말한다. 아래 .legend 두 줄이 그 색의 뜻이다. -->
-                  <div class="ksd-scene" data-scene="setting">
-                    <div class="ksd-frame">
-                      <div class="ksd-h"><b>설정</b><span>수집 키워드와 기업을 관리한다 · 관리자 전용</span></div>
-
-                      <div class="ksd-num">
-                        <div class="b ksd-pop" style="--d:150ms"><div class="v">23</div><div class="l">수집 키워드 · 활성</div></div>
-                        <div class="b ksd-pop" style="--d:280ms"><div class="v">8</div><div class="l">제외 키워드 · 활성</div></div>
-                        <div class="b ksd-pop" style="--d:410ms"><div class="v">88</div><div class="l">등록 기업</div></div>
-                        <div class="b ksd-pop" style="--d:540ms"><div class="v">152</div><div class="l">검증 완료 뉴스</div></div>
-                      </div>
-
-                      <p class="ksd-fx" style="--d:900ms;margin-top:auto;padding-top:12px;font-size:11.5px;font-weight:700;color:var(--muted)">앞의 네 화면이 보여 주는 것은 전부 <b style="color:var(--violet-800)">여기서 정한 범위</b> 안에서 모인 결과다. 동향을 확인하려는 사람이 이 화면을 열 일은 없다.</p>
-                    </div>
-                  </div>
-
+                  <!-- 2026-08-27에 뺀 것 — 설정 장면(data-scene="setting").
+                       수집 키워드 23 · 제외 키워드 8 · 등록 기업 88 · 검증 완료 152, 숫자 넷뿐이라
+                       "어떻게 쓰는가"를 아무것도 보여 주지 못했다. 이 절은 이용 흐름을 말하는
+                       자리이므로 관리자 화면은 들어오지 않는다. 되살리지 말 것.
+                       ⚠️ 함께 지운 것 — .ksd-num* CSS, 그림 아래 .legend 두 줄과 .legend/.lg CSS.
+                          범례는 "확인 화면(보라) / 관리자 화면(남색)"을 가르던 것인데
+                          다섯 장면이 전부 확인 화면이 되어 가를 것이 없어졌다. -->
                 </div>
               </div>
             </div>
 
-            <p class="ksd-msg" data-ksd-msg aria-live="polite"><b>헤드라인 세 건</b>이 맨 위에 서고, 그 아래로 등급이 붙은 이슈가 이어진다. 무엇부터 읽을지가 화면에서 정해진다.</p>
+            <p class="ksd-msg" data-ksd-msg aria-live="polite">기간을 누르면 <b>화면을 떠나지 않고</b> 목록과 지표가 다시 계산된다. 헤드라인 세 건이 맨 위에 서고, 그 아래로 등급이 붙은 이슈가 이어진다.</p>
 
             <div class="ksd-ctl">
               <div class="ksd-ctl-meta">
@@ -3287,16 +3458,13 @@ svg text{font-family:var(--font);}
             <p class="ksd-hint">키보드 ← → 로 장면 이동, Space 로 재생 · 일시정지</p>
           </div>
 
-          <div class="legend">
-            <span class="lg auto"><i aria-hidden="true"></i>동향을 확인하는 화면</span>
-            <span class="lg human"><i aria-hidden="true"></i>수집 범위를 정하는 관리자 화면</span>
-          </div>
         </div>
-        <p class="fig-claim" style="border:1px solid var(--line);border-top:0;border-radius:0 0 var(--radius) var(--radius);margin-top:-1px">이 자리에서 하려는 말은 화면이 몇 개인가가 아니라 <b>무엇을 알고 싶을 때 어디를 여는가</b>다. 그날의 이슈는 대시보드에서, 기업별 기사는 뉴스에서, 주간 시사점은 보고서에서, 기업 간 접점은 지식그래프에서 확인한다.</p>
+        <p class="fig-claim" style="border:1px solid var(--line);border-top:0;border-radius:0 0 var(--radius) var(--radius);margin-top:-1px">이 자리에서 하려는 말은 화면이 몇 개인가가 아니라 <b>알고 싶은 것이 생겼을 때 무엇을 누르는가</b>다. 대시보드에서 기간을 좁히고, 뉴스에서 기업을 고르고, 상세에서 원문까지 넘어가고, 보고서에서 한 주를 열고, 지식그래프에서 기업을 눌러 관계를 편다.</p>
       </figure>
 
-      <p class="foot-note rv">※ 위 수치 · 회사명 · 이슈 문장 · 관계 설명은 <b>현재 등록된 실제 값</b>이다. 수집이 이어지면 건수는 달라진다.</p>
-      <p class="foot-note rv">※ 네 번째 장면은 등록된 관계 22건 가운데 <b>한 덩어리만 확대</b>한 것이다. 전체 관계망을 그리면 아직 연결이 없는 기업이 많아 관계망으로 읽히지 않으므로, 없는 연결을 채워 넣지 않고 실제로 이어진 곳만 보인다.</p>
+      <p class="foot-note rv">※ 위 수치 · 회사명 · 이슈 문장 · 보고서 개요 · 관계 설명은 <b>현재 등록된 실제 값</b>이다. 수집이 이어지면 건수는 달라진다.</p>
+      <p class="foot-note rv">※ 세 번째 장면에는 <b>시사점 본문을 싣지 않았다.</b> 그 기사가 속한 이슈의 시사점 원문을 확인하지 못했고, 다른 이슈의 문장을 가져다 붙이면 없는 관계를 만드는 것이 되기 때문이다.</p>
+      <p class="foot-note rv">※ 다섯 번째 장면은 등록된 관계 22건 가운데 <b>한 덩어리만 확대</b>한 것이다. 전체 관계망을 그리면 아직 연결이 없는 기업이 많아 관계망으로 읽히지 않으므로, 없는 연결을 채워 넣지 않고 실제로 이어진 곳만 보인다.</p>
       <p class="foot-note rv">※ 2.2 화면 구성의 목업은 2026년 8월 20일 시점 값이라, 위 건수와 다르다.</p>
     </div>
   </section>
@@ -3621,35 +3789,38 @@ window.AmwScenarioDemo = (function(){
 
   var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  /* 2026-08-27 교체 — 파이프라인 여덟 장면(46.0초) → 화면별 확인 동선 다섯 장면(34.0초).
-     ⚠️ 씬 개수가 8 → 5 로 줄었으므로 이 배열과 상단 .ksd-steps 라벨(5개)이 1:1로
-        맞아야 한다. step 은 그 라벨의 인덱스이고, 다섯 씬이 라벨 0~4를 순서대로 가리킨다.
-        한쪽만 고치면 없는 라벨을 가리켜 단계 표시가 죽는다.
+  /* 2026-08-27 — 이용 흐름 다섯 장면. 장면마다 실제 조작이 하나씩 들어 있다.
+     ⚠️ 이 배열과 상단 .ksd-steps 라벨(5개)이 1:1로 맞아야 한다. step 은 그 라벨의
+        인덱스이고, 다섯 씬이 라벨 0~4를 순서대로 가리킨다. 한쪽만 고치면 없는 라벨을
+        가리켜 단계 표시가 죽는다.
      ⚠️ key 는 씬의 data-scene 속성과 같아야 한다(sceneEl 이 이 값으로 찾는다).
-        dash · news · report · graph · setting 다섯 개다.
-     ⚠️ dur 은 씬 안의 --d 지연과 함께 움직인다. "마지막 --d + 약 0.5초 < dur" 이 하한이고
-        지금은 여유가 크다 — 여기서는 재생 속도가 아니라 읽는 시간이 하한을 정한다.
-        대시보드 씬은 긴 문장이 다섯 개라 8초, 지식그래프는 관계 설명 두 개라 8초,
-        설정은 숫자 넷뿐이라 4.5초다. 문장 수를 줄이지 않은 채 dur 만 깎지 말 것.
-     ⚠️ tagType 은 우측 칩 색이다. auto(보라)=동향을 확인하는 화면, human(남색)=관리자 화면.
-        설정만 human 이며, 그림 아래 .legend 두 줄이 이 색의 뜻을 적어 둔 자리다.
-     ⚠️ badge(경고 배지)를 쓰는 씬이 이제 없다. 요소는 남겨 두되 값을 넣지 않는다. */
+        dash · news · detail · report · graph 다섯 개다. 배열 순서 = 재생 순서 =
+        본문 DOM 순서로 맞춰 두었으니 하나를 옮기면 셋 다 옮길 것.
+     ⚠️ 종전 setting 장면은 뺐다 — 숫자 넷뿐이라 "어떻게 쓰는가"를 보여 주지 못했다.
+        되살리려면 라벨 · DOM · 이 배열 세 곳을 함께 손봐야 한다.
+     ⚠️ dur 은 씬 안의 --d 지연과 함께 움직인다. "마지막 --d + 약 0.5초 < dur" 이 하한인데
+        전부 여유가 크다 — 여기서는 재생 속도가 아니라 읽는 시간이 하한을 정한다.
+        대시보드는 긴 문장이 여덟 개라 8초, 지식그래프는 관계 설명 두 개에 조작까지 있어 8초다.
+        문장 수를 줄이지 않은 채 dur 만 깎지 말 것.
+     ⚠️ tagType 은 우측 칩 색이다. 지금은 다섯 장면 모두 auto(보라)다 —
+        관리자 화면이 빠져서 human(남색)을 쓰는 씬이 없다. 분기 자체는 남겨 둔다.
+     ⚠️ badge(경고 배지)를 쓰는 씬이 없다. 요소는 남겨 두되 값을 넣지 않는다. */
   var SCENES = [
-    { key:'dash',    step:0, dur:8000, name:'대시보드',
+    { key:'dash',   step:0, dur:8000, name:'대시보드',
       eb:'DASHBOARD', tagType:'auto', tag:'대시보드 · ALL-001',
-      msg:'<b>헤드라인 세 건</b>이 맨 위에 서고, 그 아래로 등급이 붙은 이슈가 이어진다. 무엇부터 읽을지가 화면에서 정해진다.' },
-    { key:'news',    step:1, dur:6500, name:'뉴스',
-      eb:'NEWS', tagType:'auto', tag:'뉴스 · NEWS-001',
-      msg:'기업 하나와 기간을 정해 좁힌다. 검증 완료 <b>152건</b>에서 <b>NH농협은행 26건</b>만 남는다.' },
-    { key:'report',  step:2, dur:7000, name:'보고서',
+      msg:'기간을 누르면 <b>화면을 떠나지 않고</b> 목록과 지표가 다시 계산된다. 헤드라인 세 건이 맨 위에 서고, 그 아래로 등급이 붙은 이슈가 이어진다.' },
+    { key:'news',   step:1, dur:7000, name:'뉴스 목록',
+      eb:'NEWS LIST', tagType:'auto', tag:'뉴스 목록 · NEWS-001',
+      msg:'기업을 고르면 목록 · 총 건수 · 필터 표시가 한꺼번에 바뀐다. 검증 완료 <b>152건</b>에서 <b>NH농협은행 26건</b>만 남는다.' },
+    { key:'detail', step:2, dur:6500, name:'뉴스 상세',
+      eb:'NEWS DETAIL', tagType:'auto', tag:'뉴스 상세 · NEWS-002',
+      msg:'이슈의 근거 기사를 누르면 이 화면으로 넘어온다. <b>원문 보기</b>를 누르면 새 창으로 언론사 원문이 열린다.' },
+    { key:'report', step:3, dur:7000, name:'보고서',
       eb:'REPORT', tagType:'auto', tag:'보고서 · REPORT-002',
       msg:'목록에서 한 주를 골라 연다. 보고서는 <b>짧은 버전과 긴 버전</b> 두 형태로 발행하며, 본문 이슈마다 <b>근거 기사</b>가 연결돼 있다.' },
-    { key:'graph',   step:3, dur:8000, name:'지식그래프',
+    { key:'graph',  step:4, dur:8000, name:'지식그래프',
       eb:'KNOWLEDGE GRAPH', tagType:'auto', tag:'지식그래프 · GRAPH-001',
-      msg:'<b>같은 AI 기업이 서로 다른 두 금융사에 같은 것을 공급했다.</b> 기사를 한 건씩 읽어서는 보이지 않는 사실이다.' },
-    { key:'setting', step:4, dur:4500, name:'설정',
-      eb:'SETTINGS', tagType:'human', tag:'설정 · SET-002',
-      msg:'앞의 네 화면이 보여 주는 것은 전부 <b>여기서 정한 범위</b> 안에서 모인 결과다.' }
+      msg:'기업을 누르면 그 기업에 걸린 관계가 펼쳐진다. <b>같은 AI 기업이 서로 다른 두 금융사에 같은 것을 공급했다.</b>' }
   ];
 
   var screenEl = root.querySelector(".ksd-screen");
