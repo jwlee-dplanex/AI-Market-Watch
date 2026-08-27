@@ -313,6 +313,10 @@ svg text{font-family:var(--font);}
 .tbl td.st{width:92px;white-space:nowrap;font-weight:800;font-size:12.5px;}
 .tbl td.st.ok{color:var(--violet-800);}
 .tbl td.st.later{color:var(--muted);}
+/* ⚠️ .st.chk 는 2026-08-25 에 "쓰는 데가 없다"고 지웠다가 08-27 논의 사항 표에서
+   다시 필요해져 되살린 것이다. 다음에 또 비워지더라도 지우지 말 것 —
+   상태 칸은 값이 늘고 주는 자리다. */
+.tbl td.st.chk{color:var(--warn);}
 /* 04장 작업 표에 더한 칸 (2026-08-25). KANDLE 설명회 준비표 형식을 따랐다.
    ⚠️ 구분 칸은 같은 값이 이어지면 빈칸으로 둔다 — 같은 말을 세 줄 연달아 읽히지 않는다.
       그래서 경계선을 위 행에서 지운다(.tbl td.g.same 이 아니라 이전 행 처리). */
@@ -3311,6 +3315,20 @@ svg text{font-family:var(--font);}
       </div>
 
       <div class="fig rv" style="margin-top:18px">
+        <table class="tbl">
+          <caption class="sr-only">논의 사항 다섯 가지와 세부 내용, 상태. 구축과 운영 쪽은 셋이다. 구축 소요는 진욱님 수행 기준으로 업무 병행 시 하루 0.5 맨데이를 투입해 14 워크데이, 전담 시 하루 1.0 맨데이를 투입해 7 워크데이가 걸리며, 두 경우 모두 총 공수는 0.35 맨먼스로 같고 투입 방식만 다르다. 구축 수행 주체는 진욱님 외 수행 시 개발팀 리소스 투입을 검토한다. 운영 수행 방안은 구축 완료 후 서비스를 유지하고 수집 키워드 추가와 기능 추가 요청을 처리할 담당을 정하는 것이다. KANDLE 연계 쪽은 둘이다. AI Market Watch 의 인사이트를 KANDLE 금융에 제공할 것인지 확정하고, 제공을 결정할 경우 API 신설 등 연계 방식을 검토한다. 앞의 넷은 결정이 필요하고, 연계 방식은 아직 아이디어 단계라 검토가 필요하다.</caption>
+          <thead><tr><th>구분</th><th>논의 사항</th><th>세부 내용</th><th>상태</th></tr></thead>
+          <tbody>
+            <tr><td class="g">구축·운영</td><td class="k">구축 소요 산정</td><td><span class="s">진욱님 수행 기준.</span><span class="s">업무 병행 <b>0.5 M/D · 14 Work Day</b>, 전담 <b>1.0 M/D · 7 Work Day</b>.</span><span class="s">두 경우 모두 총 공수는 <b>0.35 M/M</b> 으로 같고 투입 방식만 다름</span></td><td class="st chk">결정 필요</td></tr>
+            <tr><td class="g"></td><td class="k">구축 수행 주체</td><td><span class="s">진욱님 외 수행 시 <b>개발팀 리소스</b> 투입 검토</span></td><td class="st chk">결정 필요</td></tr>
+            <tr><td class="g"></td><td class="k">운영 수행 방안</td><td><span class="s">구축 완료 후 서비스를 유지하고 변경 요청을 처리할 담당 지정.</span><span class="s">수집 키워드 추가, 기능 추가 요청 등</span></td><td class="st chk">결정 필요</td></tr>
+            <tr><td class="g">KANDLE<br>연계</td><td class="k">인사이트 제공 여부</td><td><span class="s">AI Market Watch 의 인사이트를 <b>KANDLE 금융에 제공할 것인지</b> 확정</span></td><td class="st chk">결정 필요</td></tr>
+            <tr><td class="g"></td><td class="k">연계 방식</td><td><span class="s">아이디어 단계.</span><span class="s">제공을 결정할 경우 <b>API 신설</b> 등 방식을 검토</span></td><td class="st later">검토 필요</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="fig rv" style="margin-top:18px">
         <table class="tl">
           <caption class="sr-only">작업 다섯 가지와 각 작업이 걸리는 일수. 교보 키워드 추가는 1일차, 샌드박스 환경과 서비스 구동은 1일차부터 5일차까지, LLM 연동은 6일차부터 10일차까지, 태블릿 대응과 앱 배포는 11일차부터 13일차까지, QA는 14일차다. 총 14일이 걸린다.</caption>
           <thead>
@@ -3324,7 +3342,7 @@ svg text{font-family:var(--font);}
             <tr><td class="job">QA</td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d on"></td></tr>
           </tbody>
         </table>
-        <p class="tl-sum">총 <b>14일</b></p>
+        <p class="tl-sum">총 <b>14일</b> <span>(0.5 M/D 기준)</span></p>
       </div>
 
       <div class="fig rv" style="margin-top:18px">
@@ -3334,7 +3352,7 @@ svg text{font-family:var(--font);}
           <tbody>
             <tr><td class="g">준비</td><td class="k">교보 키워드 추가</td><td>수집 키워드에 <b>교보 계열사</b>를 추가함</td><td class="who">진욱님</td><td class="st ok">예정</td></tr>
             <tr><td class="g">구축</td><td class="k">샌드박스 환경<br>서비스 구동</td><td><span class="s"><b>프런트엔드</b>는 별도 서버를 두지 않고 Django 가 화면을 직접 렌더함. Tailwind · HTMX · Alpine 정적 파일을 함께 배포.</span><span class="s"><b>백엔드</b>는 Django 를 gunicorn 으로 띄운 컨테이너와 PostgreSQL 16 · pgvector 로 구성함.</span><span class="s">내부 직원이 웹에서 이용할 수 있도록 하고, <b>샌드박스 인프라 정책에 맞춰 구축함</b></span></td><td class="who">진욱님 · 용만님</td><td class="st ok">예정</td></tr>
-            <tr><td class="g"></td><td class="k">LLM 연동</td><td><span class="s">수집한 기사를 <b>벡터 데이터베이스</b>에 적재하고 꺼내 쓰는 두 흐름을 구성.</span><span class="s">적재는 <b>load → split → embed → store</b> 순서로 색인을 생성하고, 질의는 <b>request → embed → search → generate</b> 순서로 답을 생성.</span><span class="s">지금 research analyst가 수작업으로 수행하는 관련성 판정 · 이슈 묶기 · 시사점 작성을 <b>AWS Bedrock AgentCore</b>로 처리함</span></td><td class="who">진욱님</td><td class="st ok">예정</td></tr>
+            <tr><td class="g"></td><td class="k">LLM 연동</td><td><span class="s">수집한 기사를 <b>벡터 데이터베이스</b>에 적재하고 꺼내 쓰는 두 흐름을 구성.</span><span class="s">적재는 <b>load → split → embed → store</b> 순서로 색인을 생성하고, 질의는 <b>request → embed → search → generate</b> 순서로 답을 생성.</span><span class="s">지금 research analyst가 수작업으로 수행하는 관련성 판정 · 이슈 묶기 · 시사점 작성을 <b>AWS Bedrock AgentCore</b>로 처리함</span><span class="s">판정이 경계에 있는 기사는 <b>승인 대기</b>로 두고, 승인하면 반영하고 아니면 반영하지 않음</span></td><td class="who">진욱님</td><td class="st ok">예정</td></tr>
             <tr><td class="g"></td><td class="k">태블릿 대응<br>앱 배포</td><td>AI Market Watch를 <b>태블릿 동적 레이아웃</b>으로 수정하고, <b>TestFlight</b>에 업로드해 사내에서 내려받아 이용할 수 있도록 함</td><td class="who">진욱님</td><td class="st ok">예정</td></tr>
             <tr><td class="g">검증</td><td class="k">QA</td><td>다섯 화면과 앱을 차례로 열어 확인함</td><td class="who">진욱님</td><td class="st ok">예정</td></tr>
           </tbody>
