@@ -129,6 +129,26 @@
        word-break: keep-all(한국어 어절 단위 줄바꿈)은 화면과 동일하게 유지한다. */
     .markdown-content { line-height: 1.6; }
     .markdown-content p { margin-bottom: 0.85rem; }
+
+    /* 표는 인쇄에서 가로 스크롤을 쓰지 않는다 (2026-08-28 사용자 보고).
+       화면용 display:block + overflow-x:auto를 그대로 인쇄하면 스크롤바가 찍히는 데서
+       끝나지 않고 넘치는 칸이 잘려 나간다 — 종이에는 밀어서 볼 방법이 없기 때문이다.
+       인쇄에서는 일반 표로 되돌려 지면 폭에 맞춰 접히게 하고, 글자를 한 단계 줄여
+       칸이 지나치게 좁아지는 것을 막는다. 행이 페이지 경계에서 갈리는 것도 막는다. */
+    .markdown-content table {
+      display: table !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      overflow: visible !important;
+      font-size: 0.75rem;
+      table-layout: auto;
+    }
+    .markdown-content th, .markdown-content td {
+      padding: 0.35rem 0.45rem;
+      word-break: break-word;
+    }
+    .markdown-content tr { break-inside: avoid; page-break-inside: avoid; }
+    .markdown-content thead { display: table-header-group; }
   }
 </style>
 
