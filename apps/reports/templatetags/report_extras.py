@@ -28,6 +28,7 @@ ALLOWED_TAGS = [
     "a",
     "h1", "h2", "h3", "h4", "h5", "h6",
     "blockquote", "code", "pre", "hr",
+    "table", "thead", "tbody", "tr", "th", "td",
 ]
 ALLOWED_ATTRS = {
     "a": ["href", "title"],
@@ -95,7 +96,7 @@ def markdown_filter(text):
     if not text:
         return ""
 
-    html = md.markdown(text, extensions=["sane_lists"])
+    html = md.markdown(text, extensions=["sane_lists", "tables"])
     cleaned = bleach.clean(
         html,
         tags=ALLOWED_TAGS,

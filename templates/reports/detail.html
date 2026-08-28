@@ -37,6 +37,17 @@
     background: #f3f4f6; padding: 0.1rem 0.3rem; border-radius: 4px;
     font-family: 'JetBrains Mono', monospace; font-size: 0.8125rem;
   }
+  /* 표(2026-08-27) — 폭이 본문을 넘으면 페이지 전체가 가로로 밀리므로, table 자체를
+     block + overflow-x:auto로 만들어 표 안에서만 가로 스크롤되게 한다(래핑 div 불필요). */
+  .markdown-content table {
+    display: block; overflow-x: auto; width: max-content; max-width: 100%;
+    margin-bottom: 1.15rem; border-collapse: collapse;
+    font-size: 0.8125rem;
+  }
+  .markdown-content th, .markdown-content td {
+    border: 1px solid #e5e7eb; padding: 0.5rem 0.75rem; text-align: left;
+  }
+  .markdown-content th { background: #f9fafb; font-weight: 600; color: #111827; }
 
   /* PDF 다운로드 (인쇄 CSS + window.print(), 2026-08-04) — REPORT-002 전용.
      화면에서는 참고뉴스가 앱 내부 상세(news_detail)로 링크되지만, 인쇄물을 받는
