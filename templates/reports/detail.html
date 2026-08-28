@@ -240,6 +240,17 @@ header_actions는 base.html에서 flex-shrink-0 헤더 안이라 본문을 스�
        class="h-[22px] w-auto flex-shrink-0 mt-0.5">
 </div>
 
+{% comment %}
+  헤더 아래 한 줄 참고 문구 (2026-08-27, 사용자 지시) — 본문 절("### 참고")이 아니라 화면
+  요소로 옮겼다. 카드로 감싸지 않고 배경도 없이 옅은 회색 한 줄로만 — 본문이 아니라 곁에
+  붙은 메모로 읽혀야 한다는 요구사항. 인쇄에도 나와야 하므로(PDF를 받는 사람이 이 문구의
+  존재 이유) no-print를 붙이지 않는다. report.note가 빈 문자열(기존 6건)이면 아무것도
+  렌더되지 않아 여백도 생기지 않는다 — mb-4는 이 블록 자체에만 걸려 있다.
+{% endcomment %}
+{% if report.note %}
+<p class="text-xs text-gray-400 mb-4">{{ report.note }}</p>
+{% endif %}
+
 <!-- 상태 안내: 생성 중 / 생성 실패 -->
 {% if report.status == 'generating' %}
 <div class="bg-yellow-50 border border-yellow-200 rounded-[10px] p-4 mb-4 flex items-center gap-3">
@@ -291,12 +302,17 @@ header_actions는 base.html에서 flex-shrink-0 헤더 안이라 본문을 스�
   이슈 body 마지막 시사점 문단을 생략하면 그대로 반영된다.
 {% endcomment %}
 {% if report.content %}
+{% comment %}
+  섹션 이름은 보고 주기에 따라 다르다 (2026-08-28). 월간은 시사점을 표로 압축해 담으므로
+  "주요 이슈 요약"이고, 주간은 이슈 전문과 시사점을 그대로 실으므로 "주요 이슈"다.
+  주간까지 "요약"이라 부르면 사실과 어긋난다.
+{% endcomment %}
 {% if report.content_short %}
 <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-6 mb-4 report-card" x-data="{ version: 'short' }">
   <div class="flex items-center justify-between gap-3 mb-4">
     <h2 class="text-sm font-semibold text-gray-900 flex items-center gap-2">
       <i data-lucide="layers" class="w-4 h-4 text-primary"></i>
-      주요 이슈
+      {% if report.period_type == 'monthly' %}주요 이슈 요약{% else %}주요 이슈{% endif %}
     </h2>
     <div class="no-print flex items-center gap-1 bg-gray-100 rounded-[10px] p-0.5">
       <button type="button" @click="version = 'short'"
@@ -323,7 +339,7 @@ header_actions는 base.html에서 flex-shrink-0 헤더 안이라 본문을 스�
 <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-6 mb-4 report-card">
   <h2 class="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
     <i data-lucide="layers" class="w-4 h-4 text-primary"></i>
-    주요 이슈
+    {% if report.period_type == 'monthly' %}주요 이슈 요약{% else %}주요 이슈{% endif %}
   </h2>
   {% with parsed=report.content|report_issues %}
     {% include "reports/_issues_body.html" %}

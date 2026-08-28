@@ -29,6 +29,10 @@ class Report(models.Model):
     # RA가 아직 채우지 않은 과거·신규 보고서는 빈 문자열로 남으며, display_content가 정본으로
     # 조용히 폴백한다(500 금지).
     content_short = models.TextField(blank=True)
+    # 헤더 아래 한 줄 참고 문구 (2026-08-27). overview("주요 동향")와는 성격이 다른, 이번
+    # 보고서 한정 특이사항(예: 제목 기간과 실제 수록 기간이 다른 이유) 표기용. 빈 문자열이면
+    # 화면에 아무것도 렌더되지 않는다 — pk=16처럼 필요한 보고서에만 RA/PE가 채운다.
+    note = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="generating")
     slack_sent_at = models.DateTimeField(null=True, blank=True)
     news = models.ManyToManyField(News, through="ReportNews", related_name="reports")

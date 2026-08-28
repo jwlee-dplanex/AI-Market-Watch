@@ -30,8 +30,13 @@ ALLOWED_TAGS = [
     "blockquote", "code", "pre", "hr",
     "table", "thead", "tbody", "tr", "th", "td",
 ]
+# id는 월간 보고서의 표 안 출처 번호(예: [11](#src11))가 문서 하단 출처 목록의
+# 같은 번호(<a id="src11"></a>)로 점프하는 문서 내 앵커 대상으로 쓴다(2026-08-28).
+# a 태그에만 허용한다 — id가 필요한 곳이 앵커뿐이고, 다른 태그(h1~h6 등)까지 넓히면
+# RA가 의도치 않게 임의 id를 넣어도 걸러지지 않는 범위가 커진다. id는 스크립트를
+# 실행시키지 않는 속성이고 href="#..." 프래그먼트는 이미 허용 중이라 XSS 위험은 없다.
 ALLOWED_ATTRS = {
-    "a": ["href", "title"],
+    "a": ["href", "title", "id"],
 }
 ALLOWED_PROTOCOLS = ["http", "https", "mailto"]
 
