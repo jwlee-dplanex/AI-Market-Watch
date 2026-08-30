@@ -1113,6 +1113,25 @@ svg text{font-family:var(--font);}
 .sbx .sub{font-size:10.5px;font-weight:700;fill:var(--muted);}
 .sbx .tag{font-size:9.5px;font-weight:800;letter-spacing:.06em;}
 
+/* FIG 4-2 — KANDLE 연계 구조 (2026-08-28 신설).
+   실무 협의 결과를 표의 한 행으로만 두면 "왜 SFTP 가 가운데 있어야 하는가"가 보이지 않는다.
+   그림의 주장은 "세 영역이 서로 다른 망이고, 그래서 링크를 뺀다"이므로 아래 셋이 필수다.
+   ⑴ 두 망 경계선(수직 점선) — 나란한 상자 셋만으로는 망이 다르다는 사실이 드러나지 않는다.
+   ⑵ 경계 위에 놓인 AWS MWAA 칩 — 경계를 넘는 수단이 양쪽 모두 같은 도구임을 자리로 보인다.
+   ⑶ 폐쇄망 상자에서 원문 링크 제외 상자로 돌아가는 점선 — 인과를 선으로 직접 잇는다.
+   ⚠️ 2026-08-28 이력 — 이 그림을 FIG 2-3(항목이 관문을 통과·탈락하는) 문법으로 다시 그렸다가
+      사용자가 이 판을 쓰기로 해서 되돌렸다. 되돌리며 .lnk 규칙 6개를 지웠다. 그 판은 FIG 2-3 ·
+      FIG 2-4 의 키프레임(hlPass · hlStop · hlX · hlSlot · hlGate · relRing)을 재사용했을 뿐
+      새 키프레임을 만들지 않았으므로, 그 키프레임들은 원 주인이 쓰고 있어 지우면 안 된다.
+   ⚠️ .sbx 를 그대로 재사용한다. 뷰포트가 좁아질 때의 축소 거동을 FIG 4-1 과 같게 두기 위함이다.
+   ⚠️ 움직임 없음 — §4.7. 이 그림은 구조를 말하고 순서를 증명하지 않는다.
+   ⚠️ 아래 세 클래스에는 fill 을 선언하지 않는다. 선언하면 CSS 가 요소의 fill 속성을 이겨
+      칸마다 다른 색(경고색 · 흰색)을 줄 수 없다(.tag 가 같은 이유로 fill 이 없다). */
+.sbx .zn{font-size:10.5px;font-weight:800;letter-spacing:.05em;}
+.sbx .hd{font-size:12.5px;font-weight:800;}
+.sbx .ds{font-size:10.5px;font-weight:700;}
+.sbx .it{font-size:11.5px;font-weight:700;fill:var(--ink-2);}
+
 /* 04장 타임라인 — 행 = 작업 / 열 = 1~15일 (2026-08-24 신설).
    사용자 지시: "과제라고 표현하지 말고 타임라인을, 행에는 작업 열에는 날짜, day 단위로".
    ⚠️ HTML 표로 그린다 — 사용자가 "행과 열로"라고 명시했고, 격자가 보이는 것이
@@ -3719,19 +3738,146 @@ svg text{font-family:var(--font);}
        장 머리가 곧 절 이름이다. id="s41" 은 참조가 0건이었고 앵커는 #ch4 가 맡는다.
        ⚠️ 절을 더 넣게 되면 그때 절 머리를 되살릴 것 — 그때는 이름이 서로 달라야 한다. -->
 
+      <!-- 04장 전제 (2026-08-28). 보안 협의 결과로 구축 환경 방침이 바뀌었는데,
+       간트 차트·준비 사항 표·FIG 4-1 은 아직 샌드박스 기준으로 산정한 값이다.
+       ⚠️ 이름만 개발 환경으로 바꾸면 근거 없는 숫자가 된다 — 환경이 정해지면 04장을
+       통째로 다시 산정하고 이 단서를 지운다. 문체는 표 셀과 같은 명사형. -->
+      <p class="foot-note" style="margin:0 16px 16px">※ 샌드박스는 테스트까지 사용, 사내 사용과 KANDLE 금융 연계는 개발 환경에서 진행. 아래 구축 계획과 구성은 샌드박스 기준 산정이며 환경 확정 시 재검토.</p>
+
       <div class="fig rv" style="margin-top:18px">
         <table class="tbl">
-          <caption class="sr-only">논의 사항 다섯 가지와 세부 내용, 상태. 구축과 운영 쪽은 셋이다. 구축 수행 주체는 개발팀 리소스 투입을 검토한다. 구축 소요는 진욱님 수행 기준으로 업무 병행 시 하루 0.5 맨데이를 투입해 14 워크데이, 전담 시 하루 1.0 맨데이를 투입해 7 워크데이가 걸리며, 두 경우 모두 총 공수는 7 맨데이, 즉 월 20 영업일 기준 0.35 맨먼스로 같고 투입 방식만 다르다. 운영 수행 방안은 구축 완료 후 서비스를 유지할 담당을 정하는 것이다. 맡는 일은 서비스가 멈추거나 수집이 실패했을 때의 장애 대응, 버그 수정, 기능 추가 요청 처리 세 가지다. 구축 수행 주체는 개발팀 리소스 투입을 검토하며, 개발팀 견적이 있어야 진욱님 기준 소요와 비교할 수 있다. KANDLE 연계 쪽은 둘이다. AI Market Watch 의 인사이트를 KANDLE 금융에 제공할 것인지 검토한다. 실무 협의는 마쳤고 연계가 가능함을 확인했다. 연계 방식은 AI Market Watch 가 아마존 MWAA 로 데이터를 SFTP 서버에 적재하고 KANDLE 금융이 이를 가져가 자사 데이터베이스에 넣는 것으로 협의를 마쳤다. 텍스트 파일 기준이며 CSV 는 가능하고 PDF 와 한글 문서는 확장자 검토가 필요하다. 연계 방식은 협의를 마쳤고 나머지 넷은 결정이 필요하다.</caption>
+          <caption class="sr-only">논의 사항 여섯 가지와 세부 내용, 상태. 구축과 운영 쪽은 넷이다. 구축 환경은 샌드박스를 테스트까지 사용하고, 사내 사용과 KANDLE 금융 연계는 개발 환경에서 진행하도록 권고받은 것이다. 구축 수행 주체는 개발팀 리소스 투입을 검토한다. 구축 소요는 진욱님 수행 기준으로 업무 병행 시 하루 0.5 맨데이를 투입해 14 워크데이, 전담 시 하루 1.0 맨데이를 투입해 7 워크데이가 걸리며, 두 경우 모두 총 공수는 7 맨데이, 즉 월 20 영업일 기준 0.35 맨먼스로 같고 투입 방식만 다르다. 운영 수행 방안은 구축 완료 후 서비스를 유지할 담당을 정하는 것이다. 맡는 일은 서비스가 멈추거나 수집이 실패했을 때의 장애 대응, 버그 수정, 기능 추가 요청 처리 세 가지다. KANDLE 연계 쪽은 둘이다. AI Market Watch 의 인사이트를 KANDLE 금융에 제공할 것인지 검토한다. 실무 협의는 마쳤고 연계가 가능함을 확인했다. 연계 방식은 AI Market Watch 가 아마존 MWAA 로 SFTP 서버에 적재하고 KANDLE 금융이 같은 방식으로 가져가 자사 데이터베이스에 넣는 것으로 협의를 마쳤다. 텍스트 파일 기준이며 CSV 는 가능하고 PDF 와 한글 문서는 확장자 검토가 필요하다. 연계 방식은 협의를 마쳤고 나머지 다섯은 결정이 필요하다. 전달 대상과 제외 대상, 세 망을 잇는 구조는 이 표 다음에 오는 그림 4-2 에 있다.</caption>
           <thead><tr><th>구분</th><th>논의 사항</th><th>세부 내용</th><th>상태</th></tr></thead>
           <tbody>
-            <tr><td class="g">구축·운영</td><td class="k">구축 수행 주체</td><td><span class="s"><b>개발팀 리소스</b> 투입 검토</span><span class="s">개발팀 견적 필요. 아래 소요 산정은 진욱님 수행 기준이라 비교할 값이 없음</span></td><td class="st chk">결정 필요</td></tr>
+            <!-- 2026-08-28 보안 협의로 "구축 환경" 행이 맨 앞에 들어왔다. 어디에 짓는지가
+                 정해져야 아래 수행 주체 · 소요 산정이 의미를 갖기 때문에 순서가 맨 앞이어야 한다.
+                 ⚠️ 04장의 나머지는 아직 "샌드박스에 구축한다"를 전제로 짜여 있다 —
+                    간트 차트의 "샌드박스 환경 · 서비스 구동", 준비 사항 표의 "샌드박스 인프라
+                    정책에 맞춰 구축함", FIG 4-1, FIG 4-2 의 출발점까지 전부 그렇다.
+                    일부러 그대로 뒀다. 어느 개발 환경인지 모르면 일정도 구성도 다시 산정할 수
+                    없어서, 지금 고치면 환경이 정해진 뒤 한 번 더 고쳐야 한다. 이 행이 위에 있어
+                    아래 산정(0.35 M/M · 7 M/D)이 잠정이라는 것이 순서로 읽히면 된다.
+                 ⚠️ 환경이 확정되면 위 다섯 곳을 함께 고칠 것. 이 표만 고치면 표와 그림이 서로
+                    다른 말을 한다. -->
+            <tr><td class="g">구축·운영</td><td class="k">구축 환경</td><td><span class="s">샌드박스는 <b>테스트까지</b> 사용</span><span class="s">사내 사용과 KANDLE 금융 연계는 <b>개발 환경에서 진행</b> 권고</span></td><td class="st chk">결정 필요</td></tr>
+            <tr><td class="g"></td><td class="k">구축 수행 주체</td><td><span class="s"><b>개발팀 리소스</b> 투입 검토</span></td><td class="st chk">결정 필요</td></tr>
             <tr><td class="g"></td><td class="k">구축 소요 산정</td><td><span class="s">진욱님 수행 기준.</span><span class="s">업무 병행 <b>0.5 M/D · 14 Work Day</b>, 전담 <b>1.0 M/D · 7 Work Day</b>.</span><span class="s">두 경우 모두 총 공수는 <b>0.35 M/M</b> (7 M/D, 월 20 영업일 기준) 으로 같고 투입 방식만 다름</span></td><td class="st chk">결정 필요</td></tr>
             <tr><td class="g"></td><td class="k">운영 수행 방안</td><td><span class="s">구축 완료 후 서비스를 유지할 담당 지정.</span><span class="s"><b>장애 대응</b> — 서비스가 멈추거나 수집이 실패했을 때</span><span class="s"><b>버그 수정</b></span><span class="s"><b>기능 추가 요청 처리</b></span></td><td class="st chk">결정 필요</td></tr>
+            <!-- ⚠️ 아래는 제기된 우려이지 확인된 사고가 아니다. "악성 코드가 실린다"로 단정하지 말 것. -->
             <tr><td class="g">KANDLE<br>연계</td><td class="k">인사이트 제공 여부</td><td><span class="s">AI Market Watch 의 인사이트를 <b>KANDLE 금융에 제공할 것인지</b> 검토</span><span class="s">실무 협의를 마쳤으며 <b>연계 가능함을 확인</b>했다.</span></td><td class="st chk">결정 필요</td></tr>
-            <tr><td class="g"></td><td class="k">연계 방식</td><td><span class="s">AI Market Watch 가 <b>Amazon MWAA</b> 로 데이터를 <b>SFTP 서버에 적재</b>하고, KANDLE 금융이 이를 가져가 자사 데이터베이스에 넣는다.</span><span class="s">텍스트 파일 기준이며 <b>CSV 는 가능</b>하고 PDF 와 한글 문서는 확장자 검토가 필요하다.</span></td><td class="st ok">협의 완료</td></tr>
+            <tr><td class="g"></td><td class="k">연계 방식</td><td><span class="s">AI Market Watch 가 <b>Amazon MWAA</b> 로 <b>SFTP 서버에 적재</b>하고, KANDLE 금융이 <b>같은 방식으로</b> 가져가 자사 데이터베이스에 넣는다.</span><span class="s">텍스트 파일 기준이며 <b>CSV 는 가능</b>하고 PDF 와 한글 문서는 확장자 검토가 필요하다.</span></td><td class="st ok">협의 완료</td></tr>
           </tbody>
         </table>
       </div>
+
+      <!-- ============== FIG 4-2 ============== -->
+      <!-- 2026-08-28: 이 그림을 FIG 2-3(항목이 관문을 통과·탈락하는) 문법으로 한 번 다시
+           그렸다가 사용자가 이 판(세 영역 상자 도해)을 쓰기로 해서 되돌렸다.
+           ⚠️ 자리는 되돌리지 않았다. 04장 끝(FIG 4-1 뒤)이 아니라 논의 사항 표 바로 아래가
+              맞다. 사용자가 "구분 / 논의 사항 / 세부 내용 아래에 위치하게 해줘"라고 직접
+              지시했다. 이 그림은 연계 방식 셀이 말하려는 내용 그 자체라 셀과 떨어지면
+              읽는 사람이 그 자리에서 글부터 만난다. 04장 끝으로 다시 옮기지 말 것.
+           ⚠️ "외부망" 표기를 넣지 말 것. 가운데 열을 처음에는 "외부망 영역"으로 불렀는데
+              SFTP 서버가 어느 망에 놓이는지는 확인된 사실이 아니어서 사용자가 뺐다.
+              가운데 열 이름은 "SFTP 서버" 하나만 쓴다. aria-label 에도 넣지 않는다.
+              ⚠️ 이름표가 "SFTP 서버"가 되면서 그 아래 상자 제목이 겹치므로, 상자는 이름 대신
+                 하는 일("적재 후")을 단다. 망 경계 둘과 "양쪽 망이 함께 닿는 지점"은
+                 그대로 둔다 — 샌드박스와 폐쇄망이 서로 다른 망이고 직접 닿지 않는다는 것은
+                 확인된 사실이고, 가운데를 무엇이라 부를지와는 별개다.
+           ⚠️ 움직임 없음 — §4.7. 이 그림은 구조를 말하고 순서를 증명하지 않는다. -->
+      <figure class="fig rv" id="fig42" style="margin-top:18px">
+        <figcaption class="fig-cap">
+          <span class="fig-num">FIG 4-2</span>
+          <span class="fig-ttl">KANDLE 연계 구조</span>
+          <span class="fig-sub">서로 다른 세 망과 그 사이를 넘는 수단</span>
+        </figcaption>
+        <div class="fig-body">
+          <svg class="sbx" viewBox="0 0 1180 440" role="img"
+               aria-label="KANDLE 연계 구조를 세 영역으로 나눈 그림. 왼쪽은 개발 환경 영역의 AI Market Watch 로 수집과 판정, 인사이트 생성을 한다. 가운데는 SFTP 서버로, 적재된 파일을 수신 시까지 보관한다. 오른쪽은 폐쇄망 영역의 KANDLE 금융으로 자사 데이터베이스에 전달받은 문자열을 적재한다. 세 영역 사이에는 망 경계가 둘 있다. AI Market Watch 가 AWS MWAA 로 SFTP 서버에 적재하고, KANDLE 금융도 AWS MWAA 로 SFTP 서버에서 가져간다. 두 경계를 넘는 수단은 양쪽 모두 AWS MWAA 로 같다. 전달하는 것은 문자열 형태의 뉴스, 시사점, 요약, 인사이트, 보고서, 지식그래프다. 형식은 텍스트 파일 기준이며 CSV 는 가능하고 PDF 와 한글 문서는 확장자 검토가 필요하다. 원문 뉴스 링크는 제외하며 링크 미전송. KANDLE 금융이 폐쇄망이라 외부 인터넷에 접속할 수 없고 외부 주소 요청이 닿지 않기 때문이다. SFTP 서버는 양쪽 망이 함께 닿는 지점이라 직접 연결 불가, 경유 필요한다.">
+
+            <rect x="16" y="36" width="272" height="344" rx="14" fill="var(--lav-050)" stroke="var(--violet-800)" stroke-width="1.4"/>
+            <rect x="456" y="36" width="272" height="344" rx="14" fill="#fff" stroke="var(--violet-500)" stroke-width="1.4"/>
+            <rect x="896" y="36" width="272" height="344" rx="14" fill="var(--lav-100)" stroke="var(--violet-950)" stroke-width="1.4"/>
+
+            <path d="M372 20 V380" stroke="var(--violet-500)" stroke-width="1.5" stroke-dasharray="3 6" fill="none"/>
+            <path d="M812 20 V380" stroke="var(--violet-500)" stroke-width="1.5" stroke-dasharray="3 6" fill="none"/>
+            <text class="lbl" x="372" y="16" text-anchor="middle">망 경계</text>
+            <text class="lbl" x="812" y="16" text-anchor="middle">망 경계</text>
+
+            <rect x="36" y="52" width="104" height="24" rx="99" fill="var(--violet-800)"/>
+            <text class="zn" x="88" y="68" text-anchor="middle" fill="#fff">개발 환경 영역</text>
+            <rect x="476" y="52" width="92" height="24" rx="99" fill="var(--lav-200)"/>
+            <text class="zn" x="522" y="68" text-anchor="middle" fill="var(--violet-900)">SFTP 서버</text>
+            <rect x="916" y="52" width="92" height="24" rx="99" fill="var(--violet-950)"/>
+            <text class="zn" x="962" y="68" text-anchor="middle" fill="#fff">폐쇄망 영역</text>
+
+            <rect x="36" y="92" width="232" height="64" rx="9" fill="#fff" stroke="var(--violet-800)" stroke-width="1.5"/>
+            <text class="box" x="152" y="118" text-anchor="middle">AI Market Watch</text>
+            <text class="sub" x="152" y="138" text-anchor="middle">수집 · 판정 · 인사이트 생성</text>
+            <rect x="476" y="92" width="232" height="64" rx="9" fill="#fff" stroke="var(--violet-800)" stroke-width="1.5"/>
+            <text class="box" x="592" y="118" text-anchor="middle">적재 후</text>
+            <text class="sub" x="592" y="138" text-anchor="middle">수신 시까지 보관</text>
+            <rect x="916" y="92" width="232" height="64" rx="9" fill="#fff" stroke="var(--violet-800)" stroke-width="1.5"/>
+            <text class="box" x="1032" y="118" text-anchor="middle">KANDLE 금융</text>
+            <text class="sub" x="1032" y="138" text-anchor="middle">폐쇄망 내부</text>
+
+            <path d="M268 124 H300" stroke="var(--violet-800)" stroke-width="2" fill="none"/>
+            <path d="M300 119 L308 124 L300 129 Z" fill="var(--violet-800)"/>
+            <path d="M434 124 H466" stroke="var(--violet-800)" stroke-width="2" fill="none"/>
+            <path d="M466 119 L474 124 L466 129 Z" fill="var(--violet-800)"/>
+            <path d="M708 124 H740" stroke="var(--violet-800)" stroke-width="2" fill="none"/>
+            <path d="M740 119 L748 124 L740 129 Z" fill="var(--violet-800)"/>
+            <path d="M874 124 H906" stroke="var(--violet-800)" stroke-width="2" fill="none"/>
+            <path d="M906 119 L914 124 L906 129 Z" fill="var(--violet-800)"/>
+
+            <g><title>경계를 넘는 수단이다. 송신 측과 수신 측이 같은 도구를 사용한다.</title>
+            <rect x="310" y="106" width="124" height="36" rx="8" fill="#fff" stroke="var(--violet-800)" stroke-width="1.6"/>
+            <text class="hd" x="372" y="129" text-anchor="middle" fill="var(--violet-800)">AWS MWAA</text>
+            <rect x="346" y="86" width="52" height="15" fill="#fff"/>
+            <text class="lbl" x="372" y="98" text-anchor="middle">적재</text></g>
+            <g><title>경계를 넘는 수단이다. 송신 측과 수신 측이 같은 도구를 사용한다.</title>
+            <rect x="750" y="106" width="124" height="36" rx="8" fill="#fff" stroke="var(--violet-800)" stroke-width="1.6"/>
+            <text class="hd" x="812" y="129" text-anchor="middle" fill="var(--violet-800)">AWS MWAA</text>
+            <rect x="778" y="86" width="68" height="15" fill="#fff"/>
+            <text class="lbl" x="812" y="98" text-anchor="middle">수신</text></g>
+
+            <rect x="36" y="172" width="232" height="102" rx="9" fill="#fff" stroke="var(--lav-200)"/>
+            <text class="lbl" x="52" y="194">전달 대상 (문자열)</text>
+            <text class="it" x="152" y="218" text-anchor="middle">뉴스 · 시사점 · 요약</text>
+            <text class="it" x="152" y="238" text-anchor="middle">인사이트 · 보고서</text>
+            <text class="it" x="152" y="258" text-anchor="middle">지식그래프</text>
+
+            <rect x="476" y="172" width="232" height="102" rx="9" fill="#fff" stroke="var(--lav-200)"/>
+            <text class="lbl" x="492" y="194">형식</text>
+            <text class="it" x="592" y="218" text-anchor="middle">텍스트 파일 기준</text>
+            <text class="it" x="592" y="238" text-anchor="middle">CSV 가능</text>
+            <text class="tag" x="592" y="260" text-anchor="middle" fill="var(--warn)">PDF · 한글 문서 확장자 검토</text>
+
+            <rect x="916" y="172" width="232" height="102" rx="9" fill="#fff" stroke="var(--lav-200)"/>
+            <text class="lbl" x="932" y="194">수신처</text>
+            <text class="it" x="1032" y="222" text-anchor="middle">자사 데이터베이스</text>
+            <text class="sub" x="1032" y="244" text-anchor="middle">전달받은 문자열을 적재</text>
+
+            <rect x="36" y="290" width="232" height="60" rx="9" fill="var(--warn-bg)" stroke="var(--warn-line)"/>
+            <text class="hd" x="152" y="316" text-anchor="middle" fill="var(--warn)">원문 뉴스 링크 제외</text>
+            <text class="ds" x="152" y="336" text-anchor="middle" fill="var(--warn-mid)">링크 미전송</text>
+
+            <rect x="476" y="290" width="232" height="60" rx="9" fill="var(--lav-050)" stroke="var(--violet-500)"/>
+            <text class="box" x="592" y="316" text-anchor="middle">양쪽 망이 함께 닿는 지점</text>
+            <text class="sub" x="592" y="336" text-anchor="middle">직접 연결 불가, 경유 필요</text>
+
+            <rect x="916" y="290" width="232" height="60" rx="9" fill="var(--warn-bg)" stroke="var(--warn-line)"/>
+            <text class="hd" x="1032" y="316" text-anchor="middle" fill="var(--warn)">외부 인터넷 접속 불가</text>
+            <text class="ds" x="1032" y="336" text-anchor="middle" fill="var(--warn-mid)">외부 주소 요청 불가</text>
+
+            <path d="M1032 350 V418 H744" stroke="var(--warn-mid)" stroke-width="1.6" stroke-dasharray="5 5" fill="none"/>
+            <path d="M440 418 H152 V358" stroke="var(--warn-mid)" stroke-width="1.6" stroke-dasharray="5 5" fill="none"/>
+            <path d="M147 358 L152 350 L157 358 Z" fill="var(--warn-mid)"/>
+            <text class="hd" x="592" y="422" text-anchor="middle" fill="var(--warn)">폐쇄망이라 원문 링크 열람 불가</text>
+          </svg>
+        </div>
+        <p class="fig-claim">세 영역은 <b>서로 다른 망이다.</b> 폐쇄망에서는 원문 링크가 열리지 않으므로 <b>링크를 빼고 문자열만 전달</b>하고, 개발 환경과 폐쇄망이 직접 닿지 않으므로 <b>SFTP 서버를 가운데 두고 양쪽 모두 AWS MWAA 로 주고받는다.</b></p>
+      </figure>
 
       <div class="fig rv" style="margin-top:18px">
         <table class="tl">
@@ -3836,7 +3982,7 @@ svg text{font-family:var(--font);}
               <text class="tag" x="1076" y="537" text-anchor="middle" fill="var(--muted)">이미 있음</text>
             </svg>
         </div>
-        <p class="fig-claim">샌드박스에 올리는 일은 <b>있는 것을 옮기는 작업이 아니다.</b> 요청이 지나는 길에서 <b>네 칸이 아직 없고</b>, 수집은 <b>지금 구조로는 컨테이너를 늘리는 순간 중복으로 돈다.</b></p>
+        <p class="fig-claim">샌드박스 구축은 <b>있는 것을 옮기는 작업이 아니다.</b> 요청이 지나는 길에서 <b>네 칸이 아직 없고</b>, 수집은 <b>지금 구조로는 컨테이너를 늘리는 순간 중복으로 돈다.</b></p>
       </figure>
 
       <!-- 2026-08-24: 04장에서 아래 세 블록을 지웠다 —
