@@ -149,6 +149,18 @@
     }
     .markdown-content tr { break-inside: avoid; page-break-inside: avoid; }
     .markdown-content thead { display: table-header-group; }
+
+    /* 첫 칸(기업·주체)이 너무 좁게 눌리는 것 방지 (2026-08-31 사용자 보고).
+       table-layout: auto 는 글자가 많은 칸에 폭을 몰아주는데, 결산 표는 내용 칸이
+       100자를 넘는 일이 잦아 회사 이름이 한두 글자씩 끊겨 세로로 길어졌다.
+       keep-all 은 한국어 회사명이 어절 중간에서 갈리지 않게 하고, min-width 는
+       그래도 남는 압박을 막는다. ⚠️ 화면은 가로 스크롤이 있어 이 문제가 없으므로
+       인쇄에서만 건다. */
+    .markdown-content th:first-child,
+    .markdown-content td:first-child {
+      min-width: 6.5em;
+      word-break: keep-all;
+    }
   }
 </style>
 
