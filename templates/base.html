@@ -136,12 +136,33 @@
         지식그래프
       </a>
 
+      {% comment %}
+        🔴 부분 문자열 매칭(`'news' in url_name`)에서 명시 비교로 바꿨다
+        (2026-09-01, PD — docs/design.md SET-009 절 "최상위 사이드바 활성 판정 버그").
+        뉴스룸이 들어오면 url_name이 newsroom_list / newsroom_detail / setting_newsroom이
+        되는데, 셋 다 문자열 'news'를 포함해 "뉴스" 항목이 함께 보라색으로 켜졌다.
+        base.html을 거쳐 렌더되는 뉴스 화면은 news_list / news_detail 둘뿐이다
+        (news_org_add·news_org_remove·news_delete는 HTMX 프래그먼트라 base를 안 탄다).
+        ⚠️ url_name을 'room_list'처럼 비틀어 피하지 말 것 — 같은 함정을 다시 만든다.
+      {% endcomment %}
       <a href="{% url 'news_list' %}"
          class="flex items-center gap-3 px-3 py-2 rounded-[10px] text-sm font-medium transition-colors
-                {% if 'news' in request.resolver_match.url_name %}bg-white/20 text-white{% else %}text-white/70 hover:bg-white/10 hover:text-white{% endif %}">
+                {% if request.resolver_match.url_name == 'news_list' or request.resolver_match.url_name == 'news_detail' %}bg-white/20 text-white{% else %}text-white/70 hover:bg-white/10 hover:text-white{% endif %}">
         <i data-lucide="newspaper" class="w-4 h-4"></i>
         뉴스
       </a>
+
+      {% comment %}
+        🔴 PE 인계 — 여기에 "뉴스룸"(ROOM-001) 항목이 들어온다. 마크업 전문은
+        docs/design.md SET-009 절 "사이드바·설정 메뉴 추가 (PE 인계) ②"에 있다.
+        아이콘 radio-tower, 활성 조건은 위와 같은 명시 비교
+        (url_name == 'newsroom_list' or == 'newsroom_detail').
+
+        지금 넣지 않은 이유: apps/newsroom/의 newsroom_list URL이 아직 없어서
+        url 태그가 NoReverseMatch를 내고, base.html은 전 화면 레이아웃이라
+        모든 페이지가 함께 죽는다.
+        PE가 URL 등록과 같은 커밋에서 이 블록을 이 자리에 넣을 것.
+      {% endcomment %}
 
       <a href="{% url 'setting_sources' %}"
          class="flex items-center gap-3 px-3 py-2 rounded-[10px] text-sm font-medium transition-colors

@@ -38,6 +38,7 @@ venv\Scripts\python manage.py shell --settings=config.settings.local
 - **HTMX** — 부분 업데이트: Django view가 HTML fragment를 반환 (JSON 최소화)
 - **Alpine.js** — 클라이언트 UI 상태만 담당 (드롭다운, 토글 등)
 - **검증 게이트** — 뷰가 `News`를 **직접 조회할 때는 반드시 `News.objects.verified()`를 거친다**(2026-08-04 도입). RA가 관련성 판정을 마치지 않은 뉴스는 화면에 노출하지 않는다는 정책이며, 빼먹어도 에러가 나지 않고 조용히 미검증 뉴스가 노출되므로 새 조회 코드를 짤 때마다 확인해야 한다. 예외는 세 가지뿐 — `Insight.news`/`Report.news`/`OrgRelation.news`(명시 연결 M2M, 연결 자체가 검증 완료를 전제), 사이드바 "마지막 수집"(파이프라인 생존 신호), collector의 중복 체크(미검증까지 봐야 재수집을 막음). 상세는 `docs/planning.md` "검증 게이트" 절.
+- **뉴스룸은 이 게이트 밖이다** — `NewsroomArticle`은 `News`가 아니므로 `verified()`가 걸리지 않는다. 대신 `filter_status='passed'`가 게이트이고 **판정 주체가 RA가 아니라 LLM**이다. ⚠️ 두 규칙을 섞지 말 것 — 뉴스룸 조회 코드에 `verified()`를 찾다가 없다고 게이트가 없는 줄 알면 안 되고, 반대로 `News` 조회에 `filter_status`를 쓰려 해서도 안 된다. 🔴 **키워드와 저장 테이블도 완전히 분리한다** — `collect_naver()`가 활성 수집 키워드 전량을 순회하므로 뉴스룸 키워드를 `Keyword`에 넣으면 본 파이프라인이 그대로 오염된다. 상세는 `docs/planning.md` "뉴스룸" 절.
 - **수집 실행 (환경별)** — 뉴스 수집은 **로컬에서는 스케줄러로 돌지 않는다**(2026-08-05 확정, `Schedule` pk=1 `is_active=False`). 로컬은 사람이 SET-001 "지금 수집"으로 수동 실행하고, **프로덕션 배포 시 SET-004에서 스케줄을 재활성화**한다. APScheduler가 `runserver` 프로세스 안에 있어서 서버가 09:00에 떠 있지 않으면 그날 실행이 **예약조차 되지 않으며**(등록 시점 기준으로 다음 실행을 계산하므로 misfire가 아니고, 따라서 유예 시간도 무의미), 이것이 2026-07-30~08-05 5회 연속 미실행의 원인이다. **로컬에서 수집이 안 됐다면 버그가 아니라 정상이다.** 상세·재활성화 체크리스트는 `docs/planning.md` "수집 실행 방식: 로컬 = 수동, 프로덕션 = 스케줄" 절.
 - **pgvector** — `Embedding` 모델·코사인 유사도 인프라는 구축돼 있으나(임계값 0.82), 현재 관련 기사 판별은 research-analyst가 배치를 직접 읽어서 수행하며 pgvector는 사용하지 않는다. 수집량 증가로 병목이 되면 PE가 상시 자동 클러스터링으로 재구현하는 걸 검토한다.
 
@@ -67,6 +68,7 @@ apps/
   reports/     # 보고서 목록·상세 (REPORT-001, REPORT-002)
   setting/     # 데이터소스·키워드·프롬프트·스케줄·Slack·로그·기업·기술 주제 (SET-001~008)
   graph/       # 지식그래프 (GRAPH-001)
+  newsroom/    # 뉴스룸 목록·상세 (ROOM-001, ROOM-002). 관리 화면은 setting 앱의 SET-009
 services/
   collector.py  # 뉴스 수집 파이프라인
   llm.py        # Claude API 연동
@@ -96,7 +98,7 @@ templates/      # 루트 레벨 템플릿 (base.html + 앱별 하위 디렉토�
 ## 화면 ID 규칙
 
 설계 문서(`docs/design.md`)와 코드에서 화면 ID를 기준으로 소통합니다.  
-`ALL-001` 대시보드 / `NEWS-001~002` 뉴스 / `REPORT-001~002` 보고서 / `SET-001~008` 설정 (`SET-007` 기업 관리, `SET-008` 기술 주제 관리) / `GRAPH-001` 지식그래프
+`ALL-001` 대시보드 / `NEWS-001~002` 뉴스 / `REPORT-001~002` 보고서 / `SET-001~009` 설정 (`SET-007` 기업 관리, `SET-008` 기술 주제 관리, `SET-009` 뉴스룸 관리) / `GRAPH-001` 지식그래프 / `ROOM-001~002` 뉴스룸
 
 ## 서브에이전트 (PM/PD/PE/RA)
 
