@@ -5,38 +5,12 @@
 {% block page_title %}뉴스 상세{% endblock %}
 
 {% block extra_head %}
-<style>
-  /* insight.implication 마크다운 렌더링 시 문단 간 여백만 최소로 부여.
-     dashboard/index.html의 .markdown-spacing과 동일한 규칙 — 이 페이지의
-     text-sm text-gray-700 지정을 유지하기 위해 폰트 크기/색상은 지정하지 않는다. */
-  /* word-break: keep-all — 한국어는 어절 단위로 끊어야 읽힌다(보고서 상세와 동일 규칙). */
-  .markdown-spacing { word-break: keep-all; }
-  .markdown-spacing p { margin-bottom: 1.15rem; }
-  .markdown-spacing p:last-child { margin-bottom: 0; }
-  .markdown-spacing ul, .markdown-spacing ol { margin: 0 0 1.15rem 1.25rem; }
-  .markdown-spacing ul:last-child, .markdown-spacing ol:last-child { margin-bottom: 0; }
-  .markdown-spacing ul { list-style: disc; }
-  .markdown-spacing ol { list-style: decimal; }
-  .markdown-spacing li { margin-bottom: 0.45rem; }
-
-  {% comment %}
-  news_body 필터(apps/news/templatetags/news_extras.py)가 판정한 소제목
-  (news-subtitle 클래스) 스타일. 사용자가 본문 글자 크기(14px = 0.875rem)
-  유지를 요청해 폰트 크기는 본문과 동일하게 두고 font-weight로만 구분한다.
-  reports/detail.html의 .markdown-content h1~h6과 같은 톤(0.875rem,
-  font-weight 600, color #111827).
-  위/아래 여백을 다르게 줘 "덩어리"를 시각적으로 가른다 — 위 문단과는
-  넉넉히 띄우고 바로 아래 문단과는 가깝게 붙여, 이 소제목이 다음에 오는
-  문단들의 표제라는 걸 여백만으로 드러낸다.
-  {% endcomment %}
-  .markdown-spacing p.news-subtitle {
-    font-weight: 600;
-    color: #111827;
-    margin-top: 1.75rem;
-    margin-bottom: 0.5rem;
-  }
-  .markdown-spacing p.news-subtitle:first-child { margin-top: 0; }
-</style>
+{% comment %}
+  news_body 필터 렌더 결과용 CSS는 templates/_news_body_style.html로 옮겼다
+  (2026-09-02, PD 지적 — ROOM-003도 같은 필터를 쓰므로 <style> 블록을 두 곳에
+  복사하면 한쪽만 고쳐지는 사고가 난다).
+{% endcomment %}
+{% include "_news_body_style.html" %}
 {% endblock %}
 
 {% block content %}

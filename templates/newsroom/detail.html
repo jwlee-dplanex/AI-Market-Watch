@@ -5,10 +5,15 @@
 {% block content %}
 
 {% comment %}
-  ROOM-002(docs/design.md). 기사 클릭은 원문 새 창이며 내부 상세 화면은 없다(정책 9번
-  결정 ②). 노출 게이트는 apps/newsroom/views.py의 for_newsroom_display()에서 이미
-  적용됐다 — 이 템플릿은 그 결과를 그대로 그린다. 검색도 뷰에서 그 게이트 통과분
-  안에서만 걸었다 — 여기서 NewsroomArticle을 직접 조회하지 않는다.
+  ROOM-002(docs/design.md). 🔴 2026-09-02 사용자 지시로 기사 클릭 대상을 원문 새 창에서
+  내부 상세 화면(ROOM-003, templates/newsroom/article_detail.html)으로 바꿨다 — 이전에는
+  정책 9번 결정 ②("기사 클릭은 원문 새 창이며 내부 상세 화면은 없다")를 따랐지만 이번
+  요청이 그 정책을 뒤집었다(planning.md 정합은 PM이 처리). 원문으로 나가는 경로는 이제
+  ROOM-003 화면 안의 "원문 보기" 링크뿐이다. 노출 게이트는 apps/newsroom/views.py의
+  for_newsroom_display()에서 이미 적용됐다 — 이 템플릿은 그 결과를 그대로 그린다. 검색도
+  뷰에서 그 게이트 통과분 안에서만 걸었다 — 여기서 NewsroomArticle을 직접 조회하지 않는다.
+  ROOM-003도 같은 게이트 메서드를 다시 걸어(uid로 좁히는 것만 추가) 미판정·제외 기사를
+  URL 직접 접근으로 열 수 없게 한다.
 
   🔴 뉴스룸 헤더 카드(← 뉴스룸 / 이름 / 활성 배지 / 5-1 캡션)는 2026-09-02 사용자
   지시로 제거했다. 대신 page_title을 뉴스룸 이름으로 바꿔 "어느 뉴스룸인지"는
@@ -22,8 +27,9 @@
 
   🔴 기사 카드는 2026-09-02 사용자 지시로 templates/news/_list.html(NEWS-001)의
   카드 구조를 그대로 따른다 — 날짜를 제목 위로, 제목은 line-clamp 없이 전부 노출,
-  external-link 아이콘 삭제. NEWS-001과 다른 점은 의도된 것만 남긴다: 클릭 시 원문
-  새 창(정책 9번 결정 ②, NEWS-001처럼 내부 상세로 보내지 않는다 — 그 화면이 없다),
+  external-link 아이콘 삭제. NEWS-001과 다른 점은 의도된 것만 남긴다: 클릭 시
+  내부 상세(ROOM-003)로 이동한다 — 처음에는 정책 9번 결정 ②에 따라 원문 새 창이었지만
+  같은 날 사용자가 "뉴스 상세처럼 보여달라"고 뒤집었다(planning.md 정합은 PM이 처리).
   통짜 <a> 카드(경쟁 클릭 대상이 없어 absolute inset-0 오버레이 구조가 필요 없다,
   ROOM-001과 같은 판단), source_domain 표시(카드 맨 아래 — PE 판단, 아래 참고).
   썸네일(image_url)·기업 배지(organizations)는 NewsroomArticle에 그 필드 자체가
@@ -68,7 +74,7 @@
 </div>
 <div class="space-y-3">
   {% for article in group.list %}
-  <a href="{{ article.url }}" target="_blank" rel="noopener noreferrer"
+  <a href="{% url 'newsroom_article_detail' room.uid article.uid %}"
      class="block group bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-5 hover:shadow-md transition-shadow">
     <p class="text-xs text-gray-400 mb-1.5">{{ article.published_at|date:"Y.m.d" }}</p>
     <p class="text-sm font-semibold text-gray-900 group-hover:text-primary transition-colors">

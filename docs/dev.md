@@ -382,7 +382,9 @@ bleach
 
 ### 뉴스룸 — 별도 축 (`apps/newsroom/models.py`)
 
-특정 그룹·회사(첫 대상 교보그룹)의 뉴스를 넓게 수집해 프롬프트로 거르고 화면·Slack으로 보내는 두 번째 축입니다(`docs/planning.md` "뉴스룸: 그룹 단위 뉴스 브리핑 채널", 2026-09-01 신설). 기존 리서치 축(News/Keyword/검증 게이트)과 **키워드·저장 테이블·판정 주체를 완전히 분리**합니다. 상세 근거는 `docs/planning.md` 해당 절, 화면 스펙은 `docs/design.md` ROOM-001·ROOM-002·SET-009 절 참고. 1단계(모델·SET-009·[지금 수집]·ROOM-001/002·사이드바)만 구현됐고, LLM 판정(2단계)·발송(4단계)은 아직 없습니다.
+특정 그룹·회사(첫 대상 교보그룹)의 뉴스를 넓게 수집해 프롬프트로 거르고 화면·Slack으로 보내는 두 번째 축입니다(`docs/planning.md` "뉴스룸: 그룹 단위 뉴스 브리핑 채널", 2026-09-01 신설). 기존 리서치 축(News/Keyword/검증 게이트)과 **키워드·저장 테이블·판정 주체를 완전히 분리**합니다. 상세 근거는 `docs/planning.md` 해당 절, 화면 스펙은 `docs/design.md` ROOM-001·ROOM-002·ROOM-003·SET-009 절 참고. 1단계(모델·SET-009·[지금 수집]·ROOM-001/002/003·사이드바)만 구현됐고, LLM 판정(2단계)·발송(4단계)은 아직 없습니다.
+
+🔴 **ROOM-003(기사 상세, 2026-09-02 추가)**은 기존 정책을 뒤집은 결과입니다. `docs/planning.md` 뉴스룸 정책 9번 결정 ②가 "기사 클릭은 원문 새 창이며 내부 상세 화면은 없다"였는데, 사용자 지시(*"뉴스 클릭하면 뉴스 상세 페이지처럼 내용 보여줘 바로 원문으로 이동하지말고"*)로 내부 상세 화면을 새로 만들고 ROOM-002 카드 클릭 대상을 원문 새 창에서 이 화면으로 바꿨습니다. 정책 문서 정합은 PM 담당입니다.
 
 **Newsroom** — 뉴스룸(브리핑 채널) 하나 = 카드 하나 = 채널 하나
 
@@ -436,7 +438,8 @@ bleach
 
 | 필드 | 타입 | 설명 |
 |------|------|------|
-| id | AutoField | PK |
+| id | AutoField | PK. URL에는 노출하지 않는다(아래 uid 참고) |
+| uid | UUIDField(unique) | 2026-09-02 추가(ROOM-003). `Newsroom.uid`와 동일 패턴 — URL에 순번 pk를 그대로 노출하지 않기 위함. `apps/newsroom/urls.py`의 `newsroom_article_detail`이 `<shortuuid:room_uid>/<shortuuid:uid>/`를 쓴다(뉴스룸 소속이 주소에 드러나도록 room_uid로 중첩) |
 | newsroom | ForeignKey(Newsroom, related_name="articles") | |
 | title / url / body | - | News와 동일 성격 |
 | url_hash | CharField(64) | `(newsroom, url_hash)` 복합 unique. `News.url_hash`(전역 unique)와 별개이고 `ExcludedURL`과도 연동 안 함(뉴스룸은 사람 삭제 기능 자체가 없음) |
@@ -445,7 +448,9 @@ bleach
 | judged_by | CharField(null) | 2026-09-02 추가. `filter_status`를 채운 주체 — `수동(RA)` / `자동(LLM)`. `CollectionLog.actor`("수동(화면)"/"자동(스케줄)")와 표기를 맞췄다. 2단계 LLM이 붙기 전까지는 RA가 사람 손으로 채운다(1단계에는 이걸 채우는 화면 기능이 없음 — RA가 셸에서 직접 채운다) |
 | summary | TextField(blank) | 1단계 LLM 산출물(2단계). 1단계 동안은 항상 빈 문자열 |
 
-**노출 게이트**: `NewsroomArticleQuerySet.for_newsroom_display(newsroom)` 한 곳에 모여 있다. 원칙은 `filter_status == passed`만 노출이지만, **그 뉴스룸에 판정 이력(`filter_status != pending`인 기사)이 한 건도 없는 동안은 `pending`도 함께 노출**한다("5-1 예외" — 1단계에는 LLM이 없어 `passed` 경로가 없으므로, 이 예외가 없으면 ROOM-002가 1단계 내내 빈 화면이 된다). 첫 판정이 생기는 순간 코드 수정 없이 예외가 닫힌다. `Newsroom.has_filter_history` 프로퍼티가 같은 조건을 공유한다. `judged_by`는 이 예외 조건에 관여하지 않는다 — RA가 손으로 판정해도 판정 이력은 판정 이력이다. ⚠️ ROOM-002 화면의 "아직 자동 선별 전이라…" 안내 캡션은 2026-09-02 사용자 지시로 화면에서 제거됐다(헤더 카드 자체를 없앰) — **게이트 로직과 5-1 예외 자체는 그대로 살아 있고, 사라진 건 그 상태를 알려주던 문구뿐이다.**
+**노출 게이트**: `NewsroomArticleQuerySet.for_newsroom_display(newsroom)` 한 곳에 모여 있다. 원칙은 `filter_status == passed`만 노출이지만, **그 뉴스룸에 판정 이력(`filter_status != pending`인 기사)이 한 건도 없는 동안은 `pending`도 함께 노출**한다("5-1 예외" — 1단계에는 LLM이 없어 `passed` 경로가 없으므로, 이 예외가 없으면 ROOM-002가 1단계 내내 빈 화면이 된다). 첫 판정이 생기는 순간 코드 수정 없이 예외가 닫힌다. `Newsroom.has_filter_history` 프로퍼티가 같은 조건을 공유한다. `judged_by`는 이 예외 조건에 관여하지 않는다 — RA가 손으로 판정해도 판정 이력은 판정 이력이다. ⚠️ ROOM-002 화면의 "아직 자동 선별 전이라…" 안내 캡션은 2026-09-02 사용자 지시로 화면에서 제거됐다(헤더 카드 자체를 없앰) — **게이트 로직과 5-1 예외 자체는 그대로 살아 있고, 사라진 건 그 상태를 알려주던 문구뿐이다.** ROOM-003(기사 상세)도 `apps/newsroom/views.py`의 `newsroom_article_detail()`이 같은 `for_newsroom_display()`로 조회한 뒤 `uid`로 좁히는 방식으로 이 게이트를 그대로 공유한다 — 게이트 밖 기사(제외분, 5-1 예외가 닫힌 뒤의 미판정분, 다른 뉴스룸 소속)는 URL 직접 접근도 404. 이전/다음 네비게이션(`_adjacent_article()`)도 같은 게이트 집합 안에서만 계산한다.
+
+**ROOM-003 본문 렌더**: `NewsroomArticle.body`는 `News.body`와 완전히 같은 크롤 경로(`services/crawler.py`의 `fetch_article_body()`)로 만들어져 텍스트 모양도 같다(줄바꿈 하나로만 구분, 빈 줄 없음). 그래서 별도 필터를 새로 만들지 않고 `apps/news/templatetags/news_extras.py`의 `news_body` 필터를 그대로 재사용한다(`{% load news_extras %}`) — `linebreaks`를 쓰면 빈 줄 기준으로 `<p>`를 만들어 본문 전체가 `<p>` 하나 + `<br>` 뭉치가 되므로 쓰지 않는다. 필요한 CSS(`.markdown-spacing`, `.news-subtitle`)는 `templates/_news_body_style.html`로 분리해 NEWS-002·ROOM-003이 함께 `{% include %}`한다(2026-09-02, 같은 `<style>` 블록 중복 방지). 본문이 비어 보이는지는 `article.body`가 아니라 렌더 결과(`{% with rendered_body=article.body|news_body %}`)로 판정한다 — `clean_lines()`가 잔여물만 있는 본문을 전부 걷어내면 `body`는 차 있어도 렌더 결과가 빈 문자열일 수 있기 때문이다.
 
 **코드 필터 3종**(2026-09-02 추가, `apps/newsroom/services.py::collect_newsroom()`) — `docs/planning.md` 뉴스룸 정책 6번 표(10-2·10-3·10-4)를 코드로 옮겼다. 파이프라인 순서(정책 8번 표)는 "수집 → 본문 크롤 → 코드 필터 → LLM"이지만, 이 구현은 버릴 기사에 크롤 비용을 쓰지 않으려고 코드 필터를 본문 크롤보다 먼저 돈다(결과는 동일).
 
@@ -490,9 +495,9 @@ ai_market_watch/
 │   ├── graph/               # 지식그래프 (GRAPH-001)
 │   │   ├── views.py         # graph(관계도), graph_org_panel(HTMX 패널), graph_edge_panel(엣지 근거뉴스 패널), graph_edge_label_save(관계 라벨 저장)
 │   │   └── urls.py
-│   └── newsroom/            # 뉴스룸 (ROOM-001, ROOM-002). 관리 화면(SET-009)은 apps/setting에 있다
+│   └── newsroom/            # 뉴스룸 (ROOM-001, ROOM-002, ROOM-003). 관리 화면(SET-009)은 apps/setting에 있다
 │       ├── models.py        # Newsroom, NewsroomKeyword, NewsroomArticle
-│       ├── views.py         # newsroom_list, newsroom_detail
+│       ├── views.py         # newsroom_list, newsroom_detail, newsroom_article_detail
 │       ├── services.py      # collect_newsroom() — 뉴스룸 전용 수집 파이프라인
 │       └── urls.py
 │
@@ -505,6 +510,7 @@ ai_market_watch/
 │
 ├── templates/
 │   ├── base.html            # 공통 레이아웃 (헤더·사이드바·푸터)
+│   ├── _news_body_style.html  # news_body 필터 렌더 결과 CSS(.markdown-spacing/.news-subtitle). NEWS-002·ROOM-003이 공유 include(2026-09-02)
 │   ├── dashboard/
 │   ├── news/
 │   │   ├── list.html
@@ -516,7 +522,8 @@ ai_market_watch/
 │   │   └── _newsroom_keywords.html  # 뉴스룸 키워드 CUD (HTMX 파션, room-keyword-panel-<id> 타깃)
 │   ├── newsroom/
 │   │   ├── list.html        # ROOM-001
-│   │   └── detail.html      # ROOM-002
+│   │   ├── detail.html      # ROOM-002
+│   │   └── article_detail.html  # ROOM-003 — 기사 상세(2026-09-02 추가)
 │   ├── graph/
 │   │   ├── index.html       # GRAPH-001 D3.js 관계도
 │   │   ├── _org_panel.html  # 기업 노드 클릭 시 HTMX 패널
@@ -575,6 +582,7 @@ ai_market_watch/
 | `/graph/edges/<pk_a>/<pk_b>/label/?period=...` | 관계 라벨 저장 (POST 전용) — `OrgRelation` update_or_create 후 `_edge_panel.html` 재렌더 |
 | `/newsroom/` | 뉴스룸 목록 (ROOM-001) — 읽기 전용 |
 | `/newsroom/<shortuuid:uid>/?q=...` | 뉴스룸 상세 (ROOM-002). 2026-09-02부터 `uid`(shortuuid) 기반 — `News`/`Report`와 동일 패턴. `q`는 제목 검색이며 반드시 `for_newsroom_display()` 게이트 통과분 안에서만 걸린다 |
+| `/newsroom/<shortuuid:room_uid>/<shortuuid:uid>/` | 뉴스룸 기사 상세 (ROOM-003, 2026-09-02 추가). 카드 클릭이 원문 새 창 대신 이 화면으로 이동한다. `room_uid`로 소속 뉴스룸이 주소에 드러나며, `NewsroomArticle.uid`도 이번에 새로 추가했다(pk 미노출 원칙 유지) — `for_newsroom_display(room)` 게이트 밖 기사는 404 |
 | `/setting/newsroom/` | 뉴스룸 관리 (SET-009). `?selected=<pk>` 로 편집 패널 선택 상태 유지 — 이 파라미터는 `pk` 그대로 둔다(외부 공유 URL이 아니라 관리 화면 내부 상태이고, `uid`로 바꾸려면 SET-009 템플릿 전체의 Alpine `selected === {{ room.id }}` 비교·HTMX 타깃 id를 함께 손대야 해 이득 대비 위험이 크다) |
 | `/setting/newsroom/save/` | 뉴스룸 생성·수정 (POST) |
 | `/setting/newsroom/<pk>/delete/` | 뉴스룸 삭제 (POST, HTMX — `HX-Redirect`로 목록 재로드) |

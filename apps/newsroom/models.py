@@ -194,6 +194,9 @@ class NewsroomArticle(models.Model):
         (STATUS_REJECTED, "제외"),
     ]
 
+    # URL에 순번 pk를 그대로 노출하지 않는다 — News.uid/Report.uid/Newsroom.uid와
+    # 동일 패턴(ROOM-003, 2026-09-02 추가).
+    uid = models.UUIDField(default=uuid.uuid4, unique=True, db_index=True)
     newsroom = models.ForeignKey(Newsroom, on_delete=models.CASCADE, related_name="articles")
     title = models.CharField(max_length=500)
     url = models.URLField(max_length=2000)
