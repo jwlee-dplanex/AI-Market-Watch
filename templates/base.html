@@ -152,17 +152,13 @@
         뉴스
       </a>
 
-      {% comment %}
-        🔴 PE 인계 — 여기에 "뉴스룸"(ROOM-001) 항목이 들어온다. 마크업 전문은
-        docs/design.md SET-009 절 "사이드바·설정 메뉴 추가 (PE 인계) ②"에 있다.
-        아이콘 radio-tower, 활성 조건은 위와 같은 명시 비교
-        (url_name == 'newsroom_list' or == 'newsroom_detail').
-
-        지금 넣지 않은 이유: apps/newsroom/의 newsroom_list URL이 아직 없어서
-        url 태그가 NoReverseMatch를 내고, base.html은 전 화면 레이아웃이라
-        모든 페이지가 함께 죽는다.
-        PE가 URL 등록과 같은 커밋에서 이 블록을 이 자리에 넣을 것.
-      {% endcomment %}
+      {% comment %} 뉴스룸 — "뉴스"와 "설정" 사이. docs/design.md SET-009 절 참고. {% endcomment %}
+      <a href="{% url 'newsroom_list' %}"
+         class="flex items-center gap-3 px-3 py-2 rounded-[10px] text-sm font-medium transition-colors
+                {% if request.resolver_match.url_name == 'newsroom_list' or request.resolver_match.url_name == 'newsroom_detail' %}bg-white/20 text-white{% else %}text-white/70 hover:bg-white/10 hover:text-white{% endif %}">
+        <i data-lucide="radio-tower" class="w-4 h-4"></i>
+        뉴스룸
+      </a>
 
       <a href="{% url 'setting_sources' %}"
          class="flex items-center gap-3 px-3 py-2 rounded-[10px] text-sm font-medium transition-colors

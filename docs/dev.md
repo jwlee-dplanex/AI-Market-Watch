@@ -380,6 +380,85 @@ bleach
 
 ---
 
+### 뉴스룸 — 별도 축 (`apps/newsroom/models.py`)
+
+특정 그룹·회사(첫 대상 교보그룹)의 뉴스를 넓게 수집해 프롬프트로 거르고 화면·Slack으로 보내는 두 번째 축입니다(`docs/planning.md` "뉴스룸: 그룹 단위 뉴스 브리핑 채널", 2026-09-01 신설). 기존 리서치 축(News/Keyword/검증 게이트)과 **키워드·저장 테이블·판정 주체를 완전히 분리**합니다. 상세 근거는 `docs/planning.md` 해당 절, 화면 스펙은 `docs/design.md` ROOM-001·ROOM-002·SET-009 절 참고. 1단계(모델·SET-009·[지금 수집]·ROOM-001/002·사이드바)만 구현됐고, LLM 판정(2단계)·발송(4단계)은 아직 없습니다.
+
+**Newsroom** — 뉴스룸(브리핑 채널) 하나 = 카드 하나 = 채널 하나
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| id | AutoField | PK. URL에는 노출하지 않는다(아래 uid 참고) |
+| uid | UUIDField(unique) | 2026-09-02 추가. `News.uid`/`Report.uid`와 동일 패턴 — URL에 순번 pk를 그대로 노출하지 않기 위함(`config/converters.py` ShortUUIDConverter). `apps/newsroom/urls.py`의 `newsroom_detail`이 `<shortuuid:uid>`를 쓴다 |
+| name | CharField(100) | 이름 |
+| description | CharField(200, blank) | 한 줄 설명 |
+| is_active | BooleanField | 활성 여부(기본 `True`). ⚠️ SET-009 "+ 새 뉴스룸" 모달에는 이 체크박스가 없다 — `setting_newsroom_save` 뷰가 신규 생성 시 이 필드를 건드리지 않고 모델 기본값을 그대로 둔다(신규 생성 시에도 `"is_active" in request.POST`로 덮어써 항상 `False`가 되던 실제 버그를 2026-09-02 수정) |
+| filter_prompt | TextField(blank) | 1단계 선별 프롬프트(2단계에서 실제 사용, 1단계는 입력·저장만) |
+| compose_prompt | TextField(blank) | 발송문 작성 프롬프트(3단계부터 사용) |
+| slack_channel_name | CharField(100, blank) | 채널명(발송 실행은 4단계부터) |
+| slack_webhook_url | URLField(blank) | Webhook URL |
+| send_hour / send_minute | PositiveSmallIntegerField | 발송 시각. cron이 아니라 시:분 값으로 저장 — SET-004의 cron 요일 해석 버그를 복제하지 않기 위함 |
+| send_frequency | CharField | `weekday`(평일) / `daily`(매일) |
+| send_is_active | BooleanField | 발송 활성 여부(1단계는 저장만, 실행 없음) |
+
+`Meta.ordering = ["-is_active", "name"]`(활성 먼저, 이름순).
+
+**프로퍼티**
+- `article_count` — ROOM-001 카드에 쓰는 "기사" 지표(2026-09-02, 사용자 요청으로 "오늘 수집"/"오늘 통과" 전환 지표 대신 총 건수 하나만 표시). `NewsroomArticle.objects.for_newsroom_display(self)`를 그대로 재사용해 ROOM-002가 실제로 보여주는 건수와 항상 같다.
+- `today_metric` — 5-1 예외에 맞춰 라벨("오늘 수집"→"오늘 통과")과 값의 출처가 함께 바뀌는 지표. **ROOM-001 카드에서는 더 이상 쓰지 않지만 코드는 남아 있다**(PM 요건이라 다른 자리에서 쓸 수 있음).
+- `has_filter_history` — 5-1 예외가 닫혔는지 여부.
+
+---
+
+**NewsroomKeyword** — 뉴스룸 전용 수집 키워드. `setting.Keyword`와 **완전히 분리**된 테이블입니다 — `collect_naver()`가 활성 수집 키워드 전량을 순회하므로 같은 테이블에 넣으면 본 파이프라인이 오염됩니다.
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| id | AutoField | PK |
+| newsroom | ForeignKey(Newsroom, related_name="keywords") | |
+| keyword | CharField(100) | 키워드(예: `교보` — `교보 AI`처럼 AI로 한정하지 않는다) |
+| sort | CharField | `date`(최신순) / `sim`(관련도순) — `Keyword.SORT_CHOICES`와 어휘만 공유, FK 아님 |
+| display | PositiveSmallIntegerField | 이 키워드의 수집 건수 상한(기본 20). 전역 `NAVER_DISPLAY_PER_QUERY`(5)를 쓰지 않고 키워드별 값을 갖는다 |
+
+---
+
+**PaidDomain** — 유료 구독(페이월) 매체 도메인 목록. **뉴스룸 공통 전역 설정**(뉴스룸별 아님). 초기값은 비운다 — 매체 이름을 지어내 채우지 않는다(「무조건 팩트 기반」). 1~2단계 운영 중 실제로 유료벽에 막힌 링크를 사람이 보고 채운다. 화면 UI가 없다 — `NewsroomArticle.judged_by`와 같은 이유로 셸에서 직접 편집하는 저빈도 운영 데이터로 뒀다.
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| id | AutoField | PK |
+| domain | CharField(255, unique) | 도메인(예: `example.co.kr`, `www.` 접두어 없이) |
+| added_at | DateTimeField | |
+
+---
+
+**NewsroomArticle** — 뉴스룸이 수집한 기사. `News`를 재사용하지 않는 별도 테이블(ALL-001·GRAPH-001 집계 오염 방지, 판정 의미 충돌 방지).
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| id | AutoField | PK |
+| newsroom | ForeignKey(Newsroom, related_name="articles") | |
+| title / url / body | - | News와 동일 성격 |
+| url_hash | CharField(64) | `(newsroom, url_hash)` 복합 unique. `News.url_hash`(전역 unique)와 별개이고 `ExcludedURL`과도 연동 안 함(뉴스룸은 사람 삭제 기능 자체가 없음) |
+| published_at / collected_at | DateTimeField | |
+| filter_status | CharField | `pending`(판정 전) / `passed`(통과) / `rejected`(제외). 기본값 `pending`. **주체는 RA가 아니라 LLM**(2단계) — `News.objects.verified()` 검증 게이트는 여기 적용되지 않는다 |
+| judged_by | CharField(null) | 2026-09-02 추가. `filter_status`를 채운 주체 — `수동(RA)` / `자동(LLM)`. `CollectionLog.actor`("수동(화면)"/"자동(스케줄)")와 표기를 맞췄다. 2단계 LLM이 붙기 전까지는 RA가 사람 손으로 채운다(1단계에는 이걸 채우는 화면 기능이 없음 — RA가 셸에서 직접 채운다) |
+| summary | TextField(blank) | 1단계 LLM 산출물(2단계). 1단계 동안은 항상 빈 문자열 |
+
+**노출 게이트**: `NewsroomArticleQuerySet.for_newsroom_display(newsroom)` 한 곳에 모여 있다. 원칙은 `filter_status == passed`만 노출이지만, **그 뉴스룸에 판정 이력(`filter_status != pending`인 기사)이 한 건도 없는 동안은 `pending`도 함께 노출**한다("5-1 예외" — 1단계에는 LLM이 없어 `passed` 경로가 없으므로, 이 예외가 없으면 ROOM-002가 1단계 내내 빈 화면이 된다). 첫 판정이 생기는 순간 코드 수정 없이 예외가 닫힌다. `Newsroom.has_filter_history` 프로퍼티가 같은 조건을 공유한다. `judged_by`는 이 예외 조건에 관여하지 않는다 — RA가 손으로 판정해도 판정 이력은 판정 이력이다. ⚠️ ROOM-002 화면의 "아직 자동 선별 전이라…" 안내 캡션은 2026-09-02 사용자 지시로 화면에서 제거됐다(헤더 카드 자체를 없앰) — **게이트 로직과 5-1 예외 자체는 그대로 살아 있고, 사라진 건 그 상태를 알려주던 문구뿐이다.**
+
+**코드 필터 3종**(2026-09-02 추가, `apps/newsroom/services.py::collect_newsroom()`) — `docs/planning.md` 뉴스룸 정책 6번 표(10-2·10-3·10-4)를 코드로 옮겼다. 파이프라인 순서(정책 8번 표)는 "수집 → 본문 크롤 → 코드 필터 → LLM"이지만, 이 구현은 버릴 기사에 크롤 비용을 쓰지 않으려고 코드 필터를 본문 크롤보다 먼저 돈다(결과는 동일).
+
+| 필터 | 판정 | 상세 |
+|---|---|---|
+| 기간 불일치(10-3) | 코드 | `published_at`이 현재 기준 과거 30일보다 오래됐거나 미래 1일을 넘으면 제외. 30일은 planning.md에 명시된 값이 없어 PE가 정한 기본값(운영 중 조정 가능, `PERIOD_MISMATCH_PAST_DAYS`) |
+| 유료 매체(10-2) | 코드 | URL 도메인이 `PaidDomain`에 있으면 제외. 초기값이 비어 있어 지금은 아무것도 걸리지 않는다 |
+| 죽은 링크(10-4) | 코드 | HTTP HEAD 상태코드가 404/410이면 제외. 그 외(타임아웃·403·5xx 등)는 불확실로 보고 포함한다(정책 9번 결정 ④) |
+
+🔴 **걸러진 기사는 저장하지 않는다** — `filter_status`/`judged_by`를 코드 필터가 미리 채우는 방식(대안 B)은 기각됐다(5-1 예외가 첫날부터 닫혀 목적을 잃는다). `collect_naver()`의 제외 키워드 필터와 같은 방식으로, 행 자체를 만들지 않고 `collect_newsroom()`이 반환하는 stats의 `skipped_period`/`skipped_paid`/`skipped_dead` 카운트만 남긴다 — SET-009 "지금 수집" 결과 배너(`_collect_result.html`, SET-001과 공유)에 0건이 아닐 때만 표시된다.
+
+---
+
 ## 4. 프로젝트 구조
 
 ```
@@ -404,16 +483,21 @@ ai_market_watch/
 │   │   ├── models.py        # Report, ReportNews
 │   │   ├── views.py
 │   │   └── urls.py
-│   ├── setting/             # 설정 (SET-001 ~ SET-008)
+│   ├── setting/             # 설정 (SET-001 ~ SET-009)
 │   │   ├── models.py        # DataSource, Keyword, Prompt, Schedule, SlackConfig, CollectionLog, LLMLog, Organization, TechTopic, OrgRelation
-│   │   ├── views.py
+│   │   ├── views.py         # SET-009(뉴스룸 관리) 뷰도 여기 있다 — apps.newsroom 모델을 import만 한다
 │   │   └── urls.py
-│   └── graph/               # 지식그래프 (GRAPH-001)
-│       ├── views.py         # graph(관계도), graph_org_panel(HTMX 패널), graph_edge_panel(엣지 근거뉴스 패널), graph_edge_label_save(관계 라벨 저장)
+│   ├── graph/               # 지식그래프 (GRAPH-001)
+│   │   ├── views.py         # graph(관계도), graph_org_panel(HTMX 패널), graph_edge_panel(엣지 근거뉴스 패널), graph_edge_label_save(관계 라벨 저장)
+│   │   └── urls.py
+│   └── newsroom/            # 뉴스룸 (ROOM-001, ROOM-002). 관리 화면(SET-009)은 apps/setting에 있다
+│       ├── models.py        # Newsroom, NewsroomKeyword, NewsroomArticle
+│       ├── views.py         # newsroom_list, newsroom_detail
+│       ├── services.py      # collect_newsroom() — 뉴스룸 전용 수집 파이프라인
 │       └── urls.py
 │
 ├── services/
-│   ├── collector.py         # 수집 파이프라인
+│   ├── collector.py         # 수집 파이프라인 (본 리서치 축 전용, 뉴스룸은 안 씀)
 │   ├── llm.py               # Claude API 연동
 │   ├── embedder.py          # 임베딩 생성
 │   ├── scheduler.py         # 스케줄 실행
@@ -428,6 +512,11 @@ ai_market_watch/
 │   │   └── _list.html       # HTMX 파션
 │   ├── reports/
 │   ├── setting/
+│   │   ├── newsroom.html         # SET-009 — 뉴스룸 목록 + 편집 패널
+│   │   └── _newsroom_keywords.html  # 뉴스룸 키워드 CUD (HTMX 파션, room-keyword-panel-<id> 타깃)
+│   ├── newsroom/
+│   │   ├── list.html        # ROOM-001
+│   │   └── detail.html      # ROOM-002
 │   ├── graph/
 │   │   ├── index.html       # GRAPH-001 D3.js 관계도
 │   │   ├── _org_panel.html  # 기업 노드 클릭 시 HTMX 패널
@@ -484,6 +573,13 @@ ai_market_watch/
 | `/graph/orgs/<pk>/panel/?period=...` | 기업 노드 관련뉴스 패널 (HTMX 조각) |
 | `/graph/edges/<pk_a>/<pk_b>/panel/?period=...` | 기업 쌍(엣지) 근거뉴스 패널 (HTMX 조각) — `pk_a == pk_b`면 404 |
 | `/graph/edges/<pk_a>/<pk_b>/label/?period=...` | 관계 라벨 저장 (POST 전용) — `OrgRelation` update_or_create 후 `_edge_panel.html` 재렌더 |
+| `/newsroom/` | 뉴스룸 목록 (ROOM-001) — 읽기 전용 |
+| `/newsroom/<shortuuid:uid>/?q=...` | 뉴스룸 상세 (ROOM-002). 2026-09-02부터 `uid`(shortuuid) 기반 — `News`/`Report`와 동일 패턴. `q`는 제목 검색이며 반드시 `for_newsroom_display()` 게이트 통과분 안에서만 걸린다 |
+| `/setting/newsroom/` | 뉴스룸 관리 (SET-009). `?selected=<pk>` 로 편집 패널 선택 상태 유지 — 이 파라미터는 `pk` 그대로 둔다(외부 공유 URL이 아니라 관리 화면 내부 상태이고, `uid`로 바꾸려면 SET-009 템플릿 전체의 Alpine `selected === {{ room.id }}` 비교·HTMX 타깃 id를 함께 손대야 해 이득 대비 위험이 크다) |
+| `/setting/newsroom/save/` | 뉴스룸 생성·수정 (POST) |
+| `/setting/newsroom/<pk>/delete/` | 뉴스룸 삭제 (POST, HTMX — `HX-Redirect`로 목록 재로드) |
+| `/setting/newsroom/<pk>/collect/` | 지금 수집 (POST) — `apps.newsroom.services.collect_newsroom()` 실행, `_collect_result.html`(SET-001과 공유) 반환 |
+| `/setting/newsroom/<room_pk>/keywords/add\|<pk>/update\|<pk>/delete/` | 뉴스룸 키워드 CUD (POST, HTMX) — `#room-keyword-panel-<room_pk>` 타깃 |
 
 ---
 

@@ -23,6 +23,7 @@ def _setting_menu(active):
         {"label": "프롬프트",   "icon": "file-text",      "name": "setting_prompts",       "key": "prompts"},
         {"label": "스케줄",     "icon": "clock",          "name": "setting_schedule",      "key": "schedule"},
         {"label": "Slack",      "icon": "slack",          "name": "setting_slack",         "key": "slack"},
+        {"label": "뉴스룸",     "icon": "radio",          "name": "setting_newsroom",      "key": "newsroom"},
         {"label": "로그",       "icon": "scroll-text",    "name": "setting_logs",          "key": "logs"},
     ]
     for item in items:
@@ -398,3 +399,149 @@ def remap_tech_topics_now(request):
     from services.collector import remap_tech_topics
     count = remap_tech_topics()
     return render(request, "setting/_remap_result.html", {"remap_count": count, "entity_label": "기술 주제"})
+
+
+# --- SET-009 뉴스룸 관리 ---
+# docs/design.md SET-009 절 인계: "SET-009 뷰는 apps/setting/views.py에 두고 모델을 import
+# 한다(_setting_menu()가 이 앱에 있고 이미 apps.news를 import하고 있어 일관된다)."
+
+
+def setting_newsroom(request):
+    from apps.newsroom.models import Newsroom, NewsroomKeyword
+    rooms = list(Newsroom.objects.all())
+
+    # 저장 후 선택 상태를 되살리는 값(?selected=<pk>) — 사용자 입력을 그대로 Alpine
+    # x-data(JS 컨텍스트)에 꽂으면 안 되므로, 실제 rooms 중 하나의 pk와 일치할 때만
+    # 받아들인다(그 외엔 첫 번째 뉴스룸으로 폴백). rooms.0.id처럼 템플릿에서 빈
+    # 쿼리셋을 직접 인덱싱하면 VariableDoesNotExist가 필터 인자 자리에서 그대로
+    # 튀어나와 500이 나므로(Django가 필터 인자 레벨에서는 이 예외를 삼키지 않는다),
+    # "선택할 뉴스룸이 있는지·무엇인지"는 뷰에서 미리 정리해 내려준다.
+    selected_param = request.GET.get("selected", "")
+    room_ids = {room.pk for room in rooms}
+    if selected_param.isdigit() and int(selected_param) in room_ids:
+        initial_selected = int(selected_param)
+    else:
+        initial_selected = rooms[0].pk if rooms else None
+
+    return render(request, "setting/newsroom.html", {
+        "setting_menu": _setting_menu("newsroom"),
+        "rooms": rooms,
+        "initial_selected": initial_selected,
+        "SORT_CHOICES": NewsroomKeyword.SORT_CHOICES,
+        "hour_choices": [f"{h:02d}" for h in range(24)],
+        "minute_choices": ["00", "10", "20", "30", "40", "50"],
+        "freq_choices": Newsroom.FREQ_CHOICES,
+    })
+
+
+@require_POST
+def setting_newsroom_save(request):
+    from apps.newsroom.models import Newsroom
+
+    room_id = request.POST.get("room_id", "").strip()
+    name = request.POST.get("name", "").strip()
+
+    if room_id:
+        room = get_object_or_404(Newsroom, pk=room_id)
+        # 편집 패널의 "기본" 섹션에만 활성 체크박스가 있다 — 기존 뉴스룸을 그 폼으로
+        # 저장할 때만 POST 값으로 갱신한다.
+        room.is_active = "is_active" in request.POST
+    elif name:
+        room = Newsroom()
+        # "+ 새 뉴스룸" 모달에는 활성 체크박스가 없다. 여기서 위와 같이
+        # `"is_active" in request.POST`를 그대로 쓰면 모달 POST에는 그 키가 없어
+        # 항상 False가 되고, 모델 기본값(True)을 조용히 덮어쓴다 — 실제로 이 버그로
+        # 새로 만든 뉴스룸이 전부 "멈춤"으로 보였다(2026-09-02 발견). 새 뉴스룸은
+        # Newsroom.is_active의 모델 기본값(True)을 그대로 둔다.
+    else:
+        return redirect("setting_newsroom")
+
+    room.name = name
+    room.description = request.POST.get("description", "").strip()
+    room.filter_prompt = request.POST.get("filter_prompt", "")
+    room.compose_prompt = request.POST.get("compose_prompt", "")
+    room.slack_channel_name = request.POST.get("slack_channel_name", "").strip()
+    room.slack_webhook_url = request.POST.get("slack_webhook_url", "").strip()
+
+    send_hour = request.POST.get("send_hour", "").strip()
+    if send_hour.isdigit():
+        room.send_hour = int(send_hour)
+    send_minute = request.POST.get("send_minute", "").strip()
+    if send_minute.isdigit():
+        room.send_minute = int(send_minute)
+    room.send_frequency = request.POST.get("send_frequency", Newsroom.FREQ_WEEKDAY)
+    room.send_is_active = "send_is_active" in request.POST
+
+    room.save()
+    return redirect(f"{reverse('setting_newsroom')}?selected={room.pk}")
+
+
+@require_POST
+def setting_newsroom_delete(request, pk):
+    from apps.newsroom.models import Newsroom
+    from django.http import HttpResponse
+    Newsroom.objects.filter(pk=pk).delete()
+    response = HttpResponse()
+    response["HX-Redirect"] = reverse("setting_newsroom")
+    return response
+
+
+@require_POST
+def setting_newsroom_collect(request, pk):
+    from apps.newsroom.models import Newsroom
+    from apps.newsroom.services import collect_newsroom
+    room = get_object_or_404(Newsroom, pk=pk)
+    stats = collect_newsroom(room)
+    return render(request, "setting/_collect_result.html", {"stats": stats})
+
+
+def _newsroom_keyword_context(room):
+    from apps.newsroom.models import NewsroomKeyword
+    return {
+        "room": room,
+        "keywords": room.keywords.all(),
+        "SORT_CHOICES": NewsroomKeyword.SORT_CHOICES,
+    }
+
+
+@require_POST
+def setting_newsroom_keyword_add(request, room_pk):
+    from apps.newsroom.models import Newsroom, NewsroomKeyword
+    room = get_object_or_404(Newsroom, pk=room_pk)
+    keyword = request.POST.get("keyword", "").strip()
+    sort = request.POST.get("sort", NewsroomKeyword.SORT_DATE)
+    display = request.POST.get("display", "").strip()
+    if keyword:
+        NewsroomKeyword.objects.get_or_create(
+            newsroom=room,
+            keyword=keyword,
+            defaults={
+                "sort": sort,
+                "display": int(display) if display.isdigit() else 20,
+            },
+        )
+    return render(request, "setting/_newsroom_keywords.html", _newsroom_keyword_context(room))
+
+
+@require_POST
+def setting_newsroom_keyword_update(request, room_pk, pk):
+    from apps.newsroom.models import Newsroom, NewsroomKeyword
+    room = get_object_or_404(Newsroom, pk=room_pk)
+    kw = get_object_or_404(NewsroomKeyword, pk=pk, newsroom=room)
+    keyword = request.POST.get("keyword", "").strip()
+    if keyword:
+        kw.keyword = keyword
+        kw.sort = request.POST.get("sort", kw.sort)
+        display = request.POST.get("display", "").strip()
+        if display.isdigit():
+            kw.display = int(display)
+        kw.save()
+    return render(request, "setting/_newsroom_keywords.html", _newsroom_keyword_context(room))
+
+
+@require_POST
+def setting_newsroom_keyword_delete(request, room_pk, pk):
+    from apps.newsroom.models import Newsroom, NewsroomKeyword
+    room = get_object_or_404(Newsroom, pk=room_pk)
+    NewsroomKeyword.objects.filter(pk=pk, newsroom=room).delete()
+    return render(request, "setting/_newsroom_keywords.html", _newsroom_keyword_context(room))

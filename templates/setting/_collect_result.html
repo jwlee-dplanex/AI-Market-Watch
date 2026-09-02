@@ -17,6 +17,20 @@
     {% if stats.crawl_failed %}
     <span class="text-gray-700">크롤 실패 <strong class="text-orange-500">{{ stats.crawl_failed }}</strong>건</span>
     {% endif %}
+    {% comment %}
+      코드 필터 3종(뉴스룸 전용, 2026-09-02 추가). SET-001(본 파이프라인)의 stats에는
+      이 키들이 없으므로 항상 0으로 falsy 처리돼 아무것도 렌더하지 않는다 — 이 파션을
+      두 화면이 그대로 공유해도 안전하다.
+    {% endcomment %}
+    {% if stats.skipped_period %}
+    <span class="text-gray-700">기간 불일치 <strong class="text-orange-500">{{ stats.skipped_period }}</strong>건</span>
+    {% endif %}
+    {% if stats.skipped_paid %}
+    <span class="text-gray-700">유료 매체 <strong class="text-orange-500">{{ stats.skipped_paid }}</strong>건</span>
+    {% endif %}
+    {% if stats.skipped_dead %}
+    <span class="text-gray-700">죽은 링크 <strong class="text-orange-500">{{ stats.skipped_dead }}</strong>건</span>
+    {% endif %}
   </div>
 </div>
 {% endif %}

@@ -8,4 +8,5 @@ urlpatterns = [
     path("reports/", include("apps.reports.urls")),
     path("setting/", include("apps.setting.urls")),
     path("graph/", include("apps.graph.urls")),
+    path("newsroom/", include("apps.newsroom.urls")),
 ]

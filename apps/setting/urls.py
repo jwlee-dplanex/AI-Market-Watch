@@ -26,4 +26,11 @@ urlpatterns = [
     path("schedule/save/", views.schedule_save, name="setting_schedule_save"),
     path("schedule/<int:pk>/toggle/", views.schedule_toggle, name="setting_schedule_toggle"),
     path("schedule/<int:pk>/delete/", views.schedule_delete, name="setting_schedule_delete"),
+    path("newsroom/", views.setting_newsroom, name="setting_newsroom"),
+    path("newsroom/save/", views.setting_newsroom_save, name="setting_newsroom_save"),
+    path("newsroom/<int:pk>/delete/", views.setting_newsroom_delete, name="setting_newsroom_delete"),
+    path("newsroom/<int:pk>/collect/", views.setting_newsroom_collect, name="setting_newsroom_collect"),
+    path("newsroom/<int:room_pk>/keywords/add/", views.setting_newsroom_keyword_add, name="setting_newsroom_keyword_add"),
+    path("newsroom/<int:room_pk>/keywords/<int:pk>/update/", views.setting_newsroom_keyword_update, name="setting_newsroom_keyword_update"),
+    path("newsroom/<int:room_pk>/keywords/<int:pk>/delete/", views.setting_newsroom_keyword_delete, name="setting_newsroom_keyword_delete"),
 ]

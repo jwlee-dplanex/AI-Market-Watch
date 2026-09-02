@@ -1,0 +1,220 @@
+{% extends "setting/base_setting.html" %}
+
+{% comment %}
+  SET-009(docs/design.md). SET-003 prompts.html의 좌 목록 + 우 편집 패널(Alpine
+  x-data={selected}) 패턴을 재사용한다. 1단계에서 실제로 동작하는 실행 버튼은
+  "지금 수집" 하나뿐이다 — "지금 필터"/"발송 미리보기"/"지금 발송"은 비활성으로 자리만
+  잡아 둔다(숨기지 않는다, 이유는 아래 각 버튼의 title 참고).
+
+  저장은 폼 하나 + 하단 [저장] 버튼 하나로 받는다. 기본 섹션의 입력은 <form id=
+  "room-form-{{ room.id }}">가 직접 감싸고, 선별·작성/발송 섹션의 입력은 HTML5 form=
+  속성으로 같은 폼에 연결한다 — 그 사이(수집 섹션)에 키워드 CUD용 별도 <form>(HTMX)이
+  끼어 있어 <form> 중첩을 피해야 하기 때문이다.
+{% endcomment %}
+
+{% block setting_content %}
+{% csrf_token %}
+<div class="flex gap-4 items-start"
+     x-data="{ selected: {{ initial_selected|default:'null' }}, newRoomOpen: false }">
+
+  <!-- 뉴스룸 목록 (좌) -->
+  <div class="w-52 flex-shrink-0 bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-2">
+    {% for room in rooms %}
+    <button @click="selected = {{ room.id }}"
+            class="w-full text-left flex items-center gap-2 px-3 py-2.5 rounded-[10px] text-sm transition-colors"
+            :class="selected === {{ room.id }} ? 'bg-[#F3EAFB] border-l-2 border-primary text-primary font-semibold' : 'text-gray-600 hover:bg-gray-50'">
+      <i data-lucide="radio-tower" class="w-4 h-4 flex-shrink-0"></i>
+      <span class="truncate">{{ room.name }}</span>
+    </button>
+    {% empty %}
+    <p class="text-xs text-gray-400 text-center py-6">아직 만든 뉴스룸이 없어요.<br>아래 [+ 새 뉴스룸]으로 시작해보세요.</p>
+    {% endfor %}
+    <button type="button" @click="newRoomOpen = true"
+            class="w-full text-center text-xs text-primary font-medium px-3 py-2 mt-1 rounded-[10px] hover:bg-gray-50 transition-colors">
+      + 새 뉴스룸
+    </button>
+  </div>
+
+  <!-- 편집 패널 (우) -->
+  <div class="flex-1 min-w-0 bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-5">
+    {% for room in rooms %}
+    <div x-show="selected === {{ room.id }}" x-cloak>
+
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-sm font-semibold text-gray-900">{{ room.name }}</h2>
+        {% if room.is_active %}
+        <span class="text-[10px] px-2 py-0.5 rounded-full bg-[#E6F7F5] text-[#00AF9A]">활성</span>
+        {% else %}
+        <span class="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-400">멈춤</span>
+        {% endif %}
+      </div>
+
+      <!-- 기본: 폼 시작 -->
+      <form id="room-form-{{ room.id }}" method="post" action="{% url 'setting_newsroom_save' %}">
+        {% csrf_token %}
+        <input type="hidden" name="room_id" value="{{ room.id }}">
+        <p class="text-xs font-semibold text-gray-500 mb-2">기본</p>
+        <div class="space-y-3 mb-5">
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">이름</label>
+            <input type="text" name="name" value="{{ room.name }}" required
+                   class="w-full text-xs border border-[#E5E5E5] rounded-[10px] px-3 py-2 focus:outline-none focus:border-primary focus:ring-2 focus:ring-[rgba(96,38,158,0.14)]">
+          </div>
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">설명</label>
+            <input type="text" name="description" value="{{ room.description }}"
+                   class="w-full text-xs border border-[#E5E5E5] rounded-[10px] px-3 py-2 focus:outline-none focus:border-primary focus:ring-2 focus:ring-[rgba(96,38,158,0.14)]">
+          </div>
+          <label class="flex items-center gap-2 text-xs text-gray-600">
+            <input type="checkbox" name="is_active" {% if room.is_active %}checked{% endif %}>
+            활성
+          </label>
+        </div>
+      </form>
+      <!-- 기본: 폼 끝. 아래 수집 섹션은 이 폼 밖(HTMX 별도 엔드포인트)이다. -->
+
+      <!-- 수집 -->
+      <div class="mb-5">
+        <p class="text-xs font-semibold text-gray-500 mb-2">수집</p>
+        <div id="room-keyword-panel-{{ room.id }}">
+          {% include "setting/_newsroom_keywords.html" with room=room keywords=room.keywords.all %}
+        </div>
+        <div class="mt-3 flex items-center gap-3">
+          <button type="button"
+                  hx-post="{% url 'setting_newsroom_collect' room.id %}"
+                  hx-target="#room-collect-result-{{ room.id }}" hx-swap="innerHTML"
+                  hx-include="[name=csrfmiddlewaretoken]"
+                  hx-indicator="#room-collect-indicator-{{ room.id }}"
+                  class="flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-xs font-medium rounded-[10px] hover:bg-primary-hover transition-colors disabled:opacity-50">
+            <i data-lucide="play" class="w-3.5 h-3.5"></i>
+            지금 수집
+          </button>
+          <span id="room-collect-indicator-{{ room.id }}"
+                class="htmx-indicator text-xs text-gray-400 flex items-center gap-1.5">
+            <svg class="animate-spin w-3.5 h-3.5 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+            </svg>
+            수집 중...
+          </span>
+        </div>
+        <div id="room-collect-result-{{ room.id }}"></div>
+      </div>
+
+      <!-- 선별·작성: 필드는 위 room-form에 form= 속성으로 연결 -->
+      <div class="mb-5">
+        <p class="text-xs font-semibold text-gray-500 mb-2">선별·작성 <span class="text-gray-400 font-normal">준비 중이에요</span></p>
+        <div class="space-y-3">
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">필터 프롬프트</label>
+            <textarea form="room-form-{{ room.id }}" name="filter_prompt" rows="4"
+                      class="w-full text-xs font-mono border border-gray-200 rounded-[10px] p-3 focus:outline-none focus:border-primary resize-none leading-relaxed">{{ room.filter_prompt }}</textarea>
+          </div>
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">발송문 프롬프트</label>
+            <textarea form="room-form-{{ room.id }}" name="compose_prompt" rows="4"
+                      class="w-full text-xs font-mono border border-gray-200 rounded-[10px] p-3 focus:outline-none focus:border-primary resize-none leading-relaxed">{{ room.compose_prompt }}</textarea>
+          </div>
+          <div class="flex gap-2">
+            <button type="button" disabled title="선별 기능은 준비 중이에요"
+                    class="px-3 py-2 bg-gray-200 text-gray-400 text-xs rounded-[10px] opacity-40 cursor-not-allowed">지금 필터</button>
+            <button type="button" disabled title="발송 미리보기는 준비 중이에요"
+                    class="px-3 py-2 bg-gray-200 text-gray-400 text-xs rounded-[10px] opacity-40 cursor-not-allowed">발송 미리보기</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 발송: 필드는 위 room-form에 form= 속성으로 연결 -->
+      <div class="mb-5"
+           x-data="{ revealed: false, hour: '{{ room.send_hour|stringformat:'02d' }}', minute: '{{ room.send_minute|stringformat:'02d' }}', freq: '{{ room.send_frequency }}' }">
+        <p class="text-xs font-semibold text-gray-500 mb-2">발송 <span class="text-gray-400 font-normal">준비 중이에요</span></p>
+        <div class="space-y-3">
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">채널명</label>
+            <input form="room-form-{{ room.id }}" type="text" name="slack_channel_name" value="{{ room.slack_channel_name }}" placeholder="#kyobo-brief"
+                   class="w-full text-xs border border-[#E5E5E5] rounded-[10px] px-3 py-2 focus:outline-none focus:border-primary focus:ring-2 focus:ring-[rgba(96,38,158,0.14)]">
+          </div>
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">Webhook</label>
+            <div class="flex gap-2">
+              <input form="room-form-{{ room.id }}" :type="revealed ? 'text' : 'password'" name="slack_webhook_url" value="{{ room.slack_webhook_url }}"
+                     class="flex-1 text-xs border border-[#E5E5E5] rounded-[10px] px-3 py-2 focus:outline-none focus:border-primary focus:ring-2 focus:ring-[rgba(96,38,158,0.14)]">
+              <button type="button" @click="revealed = !revealed" class="px-2 text-gray-400 hover:text-primary transition-colors">
+                <i data-lucide="eye" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">발송 시각</label>
+            <div class="flex gap-2">
+              <select form="room-form-{{ room.id }}" name="send_hour" x-model="hour"
+                      class="text-xs border border-[#E5E5E5] rounded-[10px] px-2 py-2 focus:outline-none focus:border-primary bg-white text-gray-700">
+                {% for h in hour_choices %}<option value="{{ h }}">{{ h }}</option>{% endfor %}
+              </select>
+              <select form="room-form-{{ room.id }}" name="send_minute" x-model="minute"
+                      class="text-xs border border-[#E5E5E5] rounded-[10px] px-2 py-2 focus:outline-none focus:border-primary bg-white text-gray-700">
+                {% for m in minute_choices %}<option value="{{ m }}">{{ m }}</option>{% endfor %}
+              </select>
+              <select form="room-form-{{ room.id }}" name="send_frequency" x-model="freq"
+                      class="text-xs border border-[#E5E5E5] rounded-[10px] px-2 py-2 focus:outline-none focus:border-primary bg-white text-gray-700">
+                {% for val, label in freq_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+              </select>
+            </div>
+            <p class="text-xs text-gray-400 mt-1.5" x-text="(freq === 'weekday' ? '평일' : '매일') + ' ' + hour + ':' + minute + '에 보내요'"></p>
+          </div>
+          <label class="flex items-center gap-2 text-xs text-gray-600">
+            <input form="room-form-{{ room.id }}" type="checkbox" name="send_is_active" {% if room.send_is_active %}checked{% endif %}>
+            발송 활성
+          </label>
+          <button type="button" disabled title="발송 기능은 준비 중이에요"
+                  class="px-3 py-2 bg-gray-200 text-gray-400 text-xs rounded-[10px] opacity-40 cursor-not-allowed">지금 발송</button>
+          <p class="text-xs text-gray-400">아직 보낸 기록이 없어요.</p>
+        </div>
+      </div>
+
+      <div class="border-t border-gray-100 pt-4 flex items-center justify-between">
+        <button type="button"
+                hx-post="{% url 'setting_newsroom_delete' room.id %}"
+                hx-confirm="&quot;{{ room.name }}&quot; 뉴스룸을 삭제하면 모아둔 기사와 발송 기록도 함께 지워져요. 삭제할까요?"
+                hx-include="[name=csrfmiddlewaretoken]"
+                class="text-xs text-red-500 hover:underline">
+          이 뉴스룸 삭제
+        </button>
+        <button type="submit" form="room-form-{{ room.id }}"
+                class="px-4 py-2 bg-primary text-white text-sm font-medium rounded-[10px] hover:bg-primary-hover transition-colors">
+          저장
+        </button>
+      </div>
+    </div>
+    {% empty %}
+    <div class="text-center py-16 text-gray-400">
+      <i data-lucide="radio" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
+      <p class="text-sm">왼쪽에서 뉴스룸을 골라주세요.</p>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- + 새 뉴스룸 모달 -->
+  <div x-show="newRoomOpen" x-cloak
+       class="fixed inset-0 z-50 flex items-center justify-center"
+       @keydown.escape.window="newRoomOpen=false">
+    <div class="absolute inset-0 bg-black/30" @click="newRoomOpen=false"></div>
+    <div class="relative bg-white rounded-[10px] shadow-xl p-6 w-80">
+      <h3 class="text-sm font-semibold text-gray-900 mb-4">새 뉴스룸 만들기</h3>
+      <form method="post" action="{% url 'setting_newsroom_save' %}">
+        {% csrf_token %}
+        <label class="text-xs text-gray-500 mb-1 block">이름</label>
+        <input type="text" name="name" required
+               class="w-full text-xs border border-[#E5E5E5] rounded-[10px] px-3 py-2 focus:outline-none focus:border-primary focus:ring-2 focus:ring-[rgba(96,38,158,0.14)]">
+        <div class="flex gap-2 mt-5">
+          <button type="button" @click="newRoomOpen=false"
+                  class="flex-1 px-3 py-2 text-xs border border-gray-200 rounded-[10px] text-gray-600 hover:bg-gray-50 transition-colors">취소</button>
+          <button type="submit"
+                  class="flex-1 px-3 py-2 text-xs bg-primary text-white rounded-[10px] hover:bg-primary-hover transition-colors">만들기</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

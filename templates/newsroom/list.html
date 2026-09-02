@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block page_title %}뉴스룸{% endblock %}
+
+{% block content %}
+
+{% comment %}
+  ROOM-001(docs/design.md). 읽기 전용 화면 — 생성·수정 진입점을 두지 않는다(CUD는
+  SET-009 전용).
+
+  🔴 2026-09-02 사용자 지시로 카드 지표를 정리했다 — "마지막 발송"·"채널" 행 삭제
+  (발송 인프라가 4단계라 지금은 항상 빈 값/고정 문자열이던 자리, 없는 걸 있는 것처럼
+  보였다는 지적), "오늘 수집"/"오늘 통과" 전환 지표 대신 **기사 건수** 하나만 표시한다.
+  Newsroom.today_metric은 코드에서 지우지 않았다 — 5-1 예외에 맞춰 라벨이 스스로
+  전환되는 구조는 PM 요건이라 나중에 다른 자리에서 쓸 수 있어서다(카드에서만 안 쓴다).
+  Newsroom.article_count가 ROOM-002와 같은 게이트(for_newsroom_display())를 써서,
+  카드 숫자와 상세 화면에서 실제로 보이는 건수가 항상 같다.
+{% endcomment %}
+
+{% if rooms %}
+<div class="grid grid-cols-2 gap-4">
+  {% for room in rooms %}
+  <a href="{% url 'newsroom_detail' room.uid %}"
+     class="block group bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-5 hover:shadow-md transition-shadow">
+    <div class="flex items-center justify-between">
+      <p class="text-sm font-semibold text-gray-900 group-hover:text-primary transition-colors">{{ room.name }}</p>
+      {% if room.is_active %}
+      <span class="text-[10px] px-2 py-0.5 rounded-full bg-[#E6F7F5] text-[#00AF9A]">활성</span>
+      {% else %}
+      <span class="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-400">멈춤</span>
+      {% endif %}
+    </div>
+    {% if room.description %}
+    <p class="text-xs text-gray-400 mt-1 line-clamp-2">{{ room.description }}</p>
+    {% endif %}
+
+    <div class="border-t border-gray-100 mt-4 pt-3">
+      <div class="flex text-xs">
+        <span class="text-gray-400 w-20 flex-shrink-0">기사</span>
+        <span class="text-gray-700">{{ room.article_count }}건</span>
+      </div>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-12 text-center text-gray-400">
+  <i data-lucide="radio-tower" class="w-10 h-10 mx-auto mb-3 opacity-40"></i>
+  <p class="text-sm">아직 만들어진 뉴스룸이 없어요.</p>
+  <p class="text-sm">설정 &gt; 뉴스룸에서 첫 채널을 만들 수 있어요.</p>
+</div>
+{% endif %}
+
+{% endblock %}

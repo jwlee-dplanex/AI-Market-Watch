@@ -1,0 +1,99 @@
+<table class="w-full text-xs">
+  <thead>
+    <tr class="border-b border-gray-100">
+      <th class="text-left font-semibold text-gray-500 py-2">키워드</th>
+      <th class="text-left font-semibold text-gray-500 py-2 w-20">정렬</th>
+      <th class="text-left font-semibold text-gray-500 py-2 w-14">건수</th>
+      <th class="w-14 py-2"></th>
+    </tr>
+  </thead>
+  <tbody class="divide-y divide-gray-50">
+    {% for kw in keywords %}
+    <tr x-data="{ editOpen: false, kwv: '{{ kw.keyword|escapejs }}', sortv: '{{ kw.sort }}', dispv: '{{ kw.display }}' }">
+      <td class="py-2 font-medium text-gray-900">{{ kw.keyword }}</td>
+      <td class="py-2 text-gray-500">{% if kw.sort == "sim" %}관련도순{% else %}최신순{% endif %}</td>
+      <td class="py-2 text-gray-500">{{ kw.display }}건</td>
+      <td class="py-2 text-right">
+        <div class="flex items-center justify-end gap-1.5">
+          <button type="button" @click="editOpen=true" class="text-gray-300 hover:text-primary transition-colors">
+            <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+          </button>
+          <button type="button"
+                  hx-post="{% url 'setting_newsroom_keyword_delete' room.id kw.pk %}"
+                  hx-target="#room-keyword-panel-{{ room.id }}" hx-swap="innerHTML"
+                  hx-include="[name=csrfmiddlewaretoken]"
+                  hx-confirm="'{{ kw.keyword }}' 키워드를 삭제하시겠어요?"
+                  class="text-gray-300 hover:text-red-500 transition-colors">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+
+        <!-- 수정 모달 -->
+        <div x-show="editOpen" x-cloak
+             class="fixed inset-0 z-50 flex items-center justify-center"
+             @keydown.escape.window="editOpen=false">
+          <div class="absolute inset-0 bg-black/30" @click="editOpen=false"></div>
+          <div class="relative bg-white rounded-[10px] shadow-xl p-6 w-80 text-left">
+            <h3 class="text-sm font-semibold text-gray-900 mb-4">키워드 수정</h3>
+            <form hx-post="{% url 'setting_newsroom_keyword_update' room.id kw.pk %}"
+                  hx-target="#room-keyword-panel-{{ room.id }}" hx-swap="innerHTML"
+                  hx-include="[name=csrfmiddlewaretoken]"
+                  @htmx:after-request="editOpen=false">
+              <div class="space-y-3">
+                <div>
+                  <label class="text-xs text-gray-500 mb-1 block">키워드</label>
+                  <input type="text" name="keyword" x-model="kwv"
+                         class="w-full text-xs border border-[#E5E5E5] rounded-[10px] px-3 py-2 focus:outline-none focus:border-primary focus:ring-2 focus:ring-[rgba(96,38,158,0.14)]">
+                </div>
+                <div>
+                  <label class="text-xs text-gray-500 mb-1 block">정렬</label>
+                  <select name="sort" x-model="sortv"
+                          class="w-full text-xs border border-[#E5E5E5] rounded-[10px] px-3 py-2 focus:outline-none focus:border-primary bg-white text-gray-700">
+                    {% for val, label in SORT_CHOICES %}
+                    <option value="{{ val }}">{{ label }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div>
+                  <label class="text-xs text-gray-500 mb-1 block">수집 건수 상한</label>
+                  <input type="number" name="display" x-model="dispv" min="1" max="100"
+                         class="w-full text-xs border border-[#E5E5E5] rounded-[10px] px-3 py-2 focus:outline-none focus:border-primary focus:ring-2 focus:ring-[rgba(96,38,158,0.14)]">
+                </div>
+              </div>
+              <div class="flex gap-2 mt-5">
+                <button type="button" @click="editOpen=false"
+                        class="flex-1 px-3 py-2 text-xs border border-gray-200 rounded-[10px] text-gray-600 hover:bg-gray-50 transition-colors">취소</button>
+                <button type="submit"
+                        class="flex-1 px-3 py-2 text-xs bg-primary text-white rounded-[10px] hover:bg-primary-hover transition-colors">저장</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </td>
+    </tr>
+    {% empty %}
+    <tr>
+      <td colspan="4" class="py-6 text-center text-gray-400">등록된 키워드가 없어요. 아래에서 추가해보세요.</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<form hx-post="{% url 'setting_newsroom_keyword_add' room.id %}"
+      hx-target="#room-keyword-panel-{{ room.id }}" hx-swap="innerHTML"
+      hx-include="[name=csrfmiddlewaretoken]"
+      x-data="{ v: '' }" @submit="$nextTick(() => v = '')"
+      class="flex gap-2 mt-3">
+  <input type="text" name="keyword" x-model="v" placeholder="키워드를 입력해주세요"
+         class="flex-1 text-xs border border-[#E5E5E5] rounded-[10px] px-3 py-2 focus:outline-none focus:border-primary focus:ring-2 focus:ring-[rgba(96,38,158,0.14)]">
+  <select name="sort"
+          class="text-xs border border-[#E5E5E5] rounded-[10px] px-2 py-2 focus:outline-none focus:border-primary bg-white text-gray-700">
+    {% for val, label in SORT_CHOICES %}
+    <option value="{{ val }}">{{ label }}</option>
+    {% endfor %}
+  </select>
+  <input type="number" name="display" value="20" min="1" max="100"
+         class="w-16 text-xs border border-[#E5E5E5] rounded-[10px] px-2 py-2 focus:outline-none focus:border-primary">
+  <button type="submit"
+          class="px-3 py-2 bg-primary text-white text-xs rounded-[10px] hover:bg-primary-hover transition-colors">추가</button>
+</form>
+<script>lucide.createIcons();</script>

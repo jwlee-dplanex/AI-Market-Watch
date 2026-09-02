@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block page_title %}{{ room.name }}{% endblock %}
+
+{% block content %}
+
+{% comment %}
+  ROOM-002(docs/design.md). 기사 클릭은 원문 새 창이며 내부 상세 화면은 없다(정책 9번
+  결정 ②). 노출 게이트는 apps/newsroom/views.py의 for_newsroom_display()에서 이미
+  적용됐다 — 이 템플릿은 그 결과를 그대로 그린다. 검색도 뷰에서 그 게이트 통과분
+  안에서만 걸었다 — 여기서 NewsroomArticle을 직접 조회하지 않는다.
+
+  🔴 뉴스룸 헤더 카드(← 뉴스룸 / 이름 / 활성 배지 / 5-1 캡션)는 2026-09-02 사용자
+  지시로 제거했다. 대신 page_title을 뉴스룸 이름으로 바꿔 "어느 뉴스룸인지"는
+  화면에 남긴다. 5-1 캡션이 지키려던 "실패가 조용한 빈 화면으로 보이지 않게 하기"
+  요건은 이 화면에서는 더 이상 지켜지지 않는다 — planning.md 문서 정합은 PM이 처리.
+
+  🔴 발송 상태 블록은 이번 단계에서 렌더하지 않는다. 발송 실행 자체가 4단계 스코프라
+  "발송 완료/실패/아직 안 감"을 실제로 판정할 근거(발송 시도 기록)가 아직 없다 —
+  Webhook·발송 활성 값이 채워져 있어도 이 화면은 그 값을 읽어 상태를 지어내지 않는다.
+  4단계에 발송 인프라와 함께 추가한다.
+
+  🔴 기사 카드는 2026-09-02 사용자 지시로 templates/news/_list.html(NEWS-001)의
+  카드 구조를 그대로 따른다 — 날짜를 제목 위로, 제목은 line-clamp 없이 전부 노출,
+  external-link 아이콘 삭제. NEWS-001과 다른 점은 의도된 것만 남긴다: 클릭 시 원문
+  새 창(정책 9번 결정 ②, NEWS-001처럼 내부 상세로 보내지 않는다 — 그 화면이 없다),
+  통짜 <a> 카드(경쟁 클릭 대상이 없어 absolute inset-0 오버레이 구조가 필요 없다,
+  ROOM-001과 같은 판단), source_domain 표시(카드 맨 아래 — PE 판단, 아래 참고).
+  썸네일(image_url)·기업 배지(organizations)는 NewsroomArticle에 그 필드 자체가
+  없어 넣지 않는다("무조건 팩트 기반" — 없는 데이터를 만들어 채우지 않는다).
+
+  source_domain을 남긴 이유: NEWS-001은 이미 검증·선별된 기사만 보여줘 출처가 부차
+  정보지만, 뉴스룸은 다양한 매체가 뒤섞여 들어오고(이번 배치만 nocutnews·dailypop·
+  imaeil·efnews 등 10개 이상 도메인) 아직 LLM 선별 전(5-1 예외 구간)이라 어느
+  매체 기사인지가 신뢰 판단에 실제로 쓰인다. 날짜 자리를 차지하는 값이 아니라 카드
+  맨 아래(NEWS-001의 기업 배지 자리와 같은 위치)에 작은 텍스트로만 남긴다.
+{% endcomment %}
+
+<div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-4 mb-4">
+  <form method="get" class="flex items-center gap-3">
+    <div class="relative flex-1 min-w-60">
+      <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+      <input type="text" name="q" value="{{ q }}" placeholder="기사 제목으로 찾아보세요"
+             class="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-[10px] focus:outline-none focus:border-primary">
+    </div>
+    <button type="submit"
+            class="px-4 py-2 bg-primary text-white text-sm font-medium rounded-[10px] hover:bg-primary-hover transition-colors">
+      검색
+    </button>
+    {% if q %}
+    <a href="{% url 'newsroom_detail' room.uid %}" class="text-sm text-gray-400 hover:text-gray-600">초기화</a>
+    {% endif %}
+  </form>
+</div>
+
+<!-- 결과 수 -->
+<div class="flex items-center justify-between mb-3">
+  <p class="text-sm text-gray-500">총 <span class="font-semibold text-gray-900">{{ total_count|default:0 }}</span>건</p>
+</div>
+
+{% if articles %}
+{% regroup articles by local_date as day_groups %}
+{% for group in day_groups %}
+<div class="flex items-center gap-2 mb-3 {% if not forloop.first %}mt-6{% endif %}">
+  <i data-lucide="calendar" class="w-4 h-4 text-primary"></i>
+  <p class="text-sm font-semibold text-gray-700">{{ group.grouper|date:"Y년 m월 d일" }}</p>
+  <div class="flex-1 h-px bg-gray-200"></div>
+</div>
+<div class="space-y-3">
+  {% for article in group.list %}
+  <a href="{{ article.url }}" target="_blank" rel="noopener noreferrer"
+     class="block group bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-5 hover:shadow-md transition-shadow">
+    <p class="text-xs text-gray-400 mb-1.5">{{ article.published_at|date:"Y.m.d" }}</p>
+    <p class="text-sm font-semibold text-gray-900 group-hover:text-primary transition-colors">
+      {{ article.title }}
+    </p>
+    {% if article.summary %}
+    <p class="text-xs text-gray-500 mt-1.5 leading-relaxed line-clamp-2">{{ article.summary }}</p>
+    {% endif %}
+    <p class="text-xs text-gray-400 mt-1.5">{{ article.source_domain }}</p>
+  </a>
+  {% endfor %}
+</div>
+{% endfor %}
+{% elif q %}
+<div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-12 text-center text-gray-400">
+  <i data-lucide="search-x" class="w-10 h-10 mx-auto mb-3 opacity-40"></i>
+  <p class="text-sm">검색 결과가 없어요. 다른 검색어로 다시 찾아보세요.</p>
+</div>
+{% else %}
+<div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-12 text-center text-gray-400">
+  <i data-lucide="inbox" class="w-10 h-10 mx-auto mb-3 opacity-40"></i>
+  <p class="text-sm">아직 모인 기사가 없어요.</p>
+  <p class="text-sm">설정 &gt; 뉴스룸에서 [지금 수집]을 눌러 첫 기사를 모아보세요.</p>
+</div>
+{% endif %}
+
+{% if is_paginated %}
+<div class="flex items-center justify-center gap-1 mt-6">
+  {% if page_obj.has_previous %}
+  <a href="?{% if base_query %}{{ base_query }}&{% endif %}page={{ page_obj.previous_page_number }}"
+     class="px-3 py-1.5 text-sm text-gray-600 border border-gray-200 rounded-[10px] hover:border-primary transition-colors">이전</a>
+  {% endif %}
+  {% for num in page_obj.paginator.page_range %}
+  <a href="?{% if base_query %}{{ base_query }}&{% endif %}page={{ num }}"
+     class="px-3 py-1.5 text-sm rounded-[10px] transition-colors
+            {% if num == page_obj.number %}bg-primary text-white{% else %}text-gray-600 border border-gray-200 hover:border-primary{% endif %}">
+    {{ num }}
+  </a>
+  {% endfor %}
+  {% if page_obj.has_next %}
+  <a href="?{% if base_query %}{{ base_query }}&{% endif %}page={{ page_obj.next_page_number }}"
+     class="px-3 py-1.5 text-sm text-gray-600 border border-gray-200 rounded-[10px] hover:border-primary transition-colors">다음</a>
+  {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}
