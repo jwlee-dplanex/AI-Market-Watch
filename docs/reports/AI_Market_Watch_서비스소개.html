@@ -3760,27 +3760,25 @@ svg text{font-family:var(--font);}
      아래 논의 사항 표는 이 둘을 항목으로 쪼갠 것이다. -->
       <div class="fig rv" style="margin:0 16px 20px;padding:20px 22px;background:var(--lav-050);border:1px solid var(--line-2);border-radius:12px">
         <p style="font-size:9.5px;font-weight:800;letter-spacing:.12em;color:var(--muted);margin:0 0 12px">이번 구축 계획이 다루는 논의 사항</p>
-        <p style="display:flex;gap:11px;align-items:baseline;margin:0 0 9px;font-size:16px;font-weight:800;color:var(--violet-900);line-height:1.5"><span style="color:var(--violet-500)">1</span><span>개발 환경에 AI Market Watch 구축 여부</span></p>
-        <p style="margin:0 0 9px 27px;font-size:12.5px;font-weight:700;color:var(--violet-500);line-height:1.5">구축 시 구축과 운영 리소스 할당</p>
+        <p style="display:flex;gap:11px;align-items:baseline;margin:0 0 9px;font-size:16px;font-weight:800;color:var(--violet-900);line-height:1.5"><span style="color:var(--violet-500)">1</span><span>샌드박스에 AI Market Watch 구축</span></p>
+        <p style="margin:0 0 9px 27px;font-size:12.5px;font-weight:700;color:var(--violet-500);line-height:1.5">구축과 운영 리소스 할당</p>
         <p style="display:flex;gap:11px;align-items:baseline;margin:0;font-size:16px;font-weight:800;color:var(--violet-900);line-height:1.5"><span style="color:var(--violet-500)">2</span><span>KANDLE 금융에 AI Market Watch 인사이트 연계 여부</span></p>
       </div>
 
       <div class="fig rv" style="margin-top:18px">
         <table class="tbl">
-          <caption class="sr-only">논의 사항 여섯 가지와 세부 내용, 상태. 구축과 운영 쪽은 넷이다. 구축 환경은 사내 사용과 KANDLE 금융 연계를 정보 보안 혜진 PM님으로부터 개발 환경에서 진행하도록 권고받은 것이다. 구축 수행 주체는 개발팀 리소스 투입을 검토한다. 구축 소요는 진욱님 수행 기준으로 업무 병행 시 하루 0.5 맨데이를 투입해 11 워크데이, 전담 시 하루 1.0 맨데이를 투입해 6 워크데이가 걸린다. 총 공수는 5.5 맨데이, 즉 월 20 영업일 기준 0.28 맨먼스다. 운영 수행 방안은 구축 완료 후 서비스를 유지할 담당을 정하는 것이다. 맡는 일은 세 가지다. 장애 대응은 서비스 중단이나 수집 실패 시 복구하는 일로 발생 시점을 예측할 수 없어 대기 체계가 필요하다. 버그 수정은 동작이 잘못된 부분을 교정하는 일이다. 기능 추가 요청 처리는 관계사 요청을 검토해 우선순위를 정하고 반영하는 일이다. KANDLE 연계 쪽은 둘이다. AI Market Watch 의 인사이트를 KANDLE 금융에 제공할 것인지 검토한다. 실무 협의는 마쳤고 연계가 가능함을 확인했다. 연계 방식은 AI Market Watch 가 아마존 MWAA 로 SFTP 서버에 적재하고 KANDLE 금융이 같은 방식으로 가져가 자사 데이터베이스에 넣는 것으로 협의를 마쳤다. 텍스트 파일 기준이며 CSV 는 가능하고 PDF 와 한글 문서는 확장자 검토가 필요하다. 연계 방식은 협의를 마쳤고 나머지 다섯은 결정이 필요하다. 전달 대상과 제외 대상, 세 망을 잇는 구조는 이 표 다음에 오는 그림 4-2 에 있다.</caption>
+          <caption class="sr-only">논의 사항 여섯 가지와 세부 내용, 상태. 구축과 운영 쪽은 넷이다. 구축 환경은 정보 보안 혜진 PM님으로부터 개발 환경에서 진행하도록 권고받았으나 경영진이 샌드박스 구축으로 결정한 것이며, 확정 상태다. 구축 수행 주체는 개발팀 리소스 투입을 검토한다. 구축 소요는 진욱님 수행 기준으로 업무 병행 시 하루 0.5 맨데이를 투입해 11 워크데이, 전담 시 하루 1.0 맨데이를 투입해 6 워크데이가 걸린다. 총 공수는 5.5 맨데이, 즉 월 20 영업일 기준 0.28 맨먼스다. 운영 수행 방안은 구축 완료 후 서비스를 유지할 담당을 정하는 것이다. 맡는 일은 세 가지다. 장애 대응은 서비스 중단이나 수집 실패 시 복구하는 일로 발생 시점을 예측할 수 없어 대기 체계가 필요하다. 버그 수정은 동작이 잘못된 부분을 교정하는 일이다. 기능 추가 요청 처리는 관계사 요청을 검토해 우선순위를 정하고 반영하는 일이다. KANDLE 연계 쪽은 둘이다. AI Market Watch 의 인사이트를 KANDLE 금융에 제공할 것인지 검토한다. 실무 협의는 마쳤고 연계가 가능함을 확인했다. 연계 방식은 AI Market Watch 가 아마존 MWAA 로 SFTP 서버에 적재하고 KANDLE 금융이 같은 방식으로 가져가 자사 데이터베이스에 넣는 것으로 협의를 마쳤다. 텍스트 파일 기준이며 CSV 는 가능하고 PDF 와 한글 문서는 확장자 검토가 필요하다. 연계 방식은 협의를 마쳤고 나머지 다섯은 결정이 필요하다. 전달 대상과 제외 대상, 세 망을 잇는 구조는 이 표 다음에 오는 그림 4-2 에 있다.</caption>
           <thead><tr><th>구분</th><th>논의 사항</th><th>세부 내용</th><th>상태</th></tr></thead>
           <tbody>
             <!-- 2026-08-28 보안 협의로 "구축 환경" 행이 맨 앞에 들어왔다. 어디에 짓는지가
                  정해져야 아래 수행 주체 · 소요 산정이 의미를 갖기 때문에 순서가 맨 앞이어야 한다.
-                 ⚠️ 04장의 나머지는 아직 "샌드박스에 구축한다"를 전제로 짜여 있다 —
-                    간트 차트의 "샌드박스 환경 · 서비스 구동", 준비 사항 표의 "샌드박스 인프라
-                    정책에 맞춰 구축함", FIG 4-1, FIG 4-2 의 출발점까지 전부 그렇다.
-                    일부러 그대로 뒀다. 어느 개발 환경인지 모르면 일정도 구성도 다시 산정할 수
-                    없어서, 지금 고치면 환경이 정해진 뒤 한 번 더 고쳐야 한다. 이 행이 위에 있어
-                    아래 산정(0.35 M/M · 7 M/D)이 잠정이라는 것이 순서로 읽히면 된다.
-                 ⚠️ 환경이 확정되면 위 다섯 곳을 함께 고칠 것. 이 표만 고치면 표와 그림이 서로
-                    다른 말을 한다. -->
-            <tr><td class="g">구축·운영</td><td class="k">구축 환경</td><td><span class="s">사내 사용과 KANDLE 금융 연계는 <b>개발 환경에서 진행</b> 권고 (정보 보안 <b>혜진 PM님</b>)</span><span class="s">테스트는 <b>샌드박스에서 가능</b></span></td><td class="st chk">결정 필요</td></tr>
+                 2026-09-02 경영진이 샌드박스 구축으로 결정해 이 행만 확정으로 바뀌었다.
+                 ⚠️ 정보 보안 권고(개발 환경)와 다른 결론이라 권고를 지우지 않고 병기한다.
+                    나중에 보안 이슈가 생기면 "권고가 있었는가"를 되짚게 되는데, 지우면 그
+                    이력이 문서에서 사라진다.
+                 ⚠️ 확정된 것은 이 행뿐이다. 수행 주체 · 소요 산정 · 운영 방안은 그대로
+                    결정 필요다. 결정 하나로 나머지를 함께 닫지 말 것. -->
+            <tr><td class="g">구축·운영</td><td class="k">구축 환경</td><td><span class="s"><b>샌드박스에 구축</b> (경영진 결정)</span><span class="s">정보 보안 권고는 <b>개발 환경에서 진행</b>이었음 (정보 보안 <b>혜진 PM님</b>)</span></td><td class="st ok">확정</td></tr>
             <tr><td class="g"></td><td class="k">구축 수행 주체</td><td><span class="s"><b>개발팀 리소스</b> 투입 검토</span></td><td class="st chk">결정 필요</td></tr>
             <tr><td class="g"></td><td class="k">구축 소요 산정</td><td><span class="s">진욱님 수행 기준.</span><span class="s">업무 병행 <b>0.5 M/D · 11 Work Day</b>, 전담 <b>1.0 M/D · 6 Work Day</b>.</span><span class="s">총 공수는 <b>0.28 M/M</b> (5.5 M/D, 월 20 영업일 기준). 전담은 하루 단위로 끊어 6 Work Day</span></td><td class="st chk">결정 필요</td></tr>
             <tr><td class="g"></td><td class="k">운영 수행 방안</td><td><span class="s">구축 완료 후 서비스를 유지할 담당 지정.</span><span class="s"><b>장애 대응</b>: 서비스 중단이나 수집 실패 시 복구. 발생 시점을 예측할 수 없어 대기 체계 필요</span><span class="s"><b>버그 수정</b>: 동작이 잘못된 부분 교정</span><span class="s"><b>기능 추가 요청 처리</b>: 관계사 요청을 검토해 우선순위를 정하고 반영</span></td><td class="st chk">결정 필요</td></tr>
@@ -3813,7 +3811,7 @@ svg text{font-family:var(--font);}
           </figcaption>
         <div class="fig-body">
           <svg class="sbx" viewBox="0 0 1180 470" role="img"
-               aria-label="KANDLE 연계 구조를 세 영역으로 나눈 그림. 왼쪽 두 영역인 개발 환경과 SFTP 서버가 AI Market Watch 의 작업 범위이며 점선 상자로 묶여 있다. 왼쪽은 개발 환경 영역의 AI Market Watch 로 수집과 판정, 인사이트 생성을 한다. 가운데는 SFTP 서버로, 적재된 파일을 수신 시까지 보관한다. 오른쪽은 폐쇄망 영역의 KANDLE 금융으로 자사 데이터베이스에 전달받은 문자열을 적재한다. 세 영역 사이에는 망 경계가 둘 있다. AI Market Watch 가 AWS MWAA 로 SFTP 서버에 적재하고, KANDLE 금융도 AWS MWAA 로 SFTP 서버에서 가져간다. 두 경계를 넘는 수단은 양쪽 모두 AWS MWAA 로 같다. 전달하는 것은 문자열 형태의 뉴스, 시사점, 요약, 인사이트, 보고서, 지식그래프다. 형식은 텍스트 파일 기준이며 CSV 는 가능하고 PDF 와 한글 문서는 확장자 검토가 필요하다. 원문 뉴스 링크는 제외하며 링크 미전송. KANDLE 금융이 폐쇄망이라 외부 인터넷에 접속할 수 없고 외부 주소 요청이 닿지 않기 때문이다. SFTP 서버는 양쪽 망이 함께 닿는 지점이라 직접 연결 불가, 경유 필요한다.">
+               aria-label="KANDLE 연계 구조를 세 영역으로 나눈 그림. 왼쪽 두 영역인 샌드박스와 SFTP 서버가 AI Market Watch 의 작업 범위이며 점선 상자로 묶여 있다. 왼쪽은 샌드박스 영역의 AI Market Watch 로 수집과 판정, 인사이트 생성을 한다. 가운데는 SFTP 서버로, 적재된 파일을 수신 시까지 보관한다. 오른쪽은 폐쇄망 영역의 KANDLE 금융으로 자사 데이터베이스에 전달받은 문자열을 적재한다. 세 영역 사이에는 망 경계가 둘 있다. AI Market Watch 가 AWS MWAA 로 SFTP 서버에 적재하고, KANDLE 금융도 AWS MWAA 로 SFTP 서버에서 가져간다. 두 경계를 넘는 수단은 양쪽 모두 AWS MWAA 로 같다. 전달하는 것은 문자열 형태의 뉴스, 시사점, 요약, 인사이트, 보고서, 지식그래프다. 형식은 텍스트 파일 기준이며 CSV 는 가능하고 PDF 와 한글 문서는 확장자 검토가 필요하다. 원문 뉴스 링크는 제외하며 링크 미전송. KANDLE 금융이 폐쇄망이라 외부 인터넷에 접속할 수 없고 외부 주소 요청이 닿지 않기 때문이다. SFTP 서버는 양쪽 망이 함께 닿는 지점이라 직접 연결 불가, 경유 필요한다.">
 
             <rect x="2" y="40" width="742" height="384" rx="18" fill="none" stroke="var(--violet-500)" stroke-width="2"/><rect x="22" y="31" width="204" height="18" fill="#fff"/><text class="lbl" x="30" y="45" fill="var(--violet-500)">AI MARKET WATCH 작업 범위</text><rect x="16" y="62" width="272" height="344" rx="14" fill="var(--lav-050)" stroke="var(--violet-800)" stroke-width="1.4"/>
             <rect x="456" y="62" width="272" height="344" rx="14" fill="#fff" stroke="var(--violet-500)" stroke-width="1.4"/>
@@ -3825,7 +3823,7 @@ svg text{font-family:var(--font);}
             <rect x="786" y="47" width="52" height="15" fill="#fff"/><text class="lbl" x="812" y="58" text-anchor="middle">망 경계</text>
 
             <rect x="36" y="78" width="104" height="24" rx="99" fill="var(--violet-800)"/>
-            <text class="zn" x="88" y="94" text-anchor="middle" fill="#fff">개발 환경 영역</text>
+            <text class="zn" x="88" y="94" text-anchor="middle" fill="#fff">샌드박스 영역</text>
             <rect x="476" y="78" width="92" height="24" rx="99" fill="var(--lav-200)"/>
             <text class="zn" x="522" y="94" text-anchor="middle" fill="var(--violet-900)">SFTP 서버</text>
             <rect x="916" y="78" width="92" height="24" rx="99" fill="var(--lav-200)"/>
@@ -3900,13 +3898,13 @@ svg text{font-family:var(--font);}
 
       <div class="fig rv" style="margin-top:18px">
         <table class="tl">
-          <caption class="sr-only">작업 다섯 가지와 각 작업이 걸리는 일수. 교보 키워드 추가는 1일차, 개발 환경과 서비스 구동은 1일차부터 3일차까지, LLM 연동은 4일차부터 8일차까지, 태블릿 대응과 앱 배포는 9일차부터 10일차까지, QA는 11일차다. 총 11일이 걸린다.</caption>
+          <caption class="sr-only">작업 다섯 가지와 각 작업이 걸리는 일수. 교보 키워드 추가는 1일차, 샌드박스 환경과 서비스 구동은 1일차부터 3일차까지, LLM 연동은 4일차부터 8일차까지, 태블릿 대응과 앱 배포는 9일차부터 10일차까지, QA는 11일차다. 총 11일이 걸린다.</caption>
           <thead>
             <tr><th class="job">작업</th><th>1</th><th>2</th><th>3</th><th class="w">4</th><th>5</th><th>6</th><th>7</th><th>8</th><th class="w">9</th><th>10</th><th>11</th></tr>
           </thead>
           <tbody>
             <tr><td class="job">교보 키워드 추가</td><td class="d on"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td></tr>
-            <tr><td class="job">개발 환경 · 서비스 구동</td><td class="d on b"></td><td class="d on b"></td><td class="d on b"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td></tr>
+            <tr><td class="job">샌드박스 환경 · 서비스 구동</td><td class="d on b"></td><td class="d on b"></td><td class="d on b"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td></tr>
             <tr><td class="job">LLM 연동</td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d on"></td><td class="d on"></td><td class="d on"></td><td class="d on"></td><td class="d on"></td><td class="d"></td><td class="d"></td><td class="d"></td></tr>
             <tr><td class="job">태블릿 대응 · 앱 배포</td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d on b"></td><td class="d on b"></td><td class="d"></td></tr>
             <tr><td class="job">QA</td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d on"></td></tr>
@@ -3917,11 +3915,11 @@ svg text{font-family:var(--font);}
 
       <div class="fig rv" style="margin-top:18px">
         <table class="tbl">
-          <caption class="sr-only">작업 다섯 가지와 각 작업에서 하는 일, 진행자, 상태. 준비 단계의 교보 키워드 추가는 진욱님이 맡는다. 구축 단계에서 개발 환경과 서비스 구동은 진욱님과 용만님이 함께 맡고, LLM 연동과 태블릿 대응 및 앱 배포는 진욱님이 맡는다. 검증 단계의 QA도 진욱님이 맡는다. 다섯 가지 모두 아직 시작하지 않은 예정 상태다.</caption>
+          <caption class="sr-only">작업 다섯 가지와 각 작업에서 하는 일, 진행자, 상태. 준비 단계의 교보 키워드 추가는 진욱님이 맡는다. 구축 단계에서 샌드박스 환경과 서비스 구동은 진욱님과 용만님이 함께 맡고, LLM 연동과 태블릿 대응 및 앱 배포는 진욱님이 맡는다. 검증 단계의 QA도 진욱님이 맡는다. 다섯 가지 모두 아직 시작하지 않은 예정 상태다.</caption>
           <thead><tr><th>구분</th><th>작업</th><th>하는 일</th><th>진행자</th><th>상태</th></tr></thead>
           <tbody>
             <tr><td class="g">준비</td><td class="k">교보 키워드 추가</td><td><span class="s">수집 키워드에 <b>교보 계열사</b>를 추가하여 <b>별도의 채널</b>로 운영</span></td><td class="who">진욱님</td><td class="st ok">예정</td></tr>
-            <tr><td class="g">구축</td><td class="k">개발 환경<br>서비스 구동</td><td><span class="s"><b>Django 풀스택</b>으로 구축</span><span class="s"><b>프런트엔드</b>는 Tailwind, HTMX, Alpine 정적 파일을 함께 배포</span><span class="s"><b>백엔드</b>는 <b>gunicorn</b> 으로 띄운 컨테이너로 구성 <span style="color:var(--muted);font-weight:400">(gunicorn 은 파이썬 표준 규격 WSGI 서버)</span></span><span class="s">데이터는 <b>PostgreSQL 16</b> 과 <b>pgvector</b> 로 저장</span><span class="s">내부 직원이 웹에서 이용하며, <b>개발 환경 인프라 정책</b>에 맞춰 구축</span></td><td class="who">진욱님 · 용만님</td><td class="st ok">예정</td></tr>
+            <tr><td class="g">구축</td><td class="k">샌드박스 환경<br>서비스 구동</td><td><span class="s"><b>Django 풀스택</b>으로 구축</span><span class="s"><b>프런트엔드</b>는 Tailwind, HTMX, Alpine 정적 파일을 함께 배포</span><span class="s"><b>백엔드</b>는 <b>gunicorn</b> 으로 띄운 컨테이너로 구성 <span style="color:var(--muted);font-weight:400">(gunicorn 은 파이썬 표준 규격 WSGI 서버)</span></span><span class="s">데이터는 <b>PostgreSQL 16</b> 과 <b>pgvector</b> 로 저장</span><span class="s">내부 직원이 웹에서 이용하며, <b>샌드박스 인프라 정책</b>에 맞춰 구축</span></td><td class="who">진욱님 · 용만님</td><td class="st ok">예정</td></tr>
             <tr><td class="g"></td><td class="k">LLM 연동</td><td><span class="s"><b>RAG 형태로 구현</b>. 수집한 기사를 벡터 데이터베이스에 적재하고 꺼내 씀</span><span class="s"><b>적재</b>: load → split → embed → store</span><span class="s"><b>질의</b>: request → embed → search → generate <span style="color:var(--muted);font-weight:400">(두 흐름은 LangChain 으로 구성)</span></span><span class="s">사람이 하던 <b>관련성 판정, 이슈 묶기, 시사점 작성</b>을 <b>AWS Bedrock AgentCore</b> 로 처리</span><span class="s">경계에 있는 기사는 <b>승인 대기</b>. 승인해야 반영</span></td><td class="who">진욱님</td><td class="st ok">예정</td></tr>
             <tr><td class="g"></td><td class="k">태블릿 대응<br>앱 배포</td><td><span class="s">사내 사용은 <b>웹 사이트</b>로 제공</span><span class="s">태블릿에서 더 편하게 쓰도록 <b>동적 레이아웃</b> 적용</span><span class="s"><b>TestFlight</b> 에 올려 사내에서 내려받아 이용</span></td><td class="who">진욱님</td><td class="st ok">예정</td></tr>
             <tr><td class="g">검증</td><td class="k">QA</td><td><b>통합테스트</b> 진행</td><td class="who">진욱님</td><td class="st ok">예정</td></tr>
@@ -3932,7 +3930,7 @@ svg text{font-family:var(--font);}
 
       <div class="fig rv" style="margin-top:18px">
         <table class="tbl">
-          <caption class="sr-only">개발 환경 구축을 시작하기 전에 준비해야 하는 것과 각각의 상태. 네이버 검색 API 의 Client ID 와 Client Secret 은 지금 쓰는 값을 그대로 사용하고, Apple Developer 계정은 SMA 와 같은 계정을 쓴다. AWS 계정과 관리자 권한은 요청하면 바로 발급받을 수 있고, 도메인은 논의를 거쳐 발급할 예정이며, 구축과 별개로 진행할 수 있어 후순위다.</caption>
+          <caption class="sr-only">샌드박스 구축을 시작하기 전에 준비해야 하는 것과 각각의 상태. 네이버 검색 API 의 Client ID 와 Client Secret 은 지금 쓰는 값을 그대로 사용하고, Apple Developer 계정은 SMA 와 같은 계정을 쓴다. AWS 계정과 관리자 권한은 요청하면 바로 발급받을 수 있고, 도메인은 논의를 거쳐 발급할 예정이며, 구축과 별개로 진행할 수 있어 후순위다.</caption>
           <thead><tr><th>시작 전에 필요한 것</th><th>내용</th><th>상태</th></tr></thead>
           <tbody>
             <tr><td class="k">네이버 검색 API</td><td>지금 쓰는 <b>Client ID · Client Secret</b> 을 그대로 사용</td><td class="st ok">보유</td></tr>
@@ -3946,11 +3944,11 @@ svg text{font-family:var(--font);}
       <figure class="fig rv" id="fig41" style="margin-top:26px">
         <figcaption class="fig-cap">
           <span class="fig-num">FIG 4-1</span>
-          <span class="fig-ttl">개발 환경 구축 구성</span>
+          <span class="fig-ttl">샌드박스 구축 구성</span>
         </figcaption>
         <div class="fig-body">
           <svg class="sbx" viewBox="0 0 1180 470" role="img"
-               aria-label="개발 환경 구축 구성을 프런트엔드, 백엔드, AI 세 영역으로 나눈 그림. 접속은 사내 공인 IP만 허용한다. 프런트엔드에는 브라우저 화면과 정적 파일 서빙이 있고, 백엔드에는 Django와 gunicorn 컨테이너, PostgreSQL 16과 pgvector, 환경 설정값, 뉴스 수집이 있다. AI 영역에는 Bedrock AgentCore가 있고 그 안에 Runtime, Gateway, Embedding, Prompt Caching 네 가지를 쓴다.">
+               aria-label="샌드박스 구축 구성을 프런트엔드, 백엔드, AI 세 영역으로 나눈 그림. 접속은 사내 공인 IP만 허용한다. 프런트엔드에는 브라우저 화면과 정적 파일 서빙이 있고, 백엔드에는 Django와 gunicorn 컨테이너, PostgreSQL 16과 pgvector, 환경 설정값, 뉴스 수집이 있다. AI 영역에는 Bedrock AgentCore가 있고 그 안에 Runtime, Gateway, Embedding, Prompt Caching 네 가지를 쓴다.">
               <text class="lbl" x="36" y="22">ACCESS</text>
               <rect x="36" y="32" width="268" height="46" rx="9" fill="#fff" stroke="var(--lav-200)"/><text class="box" x="170" y="60" text-anchor="middle">사내 공인 IP만 허용</text>
               <rect x="16" y="106" width="356" height="348" rx="14" fill="none" stroke="var(--violet-500)" stroke-dasharray="6 5"/>
