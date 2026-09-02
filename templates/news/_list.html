@@ -52,6 +52,12 @@
           </div>
           {% endif %}
           {% endwith %}
+          {% comment %}
+            출처(2026-09-02, 사용자 지시 — 뉴스룸 목록과 같은 자리에 같은 형태로).
+            언론사명을 뽑는 인프라가 없어 News.source_domain이 URL 도메인을 그대로
+            내보낸다. source_type(수집 경로)과 섞어 쓰지 말 것 — 발행 매체가 아니다.
+          {% endcomment %}
+          <p class="text-xs text-gray-400 mt-1.5">{{ news.source_domain }}</p>
         </div>
       </div>
     </div>

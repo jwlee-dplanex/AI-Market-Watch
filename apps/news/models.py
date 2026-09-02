@@ -1,4 +1,5 @@
 import uuid
+from urllib.parse import urlparse
 
 from django.db import models
 from pgvector.django import VectorField
@@ -81,6 +82,23 @@ class News(models.Model):
         """템플릿에서 게이트 통과 여부를 물을 때 쓴다. 상태 문자열('검증됨')을 템플릿에
         하드코딩하면 나중에 값이 바뀔 때 조용히 깨지므로, 비교는 항상 여기로 모은다."""
         return self.status == self.STATUS_VERIFIED
+
+    @property
+    def source_domain(self):
+        """목록 카드에 쓸 출처. 이 프로젝트 어디에도 언론사명을 추출하는 인프라가 없어
+        매체명을 지어내는 대신 URL 도메인을 그대로 보여준다 — 실측 가능한 값만 쓴다는
+        원칙(「무조건 팩트 기반」)을 지키는 최소 구현이다.
+
+        ⚠️ source_type과 다르다. source_type은 어느 경로로 수집했는지(naver 등)이지
+        어느 매체가 발행했는지가 아니다. 둘을 섞어 쓰면 화면이 거짓을 말한다.
+
+        NewsroomArticle.source_domain과 같은 구현이다. 두 모델이 서로를 import하지
+        않게 각자 두었다 — 뉴스룸을 News에서 분리한 이유와 같다."""
+        try:
+            netloc = urlparse(self.url).netloc
+            return netloc[4:] if netloc.startswith("www.") else netloc
+        except ValueError:
+            return ""
 
     class Meta:
         ordering = ["-published_at", "-pk"]
