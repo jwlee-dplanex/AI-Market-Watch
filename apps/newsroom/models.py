@@ -238,6 +238,26 @@ class NewsroomArticle(models.Model):
     # 요약 블록 자체를 렌더하지 않도록 설계돼 있다(docs/design.md ROOM-002 절).
     summary = models.TextField(blank=True)
 
+    # 유입 키워드(2026-09-04 추가, PM 1순위 권고) — "어느 NewsroomKeyword로 수집됐는가"를
+    # 그대로 적어 둔다. 관계사 분류 필드가 아니다 — PM 표현 그대로 "수집이 공짜로 아는
+    # 사실을 적는 것이지 분류가 아니다." ROOM-002 세 층 대시보드의 관계사별 그룹핑은
+    # 이 필드의 1차 근사일 뿐이고, 키워드별 통과율(filter_status 대비) 측정에도 쓴다.
+    # on_delete=SET_NULL — 키워드 행을 지워도 이미 수집된 기사(과거 사실)는 남아야 한다.
+    # ⚠️ unique_together=("newsroom", "url_hash")라 같은 기사가 두 번째 키워드로 다시
+    # 걸려도 저장되지 않는다(위 collect_newsroom()의 skipped_dup 경로) — 그 경우 이 필드는
+    # 처음 잡힌 키워드만 기록하고 두 번째 키워드는 영영 남지 않는다. PM이 이 한계를
+    # 인지한 채로 그대로 두기로 했다(뒤로 미루면 관측 구간이 통째로 날아가는 것이 더
+    # 큰 손해라는 판단).
+    source_keyword = models.ForeignKey(
+        "NewsroomKeyword", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="articles",
+    )
+
+    # AI 관련 여부(2026-09-04 추가) — ROOM-002 "헤드라인" 층의 선별 기준. 판정 주체는
+    # RA(사람)다. LLM 자동 판정 로직은 아직 없다(2단계 스코프) — 이 필드는 RA가 셸에서
+    # 직접 채운다(judged_by와 같은 운영 관례). null=미판정, True=AI 관련, False=AI 아님.
+    is_ai_related = models.BooleanField(null=True, blank=True, default=None)
+
     objects = NewsroomArticleQuerySet.as_manager()
 
     class Meta:

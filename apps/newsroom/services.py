@@ -156,6 +156,12 @@ def collect_newsroom(newsroom) -> dict:
                 stats["skipped_dead"] += 1
                 continue
 
+            # source_keyword = 지금 순회 중인 키워드(kw) 그대로 — "어느 키워드로
+            # 수집됐는가"를 수집 시점에 공짜로 기록한다(NewsroomArticle.source_keyword
+            # 주석 참고). unique_together=(newsroom, url_hash)라 같은 기사가 다른
+            # 키워드로 다시 걸려도 이미 위 skipped_dup에서 걸러지므로, 이 필드는 그
+            # 기사를 맨 처음 잡아낸 키워드만 영구히 기록한다(두 번째 이후 키워드는
+            # 기록되지 않는 알려진 한계 — PM이 인지하고 그대로 두기로 했다).
             article = NewsroomArticle.objects.create(
                 newsroom=newsroom,
                 title=title,
@@ -163,6 +169,7 @@ def collect_newsroom(newsroom) -> dict:
                 url_hash=url_hash,
                 body=desc,
                 published_at=published_at,
+                source_keyword=kw,
             )
 
             full_body = fetch_article_body(original_url, naver_link)

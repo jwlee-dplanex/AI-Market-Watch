@@ -17,7 +17,7 @@
 <div class="flex gap-4 items-start"
      x-data="{ selected: {{ initial_selected|default:'null' }}, newRoomOpen: false }">
 
-  <!-- 뉴스룸 목록 (좌) -->
+  <!-- 채널 목록 (좌) -->
   <div class="w-52 flex-shrink-0 bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-2">
     {% for room in rooms %}
     <button @click="selected = {{ room.id }}"
@@ -27,12 +27,41 @@
       <span class="truncate">{{ room.name }}</span>
     </button>
     {% empty %}
-    <p class="text-xs text-gray-400 text-center py-6">아직 만든 뉴스룸이 없어요.<br>아래 [+ 새 뉴스룸]으로 시작해보세요.</p>
+    {% comment %}
+      "아래 [+ 새 채널]로 시작해보세요" 안내를 뺐다 (2026-09-04) — 그 버튼을 감췄으므로
+      가리킬 대상이 없다. 없는 버튼을 누르라고 하면 막다른 안내가 된다.
+      대신 왜 만들 수 없는지를 한 줄로 말한다. 아래 "+ 새 채널" 주석 참고.
+    {% endcomment %}
+    <p class="text-xs text-gray-400 text-center py-6">아직 만든 채널이 없어요.<br>지금은 채널을 새로 만들 수 없어요.</p>
     {% endfor %}
+
+    {% comment %}
+      🔴 「+ 새 채널」 버튼을 감췄다 (2026-09-04 사용자 승인).
+
+      왜: apps/newsroom/views.py의 AFFILIATE_GROUP_KEYWORDS가 모듈 상수이고
+      교보 관계사 넷(교보생명·교보증권·교보문고·교보 라이프플래닛)으로 고정돼 있다.
+      두 번째 채널을 만들면 그 채널의 ROOM-002에도 교보 관계사 칸이 그대로 뜬다.
+      **만들 수는 있는데 쓸 수 없는 상태**라 입구를 닫는 게 맞다.
+
+      🔴 지우는 게 아니라 감추는 것이다. Newsroom 모델도 다중 채널 구조도 그대로다.
+         이 파일의 좌측 목록·편집 패널도 여러 채널을 그릴 수 있는 형태 그대로 둔다.
+         setting_newsroom_save 뷰와 URL도 살아 있다.
+
+      ▣ 무엇이 해결되면 되살리는가
+         관계사 칸을 채널별로 받도록 고치면 된다. 즉 AFFILIATE_GROUP_KEYWORDS를
+         모듈 상수에서 채널 단위 데이터로 옮기는 것이다(Newsroom에 붙는 설정이든
+         별도 모델이든 PE 판단). 그 뒤에 아래 {% templatetag openblock %} comment %} 두 개를 걷어내면
+         버튼과 모달이 그대로 되살아난다 — 마크업을 다시 짤 필요가 없다.
+
+      ⚠️ Alpine의 newRoomOpen 상태는 x-data에 그대로 뒀다. 이 버튼과 모달이
+         둘 다 감춰져 있어 아무도 켜지 않으므로 해가 없고, 되살릴 때 손댈 곳이 준다.
+    {% endcomment %}
+    {% comment %}
     <button type="button" @click="newRoomOpen = true"
             class="w-full text-center text-xs text-primary font-medium px-3 py-2 mt-1 rounded-[10px] hover:bg-gray-50 transition-colors">
-      + 새 뉴스룸
+      + 새 채널
     </button>
+    {% endcomment %}
   </div>
 
   <!-- 편집 패널 (우) -->
@@ -172,14 +201,30 @@
         </div>
       </div>
 
-      <div class="border-t border-gray-100 pt-4 flex items-center justify-between">
+      <div class="border-t border-gray-100 pt-4 flex items-center justify-end">
+        {% comment %}
+          🔴 「이 채널 삭제」 버튼을 감췄다 (2026-09-04 사용자 확정).
+
+          같은 날 「+ 새 채널」을 감췄는데 삭제만 열려 있으면 비대칭이다 —
+          새로 만들 수 없는데 지울 수만 있는 상태였다. 지금 채널이 하나뿐이라
+          그걸 지우면 「교보 소식」 화면 전체가 죽고 모아둔 기사도 함께 사라지며,
+          화면에서 다시 만들 방법이 없다. 확인 한 번이면 끝나고 되돌릴 수 없다.
+
+          ⚠️ 지우는 게 아니라 입구만 닫는 것이다. setting_newsroom_delete 뷰와 URL은
+             그대로 살아 있고, 아래 마크업도 그대로 남아 있다.
+          ✅ 되살리는 조건은 「+ 새 채널」과 같다 — apps/newsroom/views.py의
+             AFFILIATE_GROUP_KEYWORDS를 모듈 상수에서 채널 단위 데이터로 옮기면
+             다중 채널이 실제로 성립하고, 그때 이 {% templatetag openblock %} comment %} 두 줄만 걷으면 된다.
+          ⚠️ 되살릴 때 hx-include의 csrfmiddlewaretoken이 살아 있는지 확인할 것.
+
         <button type="button"
                 hx-post="{% url 'setting_newsroom_delete' room.id %}"
-                hx-confirm="&quot;{{ room.name }}&quot; 뉴스룸을 삭제하면 모아둔 기사와 발송 기록도 함께 지워져요. 삭제할까요?"
+                hx-confirm="&quot;{{ room.name }}&quot; 채널을 삭제하면 모아둔 기사와 발송 기록도 함께 지워져요. 삭제할까요?"
                 hx-include="[name=csrfmiddlewaretoken]"
                 class="text-xs text-red-500 hover:underline">
-          이 뉴스룸 삭제
+          이 채널 삭제
         </button>
+        {% endcomment %}
         <button type="submit" form="room-form-{{ room.id }}"
                 class="px-4 py-2 bg-primary text-white text-sm font-medium rounded-[10px] hover:bg-primary-hover transition-colors">
           저장
@@ -189,18 +234,26 @@
     {% empty %}
     <div class="text-center py-16 text-gray-400">
       <i data-lucide="radio" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
-      <p class="text-sm">왼쪽에서 뉴스룸을 골라주세요.</p>
+      <p class="text-sm">왼쪽에서 채널을 골라주세요.</p>
     </div>
     {% endfor %}
   </div>
 
-  <!-- + 새 뉴스룸 모달 -->
+  {% comment %}
+    🔴 「새 채널 만들기」 모달도 감췄다 (2026-09-04). 위 "+ 새 채널" 버튼과 한 쌍이라
+    이유와 되살리는 조건이 같다 — 그쪽 주석을 볼 것.
+    ⚠️ 마크업을 지우지 않았다. 관계사 칸을 채널별로 받도록 고친 뒤
+       이 {% templatetag openblock %} comment %}만 걷어내면 그대로 다시 뜬다.
+    ⚠️ x-cloak이 붙어 있는 것도 그대로 뒀다. 되살릴 때 빠뜨리면 페이지가 열릴 때
+       모달이 잠깐 보였다 사라지는 FOUC가 난다.
+  {% endcomment %}
+  {% comment %}
   <div x-show="newRoomOpen" x-cloak
        class="fixed inset-0 z-50 flex items-center justify-center"
        @keydown.escape.window="newRoomOpen=false">
     <div class="absolute inset-0 bg-black/30" @click="newRoomOpen=false"></div>
     <div class="relative bg-white rounded-[10px] shadow-xl p-6 w-80">
-      <h3 class="text-sm font-semibold text-gray-900 mb-4">새 뉴스룸 만들기</h3>
+      <h3 class="text-sm font-semibold text-gray-900 mb-4">새 채널 만들기</h3>
       <form method="post" action="{% url 'setting_newsroom_save' %}">
         {% csrf_token %}
         <label class="text-xs text-gray-500 mb-1 block">이름</label>
@@ -215,6 +268,7 @@
       </form>
     </div>
   </div>
+  {% endcomment %}
 
 </div>
 {% endblock %}

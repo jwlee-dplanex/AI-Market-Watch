@@ -48,6 +48,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "apps.dashboard.context_processors.sidebar_context",
+                "apps.newsroom.context_processors.newsroom_nav",
             ],
         },
     },

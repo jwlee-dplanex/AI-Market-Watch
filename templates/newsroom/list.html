@@ -1,6 +1,14 @@
 {% extends "base.html" %}
 
-{% block page_title %}뉴스룸{% endblock %}
+{% comment %}
+  화면 이름 (2026-09-04 사용자 확정): 채널 하나짜리는 "교보 소식"이고,
+  이 목록 화면은 채널이 2개 이상일 때만 도달하므로 총칭 "소식"을 쓴다.
+  🔴 사용자에게 보이는 문구에 "뉴스룸"이라는 낱말을 쓰지 않는다.
+     코드 식별자(newsroom_list, Newsroom)와 화면 ID(ROOM-001)는 그대로다.
+  사이드바 라벨도 multi 모드에서 "소식"이라 헤더와 정확히 같다
+  (docs/design.md 2절 "화면 헤더 제목 규칙").
+{% endcomment %}
+{% block page_title %}소식{% endblock %}
 
 {% block content %}
 
@@ -46,8 +54,8 @@
 {% else %}
 <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-12 text-center text-gray-400">
   <i data-lucide="radio-tower" class="w-10 h-10 mx-auto mb-3 opacity-40"></i>
-  <p class="text-sm">아직 만들어진 뉴스룸이 없어요.</p>
-  <p class="text-sm">설정 &gt; 뉴스룸에서 첫 채널을 만들 수 있어요.</p>
+  <p class="text-sm">아직 만들어진 채널이 없어요.</p>
+  <p class="text-sm">설정 &gt; 소식에서 첫 채널을 만들 수 있어요.</p>
 </div>
 {% endif %}
 

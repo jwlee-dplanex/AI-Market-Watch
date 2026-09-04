@@ -1,26 +1,64 @@
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.db.models.functions import TruncDate
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 
 from .models import Newsroom, NewsroomArticle
+
+# ROOM-002 세 층 대시보드(docs/design.md ROOM-002 절, 2026-09-04) — PD 권장 자름 건수.
+HEADLINE_LIMIT = 5
+AFFILIATE_LIMIT = 3
+
+# 관계사 4칸 확정(2026-09-04, 사용자 원문: "SBI저축은행 이거 제외하고 / 교보생명,
+# 교보증권, 교보문고, 교보 라이프플래닛으로 하고"). (칸 이름, 유입 키워드 문자열) 쌍
+# 리스트다 — "교보 라이프플래닛" 칸만 유입 키워드 문자열("라이프플래닛")과 다르므로
+# 이름=키워드로 단순화할 수 없다. 순서도 이 리스트가 정한다.
+# ⚠️ 변수명(AFFILIATE_GROUP_KEYWORDS)·컨텍스트 키(affiliate_groups)는 바꾸지 않는다 —
+# "관계사"는 화면 문구일 뿐 코드 식별자는 PD 계약과 맞춰 영어 affiliate 그대로 둔다.
+#
+# 🔴 SBI저축은행은 칸에서만 빠진다 — NewsroomKeyword에서는 빼지 않는다(수집은 계속
+# 되고 맨 아래 전체 목록에 나온다). "SBI저축은행"은 "교보"로 절대 안 걸리므로 키워드를
+# 빼면 구조적으로 영원히 0건이 되고 과거 기사를 소급할 수 없다 — 칸을 나중에 되살리는
+# 게 키워드를 나중에 추가하는 것보다 훨씬 싸다(PM 판단). 키워드 자체를 빼라는 지시가
+# 오면 그때 마이그레이션에서 함께 뺀다.
+AFFILIATE_GROUP_KEYWORDS = [
+    ("교보생명", "교보생명"),
+    ("교보증권", "교보증권"),
+    ("교보문고", "교보문고"),
+    ("교보 라이프플래닛", "라이프플래닛"),
+]
 
 
 def newsroom_list(request):
     """ROOM-001 — 읽기 전용 카드 그리드. 생성·수정 진입점은 두지 않는다(CUD는 SET-009
-    전용, docs/design.md ROOM-001 절)."""
-    return render(request, "newsroom/list.html", {"rooms": Newsroom.objects.all()})
+    전용, docs/design.md ROOM-001 절).
+
+    PM 정책(2026-09-04): 활성 뉴스룸이 1개면 이 목록을 건너뛰고 그 뉴스룸(ROOM-002)으로
+    직행한다. 사이드바 링크(apps/newsroom/context_processors.py newsroom_nav)가 이미
+    같은 조건으로 ROOM-002를 바로 가리키지만, 이 리다이렉트는 URL을 직접 치거나
+    북마크로 들어온 경우까지 규칙을 지키기 위한 보완이다(둘은 대체재가 아니다,
+    docs/design.md 참고)."""
+    rooms = list(Newsroom.objects.all())
+    active_rooms = [r for r in rooms if r.is_active]
+    if len(active_rooms) == 1:
+        return redirect("newsroom_detail", uid=active_rooms[0].uid)
+    return render(request, "newsroom/list.html", {"rooms": rooms})
 
 
 def newsroom_detail(request, uid):
-    """ROOM-002 — 날짜별 그룹 목록. 노출 게이트는 NewsroomArticleQuerySet.for_newsroom_display()
-    하나로 모여 있다(5-1 예외 포함). 검색(`?q=`)은 반드시 그 게이트를 통과한 큐어리셋
-    위에서만 걸어야 한다 — NewsroomArticle을 직접 조회해 필터링하면 미판정·제외 기사가
-    검색 결과로 새어 나온다(2026-09-02, PD 지적)."""
+    """ROOM-002 — 세 층 대시보드(헤드라인 / 관계사별 / 전체 목록, 2026-09-04) + 날짜별
+    그룹 목록. 노출 게이트는 NewsroomArticleQuerySet.for_newsroom_display() 하나로
+    모여 있다(5-1 예외 포함) — 세 층 전부 이 게이트를 거친 큐어리셋 위에서만 만든다.
+    직접 NewsroomArticle을 조회해 만들면 미판정·제외 기사가 대시보드 최상단으로
+    샌다(templates/newsroom/detail.html PE 인계 절 경고).
+
+    검색(`?q=`) 중에는 ①②를 만들지 않는다 — "검색은 전체에서 찾기라 섹션 구조가
+    방해된다"(템플릿 계약). ①②의 기사는 ③에도 그대로 나온다(중복 허용, 템플릿이
+    이미 그렇게 설계됨)."""
     room = get_object_or_404(Newsroom, uid=uid)
+    base_qs = NewsroomArticle.objects.for_newsroom_display(room)
     qs = (
-        NewsroomArticle.objects
-        .for_newsroom_display(room)
+        base_qs
         .annotate(local_date=TruncDate("published_at"))
         .order_by("-published_at", "-pk")
     )
@@ -36,7 +74,7 @@ def newsroom_detail(request, uid):
     params.pop("page", None)
     base_query = params.urlencode()
 
-    return render(request, "newsroom/detail.html", {
+    context = {
         "room": room,
         "articles": page_obj,
         "page_obj": page_obj,
@@ -44,7 +82,28 @@ def newsroom_detail(request, uid):
         "total_count": paginator.count,
         "q": q,
         "base_query": base_query,
-    })
+    }
+
+    if not q:
+        context["headline_articles"] = list(
+            base_qs.filter(is_ai_related=True).order_by("-published_at", "-pk")[:HEADLINE_LIMIT]
+        )
+
+        keywords_by_name = {kw.keyword: kw for kw in room.keywords.all()}
+        affiliate_groups = []
+        for group_name, keyword_text in AFFILIATE_GROUP_KEYWORDS:
+            kw = keywords_by_name.get(keyword_text)
+            group_qs = base_qs.filter(source_keyword=kw).order_by("-published_at", "-pk") if kw else base_qs.none()
+            affiliate_groups.append({
+                "name": group_name,
+                "articles": list(group_qs[:AFFILIATE_LIMIT]),
+                "total": group_qs.count(),
+                "is_collected": kw is not None,
+                "more_url": "",
+            })
+        context["affiliate_groups"] = affiliate_groups
+
+    return render(request, "newsroom/detail.html", context)
 
 
 def _adjacent_article(room, article):

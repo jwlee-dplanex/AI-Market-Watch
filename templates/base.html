@@ -72,6 +72,64 @@
     }
   </style>
 
+  {% comment %}
+    사이드바 교보 마크 (2026-09-04, PD. 사용자 지적 "혼자 초록색이야").
+
+    나머지 다섯 항목은 lucide 아이콘이라 stroke="currentColor"로 그려진다. 그래서
+    text-white/70 → hover·활성 text-white가 아이콘까지 한 번에 따라온다. 로고를
+    <img>로 넣었더니 이 항목만 초록으로 남아 늘 강조된 것처럼 보였다.
+
+    🔴 해법: PNG를 그림이 아니라 마스크로 쓴다.
+       이 파일(static/img/logos/kyobo.png)은 알파가 사실상 2값(투명 58% / 불투명 42%)인
+       단색 실루엣이라 마스크로 쓰기에 딱 맞는다. 곡옥 안의 눈도 흰 픽셀이 아니라
+       진짜 투명 구멍이어서 마스크에서도 구멍으로 남는다.
+       그 결과 색이 background-color: currentColor가 되고, 나머지 다섯 아이콘과
+       **완전히 같은 규칙**으로 밝아지고 어두워진다. opacity 예외가 없어진다.
+
+    🔴 #50B848(교보 브랜드 색)은 이 CSS 어디에도 나오지 않는다. 원본 PNG 파일은
+       그대로 둔다 — 나중에 화면 안 큰 표시에 원색으로 쓸 수 있다.
+
+    ▣ mask-size: 85% — 광학 보정값이고, 여기가 유일한 조절 지점이다
+      lucide는 선 아이콘이라 속이 비어 있고, 곡옥은 면이라 같은 16px이어도 더 무겁고
+      진해 보인다. 실측하면 이 PNG의 불투명 픽셀이 캔버스의 42%인데, 전형적인 lucide
+      아이콘의 잉크는 그 절반쯤이다. 그래서 슬롯(w-4 h-4)은 그대로 두고 마스크만
+      줄여서 무게를 맞췄다 — 슬롯을 줄이면 이 항목만 라벨 시작점이 밀려 여섯 항목의
+      왼쪽 라인이 어긋난다.
+      ⚠️ PD가 실제 렌더를 보지 못하고 정한 값이다. 나란히 놓고 보고 조정할 것.
+         너무 무겁고 커 보이면 → 78~82%
+         너무 작고 소심해 보이면 → 90~100%
+         바꿀 때 -webkit-mask-size와 mask-size 두 줄을 같이 고친다.
+
+    ▣ 폴백
+      mask를 못 쓰는 브라우저에서는 @supports 밖의 background-image가 남아
+      **원래의 초록 로고가 그대로 보인다.** 색은 안 맞지만 형태와 자리는 맞는다.
+      빈 칸이나 흰 사각형으로 무너지지 않는 게 요점이다.
+      ⚠️ @supports 안에서 background-image: none을 반드시 유지할 것. 안 지우면
+         마스크가 currentColor가 아니라 초록 PNG를 오려내서 다시 초록이 된다.
+  {% endcomment %}
+  <style>
+    .kyobo-mark {
+      background-image: url("{% static 'img/logos/kyobo.png' %}");
+      background-size: 85%;
+      background-repeat: no-repeat;
+      background-position: center;
+    }
+    @supports (mask-image: none) or (-webkit-mask-image: none) {
+      .kyobo-mark {
+        background-image: none;
+        background-color: currentColor;
+        -webkit-mask-image: url("{% static 'img/logos/kyobo.png' %}");
+                mask-image: url("{% static 'img/logos/kyobo.png' %}");
+        -webkit-mask-size: 85%;
+                mask-size: 85%;
+        -webkit-mask-repeat: no-repeat;
+                mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+                mask-position: center;
+      }
+    }
+  </style>
+
   <!-- Lucide Icons -->
   <script src="{% static 'vendor/lucide.min.js' %}"></script>
 
@@ -152,15 +210,115 @@
         뉴스
       </a>
 
-      {% comment %} 뉴스룸 — "뉴스"와 "설정" 사이. docs/design.md SET-009 절 참고. {% endcomment %}
-      <a href="{% url 'newsroom_list' %}"
-         class="flex items-center gap-3 px-3 py-2 rounded-[10px] text-sm font-medium transition-colors
-                {% if request.resolver_match.url_name == 'newsroom_list' or request.resolver_match.url_name == 'newsroom_detail' %}bg-white/20 text-white{% else %}text-white/70 hover:bg-white/10 hover:text-white{% endif %}">
-        <i data-lucide="radio-tower" class="w-4 h-4"></i>
-        뉴스룸
-      </a>
+      {% comment %}
+        ⚠️ 여기에 구분선을 넣지 않는다 (2026-09-04 사용자 지시로 제거).
+        한 번 넣었다가 "사이드 바에 구분선 왜 넣어 취소해"로 철회됐다.
+        「교보 소식」이 다른 축과 분리된다는 원칙은 **데이터 차원**이지
+        화면 차원이 아니다 — "데이터만 교보 소식이랑 대시보드·보고서·
+        지식그래프·뉴스가 안 섞이면 된다는 의미야"(사용자 원문).
+        사이드바에서는 다른 메뉴와 똑같이 다룬다.
+      {% endcomment %}
 
-      <a href="{% url 'setting_sources' %}"
+      {% comment %}
+        교보 소식 — "뉴스"와 "설정" 사이. docs/design.md SET-009 절 참고.
+        (2026-09-04, PD. 사용자 요청 "교보뉴스룸하고 아이콘도 교보로고 넣어줘"
+         + 같은 날 PM 결정 "활성 채널이 1개면 목록을 건너뛰고 직행, 2개 이상이면
+         목록이 저절로 돌아온다. 라벨도 1개면 그 채널 이름, 2개 이상이면 총칭")
+
+        🔴 화면 이름은 "교보 소식"이다(2026-09-04 사용자 확정).
+           "교보뉴스룸"도 "교보 브리핑"도 아니다. 사용자에게 보이는 문구에서
+           "뉴스룸"이라는 낱말을 쓰지 않는다.
+           ⚠️ 코드 식별자와 화면 ID는 그대로다 — NewsroomArticle, newsroom_list,
+              ROOM-001~003. 아래 주석에 남은 "뉴스룸"은 전부 그 식별자 이야기다.
+
+        🔴 라벨·주소·아이콘을 하드코딩하지 않고 newsroom_nav 컨텍스트로 받는다.
+           채널이 2개가 되는 날 이 파일을 다시 안 고치려는 것이다.
+
+        ▣ PE 인계 — 컨텍스트 프로세서(가칭 newsroom_nav)가 넣어야 할 dict
+           label  사이드바에 찍히는 글자.
+                  활성 채널 1개면 그 Newsroom.name(예: "교보 소식"),
+                  2개 이상이면 총칭 "소식".
+           url    1개면 그 채널의 ROOM-002 상세 주소, 2개 이상이면 ROOM-001 목록 주소.
+                  ⚠️ 문자열로 넣는다. 상세 URL이 <shortuuid:uid> 기반이라
+                     템플릿에서는 uid를 만들 수 없다.
+           mode   "single" 또는 "multi". 아이콘을 고르는 스위치다.
+                  ⚠️ label이나 url로 유추하지 말 것. 빈 문자열 판정에 걸려 잘못 갈린다.
+
+        🔴 함께 바꿔야 할 한 곳 — 설정 사이드 메뉴 라벨
+           apps/setting/views.py _setting_menu()의 {"label": "뉴스룸", ...}이
+           아직 "뉴스룸"이다. 이번 이름 변경에서 PD가 못 고치는 유일한 화면 문구이고,
+           ROOM-002·ROOM-001의 빈 상태가 "설정 > 소식에서…"라고 안내하므로
+           그 라벨이 "소식"이 되어야 안내가 실제로 길을 가리킨다.
+           SET-009 화면 안 문구는 이번 라운드에 PD가 이미 정리했다.
+
+        ▣ 컨텍스트가 아직 없을 때
+           label은 "교보 소식", mode는 "single", url은 ROOM-001 목록으로 떨어진다.
+           지금 화면에 보이는 게 바로 이 기본값이다. PE가 컨텍스트를 붙이면
+           이 파일을 고치지 않아도 그대로 정확해진다.
+           ⚠️ 기본값 "교보 소식"은 컨텍스트가 붙을 때까지만 쓰는 임시 문자열이다.
+              Newsroom.name이 정본이 되면 이 default를 지워도 된다.
+
+        ▣ 활성 판정
+           newsroom_article_detail(ROOM-003)을 조건에 추가했다(2026-09-04, PD).
+           ROOM-003이 SET-009 라운드보다 나중에 생기면서 조건에 안 들어갔고,
+           그 결과 기사 상세에서는 사이드바 어느 항목도 켜지지 않아
+           "지금 어디에 있는지"가 통째로 사라져 있었다.
+           base.html을 거쳐 렌더되는 「교보 소식」 화면은 이 셋뿐이다(apps/newsroom/urls.py).
+           setting_newsroom은 여기 넣지 않는다 — 설정 화면이라 "설정"이 켜지는 게 맞다.
+           ⚠️ 부분 문자열 매칭('newsroom' in ...)으로 되돌리지 말 것.
+              위 "뉴스" 항목 주석에 적힌 함정을 그대로 다시 만든다.
+      {% endcomment %}
+      {% with nav_label=newsroom_nav.label|default:"교보 소식" nav_mode=newsroom_nav.mode|default:"single" %}
+      <a href="{% if newsroom_nav.url %}{{ newsroom_nav.url }}{% else %}{% url 'newsroom_list' %}{% endif %}"
+         class="flex items-center gap-3 px-3 py-2 rounded-[10px] text-sm font-medium transition-colors
+                {% if request.resolver_match.url_name == 'newsroom_list' or request.resolver_match.url_name == 'newsroom_detail' or request.resolver_match.url_name == 'newsroom_article_detail' %}bg-white/20 text-white{% else %}text-white/70 hover:bg-white/10 hover:text-white{% endif %}">
+        {% comment %}
+          아이콘 (2026-09-04, PD).
+
+          🔴 교보 공식 로고 파일을 **마스크로만** 쓴다 — static/img/logos/kyobo.png.
+             출처 news.kyobo.com 공식 미디어 라이브러리, 2025년 10월 업로드(현행 CI).
+             512x512 투명 PNG, 곡옥 형상, 원본은 #50B848 단색 초록.
+             그리기(<img>)가 아니라 오려내기(mask)라서 색은 currentColor가 된다.
+             실제 CSS는 이 파일 <head>의 .kyobo-mark 규칙에 있고, 그쪽 주석에
+             mask-size 조절법과 폴백 동작이 정리돼 있다.
+
+          🔴 왜 색을 바꿨나 (2026-09-04, 사용자 지적 "혼자 초록색이야")
+             나머지 다섯 항목은 currentColor라 text-white/70 → hover·활성 text-white로
+             같이 밝아진다. 로고를 원색 <img>로 두니 이 항목만 초록으로 남아 **늘 강조된
+             것처럼** 보였다. 마스크로 바꾸면서 그 예외가 사라졌다 — 이제 여섯 항목이
+             완전히 같은 규칙으로 움직이고, opacity 보정 같은 별도 처리도 없다.
+             형태는 곡옥 그대로다. 브랜드를 버린 게 아니라 내비게이션에서 브랜드 마크를
+             단색으로 쓰는 표준 방식이다.
+
+          🔴 #50B848은 교보 브랜드 색이지 우리 디자인 시스템 색이 아니다.
+             마스크 방식이라 CSS에 그 값이 아예 등장하지 않는다. 원본 PNG 파일은
+             지우지 않는다 — 나중에 화면 안 큰 표시에 원색으로 쓸 수 있다.
+
+          ▣ 정렬
+            w-4 h-4로 슬롯이 lucide 아이콘과 정확히 같아서, 사이드바 여섯 항목의
+            라벨 시작점이 같은 세로선에 선다. 광학 보정은 슬롯이 아니라 마스크 크기로
+            한다(<head> .kyobo-mark 주석 참고) — 슬롯을 줄이면 이 항목만 라벨이 밀린다.
+
+          ▣ 채널이 2개 이상이면 lucide radio-tower로 돌아간다
+            라벨이 총칭 "소식"이 되는 순간 특정 브랜드 로고는 뜻이 어긋난다.
+            PM이 정한 "1개면 이름, 2개 이상이면 총칭" 축을 아이콘도 그대로 따른다.
+        {% endcomment %}
+        {% if nav_mode == "single" %}
+        <span aria-hidden="true" class="kyobo-mark w-4 h-4 flex-shrink-0"></span>
+        {% else %}
+        <i data-lucide="radio-tower" class="w-4 h-4"></i>
+        {% endif %}
+        {{ nav_label }}
+      </a>
+      {% endwith %}
+
+      {% comment %}
+        🔴 설정의 첫 화면은 SET-010 「실행」이다 (2026-09-04 사용자 지시).
+        종전에는 setting_sources(데이터 소스)로 갔는데, 실행이 설정 사이드 메뉴
+        최상단이 되면서 어긋났다 — 메뉴 첫 항목과 진입 화면이 다르면 클릭 한 번이
+        더 든다. 설정 메뉴 순서를 바꿀 때 이 링크도 함께 확인할 것.
+      {% endcomment %}
+      <a href="{% url 'setting_run' %}"
          class="flex items-center gap-3 px-3 py-2 rounded-[10px] text-sm font-medium transition-colors
                 {% if 'setting' in request.resolver_match.url_name %}bg-white/20 text-white{% else %}text-white/70 hover:bg-white/10 hover:text-white{% endif %}">
         <i data-lucide="settings" class="w-4 h-4"></i>

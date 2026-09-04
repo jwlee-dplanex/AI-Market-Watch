@@ -40,8 +40,312 @@
   imaeil·efnews 등 10개 이상 도메인) 아직 LLM 선별 전(5-1 예외 구간)이라 어느
   매체 기사인지가 신뢰 판단에 실제로 쓰인다. 날짜 자리를 차지하는 값이 아니라 카드
   맨 아래(NEWS-001의 기업 배지 자리와 같은 위치)에 작은 텍스트로만 남긴다.
+
+  ==========================================================================
+  🔴 화면 이름은 「교보 소식」이다 (2026-09-04 사용자 확정)
+  ==========================================================================
+  "교보뉴스룸"도 "교보 브리핑"도 아니다. 이 화면 제목은 page_title이 room.name을
+  그대로 쓰므로 Newsroom.name이 정본이고, 사용자에게 보이는 문구 어디에도
+  "뉴스룸"이라는 낱말을 쓰지 않는다.
+  ⚠️ 코드 식별자와 화면 ID는 바꾸지 않는다 — NewsroomArticle, newsroom_detail,
+     ROOM-002 그대로다. 이 주석에 남은 "뉴스룸"은 전부 그 식별자 이야기다.
+
+  🔴 다른 축과 섞지 않는다 — 🔴 데이터 이야기다, 화면 이야기가 아니다
+  (2026-09-04 사용자 지시. 원문 "데이터만 교보 소식이랑 대시보드, 보고서,
+   지식그래프, 뉴스가 안섞이면 된다는 의미야")
+
+    지켜야 할 것 (데이터)
+      NewsroomArticle을 Insight.news / Report.news의 근거로 쓰지 않는다
+      지식그래프 노드·엣지의 근거뉴스로 달지 않는다
+      대시보드 지표(수집 건수, 기업별 순위)에 이 건수를 합산하지 않는다
+      News와 NewsroomArticle을 FK로 잇지 않는다
+
+    요구된 적 없는 것 (화면)
+      사이드바에서 시각적으로 격리하기 — 구분선을 넣었다가 사용자가 취소시켰다
+      다른 화면으로 가는 링크를 금지하기 — 그런 요구는 없었다
+
+  ⚠️ PD가 한 번 이 원칙을 화면 차원으로 확대 해석해서 사이드바에 구분선을 넣었다가
+     되돌렸다. 화면에서는 다른 메뉴·다른 화면과 똑같이 다루면 된다.
+
+  ==========================================================================
+  🔴 세 층 구조 (2026-09-04, PD. 사용자가 구성을 직접 지정)
+  ==========================================================================
+  사용자 원문: "헤드라인(이거는 AI 관련 뉴스면 여기 올려줘. 대시보드처럼 1급, 2급,
+  3급 나눌 필요 없어) / 교보생명, 교보증권, 교보문고, 교보 라이프플래닛 4개 칸으로
+  나눠서 안에 속한 기사들 그룹핑해서 보여주고 / 그리고 그 아래는 모든 뉴스에 대해서
+  리스트로 보여줘"
+
+    ① 헤드라인      AI 관련 기사. 🔴 등급 배지를 넣지 않는다 (ALL-001과 결정적으로 다른 점)
+    ② 관계사 4칸    교보생명 / 교보증권 / 교보문고 / 교보 라이프플래닛 (2×2)
+                    🔴 "계열사"가 아니라 "관계사"다 (2026-09-04 사용자 지시)
+    ③ 전체 목록     모든 기사 (기존 화면 그대로)
+
+  ▣ 검색 중에는 ①②를 숨긴다
+    검색은 "전체에서 찾기"라 섹션 구조가 방해된다. q가 있으면 ③만 남는다.
+
+  ▣ ①②의 기사는 ③에도 그대로 나온다 (중복 허용)
+    ③의 이름이 "모든 뉴스"이고 상단 "총 N건"이 그 수를 말한다. 여기서 빼면 이름과
+    숫자가 동시에 거짓이 되고, 검색·페이지네이션이 ③ 기준이라 헤드라인 기사가
+    검색 결과에서 사라진다.
+    ⚠️ 중복을 **설명하는 문구는 두지 않는다** — "위에 올라온 기사도 여기에 모두
+       들어 있어요"를 ③ 헤더에 뒀다가 2026-09-04 사용자 지시로 지웠다.
+       판단(중복 허용) 자체는 유효하고, 그걸 말로 설명할 필요만 없어진 것이다.
+    🔴 이 화면에서는 설명 문구를 덧붙이는 방향을 기본으로 두지 말 것.
+       지금까지 세 번 기각됐다 — 부제("교보그룹 전반 소식을…"), 사이드바 구분선,
+       이 중복 안내. 구조나 배치로 안 풀릴 때만 문구를 고려한다.
+
+  ▣ PE 인계 — 이 템플릿이 기대하는 컨텍스트 변수 (기존 변수에 더해서)
+
+    headline_articles   ① 헤드라인 기사 리스트. 없거나 비면 ① 섹션 전체가 렌더되지 않는다.
+                        정렬·건수 자르기는 뷰에서 한다(PD 권장값 5건, 아래 headline_more_url).
+    headline_more_url   AI 관련 기사가 잘렸을 때 전부 보여줄 주소 문자열. 없으면 링크를 감춘다.
+
+    affiliate_groups    ② 관계사 칸 리스트. 순서도 뷰가 정한다 —
+                        교보생명 → 교보증권 → 교보문고 → 교보 라이프플래닛.
+                        없거나 비면 ② 섹션이 렌더되지 않는다.
+                        🔴 변수명은 affiliate_groups 그대로다. 화면 문구만 "관계사"로
+                        바꿨고 식별자는 안 바꿨다 — PE가 이 이름으로 뷰를 붙이는 중이고,
+                        affiliate는 영어로 관계사와 계열사를 다 뜻해서 문제없다.
+                        🔴 칸 개수를 템플릿에 박지 않았다. 실제로 4 → 5 → 4로 두 번
+                        바뀌는 동안 매번 격자 열 수 한 군데만 고쳤다.
+      name          관계사 이름 (칸 제목). 길면 truncate되고 전체는 title로 보인다
+      articles      그 칸에 보여줄 기사 (뷰에서 자름). 🔴 PD 권장값 3건.
+                    2×2라 칸이 488~568px로 넉넉해서 제목이 한두 줄에 떨어지고,
+                    3건이면 칸 높이가 280px 안팎이라 두 줄이 한 화면에 들어온다.
+      total         그 관계사 기사 총 건수. 0이면 빈 칸 처리로 넘어간다
+      more_url      그 관계사 기사를 전부 보여줄 주소 문자열. 없으면 링크를 감춘다.
+
+      ⚠️ is_collected는 없앴다(2026-09-04). 종전에는 "키워드가 걸렸는데 0건"과
+         "애초에 수집 대상이 아님"을 갈라 문구를 둘로 냈는데, 사용자가
+         "왜 자꾸 교보문고를 빼? 다 넣고 프롬프트 기반으로 필터링하면 되잖아"라고
+         해서 **네 관계사가 전부 수집 대상**이 됐다. 후자가 쓰일 자리가 사라져
+         빈 칸 문구가 하나로 정리됐다.
+         되살릴 일이 생기면(어떤 관계사를 다시 키워드에서 빼면) 이 필드와
+         아래 빈 칸 분기를 함께 되돌린다 — 안 그러면 "아직 모인 기사가 없어요"가
+         "안 모으기로 한 칸"에까지 붙어서 조용한 거짓말이 된다.
+
+    ⚠️ NewsroomArticle에 관계사 구분 필드가 아직 없다. 무엇으로 나눌지(유입 키워드를
+       남기는 방식이 PM 1순위 권고)는 PE·PM이 정하고, 이 템플릿은 이미 나뉜 결과만 받는다.
+
+  ▣ 컨텍스트가 아직 없을 때
+    headline_articles·affiliate_groups가 비어서 ①②가 통째로 안 그려지고 ③만 남는다.
+    즉 지금까지의 화면과 완전히 같다. PE가 데이터를 붙이면 그대로 나타난다.
 {% endcomment %}
 
+{% if not q %}
+
+{% comment %}
+  ── ① 헤드라인 ──────────────────────────────────────────────────────────
+  세 층 중 시각 무게가 가장 무겁다. 무게를 만드는 수단은 세 가지뿐이다 —
+  섹션 제목이 text-base(②③은 text-sm), 카드 여백이 p-6(③은 p-5), 기사 제목이
+  text-base(③은 text-sm). 색이나 테두리로 강조하지 않는다.
+
+  🔴 등급 배지를 넣지 않는다. 사용자가 "대시보드처럼 1급 2급 3급 나눌 필요 없어"라고
+     명시했다. ALL-001 헤드라이너에서 배지만 빼는 게 아니라, 배지가 만들던 위계 자체가
+     없는 화면이다 — 헤드라인 안에서 기사끼리 우열을 주지 않고 최신순으로만 쌓는다.
+
+  아이콘을 안 쓴 이유: sparkles는 이 앱에서 이미 "LLM이 돈다"(SET-010)에 배정돼 있어
+  "AI 관련 기사"라는 다른 뜻으로 재사용하면 도상이 두 가지를 가리키게 된다.
+  megaphone은 공지·광고 뉘앙스라 SET-009에서 이미 한 번 기각된 아이콘이다.
+  크기 차이만으로 위계가 충분히 서므로 아이콘 없이 간다.
+
+  🔴 AI 관련 기사가 없는 날에는 섹션을 통째로 접는다 (2026-09-04 PD 판단)
+     교보 AI 기사가 매일 나오지는 않으니 비는 날이 자주 있을 것이다.
+     "오늘은 AI 관련 기사가 없어요" 같은 빈 상태를 두지 않고 아예 감추는 이유:
+       1. 여기가 화면 최상단이다. 매일 아침 첫 인상이 "없음"이 되면 안 된다.
+       2. ② 관계사 칸의 빈 상태와 성격이 다르다. 칸은 네 개가 고정 슬롯이라
+          하나가 없으면 "왜 비었지"가 생기고, 그 답(커버리지)이 정보가 된다.
+          헤드라인은 고정 슬롯이 아니라 "있으면 올린다"라서 없는 날 알릴 게 없다.
+       3. 접히면 ② 관계사 칸이 자연스럽게 첫 화면을 채운다. 빈 카드가 자리를
+          차지하고 아래를 밀어내는 것보다 낫다.
+     ⚠️ 그래서 판정 필드가 아직 없는 지금도 화면이 멀쩡하다 — 접힌 상태로 보인다.
+     ⚠️ 부제 "AI와 관련된 기사를 모았어요"는 그대로 둔다. 헤드라인 기준은
+        AI 관련 기사만이고(2026-09-04 재확인), 판정은 RA가 수동으로 한다.
+{% endcomment %}
+{% if headline_articles %}
+<section class="mb-8">
+  <div class="flex items-baseline justify-between mb-3">
+    <h2 class="text-base font-semibold text-gray-900">헤드라인</h2>
+    <p class="text-xs text-gray-400">AI와 관련된 기사를 모았어요</p>
+  </div>
+
+  <div class="space-y-3">
+    {% for article in headline_articles %}
+    <a href="{% url 'newsroom_article_detail' room.uid article.uid %}"
+       class="block group bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-6 hover:shadow-md transition-shadow">
+      <p class="text-xs text-gray-400 mb-1.5">{{ article.published_at|date:"Y.m.d" }}</p>
+      <p class="text-base font-semibold text-gray-900 group-hover:text-primary transition-colors">
+        {{ article.title }}
+      </p>
+      {% if article.summary %}
+      <p class="text-sm text-gray-500 mt-2 leading-relaxed line-clamp-2">{{ article.summary }}</p>
+      {% endif %}
+      <p class="text-xs text-gray-400 mt-2">{{ article.source_domain }}</p>
+    </a>
+    {% endfor %}
+  </div>
+
+  {% if headline_more_url %}
+  <div class="mt-3 text-center">
+    <a href="{{ headline_more_url }}" class="text-xs text-primary hover:underline">AI 관련 기사 모두 보기</a>
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+
+{% comment %}
+  ── ② 관계사 네 칸 (2×2 격자) ───────────────────────────────────────────
+  교보생명 / 교보증권 / 교보문고 / 교보 라이프플래닛
+
+  🔴 낱말은 "관계사"다 (2026-09-04 사용자 지시 "계열사가 아니라 관계사").
+     화면 문구도 이 주석도 전부 관계사로 쓴다.
+     ⚠️ 컨텍스트 변수명 affiliate_groups는 그대로 둔다 — PE가 그 이름으로 뷰를
+        붙이는 중이고, affiliate는 영어로 관계사와 계열사를 다 뜻해서 문제없다.
+
+  🔴 교보문고는 넣는다. 사용자 원문 "왜 자꾸 교보문고가 빼? 다 넣고 프롬포트
+     기반으로 필터링하면 되잖아". 필터 프롬프트 지침 10과 10-1이 이미 도서 판매와
+     문화 행사 기사를 거르게 돼 있어서, 넓게 모으고 필터가 거르는 게 원래 설계다.
+     네 칸 전부 수집 대상이다.
+  🔴 SBI저축은행은 뺀다 (2026-09-04 사용자 확정). 한 번 들어왔다가 다시 빠졌다.
+     ⚠️ 이름 표기는 "교보 라이프플래닛"이다 — 교보와 라이프플래닛 사이를 띄운다.
+
+  ▣ 🔴 2×2 격자 (2026-09-04 사용자 지시 "ㅇㅇ / ㅇㅇ 이런 위치로")
+    칸이 넷이라 2×2로 **딱 떨어진다.** 다섯일 때 "3+2냐 2+2+1이냐"로 고민하던
+    마지막 줄 빈자리 문제가 아예 사라졌다. 1행 5열 안도 함께 폐기됐다.
+
+    폭 실측: 본문 = 뷰포트 − 사이드바 240 − main p-6 48. (이 화면은 설정 사이드
+    메뉴가 없어서 SET 화면들보다 넓다.)
+      1440px 뷰포트 → 본문 1152 → gap-4(16) 빼고 2로 나눠 칸 568px
+      1280px 뷰포트 → 본문  992 → 같은 계산으로 칸 488px
+    칸 안 글자 폭은 px-5(20×2)를 빼서 448~528px이다.
+
+  ▣ 폭이 넉넉해져서 "계기판" 압축안을 되돌렸다
+    1행 5열(189px)에서는 이름과 건수만 크게 두고 기사를 맛보기로 내렸었다.
+    488px이면 그럴 이유가 없다 — text-sm 기준 한 줄에 30자 넘게 들어가서
+    한국어 기사 제목(대개 25~40자) 대부분이 한두 줄에 떨어진다.
+    그래서 ②가 다시 "관계사별로 뭘 읽을까"를 고르는 **목록**으로 돌아온다.
+
+    기사 건수  칸마다 3건 (뷰에서 자른다). 2×2라 세로 여유가 있고, 3건이면
+               칸 높이가 280px 안팎이라 두 줄이 한 화면에 들어온다.
+    제목       text-sm + line-clamp-2. 448px에서 두 줄이면 60자가 넘어
+               제목이 잘리는 일이 거의 없다.
+    날짜       text-xs Y.m.d. 5열 때 연도를 빼서 아꼈던 한 줄이 다시 필요 없다.
+    이름       truncate + title. "교보 라이프플래닛"이 건수 배지를 밀지 않게 한다.
+
+  ▣ 좁은 화면
+    lg(1024px) 미만에서 1열로 떨어뜨린다. lg에서 본문이 736px이라 칸이 360px인데,
+    거기까지는 제목이 두 줄에 46자쯤 들어가 읽을 만하다. 그 아래로 내려가면
+    2열을 유지해 봐야 5열 때와 같은 문제가 생겨서 차라리 세로로 쌓는 게 낫다.
+    가로 스크롤은 쓰지 않는다 — 칸이 화면 밖으로 나가면 "네 관계사를 한눈에"라는
+    이 층의 목적 자체가 사라진다.
+
+  ▣ 🔴 items-start
+    격자 기본값(stretch)이면 같은 행의 칸 높이가 가장 큰 칸에 맞춰진다. 기사 3건짜리
+    칸 옆의 빈 칸이 같은 높이로 늘어나면 빈 칸이 커다란 빈 사각형이 되어
+    "비어 있음"을 화면에서 가장 큰 면적으로 말하게 된다. items-start를 주면 빈 칸이
+    자기 내용만큼만 차지해 한두 줄로 조용히 접힌다. 지우지 말 것.
+
+  ▣ 빈 칸 문구는 하나다 (2026-09-04에 둘에서 하나로 정리)
+    종전에는 is_collected로 "아직 모인 기사가 없어요"와 "아직 수집하지 않는
+    관계사예요"를 갈랐다. 교보문고가 수집 대상에서 빠져 있어서, 거기에
+    "아직 없어요"라고 쓰면 곧 생길 것처럼 들려 사실과 달랐기 때문이다.
+    이제 네 칸 전부 수집 대상이라 후자가 쓰일 자리가 없어져 하나로 합쳤다.
+    설정으로 가던 링크도 함께 뺐다 — 빈 칸은 조용해야 하는데 링크가 시선을 끈다.
+    ⚠️ 어떤 관계사를 다시 키워드에서 빼는 날에는 두 문구 분기를 되살릴 것.
+       안 그러면 "안 모으기로 한 칸"에 "아직 모인 기사가 없어요"가 붙어
+       조용한 거짓말이 된다.
+    ⚠️ 빈 칸을 숨기는 안은 쓰지 않았다. 사용자가 칸 구성을 직접 지정했고, 칸이
+       사라지면 "교보문고는 왜 없지"가 남는다. 보이되 설명되는 편이 낫다.
+
+  ▣ 칸 개수는 템플릿에 박지 않는다
+    affiliate_groups를 그대로 순회할 뿐이라 관계사가 늘거나 줄어도 이 파일은
+    안 고쳐도 된다. 실제로 4 → 5 → 4로 두 번 바뀌는 동안 매번 격자 열 수
+    한 군데만 고쳤다.
+{% endcomment %}
+{% if affiliate_groups %}
+<section class="mb-8">
+  <div class="flex items-baseline justify-between mb-3">
+    <h2 class="text-sm font-semibold text-gray-900">관계사별 기사</h2>
+  </div>
+
+  {% comment %}
+    🔴 항상 2열이다 (2026-09-04 사용자 지시 "한행에 2개씩").
+    종전 grid-cols-1 lg:grid-cols-2는 창이 1024px보다 좁으면 1열로 떨어져서
+    사용자가 실제로 세로 나열을 보게 됐다. 관계사가 넷이라 2열이면 2×2로
+    딱 떨어진다. 반응형 분기를 다시 넣지 말 것.
+  {% endcomment %}
+  <div class="grid grid-cols-2 gap-4 items-start">
+    {% for group in affiliate_groups %}
+    <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm">
+
+      {% comment %}
+        머리글. 이름은 truncate로 잘라 건수 배지를 밀어내지 않게 하고, 잘린 전체
+        이름은 title로 볼 수 있게 한다. min-w-0이 없으면 flex 자식이 안 줄어들어
+        truncate가 동작하지 않는다 — "교보 라이프플래닛"이 가장 긴 이름이다.
+      {% endcomment %}
+      <div class="flex items-center justify-between gap-2 px-5 py-3.5 border-b border-gray-100">
+        <p class="text-sm font-semibold text-gray-900 truncate min-w-0" title="{{ group.name }}">{{ group.name }}</p>
+        {% if group.total %}
+        <span class="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary flex-shrink-0">{{ group.total }}건</span>
+        {% endif %}
+      </div>
+
+      {% if group.articles %}
+      {% comment %}
+        칸 안은 카드가 아니라 행(row)이다. 카드 안에 카드를 겹치면 테두리가 두 겹이 되고
+        시각 무게가 ③보다 무거워져 위계가 뒤집힌다. 대신 날짜·제목의 글자 크기와 색은
+        ③의 기사 카드와 똑같은 값을 써서 같은 가족으로 읽히게 했다.
+      {% endcomment %}
+      <div class="divide-y divide-gray-50">
+        {% for article in group.articles %}
+        <a href="{% url 'newsroom_article_detail' room.uid article.uid %}"
+           class="block group px-5 py-3 hover:bg-gray-50 transition-colors">
+          <p class="text-xs text-gray-400">{{ article.published_at|date:"Y.m.d" }}</p>
+          <p class="text-sm font-semibold text-gray-900 mt-0.5 line-clamp-2 group-hover:text-primary transition-colors">
+            {{ article.title }}
+          </p>
+        </a>
+        {% endfor %}
+      </div>
+
+      {% if group.more_url %}
+      <div class="px-5 py-3 border-t border-gray-100">
+        <a href="{{ group.more_url }}" class="text-xs text-primary hover:underline">{{ group.name }} 기사 모두 보기</a>
+      </div>
+      {% endif %}
+
+      {% else %}
+      <div class="px-5 py-6 text-center">
+        <p class="text-xs text-gray-400">아직 모인 기사가 없어요.</p>
+      </div>
+      {% endif %}
+
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% endif %}
+
+{% comment %}
+  ── 검색 바 ─────────────────────────────────────────────────────────────
+  🔴 화면 맨 위에서 ③ 바로 위로 내렸다
+     (2026-09-04 사용자 지시 "관계사별 기사, 검색, 전체 기사 순으로 노출되게 해줘").
+
+  검색이 걸리는 대상은 ③ 전체 기사뿐이다 — ①②는 검색 중에 아예 숨긴다.
+  작동 대상 바로 위에 두는 게 맞다.
+
+  ▣ 검색 중에는 이 바가 화면 맨 위로 올라온다. 그대로 둔다.
+    q가 있으면 위 ①②가 통째로 사라지므로 화면이 "검색 바 + 전체 기사"만 남는다.
+    튀어 보일 수 있지만 고치지 않는 게 맞다고 판단했다.
+      1. 검색 결과 화면에서 검색 바가 맨 위에 있는 건 표준이다. 오히려 중간에
+         떠 있으면 "위에 뭔가 잘렸나" 하고 위로 스크롤하게 된다.
+      2. 자리를 고정하려면 ①② 자리에 빈 상자를 남겨야 하는데, 그건 이 화면에서
+         네 번 걷어낸 "덧붙이기"와 같은 종류다.
+      3. 검색은 들어갔다 나오는 임시 상태다. 초기화를 누르면 원래 순서로 돌아온다.
+    ⚠️ 설명 문구로 완화하는 방식은 쓰지 않았다. 이미 여러 번 기각된 방향이다.
+{% endcomment %}
 <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-4 mb-4">
   <form method="get" class="flex items-center gap-3">
     <div class="relative flex-1 min-w-60">
@@ -59,9 +363,24 @@
   </form>
 </div>
 
-<!-- 결과 수 -->
-<div class="flex items-center justify-between mb-3">
-  <p class="text-sm text-gray-500">총 <span class="font-semibold text-gray-900">{{ total_count|default:0 }}</span>건</p>
+{% comment %}
+  ── ③ 전체 목록 ────────────────────────────────────────────────────────
+  기존 화면 그대로다. 위 두 층이 떠 있을 때만 "전체 기사" 섹션 제목을 붙인다 —
+  ①②가 없으면(검색 중이거나 데이터가 아직 없으면) 예전처럼 "총 N건"만 남아
+  괜히 층이 있는 것처럼 보이지 않는다.
+{% endcomment %}
+<div class="flex items-baseline justify-between mb-3">
+  <div class="flex items-baseline gap-2">
+    {% if headline_articles or affiliate_groups %}
+    <h2 class="text-sm font-semibold text-gray-900">전체 기사</h2>
+    {% endif %}
+    <p class="text-sm text-gray-500">총 <span class="font-semibold text-gray-900">{{ total_count|default:0 }}</span>건</p>
+  </div>
+  {% comment %}
+    ⚠️ 여기에 "위에 올라온 기사도 여기에 모두 들어 있어요" 같은 안내 문구를 넣지 않는다
+    (2026-09-04 사용자 지시로 제거). 위 층과 겹친다는 사실은 설명하지 않아도 되고,
+    설명 문구를 덧붙이는 방식은 이 화면에서 이미 여러 번 기각됐다.
+  {% endcomment %}
 </div>
 
 {% if articles %}
@@ -97,7 +416,7 @@
 <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-12 text-center text-gray-400">
   <i data-lucide="inbox" class="w-10 h-10 mx-auto mb-3 opacity-40"></i>
   <p class="text-sm">아직 모인 기사가 없어요.</p>
-  <p class="text-sm">설정 &gt; 뉴스룸에서 [지금 수집]을 눌러 첫 기사를 모아보세요.</p>
+  <p class="text-sm">설정 &gt; 소식에서 [지금 수집]을 눌러 첫 기사를 모아보세요.</p>
 </div>
 {% endif %}
 
