@@ -18,39 +18,23 @@
              class="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-[10px] focus:outline-none focus:border-primary">
     </div>
 
-    <!-- 기간 -->
-    <input type="date" name="date_from" value="{{ request.GET.date_from }}"
-           class="text-sm border border-gray-200 rounded-[10px] px-3 py-2 focus:outline-none focus:border-primary">
-    <span class="text-gray-400 text-sm">~</span>
-    <input type="date" name="date_to" value="{{ request.GET.date_to }}"
-           class="text-sm border border-gray-200 rounded-[10px] px-3 py-2 focus:outline-none focus:border-primary">
+    {% comment %}
+      ⚠️ 검색 바에 필터를 두지 않는다 (2026-09-04 사용자 지시로 제거).
+      기간(date_from/date_to), 전체 기업(org_type), 전체 출처(source),
+      정렬(order), 초기화 링크를 전부 걷어냈다. 남는 건 검색어와 검색 버튼뿐이다.
+      정렬을 뺀 근거는 사용자 원문 그대로다 — "최신순은 어짜피 기본값이 최신순이니까".
 
-    <!-- 기관 유형 필터 -->
-    <select name="org_type" class="text-sm border border-gray-200 rounded-[10px] px-3 py-2 focus:outline-none focus:border-primary
-                                   {% if org_type_filter %}border-primary text-primary font-medium{% endif %}">
-      <option value="">전체 기업</option>
-      {% for value, label in org_types %}
-      <option value="{{ value }}" {% if org_type_filter == value %}selected{% endif %}>{{ label }}</option>
-      {% endfor %}
-    </select>
+      ⚠️ 뷰(apps/news/views.py)는 이 파라미터들을 여전히 읽는다. URL에 직접
+      ?org_type=… 을 붙이면 계속 동작하므로 기능이 죽은 게 아니라 입구만 없앤 것이다.
+      되살릴 일이 생기면 이 자리에 다시 넣으면 되고, 뷰는 손댈 필요가 없다.
 
-    <!-- 출처 필터 -->
-    <select name="source" class="text-sm border border-gray-200 rounded-[10px] px-3 py-2 focus:outline-none focus:border-primary">
-      <option value="">전체 출처</option>
-      <option value="naver_news" {% if request.GET.source == "naver_news" %}selected{% endif %}>네이버 뉴스</option>
-      <option value="opendart" {% if request.GET.source == "opendart" %}selected{% endif %}>OpenDART</option>
-      <option value="rss" {% if request.GET.source == "rss" %}selected{% endif %}>RSS</option>
-    </select>
-
-    <select name="order" class="text-sm border border-gray-200 rounded-[10px] px-3 py-1.5 focus:outline-none focus:border-primary">
-      <option value="newest" {% if order != 'oldest' %}selected{% endif %}>최신순</option>
-      <option value="oldest" {% if order == 'oldest' %}selected{% endif %}>오래된순</option>
-    </select>
+      🔴 이 제품에서 화면 요소는 "덧붙이는" 방향이 아니라 "걷어내는" 방향으로
+         움직여 왔다. 필터를 다시 넣기 전에 사용자에게 확인할 것.
+    {% endcomment %}
     <button type="submit"
             class="px-4 py-2 bg-primary text-white text-sm font-medium rounded-[10px] hover:bg-primary-hover transition-colors">
       검색
     </button>
-    <a href="{% url 'news_list' %}" class="text-sm text-gray-400 hover:text-gray-600">초기화</a>
   </form>
 </div>
 

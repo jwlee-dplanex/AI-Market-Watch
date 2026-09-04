@@ -21,6 +21,14 @@ class NewsQuerySet(models.QuerySet):
           - `apps/reports/templatetags/report_extras.py`의 `참고: <uid>` 해석 경로
           - `apps/dashboard/context_processors.py`의 사이드바 "마지막 수집" 표시
             (수집 파이프라인 생존 신호이지 뉴스 노출이 아니므로 예외)
+
+        🔴 (D) 네 번째 예외(2026-09-04 신설) — SET-010 검토 화면(`setting/run/review/<작업>/`)의
+        확정 대기 목록에 한해 미검증 `News`를 보여준다. 범위는 **SET-010과 그 하위 검토
+        화면으로만** 한정된다(docs/planning.md "검증 게이트" 2-(D)가 정본). 이 메서드에
+        게이트를 끄는 옵션 인자를 뚫지 않는다 — 그 화면은 `apps/setting/views.py`에서
+        미검증만 뽑는 별도 이름 있는 조회를 따로 쓴다. NEWS-002는 미검증이면 여전히
+        404이며, ALL-001·NEWS-001·GRAPH-001의 어떤 숫자에도 이 예외로 노출된 뉴스가
+        섞이지 않는다.
         """
         return self.filter(status=News.STATUS_VERIFIED)
 
