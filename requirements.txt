@@ -7,7 +7,6 @@ anthropic
 voyageai
 langchain
 langchain-anthropic
-APScheduler
 trafilatura
 requests
 beautifulsoup4

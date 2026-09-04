@@ -1,0 +1,351 @@
+{% comment %}
+  SET-010 노드 그래프 조각 (docs/design.md "SET-010 · 실행").
+
+  🔴 2026-09-04 개정 — 축이 둘이 됐다 (사용자 지시 "대시보드, 보고서, 지식 그래프,
+     뉴스랑 교보 소식이랑 실행을 분리해줘").
+
+       ① AI 시장 조사   대시보드·보고서·지식그래프·뉴스에 반영되는 실행
+       ② 교보 소식      교보 소식 화면에 반영되는 실행
+
+     같은 날 확정한 "두 축의 데이터가 섞이면 안 된다"가 실행 화면에서 드러나는 자리다.
+     화면에서 격리하라는 뜻이 아니라(그건 사이드바에서 이미 기각됐다) **어느 축의
+     작업을 누르는지 읽히게** 하라는 뜻이다.
+
+  ▣ 가르는 수단 — 캔버스를 두 장으로 나눴다
+    구분선은 쓰지 않았다(사이드바에서 이미 기각된 수단이다). 탭도 아니다 —
+    한쪽이 도는 중일 때 다른 탭이 안 보이면 "지금 뭐가 도는지"가 사라져서
+    「핵심 결정 ① 한곳에 모은다」가 무너진다.
+    이 화면에는 이미 "캔버스"라는 개념이 있으므로, **캔버스가 두 장이라는 사실
+    자체**가 두 워크플로임을 말하게 했다. 새 장치를 만들지 않았고 설명 문구도 없다.
+
+  ▣ 두 축의 시각 무게는 같다
+    섹션 제목 크기, 캔버스 처리, 노드 스펙이 전부 동일하다. 매일 도는 건 양쪽 다이고
+    어느 한쪽이 더 중요하지 않다. 단계 수가 달라 캔버스 높이가 다른 건 내용의
+    차이지 위계가 아니다. 순서만 리서치 축을 위에 뒀다 — 사이드바에서도
+    대시보드~뉴스가 위, 교보 소식이 아래라 같은 순서다.
+
+  ▣ 폴링은 조각 하나로 유지한다
+    이 파일이 두 캔버스를 모두 담아 통째로 갈아끼운다(hx-swap="outerHTML").
+    축마다 따로 폴링하면 요청이 두 배가 되고, 무엇보다 "한쪽이 도는 동안 다른 쪽도
+    잠근다"를 하려면 어차피 한 조각이어야 한다.
+    🔴 잠금은 축을 넘어 전역이다. running_job 하나가 두 캔버스의 버튼을 모두 잠근다 —
+       테이블은 갈라져 있어도 LLM API는 하나라서 동시에 돌리면 비용과 rate limit이
+       겹치고, 실패했을 때 어느 쪽이 실패했는지 화면에서 구분하기 어려워진다.
+
+  ▣ 실행 기록 표는 없다 (2026-09-04 사용자 지시로 제거)
+    한때 두 축을 한 표에 시간순으로 섞어 두려 했는데 표 자체가 걷혔다.
+    같은 데이터를 SET-006 「로그」가 이미 보여주고, 이 화면은 실행하는 곳이지
+    지나간 것을 읽는 곳이 아니다. 오늘 상태는 노드마다 붙은 summary 한 줄로 읽힌다.
+    ⚠️ 다시 넣지 말 것.
+
+  ⚠️ 갱신되는 것은 테두리 색 / 배지 텍스트 / 요약 한 줄 / 경과 시간 / 연결선 색뿐이다.
+     노드 크기와 위치는 상태와 무관하게 고정 — 안 그러면 3초마다 화면이 들썩인다.
+
+  ⚠️ graph_url이 비어 있으면(폴링 미구현 단계) 이 조각은 정적으로만 렌더된다.
+     그 경우 실행 중 안내 문구를 대신 띄워서 사용자가 결과를 조용히 잃지 않게 한다.
+
+  🔴 실행 중 애니메이션 스위치가 아래 루트 div의 class에 있다(run-anim-bar).
+     켜고 끄는 법은 run.html 위쪽 <style> 블록 주석에 정리해 뒀다.
+
+  ══════════════════════════════════════════════════════════════════════
+  🔴 노드 라벨 한곳 관리 — 되돌릴 일이 생기면 여기만 보면 된다
+  ══════════════════════════════════════════════════════════════════════
+  라벨은 전부 아래 {% templatetag openblock %} include %}의 label= 인자에 있다. 이 파일 밖에는 없다.
+
+    AI 시장 조사 축          교보 소식 축
+      1단계 수집               1단계 수집
+      2단계 뉴스 정리          2단계 필터
+      3단계 주요 이슈          3단계 발송문
+      4단계 주간 보고서        4단계 발송
+      5단계 월간 보고서
+
+  ▣ 3단계를 "시사점"이 아니라 "주요 이슈"로 부르는 이유 (2026-09-04 사용자 선택)
+    이 단계의 산출물(Insight)이 대시보드에 정확히 「주요 이슈」라는 이름으로 나타난다
+    (templates/dashboard/index.html). 실행 화면의 라벨과 결과 화면의 이름이 같으면
+    "이걸 돌리면 저게 채워진다"가 설명 없이 읽힌다. 월간 보고서 상세의 섹션 이름도
+    「주요 이슈 요약」이다.
+    후보였던 "그룹핑"은 이 단계가 하는 일의 절반(같은 사건 묶기)만 가리키고,
+    "요약 정리"는 2단계 「뉴스 정리」와 낱말이 겹쳐 헷갈린다.
+
+  ▣ "결산"이 아니라 "월간"이다
+    Report.period_type이 이미 ('monthly', '월간')이라 코드는 처음부터 월간이라 부르고
+    있었고 "결산"은 문서에서 쓰던 말이다. 화면 라벨이 코드와 맞는 쪽으로 정리됐다.
+    ⚠️ docs/planning.md의 「결산(월간) 보고서 주기」 절 정합은 PM 몫이다.
+
+  ⚠️ 리서치 축 라벨이 2026-09-04에 "수집 / 1번 뉴스 정리 / 2번 시사점 / 3번 주간
+     보고서 / 4번 결산 보고서"에서 위 표기로 바뀌었다(사용자 지시).
+     🔴 그런데 이 프로젝트의 「RA 작업 번호」는 여전히 다르다 —
+        수집은 번호 없음, 1번 뉴스 정리 / 2번 시사점 / 3번 주간 / 4번 결산.
+        사용자는 평소 "RA님에게 1번 2번 진행하라고 해줘"처럼 RA 번호로 지시하므로,
+        화면 라벨과 지시 언어가 지금 한 칸씩 어긋나 있다(화면 2단계 = RA 1번).
+        코디네이터가 사용자에게 확인 중이고, 되돌리기로 하면 위 label= 다섯 개만
+        고치면 된다. job 키(collect/cleanup/insight/weekly/monthly)와 URL은
+        RA 번호도 단계 번호도 쓰지 않으므로 영향받지 않는다.
+{% endcomment %}
+
+<div id="run-graph" class="run-anim-bar space-y-6"
+     {% if running_job and graph_url %}hx-get="{{ graph_url }}" hx-trigger="every 3s" hx-swap="outerHTML"{% endif %}>
+
+  {% comment %}
+    ══ ① AI 시장 조사 축 ═════════════════════════════════════════════════
+
+    축 이름을 "AI 시장 조사"로 붙였다. 화면 넷을 나열하면("대시보드, 보고서,
+    지식그래프, 뉴스 실행") 제목이 길어 훑기가 안 되고, "리서치" 같은 외래어
+    총칭은 화면 문구를 전부 해요체 한국어로 쓰는 이 앱에서 튄다.
+    제품 이름(AI Market Watch)의 한국어 대응이라 낯설지 않고, "교보 소식"과
+    글자 수도 비슷해서 두 제목이 나란히 놓였을 때 무게가 같다.
+    ⚠️ 부제를 달지 않았다. 이 화면군에서 설명 문구는 이미 세 번 기각됐고,
+       캔버스 안 노드 이름(수집, 1번 뉴스 정리, …)이 이미 무슨 축인지 말한다.
+
+    배치 요령 — 마법 숫자를 최소로 뒀다
+      1행은 노드 3개 사이에 flex-1 연결선이 들어가 폭에 맞춰 늘어난다.
+      분기 블록은 오른쪽 정렬(justify-end)한 w-[616px] 상자다(276 + 64 + 276).
+      오른쪽 정렬이라 분기 블록의 오른쪽 열 중앙이 2번 노드 중앙과 정확히 맞는다.
+      그래서 세로 스텁 위치를 픽셀로 계산할 필요가 없다. 유일한 파생값은
+      w-[138px](= 276 / 2)뿐이고, 노드 폭을 바꾸면 이 둘만 같이 고치면 된다.
+  {% endcomment %}
+  <section>
+    <h3 class="text-sm font-semibold text-gray-900 mb-3">AI 시장 조사</h3>
+
+    <div class="run-canvas rounded-[10px] border border-[#E5E5E5] p-6 overflow-x-auto">
+      {% comment %}
+        min-w는 1행(노드 276×3 + 연결선 최소 36×2 = 900px)에 맞춘 값이다.
+        이 폭을 공유해야 아래 분기 블록의 오른쪽 정렬이 2번 노드와 정확히 맞는다 —
+        1행만 넘쳐 흐르면 두 줄의 기준 폭이 달라져 세로 스텁이 어긋난다.
+        ⚠️ 캔버스 여백을 p-10에서 p-6으로 줄였다. p-10이면 안쪽 폭이 876px이라
+           900px이 안 들어가서 1440px 화면에서도 가로로 밀린다. p-6이면 908px이다.
+      {% endcomment %}
+      <div class="min-w-[900px]">
+
+        {% comment %} 1행: 수집 → 1번 → 2번 {% endcomment %}
+        <div class="flex items-center">
+
+          {% include "setting/_run_node.html" with job=research_jobs.collect key="collect" label="1단계 수집" description="새 기사를 모아요" icon="play" outline=False dimmed=running_job %}
+
+          {% comment %}
+            연결선. 이미 지난 구간은 보라, 아직 안 지난 구간은 회색 — 흐름을 움직임이 아니라
+            색으로 굳힌다. data-flow는 애니메이션 B(연결선 흐름)를 켰을 때만 쓰인다.
+          {% endcomment %}
+          <div class="run-edge flex-1 min-w-[36px] flex items-center px-1"
+               data-flow="{% if research_jobs.cleanup.state == 'running' %}running{% endif %}">
+            <div class="run-edge-line flex-1 h-0.5 {% if research_jobs.collect.state == 'done' %}bg-primary{% else %}bg-gray-200{% endif %}"></div>
+            <i data-lucide="chevron-right" class="w-4 h-4 -ml-1.5 flex-shrink-0 {% if research_jobs.collect.state == 'done' %}text-primary{% else %}text-gray-300{% endif %}"></i>
+          </div>
+
+          {% include "setting/_run_node.html" with job=research_jobs.cleanup key="cleanup" label="2단계 뉴스 정리" description="관련 없는 기사를 골라내요" icon="sparkles" outline=False dimmed=running_job %}
+
+          <div class="run-edge flex-1 min-w-[36px] flex items-center px-1"
+               data-flow="{% if research_jobs.insight.state == 'running' %}running{% endif %}">
+            <div class="run-edge-line flex-1 h-0.5 {% if research_jobs.cleanup.state == 'done' %}bg-primary{% else %}bg-gray-200{% endif %}"></div>
+            <i data-lucide="chevron-right" class="w-4 h-4 -ml-1.5 flex-shrink-0 {% if research_jobs.cleanup.state == 'done' %}text-primary{% else %}text-gray-300{% endif %}"></i>
+          </div>
+
+          {% include "setting/_run_node.html" with job=research_jobs.insight key="insight" label="3단계 주요 이슈" description="같은 사건을 묶어 이슈로 정리해요" icon="sparkles" outline=False dimmed=running_job %}
+        </div>
+
+        {% comment %}
+          분기: 2번 아래에서 3번·4번으로.
+          3·4번은 둘 다 2번의 산출물(Insight)을 재료로 쓰는 하위 가지라, 접는 대신
+          아래로 내렸다. 베지어 곡선은 좌표를 JS로 계산해야 나오므로 쓰지 않고
+          직각 꺾은선(orthogonal edge)으로 그린다 — 노드 그래프의 표준 문법이다.
+        {% endcomment %}
+        <div class="flex justify-end">
+          <div class="w-[616px]">
+
+            <div class="run-edge"
+                 data-flow="{% if research_jobs.weekly.state == 'running' or research_jobs.monthly.state == 'running' %}running{% endif %}">
+
+              {% comment %} ① 2번 노드 아래 세로 스텁 (오른쪽 열 = 2번 노드 열) {% endcomment %}
+              <div class="flex">
+                <div class="w-[276px]"></div>
+                <div class="w-16"></div>
+                <div class="w-[276px] flex justify-center">
+                  <div class="run-edge-line-v w-0.5 h-8 {% if research_jobs.insight.state == 'done' %}bg-primary{% else %}bg-gray-200{% endif %}"></div>
+                </div>
+              </div>
+
+              {% comment %} ② 좌우로 뻗는 가로 브리지 (두 열의 중앙을 잇는다) {% endcomment %}
+              <div class="flex">
+                <div class="w-[138px]"></div>
+                <div class="run-edge-line flex-1 h-0.5 {% if research_jobs.insight.state == 'done' %}bg-primary{% else %}bg-gray-200{% endif %}"></div>
+                <div class="w-[138px]"></div>
+              </div>
+
+              {% comment %}
+                ③ 4단계·5단계 위로 내려가는 세로 스텁. 각 끝에 화살촉을 둔다.
+                🔴 **화살촉이 둘**이라는 게 이 분기의 표식이다 — 아래 교보 소식 축의
+                   줄바꿈 선은 화살촉이 하나뿐이라 나란히 놓고 보면 성격이 갈린다.
+              {% endcomment %}
+              <div class="flex">
+                <div class="w-[276px] flex flex-col items-center">
+                  <div class="run-edge-line-v w-0.5 h-8 {% if research_jobs.insight.state == 'done' %}bg-primary{% else %}bg-gray-200{% endif %}"></div>
+                  <i data-lucide="chevron-down" class="w-4 h-4 -mt-1.5 {% if research_jobs.insight.state == 'done' %}text-primary{% else %}text-gray-300{% endif %}"></i>
+                </div>
+                <div class="w-16"></div>
+                <div class="w-[276px] flex flex-col items-center">
+                  <div class="run-edge-line-v w-0.5 h-8 {% if research_jobs.insight.state == 'done' %}bg-primary{% else %}bg-gray-200{% endif %}"></div>
+                  <i data-lucide="chevron-down" class="w-4 h-4 -mt-1.5 {% if research_jobs.insight.state == 'done' %}text-primary{% else %}text-gray-300{% endif %}"></i>
+                </div>
+              </div>
+            </div>
+
+            {% comment %} ④ 가지 노드 두 개. 테두리 버튼이라 위 메인 라인보다 시각 무게가 낮다. {% endcomment %}
+            <div class="flex">
+              {% include "setting/_run_node.html" with job=research_jobs.weekly key="weekly" label="4단계 주간 보고서" description="한 주를 묶어 보고서로 만들어요" icon="sparkles" outline=True dimmed=running_job %}
+              <div class="w-16"></div>
+              {% include "setting/_run_node.html" with job=research_jobs.monthly key="monthly" label="5단계 월간 보고서" description="한 달을 묶어 보고서로 만들어요" icon="sparkles" outline=True dimmed=running_job %}
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  {% comment %}
+    ══ ② 교보 소식 축 ════════════════════════════════════════════════════
+
+    단계는 planning.md 뉴스룸 정책의 단계표를 그대로 따른다.
+      1단계 수집 → 2단계 LLM 필터 → 3단계 발송문 → 4단계 발송
+    🔴 1단계 수집만 실제로 동작한다. 2~4단계는 미구현이라 비활성이다.
+    ⚠️ 5단계(스케줄 자동 발송)는 버튼이 아니라서 노드로 그리지 않는다.
+
+    ▣ 배치는 3 + 1이다 (2026-09-04 사용자 지시)
+      첫째 줄 1단계 → 2단계 → 3단계, 둘째 줄 4단계.
+      노드 폭은 리서치 축과 같은 276px이다. 넷을 한 줄에 놓으면 276×4 + 연결선
+      36×3 = 1212px인데 캔버스 안쪽이 908px이라 안 들어간다. 폭을 줄이는 게 아니라
+      줄로 푼다 — 한 번 196px로 줄였다가 되돌렸다("상자 크기는 왜 줄였어").
+
+    ▣ 🔴 위 리서치 축과 첫째 줄 모양이 똑같아졌다. 그래서 내려가는 선이 갈라야 한다
+      두 축 다 첫째 줄이 셋이고 둘 다 세 번째 카드에서 아래로 내려간다.
+      다른 건 **내려간 뒤에 무슨 일이 일어나는가**뿐이다.
+      🔴 4단계가 중앙정렬로 바뀌면서 가로 이동이 생겼고, 그래서 이 구분이
+         종전보다 더 중요해졌다. 네 가지 단서로 갈랐다 —
+         아래 "3단계 → 4단계 연결선" 주석에 자세히 적었다.
+
+        리서치 축 (분기, one-to-many)   교보 소식 (순차, one-to-one)
+          세로 스텁 하나                  세로 스텁 하나
+          → 좌우로 벌어지는 가로선        → 한 방향으로만 가는 가로선
+          → 다시 세로 스텁 둘             → 세로 스텁 하나
+          → 🔴 화살촉 둘                  → 🔴 화살촉 하나
+          → 🔴 아래에 카드 둘             → 🔴 아래에 카드 하나
+          → 스텁 길이 대칭(h-8/h-8)       → 비대칭(h-4 → h-10)
+          → 꺾인 자리에서 계속 내려감(T)  → 꺾여서 끝남(엘보)
+
+      ⚠️ 가로 스크롤 안은 기각했다. 전체 흐름을 한눈에 보는 게 이 화면의 목적인데
+         스크롤하면 그 목적이 깨진다.
+  {% endcomment %}
+  <section>
+    <h3 class="text-sm font-semibold text-gray-900 mb-3">교보 소식</h3>
+
+    <div class="run-canvas rounded-[10px] border border-[#E5E5E5] p-6 overflow-x-auto">
+      {% comment %} min-w는 리서치 축과 같다(노드 276×3 + 연결선 최소 36×2 = 900px). {% endcomment %}
+      <div class="min-w-[900px]">
+
+        {% comment %} 1행: 1단계 → 2단계 → 3단계 {% endcomment %}
+        <div class="flex items-center">
+          {% include "setting/_run_node.html" with job=newsroom_jobs.newsroom_collect key="newsroom_collect" label="1단계 수집" description="교보 관련 기사를 모아요" icon="play" outline=False dimmed=running_job %}
+
+          <div class="run-edge flex-1 min-w-[36px] flex items-center px-1"
+               data-flow="{% if newsroom_jobs.newsroom_filter.state == 'running' %}running{% endif %}">
+            <div class="run-edge-line flex-1 h-0.5 {% if newsroom_jobs.newsroom_collect.state == 'done' %}bg-primary{% else %}bg-gray-200{% endif %}"></div>
+            <i data-lucide="chevron-right" class="w-4 h-4 -ml-1.5 flex-shrink-0 {% if newsroom_jobs.newsroom_collect.state == 'done' %}text-primary{% else %}text-gray-300{% endif %}"></i>
+          </div>
+
+          {% include "setting/_run_node.html" with job=newsroom_jobs.newsroom_filter key="newsroom_filter" label="2단계 필터" description="관련 없는 기사를 걸러내요" icon="sparkles" outline=False dimmed=running_job %}
+
+          <div class="run-edge flex-1 min-w-[36px] flex items-center px-1"
+               data-flow="{% if newsroom_jobs.newsroom_compose.state == 'running' %}running{% endif %}">
+            <div class="run-edge-line flex-1 h-0.5 {% if newsroom_jobs.newsroom_filter.state == 'done' %}bg-primary{% else %}bg-gray-200{% endif %}"></div>
+            <i data-lucide="chevron-right" class="w-4 h-4 -ml-1.5 flex-shrink-0 {% if newsroom_jobs.newsroom_filter.state == 'done' %}text-primary{% else %}text-gray-300{% endif %}"></i>
+          </div>
+
+          {% include "setting/_run_node.html" with job=newsroom_jobs.newsroom_compose key="newsroom_compose" label="3단계 발송문" description="브리핑 문구를 만들어요" icon="sparkles" outline=False dimmed=running_job %}
+        </div>
+
+        {% comment %}
+          ══ 3단계 → 4단계 연결선 ═════════════════════════════════════════
+
+          🔴 4단계를 가운데로 옮겼다 (2026-09-04 사용자 지시 "4단계 발송의 카드는
+             중앙정렬 해줘 / 그것에 맞게 3단계 발송문의 화살표도 맞게 수정해줘").
+             종전에는 3단계 바로 아래(오른쪽 끝)에 뒀다. 그 배치의 장점은 가로 이동이
+             전혀 없어서 곧은 세로선 하나만 남는다는 것이었는데, 중앙정렬로 오면서
+             **가로 이동이 다시 생겼다.** 그 선이 위 리서치 축 분기의 가로선과
+             닮아 보이는 문제를 아래 네 가지로 갈랐다.
+
+          ▣ 분기선과 갈리는 네 가지
+            ① 🔴 화살촉이 하나다. 분기는 둘이다. 가장 빠르게 읽히는 단서다.
+            ② 🔴 꺾여서 끝난다(엘보). 분기는 꺾이고도 그 자리에서 계속 내려간다(T자).
+               분기의 오른쪽 끝에서는 세로선이 가로선을 지나 아래 카드까지 이어지는데,
+               여기서는 세로선이 가로선을 만나 방향을 바꾸고 사라진다.
+            ③ 🔴 아래에 카드가 하나다. 분기는 둘이다. 선 모양보다 이게 더 강하게
+               "갈라진 게 아니라 이어진 것"을 말한다. 저절로 생기는 단서라 공짜다.
+            ④ 세로 길이가 비대칭이다 — 꺾기 전 h-4(16px), 꺾은 뒤 h-10(40px).
+               분기는 위아래 스텁이 h-8로 같다. 대칭은 "고르게 나뉨", 비대칭은
+               "한쪽으로 이동함"으로 읽힌다.
+
+          ⚠️ ①~④를 겹쳐도 오른쪽 끝 배치만큼 또렷하지는 않다. 그때는 가로 이동이
+             아예 없어서 닮을 여지 자체가 없었다. 지금은 "닮았지만 다르다"이다.
+             화면에서 여전히 헷갈리면 분기 쪽 꺾이는 지점에 작은 점(junction dot)을
+             찍는 방법이 남아 있다 — 순서도에서 분기점을 표시하는 표준 기호이고,
+             rounded div 하나면 된다. 지금은 넣지 않았다(요소를 늘리는 방향이라).
+
+          ▣ 배치
+            ① 3단계 중앙에서 아래로  → 오른쪽 정렬한 w-[276px] 안에서 가운데
+                                       (= 오른쪽 끝에서 138px 안쪽, 3단계 카드 중심)
+            ② 가운데로 이동         → [w-1/2][flex-1 가로선][w-[138px]]
+                                       왼쪽 끝이 컨테이너 정중앙(50%)에 선다
+            ③ 가운데에서 아래로     → justify-center로 정중앙
+            ④ 4단계 카드            → justify-center로 정중앙
+            ②③④의 기준점이 전부 컨테이너 50%라 카드와 선이 저절로 맞는다.
+            파생값은 기존과 같은 w-[138px](= 276 / 2) 하나뿐이다.
+        {% endcomment %}
+        <div class="run-edge"
+             data-flow="{% if newsroom_jobs.newsroom_send.state == 'running' %}running{% endif %}">
+
+          {% comment %} ① 3단계 카드 중앙에서 짧게 내려온다 {% endcomment %}
+          <div class="flex justify-end">
+            <div class="w-[276px] flex justify-center">
+              <div class="run-edge-line-v w-0.5 h-4 {% if newsroom_jobs.newsroom_compose.state == 'done' %}bg-primary{% else %}bg-gray-200{% endif %}"></div>
+            </div>
+          </div>
+
+          {% comment %} ② 3단계 중앙에서 화면 정중앙까지 왼쪽으로 이동한다 {% endcomment %}
+          <div class="flex">
+            <div class="w-1/2"></div>
+            <div class="run-edge-line flex-1 h-0.5 {% if newsroom_jobs.newsroom_compose.state == 'done' %}bg-primary{% else %}bg-gray-200{% endif %}"></div>
+            <div class="w-[138px]"></div>
+          </div>
+
+          {% comment %} ③ 정중앙에서 4단계로 내려간다. 화살촉은 여기 하나뿐이다 {% endcomment %}
+          <div class="flex justify-center">
+            <div class="flex flex-col items-center">
+              <div class="run-edge-line-v w-0.5 h-10 {% if newsroom_jobs.newsroom_compose.state == 'done' %}bg-primary{% else %}bg-gray-200{% endif %}"></div>
+              <i data-lucide="chevron-down" class="w-4 h-4 -mt-1.5 {% if newsroom_jobs.newsroom_compose.state == 'done' %}text-primary{% else %}text-gray-300{% endif %}"></i>
+            </div>
+          </div>
+        </div>
+
+        {% comment %} ④ 4단계 카드도 정중앙. 위 ②③의 기준점과 같다 {% endcomment %}
+        <div class="flex justify-center">
+          {% include "setting/_run_node.html" with job=newsroom_jobs.newsroom_send key="newsroom_send" label="4단계 발송" description="슬랙으로 보내요" icon="send" outline=False dimmed=running_job %}
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  {% comment %}
+    폴링이 아직 없을 때의 안전장치. 이 화면을 떠나면 결과를 다시 받아야 한다는 걸
+    조용히 넘기지 않고 말해 준다(design.md "PE 인계 사항" 참고).
+    graph_url이 채워지는 순간 이 문구는 저절로 사라진다.
+  {% endcomment %}
+  {% if running_job and not graph_url %}
+  <p class="text-center text-xs text-gray-500">
+    이 화면을 열어두세요. 지금 나가면 결과를 다시 받아야 해요.
+  </p>
+  {% endif %}
+
+</div>
+<script>lucide.createIcons();</script>

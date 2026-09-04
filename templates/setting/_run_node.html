@@ -1,0 +1,154 @@
+{% comment %}
+  SET-010 노드 한 개 (docs/design.md "SET-010 · 실행" 2차 개정안).
+  _run_graph.html이 이 파일을 5번 include한다.
+
+  include로 받는 값
+    job          실행 상태 dict (계약은 run.html 상단 "컨텍스트 변수 계약" 참고)
+    label        노드 이름          예) "1번 뉴스 정리"
+    description  한 줄 설명(해요체)  예) "관련 없는 기사를 골라내요"
+    icon         lucide 아이콘 이름  수집만 play, LLM 4개는 sparkles
+    outline      True면 테두리 버튼(3·4번 가지 노드)
+    dimmed       다른 노드가 실행 중이면 True — 이 노드를 흐리고 버튼을 잠근다
+
+  ⚠️ 노드 크기는 상태와 무관하게 고정이어야 한다. 3초 폴링으로 이 조각만 갈아끼우는데
+     상태마다 높이가 달라지면 화면이 3초마다 들썩인다. 그래서 본문은 min-h로 바닥을
+     깔아두고, 상태별로 바뀌는 건 테두리 색 / 배지 / 요약 한 줄 / 버튼 하나뿐이다.
+
+  🔴 폭은 276px이다. 줄이지 말 것 (2026-09-04 사용자 지시 "상자 크기는 왜 줄였어").
+     PD가 교보 소식 축 4단계를 한 줄에 넣으려고 196px로 줄였다가 되돌렸다.
+     사용자가 원한 건 노드를 좁히는 게 아니라 **선이 단계 순서대로 이어지는 것**이었다.
+     폭이 모자라면 줄을 바꿔도 된다 — 대신 줄바꿈 선을 분기선과 구분되게 그린다
+     (_run_graph.html의 교보 소식 축 주석 참고).
+     ⚠️ 이 값을 바꾸면 _run_graph.html의 파생 치수 셋을 함께 고쳐야 한다 —
+        w-[616px](분기·줄바꿈 블록 = 276 + 64 + 276), w-[138px](= 276 / 2),
+        min-w-[900px](리서치 1행 = 276×3 + 36×2).
+
+  ⚠️ 실행·검토 주소는 url 템플릿태그로 역참조하지 않고 컨텍스트 문자열(job.run_url,
+     job.review_url)로 받는다. 아직 만들지 않은 URL 이름을 역참조하면 NoReverseMatch로
+     페이지 전체가 죽어서, 뷰가 붙기 전에는 화면을 열어볼 수조차 없게 된다.
+{% endcomment %}
+
+<div class="run-node w-[276px] flex-shrink-0 bg-white rounded-[10px] border-2 shadow-sm p-4 relative overflow-hidden transition-opacity
+            {% if job.state == 'running' %}border-yellow-300
+            {% elif job.state == 'review' %}border-primary
+            {% elif job.state == 'done' %}border-green-300
+            {% elif job.state == 'failed' %}border-red-300
+            {% else %}border-[#E5E5E5]{% endif %}
+            {% if dimmed and job.state != 'running' %}opacity-60{% endif %}"
+     data-state="{{ job.state|default:'idle' }}">
+
+  {% comment %} 상태 배지 — 한국어 텍스트가 정본이고 테두리 색은 훑기용 보조다(접근성). {% endcomment %}
+  <span class="absolute top-3 right-3 text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap
+    {% if job.state == 'running' %}bg-yellow-100 text-yellow-700
+    {% elif job.state == 'review' %}bg-primary/10 text-primary
+    {% elif job.state == 'done' %}bg-green-100 text-green-700
+    {% elif job.state == 'failed' %}bg-red-100 text-red-600
+    {% else %}bg-gray-100 text-gray-500{% endif %}">
+    {{ job.state_label|default:"대기" }}
+  </span>
+
+  {% comment %} 아이콘 타일 — n8n 노드의 앱 아이콘 자리. sparkles가 "LLM이 돈다"를 말한다. {% endcomment %}
+  <div class="w-9 h-9 rounded-[10px] bg-primary/10 flex items-center justify-center">
+    <i data-lucide="{{ icon|default:'sparkles' }}" class="w-4 h-4 text-primary"></i>
+  </div>
+
+  <p class="text-sm font-semibold text-gray-900 mt-3">{{ label }}</p>
+  <p class="text-xs text-gray-400 mt-1">{{ description }}</p>
+
+  <div class="mt-3 pt-3 border-t border-gray-100 min-h-[80px] flex flex-col justify-between gap-2">
+
+    {% comment %}
+      요약 한 줄. 실행 중일 때는 경과 시간이 그 자리를 대신한다 —
+      숫자가 올라가는 것이 "멈춘 게 아니다"를 말한다(스피너는 그걸 못 말한다).
+      경과 시간은 서버가 계산해 문자열로 내려준다(클라이언트 setInterval 금지 —
+      탭이 백그라운드로 가면 브라우저가 타이머를 조인다).
+    {% endcomment %}
+    {% if job.state == 'running' %}
+    <div class="flex items-center gap-1.5">
+      <svg class="animate-spin w-3.5 h-3.5 text-primary flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+      </svg>
+      <span class="text-xs text-gray-500">{{ job.elapsed|default:"실행하고 있어요" }}</span>
+    </div>
+    {% else %}
+    <p class="text-xs text-gray-500 leading-relaxed">{{ job.summary|default:"아직 실행한 적이 없어요" }}</p>
+    {% endif %}
+
+    {% comment %}
+      선행 작업 미완 경고. 막지 않고 알려만 준다 — 어제 1번을 끝내고 오늘 수집만 한 날처럼
+      건너뛰는 게 정당한 경우가 실제로 있어서 상태 기계로 정확히 판정할 수 없다.
+    {% endcomment %}
+    {% if job.warning and not dimmed %}
+    <p class="text-[10px] text-orange-500 leading-relaxed">{{ job.warning }}</p>
+    {% endif %}
+
+    {% comment %} 주 동작은 항상 하나만 노출한다 — 검토 대기면 [검토하기], 그 외엔 [실행]. {% endcomment %}
+    {% if job.state == 'review' and job.review_url %}
+    <a href="{{ job.review_url }}"
+       class="flex items-center justify-center gap-1.5 px-4 py-2 bg-primary text-white text-xs font-medium rounded-[10px] hover:bg-primary-hover transition-colors">
+      결과 검토하기
+      <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+    </a>
+
+    {% elif job.state == 'running' %}
+    {% comment %}
+      실행 중인 본인 노드. 다른 노드가 막힌 이유("다른 작업이 실행 중이에요")와
+      말이 달라야 해서 분기를 따로 뒀다. 진행 상황은 위 경과 시간 줄이 말한다.
+    {% endcomment %}
+    <button type="button" disabled
+            title="지금 실행하고 있어요"
+            class="flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-medium rounded-[10px] opacity-40 cursor-not-allowed
+                   {% if outline %}border border-primary text-primary bg-white{% else %}bg-primary text-white{% endif %}">
+      실행 중
+    </button>
+
+    {% elif job.can_run and job.run_url and not dimmed %}
+    {% comment %}
+      hx-disabled-elt="this" — 응답이 올 때까지 버튼을 잠가 연타를 막는다.
+      LLM 호출이 분 단위라 이게 없으면 같은 작업이 두 번 돌고 비용이 두 배가 된다.
+      HTMX 2.0.3에서 지원한다(static/vendor/htmx.min.js 확인).
+    {% endcomment %}
+    <button type="button"
+            hx-post="{{ job.run_url }}"
+            hx-target="#run-graph"
+            hx-swap="outerHTML"
+            hx-include="[name=csrfmiddlewaretoken]"
+            hx-indicator="#run-spinner-{{ key }}"
+            hx-disabled-elt="this"
+            {% if job.confirm_text %}hx-confirm="{{ job.confirm_text }}"{% endif %}
+            class="flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-medium rounded-[10px] transition-colors disabled:opacity-50
+                   {% if outline %}border border-primary text-primary bg-white hover:bg-primary/5{% else %}bg-primary text-white hover:bg-primary-hover{% endif %}">
+      <span id="run-spinner-{{ key }}" class="htmx-indicator items-center">
+        <svg class="animate-spin w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+        </svg>
+      </span>
+      실행
+    </button>
+
+    {% else %}
+    {% comment %}
+      비활성. 왜 막혔는지 title로 알려준다. 이유가 없으면(뷰 미구현 등) 기본 문구를 쓴다.
+      비활성을 남발하지 않는 이유는 design.md "핵심 결정 ③" 참고.
+    {% endcomment %}
+    <button type="button" disabled
+            title="{% if dimmed %}다른 작업이 실행 중이에요. 끝나면 다시 누를 수 있어요{% else %}{{ job.block_reason|default:'아직 실행할 수 없어요' }}{% endif %}"
+            class="flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-medium rounded-[10px] opacity-40 cursor-not-allowed
+                   {% if outline %}border border-primary text-primary bg-white{% else %}bg-primary text-white{% endif %}">
+      실행
+    </button>
+    {% endif %}
+  </div>
+
+  {% comment %}
+    ── 애니메이션 A. 카드 진행 바 (기본으로 켜져 있어요) ──────────────────
+    실행 중인 노드의 아래 한 변(276 × 3px)에서만 움직인다.
+    켜고 끄는 방법은 run.html 위쪽 <style> 블록의 주석에 정리해 뒀다.
+    캔버스에 .run-anim-bar가 없으면 이 div는 CSS에서 display:none이라 아무 일도 안 한다.
+  {% endcomment %}
+  <div class="run-progress absolute left-0 bottom-0 h-[3px] w-full overflow-hidden">
+    <div class="run-progress-fill h-full w-1/3 bg-yellow-400"></div>
+  </div>
+</div>

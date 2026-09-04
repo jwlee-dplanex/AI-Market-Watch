@@ -54,6 +54,18 @@ class Prompt(models.Model):
 
 
 class Schedule(models.Model):
+    """🔴 폐기됨(2026-09-04, 사용자 확정) — SET-004(스케줄 관리) 화면과 그 화면이 쓰던
+    services/scheduler.py(APScheduler)를 함께 지웠다. "사람이 눌러야만 돈다"(SET-010
+    수동 실행 체제)를 깰 수 있는 마지막 자동 실행 경로였다 — pk=1이 is_active=False라
+    지금은 안 걸렸지만, 화면에서 토글 한 번이면 사람 승인 없이 수집이 자동으로 돌기
+    시작할 수 있었다.
+
+    모델과 pk=1 레코드는 지우지 않고 남긴다. `last_run_at`(07/29 09:00)이
+    `docs/planning.md` 여러 절이 인용하는 실측 근거이기 때문이다 — 이제 이 값을
+    갱신하는 코드는 없으므로(그 값을 읽던 화면도 없다) 화석으로만 남는다. 이 테이블을
+    다시 스케줄러에 등록하는 코드는 프로젝트 전체에 없다(ACTOR_CATCHUP과 같은 처리
+    — 화면·코드는 없지만 과거 실측을 위해 데이터만 보존)."""
+
     TYPE_CHOICES = [
         ("collect", "뉴스 수집"),
         ("report", "보고서 생성"),
@@ -77,8 +89,13 @@ class CollectionLog(models.Model):
 
     # 수집 파이프라인 관측성 정책(docs/planning.md, 2026-08-04): 실행 주체를 구분해 기록한다.
     # "자동 수집이 도는가"를 판단하려면 수동 실행분이 섞이면 안 되기 때문이다. 기존 로그는 전부
-    # _job_collect(스케줄) 경로에서만 남았던 것이 코드로 보증되므로, 아래 default(ACTOR_SCHEDULED)로
-    # 마이그레이션 시 그대로 백필한다.
+    # _job_collect(스케줄) 경로에서만 남았던 것이 코드로 보증되므로, 그때는 default(ACTOR_SCHEDULED)로
+    # 마이그레이션 시 그대로 백필했다.
+    # 🔴 ACTOR_SCHEDULED: 폐기됨(2026-09-04) — 이 값을 만들어내던 services/scheduler.py와
+    # SET-004 화면을 함께 지웠다(Schedule 모델 docstring 참고). 값은 지우지 않는다 —
+    # 과거 CollectionLog에 이 값이 실제로 남아 있어(자동 스케줄 시절의 진짜 기록), 상수를
+    # 지우면 그 로그의 choices 표시가 깨진다. 앞으로 이 값으로 새로 기록되는 로그는 없어야
+    # 하므로(아래 actor default가 ACTOR_MANUAL로 바뀐 이유), 이 값이 보이면 전부 과거 기록이다.
     ACTOR_SCHEDULED = "자동(스케줄)"
     ACTOR_MANUAL = "수동(화면)"
     # ⚠️ ACTOR_CATCHUP: 기동 시 당일 수집 보정(catch-up) 기능은 2026-08-04에 도입했다가 같은 날
@@ -100,7 +117,11 @@ class CollectionLog(models.Model):
     collected_count = models.IntegerField(default=0)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES)
     error_message = models.TextField(null=True, blank=True)
-    actor = models.CharField(max_length=20, choices=ACTOR_CHOICES, default=ACTOR_SCHEDULED)
+    # default는 ACTOR_MANUAL이다(2026-09-04, 스케줄 폐기와 함께 변경) — 스케줄이 없어진
+    # 뒤로는 actor를 명시하지 않고 CollectionLog를 만드는 경로가 생기면 그게 곧 "지금
+    # 실행 주체가 수동"이라는 뜻이어야 한다. 예전처럼 ACTOR_SCHEDULED를 기본값으로 두면
+    # 관측성 정책이 없애려던 "자동(스케줄)"이라는 거짓 로그가 새로 만들어진다.
+    actor = models.CharField(max_length=20, choices=ACTOR_CHOICES, default=ACTOR_MANUAL)
     # 크롤 실패 관측성(2026-08-19, PE 작업 배경: 본문이 152자만 수집된 기사가 조용히 저장돼
     # 관련성 판정 근거가 부실해졌고, 결국 KB금융 별칭 오매칭으로 이어져 News·Insight를 함께
     # 삭제한 사고가 실제로 있었다). 실패 판정 자체는 새로 만든 게 아니라

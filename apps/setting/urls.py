@@ -2,6 +2,12 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    path("run/", views.setting_run, name="setting_run"),
+    path("run/graph/", views.setting_run_graph, name="setting_run_graph"),
+    path("run/<str:job>/start/", views.setting_run_start, name="setting_run_start"),
+    path("run/review/<str:job>/", views.setting_run_review, name="setting_run_review"),
+    path("run/review/<str:job>/confirm/", views.setting_run_review_confirm, name="setting_run_review_confirm"),
+    path("run/review/<str:job>/cancel/", views.setting_run_review_cancel, name="setting_run_review_cancel"),
     path("sources/", views.sources, name="setting_sources"),
     path("sources/<int:pk>/toggle/", views.source_toggle, name="setting_source_toggle"),
     path("sources/collect-now/", views.collect_now, name="setting_collect_now"),
@@ -9,8 +15,6 @@ urlpatterns = [
     path("keywords/add/", views.keyword_add, name="setting_keyword_add"),
     path("keywords/<int:pk>/update/", views.keyword_update, name="setting_keyword_update"),
     path("keywords/<int:pk>/delete/", views.keyword_delete, name="setting_keyword_delete"),
-    path("prompts/", views.prompts, name="setting_prompts"),
-    path("schedule/", views.schedule, name="setting_schedule"),
     path("slack/", views.slack, name="setting_slack"),
     path("logs/", views.logs, name="setting_logs"),
     path("organizations/", views.organizations, name="setting_organizations"),
@@ -23,9 +27,6 @@ urlpatterns = [
     path("tech-topics/<int:pk>/toggle/", views.tech_topic_toggle, name="setting_tech_topic_toggle"),
     path("tech-topics/<int:pk>/delete/", views.tech_topic_delete, name="setting_tech_topic_delete"),
     path("tech-topics/remap/", views.remap_tech_topics_now, name="setting_remap_tech_topics_now"),
-    path("schedule/save/", views.schedule_save, name="setting_schedule_save"),
-    path("schedule/<int:pk>/toggle/", views.schedule_toggle, name="setting_schedule_toggle"),
-    path("schedule/<int:pk>/delete/", views.schedule_delete, name="setting_schedule_delete"),
     path("newsroom/", views.setting_newsroom, name="setting_newsroom"),
     path("newsroom/save/", views.setting_newsroom_save, name="setting_newsroom_save"),
     path("newsroom/<int:pk>/delete/", views.setting_newsroom_delete, name="setting_newsroom_delete"),

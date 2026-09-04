@@ -35,6 +35,13 @@
     </tbody>
   </table>
 
+  {% comment %}
+    hx-disabled-elt="this" 추가 (2026-09-04, PD). 응답이 올 때까지 버튼을 잠가 연타를
+    막는다. 이게 없어서 수집이 도는 동안에도 버튼이 계속 눌렸고, 같은 수집이 겹쳐 도는
+    상태가 만들어질 수 있었다. disabled:opacity-50이 아래 class에 이미 있어서 잠긴 것도
+    눈에 보인다. HTMX 2.0.3에서 지원한다(static/vendor/htmx.min.js 확인).
+    SET-010 실행 화면의 노드 버튼들도 같은 속성을 쓴다.
+  {% endcomment %}
   <div class="px-5 py-4 border-t border-gray-100 flex items-center gap-3">
     <button type="button"
             hx-post="{% url 'setting_collect_now' %}"
@@ -42,6 +49,7 @@
             hx-swap="innerHTML"
             hx-include="[name=csrfmiddlewaretoken]"
             hx-indicator="#collect-spinner"
+            hx-disabled-elt="this"
             class="flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-xs font-medium rounded-[10px] hover:bg-primary-hover transition-colors disabled:opacity-50">
       <i data-lucide="play" class="w-3.5 h-3.5"></i>
       지금 수집

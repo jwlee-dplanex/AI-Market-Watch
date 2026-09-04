@@ -1,11 +1,12 @@
 from django.db.models import Count, Min, Max, Exists, OuterRef
+from django.http import Http404, HttpResponse
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 from apps.news.models import News
 from .models import (
-    DataSource, Keyword, Prompt, Schedule, CollectionLog, LLMLog, SlackConfig,
+    DataSource, Keyword, CollectionLog, LLMLog, SlackConfig,
     Organization, TechTopic, OrgRelation,
 )
 
@@ -16,14 +17,20 @@ UNVERIFIED_STALE_DAYS = 2
 
 def _setting_menu(active):
     items = [
+        # 최상단 — 매일 쓰는 항목이라 맨 아래에 묻히면 안 된다(docs/design.md SET-010
+        # "진입점" 표, templates/setting/run.html PE 인계 절).
+        {"label": "실행",       "icon": "play-circle",    "name": "setting_run",           "key": "run"},
         {"label": "데이터 소스", "icon": "database",      "name": "setting_sources",       "key": "sources"},
         {"label": "키워드",     "icon": "tag",            "name": "setting_keywords",      "key": "keywords"},
         {"label": "기업",       "icon": "building-2",     "name": "setting_organizations", "key": "organizations"},
         {"label": "기술 주제",  "icon": "cpu",            "name": "setting_tech_topics",   "key": "tech_topics"},
-        {"label": "프롬프트",   "icon": "file-text",      "name": "setting_prompts",       "key": "prompts"},
-        {"label": "스케줄",     "icon": "clock",          "name": "setting_schedule",      "key": "schedule"},
         {"label": "Slack",      "icon": "slack",          "name": "setting_slack",         "key": "slack"},
-        {"label": "뉴스룸",     "icon": "radio",          "name": "setting_newsroom",      "key": "newsroom"},
+        # 라벨 "소식" (2026-09-04) — 사용자 대상 화면(ROOM-001/002)이 "뉴스룸"이라는
+        # 낱말을 이미 걷어냈고(templates/newsroom/*.html), 그 화면들의 빈 상태 안내
+        # 문구가 "설정 > 소식에서…"라고 말하므로 이 라벨도 맞춰야 안내가 실제로 길을
+        # 가리킨다(templates/base.html newsroom_nav 계약 "함께 바꿔야 할 한 곳").
+        # URL 이름(setting_newsroom)과 화면 ID(SET-009)는 그대로다.
+        {"label": "소식",       "icon": "radio",          "name": "setting_newsroom",      "key": "newsroom"},
         {"label": "로그",       "icon": "scroll-text",    "name": "setting_logs",          "key": "logs"},
     ]
     for item in items:
@@ -51,6 +58,150 @@ def collect_now(request):
     # 관측성 정책" 2번 — 호출부에 로그 책임을 맡기지 않는 구조 결정).
     stats = run_collection(actor=CollectionLog.ACTOR_MANUAL)
     return render(request, "setting/_collect_result.html", {"stats": stats})
+
+
+# --- SET-010 실행 (수동 LLM 실행 + 승인 게이트) ---
+# docs/design.md "SET-010 · 실행" 절, templates/setting/run.html 상단 {% comment %}이
+# 정본 컨텍스트 계약이다. 이번 라운드는 "화면이 실제로 열리는 데까지"가 범위라
+# 0번(수집)만 실제로 동작하고, 1~4번(LLM 처리)은 services/llm.py가 비어 있어
+# 비활성으로 둔다(RunJob·RunProposal 모델의 완전한 구현은 다음 라운드).
+
+RUN_JOB_KEYS = ("collect", "cleanup", "insight", "weekly", "monthly")
+
+# "재료가 없다"와 "아직 만들지 않았다"는 다른 이유다(오케스트레이터 지시) — 1~4번은
+# 전부 후자이므로, 재료 건수를 세는 코드를 만들지 않고 이 고정 문구 하나만 쓴다.
+# run.html 상단 계약의 block_reason 예시 문구를 그대로 따른다.
+NOT_IMPLEMENTED_REASON = "아직 만들지 않은 기능이에요"
+
+RUN_JOB_LABELS = {
+    "collect": "수집",
+    "cleanup": "1번 뉴스 정리",
+    "insight": "2번 시사점",
+    "weekly": "3번 주간 보고서",
+    "monthly": "4번 결산 보고서",
+}
+
+
+def _run_jobs_context():
+    """run.html/_run_graph.html이 기대하는 jobs dict(5개 키 고정). 실행이 요청-응답
+    한 번 안에서 동기로 끝나므로(백그라운드 잡 없음, RunJob 모델은 이번 범위 밖)
+    'running' 상태는 이 함수가 만들지 않는다 — 실행 중 표시는 HTMX
+    hx-indicator(_run_node.html)가 요청이 떠 있는 동안만 보여준다."""
+    latest = CollectionLog.objects.order_by("-started_at").first()
+    if latest:
+        failed = latest.status == "fail"
+        collect_job = {
+            "state": "failed" if failed else "done",
+            "state_label": "실패" if failed else "완료",
+            "summary": f"{timezone.localtime(latest.started_at):%H:%M}에 {latest.collected_count}건 모았어요",
+        }
+    else:
+        collect_job = {"state": "idle", "state_label": "대기", "summary": ""}
+
+    jobs = {
+        "collect": {
+            **collect_job,
+            "can_run": True,
+            "block_reason": "",
+            "warning": "",
+            "confirm_text": "",
+            "run_url": reverse("setting_run_start", args=["collect"]),
+            "review_url": "",
+        },
+    }
+    for key in RUN_JOB_KEYS[1:]:
+        jobs[key] = {
+            "state": "idle",
+            "state_label": "대기",
+            "summary": NOT_IMPLEMENTED_REASON,
+            "can_run": False,
+            "block_reason": NOT_IMPLEMENTED_REASON,
+            "warning": "",
+            "confirm_text": "",
+            "run_url": "",
+            "review_url": reverse("setting_run_review", args=[key]),
+        }
+    return jobs
+
+
+def setting_run(request):
+    return render(request, "setting/run.html", {
+        "setting_menu": _setting_menu("run"),
+        "graph_url": reverse("setting_run_graph"),
+        "running_job": None,
+        "jobs": _run_jobs_context(),
+    })
+
+
+def setting_run_graph(request):
+    """폴링 대상 조각(3초). 지금은 모든 실행이 동기라 running_job이 항상 None이고,
+    _run_graph.html은 running_job이 없으면 폴링 트리거 자체를 달지 않는다 — 그래서
+    이 뷰가 실제로 반복 호출될 일은 아직 없지만, 계약대로 URL은 열려 있어야 한다."""
+    return render(request, "setting/_run_graph.html", {
+        "graph_url": reverse("setting_run_graph"),
+        "running_job": None,
+        "jobs": _run_jobs_context(),
+    })
+
+
+@require_POST
+def setting_run_start(request, job):
+    if job not in RUN_JOB_KEYS:
+        raise Http404
+    if job == "collect":
+        from services.collector import run_collection
+        run_collection(actor=CollectionLog.ACTOR_MANUAL)
+    # cleanup/insight/weekly/monthly — services/llm.py가 비어 있어 아직 아무 일도
+    # 하지 않는다(범위 밖). 노드 자체가 run_url 없이 비활성이라 UI에서는 여기로 POST가
+    # 오지 않지만, 직접 호출되더라도 그래프를 안전하게 다시 그려 준다.
+    return render(request, "setting/_run_graph.html", {
+        "graph_url": reverse("setting_run_graph"),
+        "running_job": None,
+        "jobs": _run_jobs_context(),
+    })
+
+
+def setting_run_review(request, job):
+    """SET-010 검토 화면(승인 게이트). 확정 대기 목록(RunProposal 가칭)이 아직 없으므로
+    review 컨텍스트는 job_label/back_url만 채우고 나머지는 빈 상태로 정상 렌더된다
+    (run_review.html 상단 계약 — "전부 없어도 화면은 빈 상태로 정상 렌더된다").
+
+    🔴 이 화면이 검증 게이트의 네 번째 예외(docs/planning.md "검증 게이트" 2-(D),
+    apps/news/models.py NewsQuerySet.verified() docstring)가 적용되는 자리다. 지금은
+    보여줄 확정 대기 목록 자체가 없어 미검증 News를 실제로 조회하지 않지만, 1~4번
+    구현 시에도 여기서는 News.objects.verified()가 아니라 미검증만 뽑는 별도 조회를
+    써야 한다(verified()에 게이트를 끄는 옵션 인자를 뚫지 않는다)."""
+    if job not in RUN_JOB_KEYS:
+        raise Http404
+    return render(request, "setting/run_review.html", {
+        "setting_menu": _setting_menu("run"),
+        "review": {
+            "job_label": RUN_JOB_LABELS[job],
+            "back_url": reverse("setting_run"),
+            "confirm_url": "",
+            "cancel_url": "",
+        },
+        "grade_choices": [],
+    })
+
+
+@require_POST
+def setting_run_review_confirm(request, job):
+    if job not in RUN_JOB_KEYS:
+        raise Http404
+    # 확정할 RunProposal이 아직 없다 — 화면 계약대로 실행 화면으로 돌려보낸다.
+    response = HttpResponse()
+    response["HX-Redirect"] = reverse("setting_run")
+    return response
+
+
+@require_POST
+def setting_run_review_cancel(request, job):
+    if job not in RUN_JOB_KEYS:
+        raise Http404
+    response = HttpResponse()
+    response["HX-Redirect"] = reverse("setting_run")
+    return response
 
 
 @require_POST
@@ -108,26 +259,6 @@ def keyword_add(request):
 def keyword_delete(request, pk):
     Keyword.objects.filter(pk=pk).delete()
     return render(request, "setting/_keywords.html", _keyword_context())
-
-
-def prompts(request):
-    if request.method == "POST":
-        prompt_id = request.POST.get("prompt_id")
-        content = request.POST.get("content", "")
-        from django.utils.timezone import now
-        Prompt.objects.filter(pk=prompt_id).update(content=content, updated_at=now())
-        return redirect("setting_prompts")
-    return render(request, "setting/prompts.html", {
-        "setting_menu": _setting_menu("prompts"),
-        "prompts": Prompt.objects.all(),
-    })
-
-
-def schedule(request):
-    return render(request, "setting/schedule.html", {
-        "setting_menu": _setting_menu("schedule"),
-        **_schedule_context(),
-    })
 
 
 def slack(request):
@@ -311,80 +442,6 @@ def tech_topic_toggle(request, pk):
 def tech_topic_delete(request, pk):
     TechTopic.objects.filter(pk=pk).delete()
     return render(request, "setting/_tech_topics.html", _tech_topic_context())
-
-
-def _schedule_context():
-    """SET-004(스케줄 관리) 공통 컨텍스트. schedule()(전체 화면)과 schedule_save/toggle/delete
-    (HTMX 프래그먼트 _schedule_list.html)가 이 함수 하나를 공유한다 — 예전엔 schedule()이 이 함수를
-    안 쓰고 자체적으로 Schedule.objects.all()을 조회해 정렬·부가 데이터가 어긋날 수 있었다.
-
-    각 Schedule 객체에 is_registered(실제로 스케줄러 잡이 걸려 있는가)를 얹는다. is_active(사용자
-    의도)와 별개 값으로 내려준다 — 두 값이 어긋나면 그 자체가 경보라는 것이 관측성 정책의 핵심이다
-    (docs/planning.md "수집 파이프라인 관측성 정책" 3-(c)). 표시 방식은 PD 몫이며 여기서는 값만
-    준비한다."""
-    from services import scheduler
-    schedules = list(Schedule.objects.all().order_by("schedule_type"))
-    for sched in schedules:
-        sched.is_registered = scheduler.is_registered(sched.pk)
-    return {"schedules": schedules}
-
-
-@require_POST
-def schedule_save(request):
-    from apscheduler.triggers.cron import CronTrigger
-    pk = request.POST.get("pk", "").strip()
-    stype = request.POST.get("schedule_type", "")
-    cron_expr = request.POST.get("cron_expr", "").strip()
-    is_active = request.POST.get("is_active") == "on"
-
-    try:
-        CronTrigger.from_crontab(cron_expr)
-    except Exception:
-        return render(request, "setting/_schedule_list.html",
-                      {**_schedule_context(), "error": f"잘못된 cron 표현식: {cron_expr}"})
-
-    if pk:
-        sched = get_object_or_404(Schedule, pk=pk)
-        sched.schedule_type = stype
-        sched.cron_expr = cron_expr
-        sched.is_active = is_active
-        sched.save()
-    else:
-        sched = Schedule.objects.create(
-            schedule_type=stype, cron_expr=cron_expr, is_active=is_active
-        )
-
-    from services import scheduler
-    if sched.is_active:
-        scheduler.register(sched)
-    else:
-        scheduler.unregister(sched.pk)
-
-    return render(request, "setting/_schedule_list.html", _schedule_context())
-
-
-@require_POST
-def schedule_toggle(request, pk):
-    sched = get_object_or_404(Schedule, pk=pk)
-    sched.is_active = not sched.is_active
-    sched.save()
-
-    from services import scheduler
-    if sched.is_active:
-        scheduler.register(sched)
-    else:
-        scheduler.unregister(sched.pk)
-
-    return render(request, "setting/_schedule_list.html", _schedule_context())
-
-
-@require_POST
-def schedule_delete(request, pk):
-    sched = get_object_or_404(Schedule, pk=pk)
-    from services import scheduler
-    scheduler.unregister(sched.pk)
-    sched.delete()
-    return render(request, "setting/_schedule_list.html", _schedule_context())
 
 
 @require_POST
