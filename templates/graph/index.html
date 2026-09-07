@@ -263,10 +263,14 @@ sim.on('tick', () => {
 // 그만큼 미리 돌린 뒤 좌표를 확정하고, 배율까지 맞춘 상태로 한 번만 그린다.
 // 결과적으로 초기 애니메이션이 아예 없다.
 //
-// ⚠️ sim을 stop()만 하고 두면 드래그가 죽는다. 아래 tickOnce()가 tick 핸들러와
-//    같은 일을 하므로, 드래그 중에는 기존 sim.on('tick')이 그대로 동작한다.
+// ⚠️ sim을 stop()만 하고 두면 드래그가 죽는다. 아래에서 tick 핸들러를 직접 부르고
+//    핸들러 자체는 그대로 두므로, 드래그 중에는 기존 sim.on('tick')이 동작한다.
 sim.stop();
 for (let i = 0; i < 300; i += 1) sim.tick();
+
+// 확정된 좌표를 노드마다 보관한다. 아래 안착 애니메이션이 여기로 되돌아온다.
+nodes.forEach(d => { d.fx0 = d.x; d.fy0 = d.y; });
+
 sim.on('tick').call(sim);   // 확정된 좌표를 DOM에 한 번 반영
 
 if (nodes.length) {
@@ -278,8 +282,53 @@ if (nodes.length) {
   const scale = Math.max(0.1, Math.min(4, 1 / Math.max(boxW / W, boxH / H)));
   const tx = W / 2 - scale * (x0 + x1) / 2;
   const ty = H / 2 - scale * (y0 + y1) / 2;
-  // ⚠️ transition을 쓰지 않는다. 그리기 전에 확정해야 "처음부터 전체"가 된다.
+  // ⚠️ transition을 쓰지 않는다. 배율은 그리기 전에 확정해야 "처음부터 전체"가 된다.
+  //    아래 안착 애니메이션은 배율이 아니라 노드 좌표만 움직인다.
   svg.call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+}
+
+// 진입 안착 애니메이션 (2026-09-07 사용자 지시 — "너무 정적이라 처음에 좀 움직였으면
+// 좋겠는데 그래야 움직일 수 있다는 것을 알게 되니까").
+//
+// 🔴 2026-09-04에 지운 그 움직임과 다른 것이다. 그때는 노드가 뭉친 상태에서
+//    수백 틱 동안 퍼졌다 — 이동 거리가 화면 폭만큼 크고 1~2초 걸렸다.
+//    여기는 **완성 위치에서 최대 ±JITTER 만큼만** 어긋난 채 출발해 DURATION 안에
+//    제자리로 온다. 어디로 갈지가 이미 정해진 상태에서 정착만 보여준다.
+//    배율은 위에서 이미 확정됐으므로 화면 전체가 확대·축소되지 않는다.
+//
+// 끄는 법: RUN_SETTLE 을 false 로. 세기 조절: JITTER(px), DURATION(ms).
+const RUN_SETTLE = true;
+const JITTER = 15;
+const DURATION = 500;
+
+const prefersReducedMotion =
+  window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+if (RUN_SETTLE && !prefersReducedMotion && nodes.length) {
+  // 결정적 의사난수 — 새로고침마다 흔들리는 방향이 달라지면 산만하다.
+  // 노드 인덱스로 각도를 고르게 흩어 매번 같은 모양으로 안착한다.
+  nodes.forEach((d, i) => {
+    const a = (i * 2.399963);            // 황금각(rad) — 인접 노드끼리 방향이 겹치지 않는다
+    const r = JITTER * (0.4 + 0.6 * ((i * 7) % 10) / 9);
+    d.x = d.fx0 + Math.cos(a) * r;
+    d.y = d.fy0 + Math.sin(a) * r;
+  });
+  sim.on('tick').call(sim);              // 어긋난 위치로 한 프레임 그린다
+
+  const t0 = performance.now();
+  const ease = t => 1 - Math.pow(1 - t, 3);   // easeOutCubic — 빠르게 붙고 부드럽게 멈춘다
+  const settle = now => {
+    const t = Math.min(1, (now - t0) / DURATION);
+    const k = ease(t);
+    nodes.forEach(d => {
+      d.x = d.x + (d.fx0 - d.x) * k;
+      d.y = d.y + (d.fy0 - d.y) * k;
+    });
+    sim.on('tick').call(sim);
+    if (t < 1) requestAnimationFrame(settle);
+    else nodes.forEach(d => { d.x = d.fx0; d.y = d.fy0; });   // 오차 없이 정확히 안착
+  };
+  requestAnimationFrame(settle);
 }
 
 // 배경 클릭 → 하이라이트 초기화
