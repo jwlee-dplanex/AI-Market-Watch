@@ -63,29 +63,43 @@ def collect_now(request):
 # --- SET-010 실행 (수동 LLM 실행 + 승인 게이트) ---
 # docs/design.md "SET-010 · 실행" 절, templates/setting/run.html 상단 {% comment %}이
 # 정본 컨텍스트 계약이다. 이번 라운드는 "화면이 실제로 열리는 데까지"가 범위라
-# 0번(수집)만 실제로 동작하고, 1~4번(LLM 처리)은 services/llm.py가 비어 있어
+# 1단계 수집(양쪽 축 모두)만 실제로 동작하고 나머지는 services/llm.py가 비어 있어
 # 비활성으로 둔다(RunJob·RunProposal 모델의 완전한 구현은 다음 라운드).
+#
+# 🔴 2026-09-04 개정 — jobs 하나가 research_jobs(AI 시장 조사 축)와
+# newsroom_jobs(교보 소식 축) 둘로 갈렸다(사용자 지시, run.html 상단 계약 참고).
+# 두 축의 job 키가 URL(setting/run/<job>/start/)에 그대로 들어가므로 이름이
+# 겹치면 안 된다 — 그래서 교보 소식 쪽에 newsroom_ 접두어를 붙였다.
 
-RUN_JOB_KEYS = ("collect", "cleanup", "insight", "weekly", "monthly")
+RESEARCH_JOB_KEYS = ("collect", "cleanup", "insight", "weekly", "monthly")
+NEWSROOM_JOB_KEYS = ("newsroom_collect", "newsroom_filter", "newsroom_compose", "newsroom_send")
+RUN_JOB_KEYS = RESEARCH_JOB_KEYS + NEWSROOM_JOB_KEYS
 
-# "재료가 없다"와 "아직 만들지 않았다"는 다른 이유다(오케스트레이터 지시) — 1~4번은
-# 전부 후자이므로, 재료 건수를 세는 코드를 만들지 않고 이 고정 문구 하나만 쓴다.
+# "재료가 없다"와 "아직 만들지 않았다"는 다른 이유다(오케스트레이터 지시) — 미구현
+# 단계는 전부 후자이므로, 재료 건수를 세는 코드를 만들지 않고 이 고정 문구 하나만 쓴다.
 # run.html 상단 계약의 block_reason 예시 문구를 그대로 따른다.
 NOT_IMPLEMENTED_REASON = "아직 만들지 않은 기능이에요"
 
+# 라벨은 _run_graph.html의 include 태그(label=)가 정본이고, 여기 RUN_JOB_LABELS는
+# run_review.html의 job_label(검토 화면 제목)에만 쓰인다 — 화면과 어긋나면 안 되므로
+# _run_graph.html 상단 "노드 라벨 한곳 관리" 표와 같은 문구를 그대로 옮겼다.
 RUN_JOB_LABELS = {
-    "collect": "수집",
-    "cleanup": "1번 뉴스 정리",
-    "insight": "2번 시사점",
-    "weekly": "3번 주간 보고서",
-    "monthly": "4번 결산 보고서",
+    "collect": "1단계 수집",
+    "cleanup": "2단계 뉴스 정리",
+    "insight": "3단계 주요 이슈",
+    "weekly": "4단계 주간 보고서",
+    "monthly": "5단계 월간 보고서",
+    "newsroom_collect": "1단계 수집",
+    "newsroom_filter": "2단계 필터",
+    "newsroom_compose": "3단계 발송문",
+    "newsroom_send": "4단계 발송",
 }
 
 
-def _run_jobs_context():
-    """run.html/_run_graph.html이 기대하는 jobs dict(5개 키 고정). 실행이 요청-응답
-    한 번 안에서 동기로 끝나므로(백그라운드 잡 없음, RunJob 모델은 이번 범위 밖)
-    'running' 상태는 이 함수가 만들지 않는다 — 실행 중 표시는 HTMX
+def _research_jobs_context():
+    """run.html/_run_graph.html의 research_jobs(AI 시장 조사 축, 5개 키 고정).
+    실행이 요청-응답 한 번 안에서 동기로 끝나므로(백그라운드 잡 없음, RunJob 모델은
+    이번 범위 밖) 'running' 상태는 이 함수가 만들지 않는다 — 실행 중 표시는 HTMX
     hx-indicator(_run_node.html)가 요청이 떠 있는 동안만 보여준다."""
     latest = CollectionLog.objects.order_by("-started_at").first()
     if latest:
@@ -109,7 +123,72 @@ def _run_jobs_context():
             "review_url": "",
         },
     }
-    for key in RUN_JOB_KEYS[1:]:
+    for key in RESEARCH_JOB_KEYS[1:]:
+        jobs[key] = {
+            "state": "idle",
+            "state_label": "대기",
+            "summary": NOT_IMPLEMENTED_REASON,
+            "can_run": False,
+            "block_reason": NOT_IMPLEMENTED_REASON,
+            "warning": "",
+            "confirm_text": "",
+            "run_url": "",
+            "review_url": reverse("setting_run_review", args=[key]),
+        }
+    return jobs
+
+
+def _target_newsroom():
+    """SET-010 교보 소식 1단계 수집의 대상 채널을 고른다. _setting_menu()/newsroom_nav가
+    쓰는 "활성 채널이 1개면 그것" 규칙과 같은 방식이다(코디네이터 지시) — 채널이
+    여러 개로 늘면 그때 다시 판단한다. 활성이 0개거나 2개 이상이면 어느 채널을 돌릴지
+    정할 수 없으므로 None을 반환하고, 호출부가 그 이유를 block_reason으로 내려준다."""
+    from apps.newsroom.models import Newsroom
+    active_rooms = list(Newsroom.objects.filter(is_active=True))
+    return active_rooms[0] if len(active_rooms) == 1 else None
+
+
+def _newsroom_jobs_context():
+    """run.html/_run_graph.html의 newsroom_jobs(교보 소식 축, 4개 키 고정).
+    1단계 수집만 apps/newsroom/services.py의 collect_newsroom()을 실제로 부른다
+    (SET-009의 "지금 수집" 버튼과 같은 함수를 공유하는 두 번째 진입점).
+    2~4단계는 미구현이라 NOT_IMPLEMENTED_REASON으로 비활성이다."""
+    from apps.newsroom.models import Newsroom, NewsroomArticle
+
+    room = _target_newsroom()
+    if room:
+        latest_article = NewsroomArticle.objects.filter(newsroom=room).order_by("-collected_at").first()
+        if latest_article:
+            collect_job = {
+                "state": "done",
+                "state_label": "완료",
+                # CollectionLog는 본 파이프라인 전용이라 여기 쓰지 않는다(코디네이터 지시) —
+                # 마지막 실행 요약은 NewsroomArticle.collected_at으로 만든다.
+                "summary": f"{timezone.localtime(latest_article.collected_at):%H:%M}에 마지막으로 모았어요",
+            }
+        else:
+            collect_job = {"state": "idle", "state_label": "대기", "summary": ""}
+        collect_job.update({
+            "can_run": True,
+            "block_reason": "",
+            "warning": "",
+            "confirm_text": "",
+            "run_url": reverse("setting_run_start", args=["newsroom_collect"]),
+            "review_url": "",
+        })
+    else:
+        no_room_reason = (
+            "수집할 채널이 없어요" if not Newsroom.objects.filter(is_active=True).exists()
+            else "활성 채널이 여러 개라 어느 채널인지 정할 수 없어요"
+        )
+        collect_job = {
+            "state": "idle", "state_label": "대기", "summary": no_room_reason,
+            "can_run": False, "block_reason": no_room_reason,
+            "warning": "", "confirm_text": "", "run_url": "", "review_url": "",
+        }
+
+    jobs = {"newsroom_collect": collect_job}
+    for key in NEWSROOM_JOB_KEYS[1:]:
         jobs[key] = {
             "state": "idle",
             "state_label": "대기",
@@ -129,7 +208,8 @@ def setting_run(request):
         "setting_menu": _setting_menu("run"),
         "graph_url": reverse("setting_run_graph"),
         "running_job": None,
-        "jobs": _run_jobs_context(),
+        "research_jobs": _research_jobs_context(),
+        "newsroom_jobs": _newsroom_jobs_context(),
     })
 
 
@@ -140,7 +220,8 @@ def setting_run_graph(request):
     return render(request, "setting/_run_graph.html", {
         "graph_url": reverse("setting_run_graph"),
         "running_job": None,
-        "jobs": _run_jobs_context(),
+        "research_jobs": _research_jobs_context(),
+        "newsroom_jobs": _newsroom_jobs_context(),
     })
 
 
@@ -151,13 +232,21 @@ def setting_run_start(request, job):
     if job == "collect":
         from services.collector import run_collection
         run_collection(actor=CollectionLog.ACTOR_MANUAL)
-    # cleanup/insight/weekly/monthly — services/llm.py가 비어 있어 아직 아무 일도
-    # 하지 않는다(범위 밖). 노드 자체가 run_url 없이 비활성이라 UI에서는 여기로 POST가
-    # 오지 않지만, 직접 호출되더라도 그래프를 안전하게 다시 그려 준다.
+    elif job == "newsroom_collect":
+        room = _target_newsroom()
+        if room:
+            from apps.newsroom.services import collect_newsroom
+            collect_newsroom(room)
+        # 대상 채널을 못 고르면(0개 또는 2개 이상) 조용히 아무 일도 하지 않는다 —
+        # 노드 자체가 그 경우 can_run=False라 UI에서는 여기로 POST가 오지 않는다.
+    # 나머지 여섯 단계 — services/llm.py가 비어 있어 아직 아무 일도 하지 않는다
+    # (범위 밖). 노드 자체가 run_url 없이 비활성이라 UI에서는 여기로 POST가 오지
+    # 않지만, 직접 호출되더라도 그래프를 안전하게 다시 그려 준다.
     return render(request, "setting/_run_graph.html", {
         "graph_url": reverse("setting_run_graph"),
         "running_job": None,
-        "jobs": _run_jobs_context(),
+        "research_jobs": _research_jobs_context(),
+        "newsroom_jobs": _newsroom_jobs_context(),
     })
 
 
