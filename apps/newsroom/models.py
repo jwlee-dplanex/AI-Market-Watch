@@ -123,6 +123,38 @@ class NewsroomKeyword(models.Model):
         return f"[{self.newsroom.name}] {self.keyword}"
 
 
+class NewsroomAffiliate(models.Model):
+    """관계사 태그 대상(2026-09-08 신설, 사용자 확정 — 교보생명·교보증권·교보문고·
+    교보라이프플래닛·SBI저축은행·교보자산신탁·디플래닉스 일곱). 채널(`Newsroom`)에
+    붙는 데이터라 채널마다 다른 관계사 목록을 가질 수 있다.
+
+    ⚠️ `NewsroomKeyword`(수집 키워드)와는 완전히 다른 테이블이다 — "교보자산신탁"·
+    "디플래닉스"는 검색하지 않지만("교보" 키워드로 들어온 기사 안에서 잡힌다) 태그는
+    달아야 하므로 키워드 테이블을 재사용할 수 없다. 그룹 전체를 가리키는 "교보"는
+    관계사가 아니므로 여기 등록하지 않는다.
+
+    name/aliases 구조를 `apps.setting.models.Organization`과 똑같이 맞췄다 —
+    `services/collector.py`의 `_find_matching_entities()`(역방향 삼킴 방지 포함)를
+    그대로 재사용하기 위해서다. 새 별칭을 추가하기 전에는 그 함수와 같은 기준으로
+    다른 관계사의 이름/별칭 안에 삼켜지지 않는지 등록 전 대조가 필요하다(RA가 기업
+    등록 때 하는 양방향 대조와 같은 방식).
+
+    🔴 이 모델에는 태그 교정 경로를 만들지 않는다(2026-09-08 사용자 확정) — 교보
+    소식은 그룹 소식 채널이라 배경 언급이라도 관계사 태그가 맞다고 보고, 매칭 결과를
+    그대로 쓴다.
+    """
+
+    newsroom = models.ForeignKey(Newsroom, on_delete=models.CASCADE, related_name="affiliates")
+    name = models.CharField(max_length=100)
+    aliases = models.JSONField(default=list, blank=True)
+
+    class Meta:
+        ordering = ["pk"]
+
+    def __str__(self):
+        return self.name
+
+
 class PaidDomain(models.Model):
     """유료 구독(페이월) 매체 도메인 목록 — 코드 필터 3종 중 10-2번(docs/planning.md
     뉴스룸 정책 6번 표). **뉴스룸 공통 전역 설정이다(뉴스룸별이 아니다)**, 정책 9번
@@ -257,6 +289,11 @@ class NewsroomArticle(models.Model):
     # RA(사람)다. LLM 자동 판정 로직은 아직 없다(2단계 스코프) — 이 필드는 RA가 셸에서
     # 직접 채운다(judged_by와 같은 운영 관례). null=미판정, True=AI 관련, False=AI 아님.
     is_ai_related = models.BooleanField(null=True, blank=True, default=None)
+
+    # 관계사 태그(2026-09-08 추가) — News.organizations와 같은 구조. 수집 시점에
+    # 제목+본문에서 매칭해 채운다(services.py collect_newsroom()). 교정 경로는 없다 —
+    # NewsroomAffiliate docstring 참고.
+    affiliates = models.ManyToManyField(NewsroomAffiliate, blank=True, related_name="articles")
 
     objects = NewsroomArticleQuerySet.as_manager()
 

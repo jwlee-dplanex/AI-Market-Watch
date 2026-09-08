@@ -7,26 +7,12 @@ from .models import Newsroom, NewsroomArticle
 
 # ROOM-002 세 층 대시보드(docs/design.md ROOM-002 절, 2026-09-04) — PD 권장 자름 건수.
 HEADLINE_LIMIT = 5
-AFFILIATE_LIMIT = 3
 
-# 관계사 4칸 확정(2026-09-04, 사용자 원문: "SBI저축은행 이거 제외하고 / 교보생명,
-# 교보증권, 교보문고, 교보 라이프플래닛으로 하고"). (칸 이름, 유입 키워드 문자열) 쌍
-# 리스트다 — "교보 라이프플래닛" 칸만 유입 키워드 문자열("라이프플래닛")과 다르므로
-# 이름=키워드로 단순화할 수 없다. 순서도 이 리스트가 정한다.
-# ⚠️ 변수명(AFFILIATE_GROUP_KEYWORDS)·컨텍스트 키(affiliate_groups)는 바꾸지 않는다 —
-# "관계사"는 화면 문구일 뿐 코드 식별자는 PD 계약과 맞춰 영어 affiliate 그대로 둔다.
-#
-# 🔴 SBI저축은행은 칸에서만 빠진다 — NewsroomKeyword에서는 빼지 않는다(수집은 계속
-# 되고 맨 아래 전체 목록에 나온다). "SBI저축은행"은 "교보"로 절대 안 걸리므로 키워드를
-# 빼면 구조적으로 영원히 0건이 되고 과거 기사를 소급할 수 없다 — 칸을 나중에 되살리는
-# 게 키워드를 나중에 추가하는 것보다 훨씬 싸다(PM 판단). 키워드 자체를 빼라는 지시가
-# 오면 그때 마이그레이션에서 함께 뺀다.
-AFFILIATE_GROUP_KEYWORDS = [
-    ("교보생명", "교보생명"),
-    ("교보증권", "교보증권"),
-    ("교보문고", "교보문고"),
-    ("교보 라이프플래닛", "라이프플래닛"),
-]
+# 관계사 4칸(교보생명/교보증권/교보문고/교보 라이프플래닛) 층은 2026-09-08에 제거됐다
+# (docs/design.md ROOM-002 절 "층 구조" 참고). 관계사 태그는 이제 NewsroomAffiliate
+# 모델(apps/newsroom/models.py)로 옮겨 기사 카드 배지로만 노출한다 — 여기 있던
+# AFFILIATE_GROUP_KEYWORDS 모듈 상수(다중 채널을 막던 원인)와 affiliate_groups
+# 컨텍스트는 함께 걷어냈다.
 
 
 def newsroom_list(request):
@@ -46,17 +32,18 @@ def newsroom_list(request):
 
 
 def newsroom_detail(request, uid):
-    """ROOM-002 — 세 층 대시보드(헤드라인 / 관계사별 / 전체 목록, 2026-09-04) + 날짜별
-    그룹 목록. 노출 게이트는 NewsroomArticleQuerySet.for_newsroom_display() 하나로
-    모여 있다(5-1 예외 포함) — 세 층 전부 이 게이트를 거친 큐어리셋 위에서만 만든다.
-    직접 NewsroomArticle을 조회해 만들면 미판정·제외 기사가 대시보드 최상단으로
-    샌다(templates/newsroom/detail.html PE 인계 절 경고).
+    """ROOM-002 — 헤드라인 / 전체 목록 두 층 대시보드(2026-09-08, 관계사별 층은 제거됨.
+    docs/design.md ROOM-002 절 참고) + 날짜별 그룹 목록. 노출 게이트는
+    NewsroomArticleQuerySet.for_newsroom_display() 하나로 모여 있다(5-1 예외 포함) —
+    두 층 전부 이 게이트를 거친 큐어리셋 위에서만 만든다. 직접 NewsroomArticle을
+    조회해 만들면 미판정·제외 기사가 대시보드 최상단으로 샌다(templates/newsroom/
+    detail.html PE 인계 절 경고).
 
     검색(`?q=`) 중에는 ①②를 만들지 않는다 — "검색은 전체에서 찾기라 섹션 구조가
     방해된다"(템플릿 계약). ①②의 기사는 ③에도 그대로 나온다(중복 허용, 템플릿이
     이미 그렇게 설계됨)."""
     room = get_object_or_404(Newsroom, uid=uid)
-    base_qs = NewsroomArticle.objects.for_newsroom_display(room)
+    base_qs = NewsroomArticle.objects.for_newsroom_display(room).prefetch_related("affiliates")
     qs = (
         base_qs
         .annotate(local_date=TruncDate("published_at"))
@@ -88,20 +75,6 @@ def newsroom_detail(request, uid):
         context["headline_articles"] = list(
             base_qs.filter(is_ai_related=True).order_by("-published_at", "-pk")[:HEADLINE_LIMIT]
         )
-
-        keywords_by_name = {kw.keyword: kw for kw in room.keywords.all()}
-        affiliate_groups = []
-        for group_name, keyword_text in AFFILIATE_GROUP_KEYWORDS:
-            kw = keywords_by_name.get(keyword_text)
-            group_qs = base_qs.filter(source_keyword=kw).order_by("-published_at", "-pk") if kw else base_qs.none()
-            affiliate_groups.append({
-                "name": group_name,
-                "articles": list(group_qs[:AFFILIATE_LIMIT]),
-                "total": group_qs.count(),
-                "is_collected": kw is not None,
-                "more_url": "",
-            })
-        context["affiliate_groups"] = affiliate_groups
 
     return render(request, "newsroom/detail.html", context)
 

@@ -6,7 +6,13 @@ import requests
 from django.conf import settings
 from django.utils import timezone
 
-from services.collector import _call_naver_api, _make_url_hash, _parse_pub_date, _strip_html
+from services.collector import (
+    _call_naver_api,
+    _find_matching_entities,
+    _make_url_hash,
+    _parse_pub_date,
+    _strip_html,
+)
 from services.crawler import fetch_article_body
 
 from .models import NewsroomArticle, PaidDomain
@@ -109,6 +115,7 @@ def collect_newsroom(newsroom) -> dict:
     delay = settings.NAVER_REQUEST_DELAY
 
     keywords = list(newsroom.keywords.all())
+    affiliates = list(newsroom.affiliates.all())
     paid_domains = set(PaidDomain.objects.values_list("domain", flat=True))
     stats = {"collected": 0, "skipped_dup": 0, "skipped_filter": 0, "skipped_excluded": 0,
               "skipped_period": 0, "skipped_paid": 0, "skipped_dead": 0,
@@ -179,6 +186,11 @@ def collect_newsroom(newsroom) -> dict:
                 stats["crawled"] += 1
             else:
                 stats["crawl_failed"] += 1
+
+            # 관계사 태그 매칭(2026-09-08) — 제목+본문에서 잡는다. News.organizations와
+            # 같은 방식으로 _find_matching_entities()를 그대로 재사용한다(역방향 삼킴
+            # 방지 포함). 교정 경로는 두지 않으므로 여기서 나온 결과가 최종이다.
+            article.affiliates.set(_find_matching_entities(f"{article.title} {article.body}", affiliates))
 
             stats["collected"] += 1
 
