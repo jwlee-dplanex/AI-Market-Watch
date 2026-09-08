@@ -65,7 +65,7 @@
         <div>
           <p class="text-xs text-gray-400 mb-1">마지막 검증 완료</p>
           <p class="text-lg font-semibold {% if last_verified_at %}text-gray-900{% else %}text-sm text-gray-400{% endif %}">
-            {% if last_verified_at %}{{ last_verified_at|date:"m.d H:i" }}{% else %}기록 없어요{% endif %}
+            {% if last_verified_at %}{{ last_verified_at|date:"m.d H:i" }}{% else %}기록 없음{% endif %}
           </p>
         </div>
       </div>

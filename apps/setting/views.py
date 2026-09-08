@@ -107,7 +107,7 @@ def _research_jobs_context():
         collect_job = {
             "state": "failed" if failed else "done",
             "state_label": "실패" if failed else "완료",
-            "summary": f"{timezone.localtime(latest.started_at):%H:%M}에 {latest.collected_count}건 모았어요",
+            "summary": f"마지막 수집 {timezone.localtime(latest.started_at):%m/%d %H:%M}",
         }
     else:
         collect_job = {"state": "idle", "state_label": "대기", "summary": ""}
@@ -164,7 +164,7 @@ def _newsroom_jobs_context():
                 "state_label": "완료",
                 # CollectionLog는 본 파이프라인 전용이라 여기 쓰지 않는다(코디네이터 지시) —
                 # 마지막 실행 요약은 NewsroomArticle.collected_at으로 만든다.
-                "summary": f"{timezone.localtime(latest_article.collected_at):%H:%M}에 마지막으로 모았어요",
+                "summary": f"마지막 수집 {timezone.localtime(latest_article.collected_at):%m/%d %H:%M}",
             }
         else:
             collect_job = {"state": "idle", "state_label": "대기", "summary": ""}
