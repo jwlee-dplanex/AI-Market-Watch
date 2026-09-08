@@ -22,18 +22,76 @@
      <script>만 부분 재실행하면 브라우저가 같은 전역 스코프에 const를 두 번 선언하는 SyntaxError를
      던진다(두 번째 기간 전환부터 발생). 전체 페이지 재로드면 매번 새 문서라 이 문제 자체가 없고,
      기존 필터 패턴과도 톤이 맞는다. -->
-<div class="mb-4 flex items-center gap-2">
-  <span class="text-xs font-semibold text-gray-500">기간</span>
-  <div class="inline-flex items-center bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-1 gap-1">
-    <a href="?period=all"
-       class="px-3 py-1.5 text-xs font-medium rounded-[8px] transition-colors
-              {% if selected_period == 'all' %}bg-primary text-white{% else %}text-gray-600 hover:bg-gray-50{% endif %}">전체</a>
-    <a href="?period=30d"
-       class="px-3 py-1.5 text-xs font-medium rounded-[8px] transition-colors
-              {% if selected_period == '30d' %}bg-primary text-white{% else %}text-gray-600 hover:bg-gray-50{% endif %}">최근 30일</a>
-    <a href="?period=7d"
-       class="px-3 py-1.5 text-xs font-medium rounded-[8px] transition-colors
-              {% if selected_period == '7d' %}bg-primary text-white{% else %}text-gray-600 hover:bg-gray-50{% endif %}">최근 7일</a>
+{% comment %}
+  🔴 검색 바 (2026-09-08 사용자 지시 — "지식 그래프에도 검색 넣어줘 / 기존의 기간
+     필터 부분에 검색을 넣어주고 기간 필터의 위치는 오른쪽으로 이동하게 해줘").
+     왼쪽 검색, 오른쪽 기간이다.
+
+  ▣ 검색 버튼을 두지 않는다
+    노드가 이미 클라이언트에 전부 내려와 있어서(아래 json_script) 제출할 것이 없다.
+    타이핑하는 즉시 결과가 나와 있는데 버튼을 두면 "눌러야 하나" 싶어진다.
+    NEWS-001에서 걷어낸 건 기간·정렬 같은 필터였고 검색의 형태가 아니었으므로
+    그 감각과 어긋나지 않는다. Enter는 "다음 결과로 이동"에 쓴다.
+
+  ▣ 🔴 기간 버튼 href에 검색어를 실어 보낸다 (Alpine :href)
+    "7일에 없어서 전체로 바꿔본다"가 자연스러운 동선인데, 기간 전환이 전체 페이지
+    재로드라 그냥 두면 검색어가 날아간다. ?period=30d&q=교보로 넘겨서 살린다.
+    이게 "다른 기간에는 있어요" 안내 문구를 대신한다 — 문구를 늘리지 않고
+    사용자가 직접 눌러 확인하게 하는 쪽이다.
+
+  ▣ 뷰를 거치지 않는다. views.py에 q 컨텍스트를 추가하지 않아도 된다.
+    뷰가 이 값으로 할 일이 없기 때문이다 — 쿼리도 안 걸고 검증도 안 한다.
+    그냥 클라이언트로 되돌려주기만 하는데, 뷰를 거치면 "뷰가 뭔가 한다"는
+    잘못된 신호를 준다. 검색 자체가 서버 왕복이 없는 것과 같은 결이다.
+    ⚠️ 나중에 서버가 q로 실제 필터링을 하게 되면 그때는 뷰 컨텍스트로 옮긴다.
+{% endcomment %}
+<div class="mb-4 flex items-center justify-between gap-3" x-data="graphSearchBar()">
+
+  <div class="relative w-80">
+    <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+
+    {% comment %}
+      value는 Alpine이 뜨기 전 한 프레임을 위한 것이다. 없으면 기간 전환 직후
+      입력이 잠깐 비어 보인다. request는 이미 컨텍스트에 있고(base.html이
+      request.resolver_match를 쓴다) 자동 이스케이프가 걸려 안전하다.
+      Alpine이 뜬 뒤의 정본은 x-data의 URLSearchParams다.
+    {% endcomment %}
+    <input type="text" x-model="q" @input="run()" @keydown.enter.prevent="next()"
+           @keydown.escape.prevent="clear()"
+           value="{{ request.GET.q }}"
+           placeholder="기업 이름으로 찾아보세요"
+           class="w-full pl-9 pr-24 py-1.5 text-sm bg-white border border-[#E5E5E5] shadow-sm rounded-[10px] focus:outline-none focus:border-primary">
+
+    {% comment %}
+      🔴 카운터 하나로 "없음"과 "여럿"을 동시에 말한다. 이 화면군에서 설명 문구가
+         여러 번 기각됐으므로 문구를 하나도 늘리지 않는다.
+         검색어가 없으면 빈 문자열이라 아무것도 안 보이고, 0건이면 0이 뜬다.
+      ⚠️ x-show가 아니라 x-text를 쓴다. 항상 존재하는 span의 내용이 비면 안 보이므로
+         x-cloak이 필요 없다 — 이 프로젝트에서 세 번 난 FOUC 유형을 하나 덜 만든다.
+    {% endcomment %}
+    <span class="absolute right-11 top-1/2 -translate-y-1/2 text-xs text-gray-400 tabular-nums pointer-events-none"
+          x-text="counter"></span>
+
+    <button type="button" @click="clear()" x-show="q" x-cloak
+            title="검색어 지우기"
+            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
+      <i data-lucide="x" class="w-3.5 h-3.5"></i>
+    </button>
+  </div>
+
+  <div class="flex items-center gap-2 flex-shrink-0">
+    <span class="text-xs font-semibold text-gray-500">기간</span>
+    <div class="inline-flex items-center bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-1 gap-1">
+      <a :href="periodHref('all')" href="?period=all"
+         class="px-3 py-1.5 text-xs font-medium rounded-[8px] transition-colors
+                {% if selected_period == 'all' %}bg-primary text-white{% else %}text-gray-600 hover:bg-gray-50{% endif %}">전체</a>
+      <a :href="periodHref('30d')" href="?period=30d"
+         class="px-3 py-1.5 text-xs font-medium rounded-[8px] transition-colors
+                {% if selected_period == '30d' %}bg-primary text-white{% else %}text-gray-600 hover:bg-gray-50{% endif %}">최근 30일</a>
+      <a :href="periodHref('7d')" href="?period=7d"
+         class="px-3 py-1.5 text-xs font-medium rounded-[8px] transition-colors
+                {% if selected_period == '7d' %}bg-primary text-white{% else %}text-gray-600 hover:bg-gray-50{% endif %}">최근 7일</a>
+    </div>
   </div>
 </div>
 
@@ -390,5 +448,140 @@ window.addEventListener('resize', () => {
   H = svgEl.clientHeight;
   sim.force('center', d3.forceCenter(W / 2, H / 2)).alpha(0.3).restart();
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// 검색 + 포커싱 (2026-09-08)
+//
+// ▣ 세 규칙
+//   1. 🔴 배율을 바꾸지 않는다. 확대와 축소는 화면의 모든 픽셀이 중심에서
+//      바깥으로 흐르는 방사형 움직임이라 같은 거리의 pan보다 훨씬 세다.
+//      사용자가 맞춰 둔 배율을 검색이 빼앗지도 않는다.
+//   2. 이미 화면에 보이면 아예 안 움직인다. 기본 배율이 "전체 맞춤"이라
+//      대부분의 검색이 여기 해당한다.
+//   3. 밖이면 320ms pan. 단 아주 멀면 오히려 즉시 이동한다 — 긴 거리를
+//      부드럽게 옮기려면 시간을 늘리거나 속도를 올려야 하는데 둘 다 나쁘다.
+//
+//   그래서 "애니메이션"의 실체는 노드 강조 링이다. 움직이는 면적이 노드
+//   크기라 제약과 무관하고, 화면이 안 움직여도 "여기 있어요"가 전달된다.
+//
+// ▣ 함정 둘
+//   🔴 지금 화면에 보이는 좌표는 d.x/d.y다. d.fx0/d.fy0가 아니다.
+//      fx0/fy0는 진입 안착 애니메이션이 저장해 둔 "원래 자리"라서, 사용자가
+//      노드를 드래그로 옮기면 d.x만 바뀌고 fx0는 옛 자리에 남는다. fx0를 읽으면
+//      카메라가 화면에 없는 곳으로 간다. 포커싱은 항상 그 시점의 d.x/d.y를 읽는다.
+//   🔴 hiddenCats로 숨긴 카테고리는 검색 대상에서 뺀다. 안 그러면 카메라는
+//      이동했는데 화면엔 아무것도 없는 상태가 된다.
+//
+// ▣ 전체 맞춤 로직(위 초기 배율)을 재사용하지 않는다. 그건 nodes 전체의
+//    bounding box 기준이라 단일 노드 포커싱에 쓸 수 없다.
+// ─────────────────────────────────────────────────────────────────────────
+const SEARCH_PAD      = 80;    // 뷰포트 안쪽 이 정도는 "보인다"로 친다
+const SEARCH_PAN_MS   = 320;
+let   searchMatches   = [];
+let   searchIndex     = 0;
+
+function graphSearchReset() {
+  node.style('opacity', 1);
+  link.attr('stroke', edgeIdleColor).attr('stroke-opacity', edgeIdleOpacity);
+  g.selectAll('.search-ring').remove();
+}
+
+function focusNode(d) {
+  const t  = d3.zoomTransform(svg.node());
+  const k  = t.k;
+  // 🔴 d.x/d.y다. fx0가 아니다. 위 함정 주석 참고.
+  const sx = t.applyX(d.x), sy = t.applyY(d.y);
+
+  const outside = sx < SEARCH_PAD || sx > W - SEARCH_PAD ||
+                  sy < SEARCH_PAD || sy > H - SEARCH_PAD;
+
+  if (outside) {
+    // 배율(k)은 그대로 두고 translate만 바꾼다.
+    const tx = W / 2 - k * d.x;
+    const ty = H / 2 - k * d.y;
+    const next = d3.zoomIdentity.translate(tx, ty).scale(k);
+    const far  = Math.hypot(sx - W / 2, sy - H / 2) > W * 1.5;
+    if (far || prefersReducedMotion) svg.call(zoom.transform, next);
+    else svg.transition().duration(SEARCH_PAN_MS).ease(d3.easeCubicOut).call(zoom.transform, next);
+  }
+
+  if (prefersReducedMotion) return;
+
+  // 강조 링 — 줌 그룹 안에 그리므로 두께와 반지름을 현재 배율로 나눠
+  // 어느 배율에서든 화면에서 같은 크기로 보이게 한다.
+  g.selectAll('.search-ring').remove();
+  g.append('circle')
+    .attr('class', 'search-ring')
+    .attr('cx', d.x).attr('cy', d.y)
+    .attr('r', (d.symbolSize / 2 + 6) / k)
+    .attr('fill', 'none')
+    .attr('stroke', '#60269E')
+    .attr('stroke-width', 2 / k)
+    .attr('pointer-events', 'none')
+    .transition().duration(400).ease(d3.easeCubicOut)
+    .attr('r', (d.symbolSize / 2 + 26) / k)
+    .attr('stroke-opacity', 0)
+    .remove();
+}
+
+function graphSearch(q) {
+  const term = (q || '').trim().toLowerCase();
+  if (!term) { searchMatches = []; searchIndex = 0; graphSearchReset(); return 0; }
+
+  // 🔴 숨긴 카테고리는 대상에서 뺀다.
+  searchMatches = nodes.filter(n =>
+    !hiddenCats.has(n.category) && (n.name || '').toLowerCase().includes(term)
+  );
+  searchIndex = 0;
+
+  if (!searchMatches.length) { graphSearchReset(); return 0; }
+
+  const ids = new Set(searchMatches.map(n => n.id));
+  node.style('opacity', n => ids.has(n.id) ? 1 : 0.08);
+  link.attr('stroke', edgeIdleColor).attr('stroke-opacity', edgeFadeOpacity);
+  focusNode(searchMatches[0]);
+  return searchMatches.length;
+}
+
+function graphSearchNext() {
+  if (searchMatches.length < 2) return searchIndex;
+  searchIndex = (searchIndex + 1) % searchMatches.length;
+  focusNode(searchMatches[searchIndex]);
+  return searchIndex;
+}
+
+function graphSearchClear() { graphSearch(''); }
+
+// Alpine은 상태만 들고 위 세 함수만 부른다.
+// 🔴 Alpine이 d3를 직접 만지지 않게 한다. 이 화면은 d3 초기화가 무거워서
+//    경계가 흐려지면 디버깅이 어려워진다.
+function graphSearchBar() {
+  return {
+    q: new URLSearchParams(location.search).get('q') || '',
+    total: 0,
+    pos: 0,
+    init() { if (this.q) this.run(); },
+    run() {
+      this.total = graphSearch(this.q);
+      this.pos = this.total ? 1 : 0;
+    },
+    next() {
+      if (this.total < 2) return;
+      this.pos = graphSearchNext() + 1;
+    },
+    clear() { this.q = ''; this.total = 0; this.pos = 0; graphSearchClear(); },
+    get counter() {
+      if (!this.q.trim()) return '';
+      if (!this.total) return '0';
+      return `${this.pos}/${this.total}`;
+    },
+    periodHref(p) {
+      const s = new URLSearchParams();
+      s.set('period', p);
+      if (this.q.trim()) s.set('q', this.q.trim());
+      return '?' + s.toString();
+    },
+  };
+}
 </script>
 {% endblock %}
