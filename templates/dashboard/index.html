@@ -120,8 +120,14 @@
   "주요 이슈"와 구분되는 나머지 지점은 배치·크기다 — (1) "주요 이슈" 리스트 안에 중첩된
   항목이 아니라 그 자체로 최상위 카드(주요 이슈/최신 뉴스 카드와 동급의 `p-5` 컨테이너,
   리스트 항목의 `p-4`가 아님), (2) 3장이 나란히 놓인 별도 행으로 "주요 이슈 + 최신 뉴스"
-  2단 그리드 위에 위치, (3) 카드 왼쪽에 Primary Violet 강조 보더(`border-l-4`, 디자인
-  시스템 Callout "Info" 스펙 재사용 — 새 시각 요소를 만들지 않음).
+  2단 그리드 위에 위치.
+
+  ⚠️ (3)이었던 "카드 왼쪽 Primary Violet 강조 보더(border-l-4)"는 2026-09-11 사용자
+  지시로 제거했다. 디자인 시스템 Callout "Info" 스펙을 재사용한 것이었는데, 그 스펙은
+  원래 "보라 배경 + 좌측 보더"가 한 세트다(news/detail.html·newsroom/article_detail.html의
+  한 줄 요약이 그 형태). 헤드라인 카드는 흰 배경이라 보더만 떼어 온 셈이었다.
+  ⚠️ 다시 넣지 말 것 — 영역 자체의 신호(그라디언트 트레이 + p-6 + mb-8 + flame 아이콘)가
+  남아 있어 "주요 이슈"와의 위계는 그대로 유지된다.
 
   순서(1·2·3)는 등급 배지·순위 숫자 없이 "위치로만" 드러낸다(headliner_order 오름차순,
   좌→우 배치, PM 정책 7번) — 3장 모두 동일 크기(flex-1)이며 1번 카드를 더 크게 만들지
@@ -219,7 +225,7 @@
   </div>
   <div class="flex flex-col gap-4">
     {% for headliner in headliners|slice:":3" %}
-    <div class="flex-1 min-w-0 bg-white rounded-[10px] border border-[#E5E5E5] border-l-4 border-l-primary shadow-sm p-5"
+    <div class="flex-1 min-w-0 bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-5"
          x-data="{ open: false, fullHeight: 0, closedHeight: 28, clamped: true }">
       <button type="button"
               @click="open = !open; if (open) { clamped = false } else if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { clamped = true }"
@@ -485,7 +491,7 @@
         디자인 시스템에 이미 있는 두 토큰만 썼다(0-1 확인) — ① 카드 표준 테두리 색
         border-[#E5E5E5](이 페이지 다른 흰 카드들과 동일 토큰, gray-100보다 진함), ②
         "카드는 bg-white shadow-sm" 컴포넌트 규칙(지금까지 이 항목엔 shadow가 없었다). 헤드라인
-        (그라디언트 트레이+p-6+mb-8+좌측 색 보더)보다 훨씬 약한 신호라 위계는 유지된다.
+        (그라디언트 트레이+p-6+mb-8)보다 훨씬 약한 신호라 위계는 유지된다.
       {% endcomment %}
       {% comment %}
         헤드라인 카드 비율 이식 (2026-08-08, PD, 사용자 확정 — 헤드라인 카드를 유일하게
@@ -493,8 +499,9 @@
         여백) — 헤드라인은 p-5(20px) : 19px(mt-2.5+border+pt-2) : gap-4(16px). 제목-본문
         간격(19px)과 카드 간 여백(space-y-4=16px, 아래 참고)은 이미 헤드라인과 정확히
         같은 값이라 손댈 게 없었다 — 이번에 남은 건 바깥 패딩 하나(p-4→p-5)뿐이다.
-        border-l-4 border-l-primary·그라디언트 트레이는 헤드라인 전용 위계 신호라 옮기지
-        않았다(그대로 유지 지시).
+        그라디언트 트레이는 헤드라인 전용 위계 신호라 옮기지 않았다(그대로 유지 지시).
+        ⚠️ 이 줄에 함께 적혀 있던 border-l-4 border-l-primary는 2026-09-11에 헤드라인
+        쪽에서 제거됐다(위 헤드라인 블록 주석 참고) — 더는 옮기고 말고 할 대상이 아니다.
 
         "좁은 열이라 숫자를 그대로 복사하는 게 최선이 아닐 수 있다"는 점을 검토했다 —
         하지만 폰트 크기·줄높이(text-sm/text-xs, leading-relaxed)는 컬럼 폭과 무관하게
