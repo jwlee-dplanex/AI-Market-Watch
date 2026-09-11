@@ -41,6 +41,23 @@ venv\Scripts\python manage.py shell --settings=config.settings.local
 - **뉴스룸은 이 게이트 밖이다** — `NewsroomArticle`은 `News`가 아니므로 `verified()`가 걸리지 않는다. 대신 `filter_status='passed'`가 게이트이고 **판정 주체가 RA가 아니라 LLM**이다. ⚠️ 두 규칙을 섞지 말 것 — 뉴스룸 조회 코드에 `verified()`를 찾다가 없다고 게이트가 없는 줄 알면 안 되고, 반대로 `News` 조회에 `filter_status`를 쓰려 해서도 안 된다. 🔴 **키워드와 저장 테이블도 완전히 분리한다** — `collect_naver()`가 활성 수집 키워드 전량을 순회하므로 뉴스룸 키워드를 `Keyword`에 넣으면 본 파이프라인이 그대로 오염된다. 상세는 `docs/planning.md` "뉴스룸" 절.
 - **수집 실행 — 스케줄이 아니라 화면 버튼이다** (2026-09-04 확정). 수집과 RA 1~4번은 전부 **사람이 SET-010 "실행"에서 버튼을 눌러야만** 돈다. 🔴 **종전의 "프로덕션 배포 시 SET-004에서 스케줄을 재활성화한다"는 계획은 폐기됐다** — 프로덕션에서도 스케줄러를 켜지 않으므로 APScheduler와 EventBridge 모두 불필요하고, SET-004는 읽되 실행하지 않는 화면으로 남는다(처분은 별도 판단). 폐기 근거는 이 구조가 만들던 실패다: APScheduler가 `runserver` 프로세스 안에 있어서 서버가 09:00에 떠 있지 않으면 그날 실행이 **예약조차 되지 않았고**(등록 시점 기준으로 다음 실행을 계산하므로 misfire가 아니고, 따라서 유예 시간도 무의미), 이것이 2026-07-30~08-05 5회 연속 미실행의 원인이었다. **버튼 방식은 이 실패 모드를 구조적으로 없앤다.** ⚠️ **LLM 결과는 바로 반영되지 않는다** — 버튼 → LLM 판정 → 제안 목록 → 사람이 "확정"을 한 번 더 눌러야 DB에 반영된다(승인 게이트). 상세는 `docs/planning.md` "실행 방식 전환: 스케줄 자동에서 화면 버튼 + 승인 게이트로" 절.
 - **pgvector** — `Embedding` 모델·코사인 유사도 인프라는 구축돼 있으나(임계값 0.82), 현재 관련 기사 판별은 research-analyst가 배치를 직접 읽어서 수행하며 pgvector는 사용하지 않는다. 수집량 증가로 병목이 되면 PE가 상시 자동 클러스터링으로 재구현하는 걸 검토한다.
+- **프로덕션이 실제로 서 있다** (2026-09-11 구축). 🔴 **로컬이 dev이고 EC2가 prd이며, 두 환경은 완전히 같게 유지한다**(사용자 확정). 그래서 EC2도 로컬과 똑같이 **Docker로 PostgreSQL만 띄우고 앱은 호스트 venv에서 돌린다** — 앱을 컨테이너에 넣는 종전 설계는 폐기됐고 `Dockerfile`과 `.dockerignore`도 삭제됐다.
+
+  | | 로컬 (dev) | EC2 (prd) |
+  |---|---|---|
+  | 브랜치 | `develop` | 🔴 `main` 만 |
+  | Python | 3.12.10 + `venv/` | 3.12.14 + `venv/` |
+  | 패키지 | `requirements.txt` — 🔴 **전이 의존성까지 전부 `==` 고정** | 같음 |
+  | DB | `docker compose up -d db` | 같음 |
+  | 앱 | `runserver` | `gunicorn` (systemd 유닛 `aimarketwatch`) |
+  | 설정 | `config.settings.local` | `config.settings.production` |
+  | 로그 | 터미널 | `sudo journalctl -u aimarketwatch -f` |
+
+  - **배포는 `scripts/deploy.sh`** — `git pull` → db 기동 → `pg_isready` 대기 → `pip install` → `makemigrations --check` → `migrate` → `collectstatic` → `systemctl restart`. 🔴 **`main`이 아니면 스크립트가 멈춘다.**
+  - 🔴 **개발한 것을 EC2에 올리려면 `develop`을 `main`으로 병합해야 한다.** 이 한 걸음을 빠뜨리면 EC2가 `pull`해도 아무것도 안 바뀐다.
+  - 🔴 **패키지를 새로 깔거나 올렸으면 로컬에서 `pip freeze > requirements.txt`를 다시 돌린다.** 안 하면 EC2가 옛 버전에 묶인다. 실제로 한 번 갈렸다(anthropic 0.116.0 대 1.5.0).
+  - ⚠️ **로컬 DB를 프로덕션으로 올리지 않는다.** 2026-09-11의 최초 이관은 프로덕션 DB가 비어 있을 때 정본을 처음 세운 것이고, **두 번째 이관은 예외가 아니라 위반이다.** 상세는 `docs/planning.md` 8-(b).
+  - ⚠️ **매일 평일 08:00 자동 시작, 19:00 자동 정지된다.** 그 시간 밖에 접속이 안 되는 것은 고장이 아니다. systemd 유닛이 `enabled`라 켜지면 앱도 같이 뜬다.
 
 ## 템플릿 주석 — `{# #}`는 한 줄 전용 (반복 재발 중, 반드시 지킬 것)
 
@@ -73,8 +90,7 @@ services/
   collector.py  # 뉴스 수집 파이프라인
   llm.py        # Claude API 연동
   embedder.py   # 임베딩 생성 + 유사 기사 그룹핑
-  scheduler.py  # APScheduler 작업 등록 (로컬은 비활성, 프로덕션에서만 가동)
-  periods.py    # 대시보드·지식그래프 공통 기간 필터 유틸
+  periods.py    # 대시보드, 지식그래프 공통 기간 필터 유틸
 config/settings/
   base.py       # 공통 설정 (django-environ으로 .env 로딩)
   local.py      # DEBUG=True

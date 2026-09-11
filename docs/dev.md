@@ -24,23 +24,31 @@
 
 ### 패키지 목록 (requirements.txt)
 
+🔴 **2026-09-11부터 `requirements.txt`는 전이 의존성까지 전부 `==`로 고정돼 있습니다.** 106개가 들어 있어 여기 옮기지 않고, **파일이 정본입니다.** 직접 쓰는 것은 아래 열일곱 개입니다.
+
 ```
-Django==5.2
-shortuuid
-django-environ
-psycopg2-binary
-pgvector
-anthropic
-voyageai
-langchain
+Django==5.2        웹 프레임워크
+shortuuid          uid 생성
+django-environ     .env 로딩
+psycopg2-binary    PostgreSQL 드라이버
+pgvector           벡터 컬럼
+anthropic          Claude API
+voyageai           임베딩
+langchain          LLM 체인
 langchain-anthropic
-APScheduler
-trafilatura
+trafilatura        본문 추출
 requests
 beautifulsoup4
 Markdown
-bleach
+bleach             HTML 살균
+gunicorn           프로덕션 WSGI 서버
+boto3              AWS SDK (Bedrock 호출용)
+whitenoise         정적 파일 서빙
 ```
+
+⚠️ **`APScheduler`가 목록에서 빠졌습니다.** 2026-09-04에 스케줄러가 폐기됐습니다. 로컬 venv에 잔재로 남아 고정 목록에는 들어 있지만 **코드에서 부르는 곳이 없습니다.**
+
+🔴 **패키지를 새로 깔거나 올렸으면 로컬에서 `pip freeze > requirements.txt`를 다시 돌리고 파일 머리 주석을 다시 얹으세요.** 안 하면 프로덕션이 옛 버전에 묶입니다. 실제로 한 번 갈렸습니다(anthropic 0.116.0 대 1.5.0).
 
 ---
 
@@ -503,10 +511,12 @@ ai_market_watch/
 │
 ├── services/
 │   ├── collector.py         # 수집 파이프라인 (본 리서치 축 전용, 뉴스룸은 안 씀)
-│   ├── llm.py               # Claude API 연동
+│   ├── crawler.py           # 본문 수집
+│   ├── text_cleaning.py     # 본문 정제
+│   ├── llm.py               # Claude API 연동 (아직 비어 있음)
 │   ├── embedder.py          # 임베딩 생성
-│   ├── scheduler.py         # 스케줄 실행
-│   └── periods.py           # 대시보드·지식그래프 공통 기간 필터 유틸
+│   └── periods.py           # 대시보드와 지식그래프 공통 기간 필터 유틸
+│                            # 🔴 scheduler.py는 2026-09-04에 삭제됨
 │
 ├── templates/
 │   ├── base.html            # 공통 레이아웃 (헤더·사이드바·푸터)
@@ -841,32 +851,54 @@ class Embedding(models.Model):
 
 ---
 
-## 8. 스케줄러
+## 8. 실행 — 스케줄이 아니라 화면 버튼
 
-APScheduler를 사용합니다. Django 앱 시작 시 `apps.py`에서 자동 실행됩니다.
+🔴 **2026-09-11 전면 교체.** 이 장은 `services/scheduler.py`의 내부 동작을 설명하고 있었는데, **그 파일은 2026-09-04에 삭제됐습니다.** APScheduler도 `Schedule` 모델 연동도 이제 없습니다.
 
-**현재 실제로 자동화된 작업은 "뉴스 수집" 하나뿐입니다.** `services/scheduler.py`의 `_job_collect()`가 `collect_naver()`를 호출해 `CollectionLog`를 남기는 것까지만 구현돼 있습니다. `register()`는 `schedule.schedule_type`을 보지 않고 항상 `_job_collect`를 등록하므로, `Schedule.schedule_type`에 `"report"` 타입으로 등록해도 실제로 실행되는 것은 수집 잡입니다 — `"report"` 전용 잡은 아직 구현돼 있지 않습니다.
+### 지금 어떻게 도는가
 
-`start()`는 `runserver` 기동 시 `Schedule.objects.filter(is_active=True)`를 전부 조회해 각 레코드를 `register()`로 APScheduler 잡에 등록합니다.
+**수집과 RA 1~4번은 전부 사람이 SET-010 「실행」 화면에서 버튼을 눌러야만 돕니다. 로컬과 프로덕션이 같습니다.**
 
-⚠️ **현재 로컬에서는 수집 스케줄이 돌지 않습니다 (2026-08-05 확정).** `Schedule` pk=1, cron `0 9 * * 1-5`(평일 9시)는 등록돼 있으나 **`is_active=False`**이고 `next_run_at`은 `None`입니다. **로컬 = 사람이 SET-001 "지금 수집"으로 수동 실행, 프로덕션 = SET-004에서 스케줄 재활성화**가 확정된 운영 방식입니다. 즉 **로컬에서 아침에 수집이 안 돼 있어도 버그가 아니라 정상입니다.**
+| 축 | 단계 | 상태 |
+|---|---|---|
+| 금융권 AI 도입 동향 | 1단계 수집 | **구현 완료** — `services/collector.py`의 `run_collection()` |
+| | 2단계 뉴스 정리 | 미구현 (RA가 수동으로 대신함) |
+| | 3단계 주요 이슈 | 미구현 (RA) |
+| | 4단계 주간 보고서 | 미구현 (RA) |
+| | 5단계 월간 보고서 | 미구현 (RA) |
+| 교보 소식 | 1단계 수집 | **구현 완료** — `apps/newsroom/services.py`의 `collect_newsroom()` |
+| | 2~4단계 | 미구현 |
 
-**왜 이렇게 정했는가** — 스케줄러가 in-process라 `runserver` 프로세스가 09:00에 떠 있지 않으면 그날 실행이 **예약조차 되지 않습니다.** `add_job()`이 `next_run_time` 없이 등록되므로 다음 실행을 **등록 시점 기준으로** 계산하기 때문입니다. 이건 misfire가 아니라서 `misfire_grace_time`을 아무리 늘려도 소용이 없고, 실제로 2026-07-30~08-05 **5회 연속 미실행**의 원인이었습니다. 상세와 프로덕션 재활성화 체크리스트는 `docs/planning.md` "수집 실행 방식: 로컬 = 수동, 프로덕션 = 스케줄" 절을 보세요.
+⚠️ **미구현 단계는 화면에서 「아직 만들지 않은 기능이에요」로 비활성 상태입니다.** `services/llm.py`가 빈 파일이라 LLM 호출부가 없습니다.
 
-⚠️ **수동 수집은 `CollectionLog`를 남기지 않습니다.** SET-006 로그 화면이 비어 있어도 수집이 안 된 게 아니므로, 실제 유입은 **`News` 건수 증가**로 확인해야 합니다.
+⚠️ **LLM 결과는 바로 반영되지 않습니다** — 버튼 → LLM 판정 → 제안 목록 → 사람이 「확정」을 한 번 더 눌러야 DB에 반영됩니다(승인 게이트). 2~5단계를 만들 때 이 구조를 지켜야 합니다.
 
-### 실행 스케줄
+### 왜 스케줄을 버렸는가
 
-| 작업 | 상태 | 주기(설정 시) |
-|------|------|------|
-| 뉴스 수집 | **구현 완료 · 로컬은 수동 실행(pk=1 `is_active=False`), 프로덕션에서 스케줄 가동** | 평일 9시(`0 9 * * 1-5`) 등 등록된 cron대로 |
-| 관련성 판정·삭제, 인사이트 작성, 보고서 편집 | research-analyst 에이전트가 온디맨드 세션에서 수동 수행 (자동 분류 단계 없음) | 자동 스케줄 없음 |
-| 임베딩 생성 | 코드는 있으나(`services/embedder.py`) 트리거(버튼·스케줄) 없음 | — |
-| Slack 발송 | 미구현 | — |
+**APScheduler가 `runserver` 프로세스 안에 있어서, 서버가 09:00에 떠 있지 않으면 그날 실행이 예약조차 되지 않았습니다.**
 
-### Schedule 모델 연동
+`add_job()`이 `next_run_time` 없이 등록되므로 다음 실행을 **등록 시점 기준으로** 계산합니다. 🔴 **이건 misfire가 아니라서 `misfire_grace_time`을 아무리 늘려도 소용이 없고**, 실제로 2026-07-30부터 08-05까지 **5회 연속 미실행**의 원인이었습니다.
 
-`Schedule` 모델의 `is_active` 값을 읽어 실행 여부를 제어합니다. SET-004 화면에서 켜고 끌 수 있습니다. (현재는 `schedule_type` 값과 무관하게 등록된 모든 활성 스케줄이 수집 잡으로 동작)
+**버튼 방식은 이 실패 모드를 구조적으로 없앱니다.** 사람이 누르지 않으면 안 도는 것이 명백하고, 눌렀는데 안 도는 상황은 화면에 바로 보입니다.
+
+### 프로덕션에서도 스케줄러를 켜지 않습니다
+
+🔴 **2026-09-11 프로덕션 구축으로 실측 확인됐습니다.** EC2의 systemd 유닛은 gunicorn 하나뿐이고 스케줄러는 올라가지 않았습니다.
+
+⚠️ **종전에 이 문서와 `docs/planning.md`에 있던 *"로컬 = 수동, 프로덕션 = 스케줄"*은 폐기됐습니다.** 그 서술이 남으면 **프로덕션에서는 수집이 저절로 돼 있을 것이라고 읽게 됩니다** — 결산 보고서를 쓰는 첫 근무일 아침에 그렇게 읽으면 수집 없이 결산을 쓰게 됩니다.
+
+⚠️ **EC2는 평일 08:00에 자동 시작하고 19:00에 자동 정지합니다.** 그 시간 밖에는 버튼을 누를 수도 없습니다. 스케줄을 다시 도입한다면 이 정지 시간과 함께 설계해야 합니다.
+
+### 수집 기록
+
+⚠️ **수동 수집도 `CollectionLog`를 남깁니다** (2026-08-11 구현). `actor` 필드가 `수동(화면)`인지 아닌지로 구분합니다. **종전에 이 자리에 있던 *"수동 수집은 `CollectionLog`를 남기지 않습니다"*는 이제 사실이 아닙니다.**
+
+### 아직 트리거가 없는 것
+
+| 작업 | 상태 |
+|---|---|
+| 임베딩 생성 | 코드는 있으나(`services/embedder.py`) 버튼이 없습니다. 관련 기사 판별은 RA가 배치를 직접 읽어 수행합니다 |
+| Slack 발송 | 미구현. 보고서의 `slack_sent_at`은 비어 있습니다 |
 
 ---
 
@@ -938,10 +970,62 @@ __pycache__/
 
 ## 10. 배포
 
-로컬 단일 실행 (1단계)
+🔴 **2026-09-11 전면 교체.** 종전 서술은 *"로컬 단일 실행"* 한 줄과 *"스케줄러는 `runserver` 실행 시 자동으로 함께 시작됩니다"*뿐이었다. **둘 다 이제 사실이 아니다** — 2026-09-04에 스케줄러가 폐기되고 화면 버튼으로 바뀌었으며(`services/scheduler.py` 삭제됨), 2026-09-11에 EC2 프로덕션이 실제로 섰다.
+
+### 로컬 (dev)
 
 ```bash
-python manage.py runserver --settings=config.settings.local
+docker compose up -d db
+venv\Scripts\python manage.py runserver --settings=config.settings.local
 ```
 
-스케줄러는 `runserver` 실행 시 자동으로 함께 시작됩니다.
+⚠️ **스케줄러는 뜨지 않는다.** 수집과 RA 1~4번은 전부 사람이 SET-010 「실행」 화면에서 버튼을 눌러야만 돈다.
+
+### 프로덕션 (EC2)
+
+| | 값 |
+|---|---|
+| 인스턴스 | `jinwook-aimarketwatch` (t3.micro, Amazon Linux 2023) |
+| 주소 | `http://13.209.239.47` |
+| 경로 | `/home/ec2-user/AI-Market-Watch` |
+| 브랜치 | 🔴 `main` 고정 |
+| Python | 3.12.14 + `venv/` (호스트) |
+| DB | Docker `db` 서비스 하나 (pgvector/pgvector:pg16) |
+| 앱 | gunicorn, systemd 유닛 `aimarketwatch` |
+| 로그 | `sudo journalctl -u aimarketwatch -f` |
+
+🔴 **로컬과 완전히 같은 구조다** — Docker로 PostgreSQL만 띄우고 앱은 venv에서 돈다. 앱을 컨테이너에 넣는 종전 설계는 폐기됐고 `Dockerfile`과 `.dockerignore`도 삭제됐다. 경위와 근거는 `docs/planning.md` 「프로덕션 배포」 절 1-2.
+
+### 배포 절차
+
+**① 로컬에서 `main`으로 병합한다.** 🔴 이 걸음을 빠뜨리면 EC2가 `pull`해도 아무것도 안 바뀐다.
+
+```bash
+git checkout main && git merge develop --ff-only && git push && git checkout develop
+```
+
+**② EC2에서 배포 스크립트를 돌린다.**
+
+```bash
+cd ~/AI-Market-Watch && ./scripts/deploy.sh
+```
+
+스크립트가 하는 일은 이렇다.
+
+```
+브랜치 확인(main이 아니면 중단) → git pull --ff-only → docker compose up -d db
+→ pg_isready 대기 → pip install -r requirements.txt
+→ makemigrations --check --dry-run → migrate → collectstatic
+→ systemctl restart aimarketwatch → systemctl status
+```
+
+⚠️ **`makemigrations --check`가 `migrate`보다 먼저다.** 모델은 고쳤는데 마이그레이션 파일을 커밋하지 않은 채 배포하면 DB 스키마가 조용히 코드보다 뒤처진다.
+
+⚠️ **`pg_isready` 대기가 필요한 이유** — `docker compose up -d`는 컨테이너 시작만 보장할 뿐 Postgres가 연결을 받을 준비가 됐다는 뜻이 아니다. 매일 19:00에 인스턴스가 정지하므로 콜드 스타트 직후 배포하면 `migrate`가 그 틈에 걸린다.
+
+### 지켜야 할 것
+
+- 🔴 **패키지를 새로 깔거나 올렸으면 로컬에서 `pip freeze > requirements.txt`를 다시 돌리고 파일 머리 주석을 다시 얹는다.** `requirements.txt`는 전이 의존성까지 전부 `==`로 고정돼 있고, 그 고정이 갱신되지 않으면 EC2가 옛 버전에 묶인다. 실제로 한 번 갈렸다(anthropic 0.116.0 대 1.5.0).
+- 🔴 **로컬 DB를 프로덕션으로 올리지 않는다.** 2026-09-11의 최초 이관은 프로덕션 DB가 비어 있을 때 정본을 처음 세운 것이고, 두 번째 이관은 예외가 아니라 위반이다(`docs/planning.md` 8-(b)).
+- ⚠️ **평일 08:00 자동 시작, 19:00 자동 정지.** 그 시간 밖에 접속이 안 되는 것은 고장이 아니다. systemd 유닛이 `enabled`라 인스턴스가 켜지면 앱도 같이 뜬다.
+- ⚠️ **보안그룹이 사무실 IP(61.38.36.170)만 허용한다.** 외부망에서는 SSH도 HTTP도 닿지 않는다.

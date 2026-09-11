@@ -35,9 +35,19 @@ CSRF_COOKIE_SECURE = False
 # 폼 제출(POST)이 되는 값이지, 서버가 뜨는 것을 막는 값이 아니라서다.
 CSRF_TRUSTED_ORIGINS = env.list("DJANGO_CSRF_TRUSTED_ORIGINS", default=[])
 
-# 컨테이너 로그는 stdout으로 모아 `docker compose logs -f web`으로 본다.
-# 파일 로깅·로그 로테이션·중앙 수집(CloudWatch 등)은 이번 최소 구성 범위 밖이라
-# 넣지 않는다 — 필요해지면 그때 추가한다.
+# 로그는 stdout으로 모은다. gunicorn이 systemd 서비스(`aimarketwatch`)로 돌므로
+# journald가 받아 가고, 아래 명령으로 본다(2026-09-11 개정).
+#
+#     sudo journalctl -u aimarketwatch -f
+#     sudo journalctl -u aimarketwatch -n 50
+#
+# ⚠️ 종전 주석은 `docker compose logs -f web`이었는데, 앱을 컨테이너가 아니라
+#    호스트 venv에서 돌리기로 바뀌면서 그 명령은 더 이상 없다(web 서비스 삭제됨).
+#    docs/planning.md 「프로덕션 배포」 절 1-2 참고.
+#
+# 파일 로깅, 로그 로테이션, 중앙 수집(CloudWatch 등)은 이번 최소 구성 범위 밖이라
+# 넣지 않는다 — 필요해지면 그때 추가한다. journald가 자체 로테이션을 하므로
+# 디스크가 무한정 차지는 않는다.
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

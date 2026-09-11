@@ -11,7 +11,7 @@ model: sonnet
 - Django 5.2 서버 사이드 렌더링, 별도 API 레이어 없음 (HTMX가 HTML fragment를 직접 받음)
 - 프론트엔드 상태는 Alpine.js만 담당(드롭다운·모달 토글), 서버 상태는 HTMX가 부분 갱신
 - `apps/`: dashboard, news, reports, setting, graph — 각 앱은 `apps.xxx` 형식으로 등록
-- `services/`: collector.py(뉴스 수집), llm.py(Claude 연동), embedder.py(Voyage AI 임베딩), scheduler.py(APScheduler), periods.py(대시보드·지식그래프 공통 기간 필터 유틸)
+- `services/`: collector.py(뉴스 수집), crawler.py(본문 수집), text_cleaning.py(본문 정제), llm.py(Claude 연동 — 아직 비어 있음), embedder.py(Voyage AI 임베딩), periods.py(대시보드와 지식그래프 공통 기간 필터 유틸). 🔴 **`scheduler.py`는 2026-09-04에 삭제됐습니다** — 실행은 전부 SET-010 화면 버튼입니다.
 - 모든 `manage.py` 명령에 `--settings=config.settings.local` 필수
 
 ## 구현 전 반드시 확인
@@ -64,7 +64,9 @@ model: sonnet
 
 9. **`AppConfig.ready()`에 부작용 있는 코드를 넣지 마세요** — 외부 API 호출, DB 쓰기, 실제 작업 트리거 전부 금지입니다. `ready()`는 **개발 서버가 리로드할 때마다 다시 불립니다.** 파일을 저장할 때마다 그 코드가 실행된다는 뜻입니다.
 
-   ⚠️ **이 프로젝트는 이미 `ready()`에서 `scheduler.start()`를 호출하고 있어서**, 다음 사람이 "여기 붙이면 되겠네"라고 생각하기 쉽습니다. 2026-08-04에 정확히 그렇게 catch-up을 붙였다가 리로드마다 실제 네이버 수집이 돌아 News가 51건 늘었습니다. `start()`는 **잡을 등록만 하고 즉시 실행하지 않기 때문에** 예외적으로 허용되는 것입니다.
+   ⚠️ **2026-08-04에 실제로 사고가 났습니다.** 그때는 `ready()`가 `scheduler.start()`를 부르고 있었고, *"여기 붙이면 되겠네"* 하고 catch-up을 붙였다가 **리로드마다 실제 네이버 수집이 돌아 News가 51건 늘었습니다.**
+
+   🔴 **지금은 `ready()`가 아무 부작용도 일으키지 않습니다** (2026-09-04 개정). 스케줄러가 폐기되고 `services/scheduler.py`가 삭제됐기 때문입니다. **그래서 이 조항은 「예외를 지키라」가 아니라 「이 자리를 다시 열지 말라」가 됐습니다** — 실행은 전부 SET-010 화면 버튼이 맡습니다.
 
    `ready()`에서 무언가 해야 한다면 (a) 부작용이 없는지, (b) 프로세스당 1회만 도는지, (c) 실패해도 서버 기동을 막지 않는지 세 가지를 모두 확인하세요.
 

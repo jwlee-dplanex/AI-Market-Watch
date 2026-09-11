@@ -41,7 +41,7 @@ AI Market Watch는 이 반복 업무를 자동화하고, **단순 뉴스 요약�
 
 ## 무엇을 하는 서비스인가
 
-- **수집** — Naver News API 등에서 AI/AX 관련 키워드로 뉴스를 모읍니다. **실행 방식은 환경에 따라 다릅니다** — 로컬은 설정 > 데이터소스(SET-001)의 "지금 수집"으로 사람이 직접 돌리고, 프로덕션은 평일 오전 9시 스케줄로 자동 실행합니다. 스케줄러가 `runserver` 프로세스 안에 있어서 서버가 9시에 떠 있지 않으면 그날 실행이 예약조차 되지 않기 때문입니다(자세한 내용은 [`docs/dev.md`](./docs/dev.md) 8장). **로컬에서 아침에 수집이 안 돼 있어도 버그가 아닙니다.**
+- **수집** — Naver News API 등에서 AI/AX 관련 키워드로 뉴스를 모읍니다. 🔴 **사람이 설정 > 실행(SET-010)에서 버튼을 눌러야만 돕니다. 로컬도 프로덕션도 같습니다**(2026-09-04 확정). 종전에는 프로덕션에서 평일 오전 9시에 스케줄로 돌리려 했는데, 스케줄러가 `runserver` 프로세스 안에 있어서 **서버가 9시에 떠 있지 않으면 그날 실행이 예약조차 되지 않았습니다.** 2026-07-30부터 08-05까지 5회 연속 미실행이 그 원인이었고, 버튼 방식이 그 실패를 구조적으로 없앱니다.
 - **에이전트가 정제·집필** — 수집은 자동이지만, 노이즈 판정·삭제·이슈 그룹핑·시사점 작성·주간 보고서 편집은 research-analyst(RA) 에이전트가 사용자 호출에 따라 온디맨드 세션에서 직접 수행합니다(상시 자동 분류·요약 파이프라인 없음 — 모든 콘텐츠는 실제 수집 기사에 근거해야 하며 날조 금지가 최우선 원칙입니다).
 - **검증 전에는 노출하지 않음** — 수집된 뉴스는 곧바로 화면에 나타나지 않습니다. RA가 관련성 판정을 마치고 검증 완료로 전환한 뉴스만 대시보드·목록·지식그래프에 노출됩니다. 수집량의 상당수가 키워드 오탐이나 동일 사건 중복 보도라(실측 사례: 57건 중 54건), 판정 전 뉴스를 그대로 보여주면 "이 서비스가 선별한 뉴스"로 오해되기 때문입니다. 그래서 **수집 직후에는 화면이 변하지 않고, RA 처리가 끝난 시점에 검증된 뉴스가 한꺼번에 올라옵니다.** 미처리 배치가 쌓이고 있는지는 설정 > 로그(SET-006)에서 운영자가 확인합니다.
 - **대시보드로 한눈에** — 기간별(전체/최근 30일/최근 7일) 뉴스 추이, 기업별·기술주제별 언급 순위, 주요 이슈(Insight), 기업 간 관계망(지식그래프)을 대시보드에서 확인합니다.
@@ -68,8 +68,9 @@ AI Market Watch는 이 반복 업무를 자동화하고, **단순 뉴스 요약�
 - **Frontend**: HTMX(부분 업데이트) + Alpine.js(클라이언트 UI 상태) + Tailwind CSS
 - **DB**: PostgreSQL 16 + pgvector (Docker)
 - **외부 연동**: Naver News API, OpenDART API, Claude API(Anthropic), Voyage AI(임베딩), Slack Webhook
-- **스케줄링**: APScheduler (in-process, `runserver`와 함께 기동 — 그래서 서버가 꺼져 있으면 그 시각 작업이 실행되지 않습니다. 로컬은 스케줄 비활성, 수동 수집)
+- **실행**: 🔴 **스케줄러 없음.** 사람이 설정 > 실행(SET-010)에서 버튼을 눌러야만 돕니다. APScheduler는 2026-09-04에 폐기됐습니다.
 - **시각화**: D3.js(지식그래프), 순수 SVG(대시보드 차트)
+- **프로덕션**: AWS EC2 `t3.micro` 1대. 🔴 **로컬과 완전히 같은 구조** — Docker로 PostgreSQL만 띄우고 앱은 호스트 venv의 gunicorn이 systemd 서비스로 돕니다. RDS와 ALB와 CloudFront는 쓰지 않습니다.
 
 ## 서비스 범위
 
@@ -105,8 +106,8 @@ copy .env.example .env   # Windows
 # cp .env.example .env    # macOS/Linux
 # 이후 .env를 열어 실제 API 키·DB 정보를 채워 넣습니다.
 
-# 3. DB 컨테이너 시작
-docker compose up -d
+# 3. DB 컨테이너 시작 (PostgreSQL만 띄웁니다)
+docker compose up -d db
 
 # 4. 마이그레이션
 venv\Scripts\python manage.py migrate --settings=config.settings.local
@@ -119,6 +120,15 @@ venv\Scripts\python manage.py runserver --settings=config.settings.local
 
 모든 `manage.py` 명령에는 `--settings=config.settings.local`을 붙여야 합니다(기본값은 존재하지 않는 경로입니다).
 
+🔴 **`requirements.txt`는 전이 의존성까지 전부 `==`로 고정돼 있습니다.** 로컬과 프로덕션이 완전히 같아야 하기 때문입니다. **패키지를 새로 깔거나 올렸으면 `pip freeze`로 이 파일을 다시 만들고 파일 머리 주석을 다시 얹으세요.** 안 하면 프로덕션이 옛 버전에 묶입니다.
+
+### 프로덕션
+
+**로컬과 같은 구조로 운영합니다** — Docker로 PostgreSQL만 띄우고 앱은 venv에서 돕니다. 다른 것은 `runserver` 대신 gunicorn을 쓴다는 점뿐입니다. 배포 절차와 운영 규칙은 [`docs/dev.md`](./docs/dev.md) 10장에 있습니다.
+
+- 개발은 `develop`, 배포는 `main`입니다. 🔴 **병합하지 않으면 배포해도 아무것도 안 바뀝니다.**
+- 배포는 `scripts/deploy.sh` 한 줄입니다.
+
 ## 프로젝트 구조
 
 ```
@@ -126,17 +136,19 @@ apps/
   dashboard/   # 전체 대시보드 (ALL-001)
   news/        # 뉴스 목록·상세 (NEWS-001~002)
   reports/     # 보고서 목록·상세 (REPORT-001~002)
-  setting/     # 데이터소스·키워드·프롬프트·스케줄·Slack·로그·기업·기술 주제 (SET-001~008)
+  setting/     # 데이터소스, 키워드, Slack, 로그, 기업, 기술 주제, 뉴스룸, 실행 (SET-001~010)
   graph/       # 지식그래프 (GRAPH-001)
+  newsroom/    # 교보 소식 (ROOM-001~003)
 services/
   collector.py  # 뉴스 수집 파이프라인
-  llm.py        # Claude API 연동
+  llm.py        # Claude API 연동 (아직 비어 있음)
   embedder.py   # 임베딩 생성 (Voyage AI)
-  scheduler.py  # APScheduler 작업 등록
-  periods.py    # 대시보드·지식그래프 공통 기간 필터 유틸
+  periods.py    # 대시보드, 지식그래프 공통 기간 필터 유틸
 config/settings/
   base.py / local.py / production.py
 templates/      # 앱별 하위 디렉토리를 포함한 루트 레벨 템플릿
+scripts/
+  deploy.sh     # EC2 배포. main 브랜치 고정
 ```
 
 ## Claude Code 서브에이전트 (PM/PD/PE/RA)
