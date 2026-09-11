@@ -120,13 +120,22 @@
   <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-6">
     {% with rendered_body=article.body|news_body %}
     {% if rendered_body %}
+    {% comment %}
+      본문 아래에 있던 "원문에서 이어 읽기" 링크와 구분선을 제거했다
+      (2026-09-11, 사용자 지시 — "원문이 다 보여야지, 뉴스 상세페이지랑 동일하게").
+
+      ⚠️ 본문이 잘려 있던 게 아니다. 수집된 body는 여기서 전부 렌더된다.
+      문제는 ① 헤더(위 "원문 보기")와 같은 article.url을 가리키는 중복 링크였고
+      ② "이어 읽기"라는 말이 "여기까지만 보여 준다"로 읽혔다는 것이다.
+
+      NEWS-002(templates/news/detail.html)는 본문 카드에 본문만 두고 원문 링크는
+      헤더에만 둔다. 두 화면의 구조를 같게 맞춘다 — 같은 성격의 화면이 서로 다른
+      곳에 같은 링크를 두면 어느 쪽이 표준인지 갈리지 않는다.
+
+      ⚠️ 아래 else 절(본문을 못 가져온 경우)의 "원문 보기" 버튼은 남긴다. 그때는
+      보여 줄 본문이 없어서 원문으로 보내는 것이 유일한 경로다.
+    {% endcomment %}
     <div class="text-sm text-gray-700 leading-[1.9] markdown-spacing">{{ rendered_body }}</div>
-    <div class="flex justify-end mt-4 pt-4 border-t border-gray-100">
-      <a href="{{ article.url }}" target="_blank" rel="noopener noreferrer"
-         class="flex items-center gap-1 text-xs text-primary hover:underline">
-        원문에서 이어 읽기 <i data-lucide="external-link" class="w-3 h-3"></i>
-      </a>
-    </div>
     {% else %}
     <div class="p-12 text-center text-gray-400">
       <i data-lucide="file-text" class="w-10 h-10 mx-auto mb-3 opacity-40"></i>

@@ -138,15 +138,43 @@
       <!-- 선별·작성: 필드는 위 room-form에 form= 속성으로 연결 -->
       <div class="mb-5">
         <p class="text-xs font-semibold text-gray-500 mb-2">선별·작성 <span class="text-gray-400 font-normal">준비 중이에요</span></p>
+        {% comment %}
+          🔴 2026-09-11 — 두 프롬프트 textarea를 내용 높이에 맞춰 자동으로 늘린다
+          (사용자 지시 — "전체 내용이 보이게 텍스트뷰 높이를 조정해줘, 너무 칸의 높이가
+          작아서 스크롤해서 보기 힘들어").
+
+          종전에는 rows="4" 고정이었는데 두 프롬프트가 수십 줄이라 4줄 창 안에서
+          스크롤해야 했다. 프롬프트는 통째로 읽으면서 고치는 글이라 창 안 스크롤이
+          읽기를 막는다.
+
+          x-init에서 한 번, @input에서 입력할 때마다 scrollHeight로 높이를 다시 맞춘다.
+          ⚠️ 'auto'로 먼저 되돌린 뒤 재측정해야 한다 — 기존 높이가 남아 있으면
+             scrollHeight가 그 값 아래로 못 내려가 글을 지워도 창이 안 줄어든다.
+          ⚠️ $nextTick으로 감싼 이유는 Alpine이 초기화되는 시점에 폰트가 아직 안 실려
+             있으면 scrollHeight가 실제보다 작게 나오기 때문이다.
+
+          🔴 resize-none을 그대로 둔다. resize-y로 바꾸고 싶었으나
+             static/css/tailwind.css에 .resize-y가 없다(실측 0건) — 이 프로젝트에서
+             처음 쓰는 클래스라 JIT가 생성하지 않았고, 넣으면 조용히 무시된다.
+             자동 높이가 들어가면 손으로 늘릴 일 자체가 없어 필요하지도 않다.
+
+          ⚠️ rows="4"는 지우지 않았다. 자바스크립트가 죽었을 때의 바닥값이다.
+        {% endcomment %}
         <div class="space-y-3">
           <div>
             <label class="text-xs text-gray-500 mb-1 block">필터 프롬프트</label>
             <textarea form="room-form-{{ room.id }}" name="filter_prompt" rows="4"
+                      x-data
+                      x-init="$nextTick(() => { $el.style.height = 'auto'; $el.style.height = $el.scrollHeight + 'px' })"
+                      @input="$el.style.height = 'auto'; $el.style.height = $el.scrollHeight + 'px'"
                       class="w-full text-xs font-mono border border-gray-200 rounded-[10px] p-3 focus:outline-none focus:border-primary resize-none leading-relaxed">{{ room.filter_prompt }}</textarea>
           </div>
           <div>
             <label class="text-xs text-gray-500 mb-1 block">발송문 프롬프트</label>
             <textarea form="room-form-{{ room.id }}" name="compose_prompt" rows="4"
+                      x-data
+                      x-init="$nextTick(() => { $el.style.height = 'auto'; $el.style.height = $el.scrollHeight + 'px' })"
+                      @input="$el.style.height = 'auto'; $el.style.height = $el.scrollHeight + 'px'"
                       class="w-full text-xs font-mono border border-gray-200 rounded-[10px] p-3 focus:outline-none focus:border-primary resize-none leading-relaxed">{{ room.compose_prompt }}</textarea>
           </div>
           <div class="flex gap-2">
