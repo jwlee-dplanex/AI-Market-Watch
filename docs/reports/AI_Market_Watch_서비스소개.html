@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AI Market Watch 서비스 소개</title>
-<meta name="description" content="AI Agent를 활용한 금융·보험사 AI 동향 리서치 체계 — AI Market Watch 서비스 소개">
+<meta name="description" content="AI Agent를 활용한 금융사와 보험사 AI 동향 리서치 체계 — AI Market Watch 서비스 소개">
 <meta name="theme-color" content="#60269E">
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20512%20512'%3E%3Crect%20width='512'%20height='512'%20rx='112'%20fill='%2360269E'/%3E%3Ccircle%20cx='218'%20cy='214'%20r='140'%20fill='%23FFFFFF'/%3E%3Ccircle%20cx='218'%20cy='214'%20r='100'%20fill='%2393D500'/%3E%3Cline%20x1='319'%20y1='315'%20x2='410'%20y2='406'%20stroke='%23FFFFFF'%20stroke-width='52'%20stroke-linecap='round'/%3E%3C/svg%3E">
 <style>
@@ -1329,7 +1329,11 @@ svg text{font-family:var(--font);}
       <a href="#ch1">01 추진 배경</a>
       <a href="#ch2">02 서비스 설명</a>
       <a href="#ch3">03 기대 효과</a>
+      <!-- 2026-09-11 숨김 (사용자 지시 "구축 계획 숨김처리해줘").
+           아래 <article id="ch4">의 style="display:none"과 짝이다.
+           되살릴 때 둘 다 되돌린다. 목차만 살리면 앵커가 안 보이는 곳을 가리킨다.
       <a href="#ch4">04 구축 계획</a>
+      -->
     </nav>
   </div>
   <div class="progress" id="progress" aria-hidden="true"></div>
@@ -1348,11 +1352,11 @@ svg text{font-family:var(--font);}
   <div class="cover-inner">
     <span class="pill solid">서비스 소개</span>
     <h1 id="cover-title">AI Market Watch</h1>
-    <p class="cover-subtitle">금융·보험사의 AI 도입 동향을 수집하고 해석하는 리서치 체계</p>
+    <p class="cover-subtitle">금융사와 보험사의 AI 도입 동향을 수집하고 해석하는 리서치 체계</p>
     <div class="cover-rule" aria-hidden="true"></div>
     <p class="cover-desc">
-      금융·보험사의 AI 도입 동향과 관련 AI 기업의 협업 사례를<br>
-      지속적으로 수집·요약한다
+      금융사와 보험사의 AI 도입 동향과 관련 AI 기업의 협업 사례를<br>
+      지속적으로 수집하고 요약한다
     </p>
     <!-- 발행일은 2026-08-22에 뺐다. 문서가 계속 갱신되고 있어 날짜를 박아 두면 늘 뒤처진다
          (사용자 지시). 구분점(.dot)도 함께 빼야 한다 — 안 그러면 끝에 점만 남는다.
@@ -1379,7 +1383,7 @@ svg text{font-family:var(--font);}
              꼬리 라벨("원문 그대로" 주석이 붙은 <text> 묶음)과 글자 하나까지 같은 쌍이다.
              한쪽만 고치면 그림과 본문이 어긋난다. 2026-08-24 문장 격 점검에서 본문과 라벨을 같은 턴에 함께 고쳤다. 고쳐야 한다면 SVG 라벨의 줄바꿈 위치까지 함께 다시 잡아야 한다. -->
         <p class="chap-desc">이러한 시장 변화를 꾸준히 지켜보고 DPLANEX 사업 방향과 연결해 해석할 필요가 있다. 그러나 기존 방식은 담당자가 직접 뉴스를 검색하고 문서로 정리하는 수작업 중심이다. 그래서 정보를 모으고 정리하는 데 시간이 많이 든다.</p>
-        <p class="chap-desc">따라서 AI 시장 정보를 자동으로 수집하고 DPLANEX 관점에서 분류·요약·해석하는 체계가 필요하다. 시장 변화와 사업 기회를 빠르게 파악하기 위해서다.</p>
+        <p class="chap-desc">따라서 AI 시장 정보를 자동으로 수집하고 DPLANEX 관점에서 분류, 요약, 해석하는 체계가 필요하다. 시장 변화와 사업 기회를 빠르게 파악하기 위해서다.</p>
       </div>
     </header>
   </div>
@@ -1441,7 +1445,7 @@ svg text{font-family:var(--font);}
                 <text x="30" y="182">① 담당자가 직접 검색하고 정리해야 하므로 시간이 많이 소요된다.</text>
                 <text x="30" y="203">⑤ 정기적으로 공유 가능한 보고서 생성 과정이 수작업에 의존한다.</text>
                 <text x="30" y="224">⑥ 외부 조사를 의뢰할 때, 공개된 보도자료로 확인할 수 있는</text>
-                <text x="42" y="245">현황·동향까지 함께 의뢰하게 된다.</text>
+                <text x="42" y="245">현황과 동향까지 함께 의뢰하게 된다.</text>
               </g>
               <g font-size="10" font-weight="800" fill="var(--ink-2)" text-anchor="middle">
                 <g class="st"><rect x="34" y="268" width="92" height="34" rx="8" fill="#fff" stroke="var(--violet-300)"/><text x="80" y="290">검색</text></g>
@@ -1525,7 +1529,7 @@ svg text{font-family:var(--font);}
               <!-- 꼬리 라벨 — 원문 그대로 -->
               <rect x="14" y="978" width="3" height="40" rx="1.5" fill="var(--violet-800)"/>
               <g font-size="11.5" font-weight="800" fill="var(--violet-900)">
-                <text x="28" y="995">따라서 AI 시장 정보를 자동으로 수집하고 DPLANEX 관점에서 분류·요약·해석하는 체계가 필요하다.</text>
+                <text x="28" y="995">따라서 AI 시장 정보를 자동으로 수집하고 DPLANEX 관점에서 분류, 요약, 해석하는 체계가 필요하다.</text>
                 <text x="28" y="1014">시장 변화와 사업 기회를 빠르게 파악하기 위해서다.</text>
               </g>
             </svg>
@@ -1547,7 +1551,7 @@ svg text{font-family:var(--font);}
             <li>조사자마다 분류 기준과 해석 관점이 달라 일관된 인사이트를 만들기 어렵다.</li>
             <li>수집된 뉴스가 실제 DPLANEX 사업 기회와 어떻게 연결되는지 파악하기 어렵다.</li>
             <li>정기적으로 공유 가능한 보고서 생성 과정이 수작업에 의존한다.</li>
-            <li>외부 조사를 의뢰할 때, 공개된 보도자료로 확인할 수 있는 현황·동향까지 함께 의뢰하게 된다.</li>
+            <li>외부 조사를 의뢰할 때, 공개된 보도자료로 확인할 수 있는 현황과 동향까지 함께 의뢰하게 된다.</li>
           </ul>
         </div>
       </div>
@@ -1570,7 +1574,7 @@ svg text{font-family:var(--font);}
         <li class="core rv" style="--d:60ms">
           <span class="idx" aria-hidden="true">02</span>
           <h4>뉴스 요약 및 주제 분류 자동화</h4>
-          <p>수집한 정보를 LLM API를 이용해 핵심 내용 중심으로 요약한다. 그리고 기술 흐름·기업 사례·금융권 활용·규제·경쟁사 동향 등으로 분류한다.</p>
+          <p>수집한 정보를 LLM API를 이용해 핵심 내용 중심으로 요약한다. 그리고 기술 흐름, 기업 사례, 금융권 활용, 규제, 경쟁사 동향 등으로 분류한다.</p>
         </li>
         <li class="core rv" style="--d:120ms">
           <span class="idx" aria-hidden="true">03</span>
@@ -1617,7 +1621,7 @@ svg text{font-family:var(--font);}
         <span class="sec-no">2.1 · OVERVIEW</span>
         <h3 class="sec-title" id="s21">서비스 개요</h3>
         <p class="sec-lead">
-          AI Market Watch는 AI 시장 동향과 금융권 AI 활용 사례를 자동으로 수집·분석하여
+          AI Market Watch는 AI 시장 동향과 금융권 AI 활용 사례를 자동으로 수집하고 분석하여
           시장 변화와 DPLANEX 사업 기회를 빠르게 파악할 수 있도록 지원하는
           내부 웹 대시보드 서비스이다.
         </p>
@@ -1858,7 +1862,7 @@ svg text{font-family:var(--font);}
             <caption class="sr-only">처리 단계 8단계와 각 단계의 작업 내용</caption>
             <thead><tr><th>#</th><th>단계</th><th>작업 내용</th></tr></thead>
             <tbody>
-              <tr><td class="n">1</td><td class="k">수집</td><td>등록한 키워드로 금융·보험권 AI 뉴스를 수집함</td></tr>
+              <tr><td class="n">1</td><td class="k">수집</td><td>등록한 키워드로 금융권과 보험권 AI 뉴스를 수집함</td></tr>
               <tr><td class="n">2</td><td class="k">문서 분할</td><td>기사를 뜻이 이어지는 단위로 잘라 다루기 좋은 크기로 분할</td></tr>
               <tr><td class="n">3</td><td class="k">의미 색인 생성</td><td>잘라 둔 문장을 뜻이 비슷한지 견줄 수 있는 형태로 변환</td></tr>
               <tr><td class="n">4</td><td class="k">색인 저장</td><td>바꾼 색인을 나중에 찾아볼 수 있도록 저장함</td></tr>
@@ -1890,7 +1894,7 @@ svg text{font-family:var(--font);}
         </p>
         <p class="svc-demo">
           ※ 아래 그림은 각 화면의 <b>배치를 보여 주기 위한 것</b>이다.
-          화면 이름 · 항목 이름 · 버튼은 실제 화면 그대로이고, 이슈 제목 · 뉴스 제목 · 기업명도 실제 값이다.
+          화면 이름, 항목 이름, 버튼은 실제 화면 그대로이고, 이슈 제목, 뉴스 제목, 기업명도 실제 값이다.
           다만 <b>수치는 예시</b>이며, 목록은 앞 몇 행만 그렸다.
           그림마다 무엇이 실제 값인지 바로 아래에 밝혀 두었다. 실측만 실은 자리는 2.3이다.
         </p>
@@ -1944,7 +1948,7 @@ svg text{font-family:var(--font);}
 
           <!-- ALL-001 목업 — templates/dashboard/index.html + templates/dashboard/_metrics.html + templates/base.html -->
           <div class="ksd-shot" role="img"
-               aria-label="대시보드 화면. 왼쪽에 대시보드·보고서·지식그래프·뉴스·설정 다섯 개 메뉴가 있는 사이드바가 있고, 본문은 위에서부터 헤드라인 세 건, 주요 이슈 목록과 최신 뉴스 목록, 핵심 지표 세 카드(뉴스 건수 추이·기업별 건수 Top 10·기술 주제별 언급 건수) 순으로 놓인다.">
+               aria-label="대시보드 화면. 왼쪽에 대시보드, 보고서, 지식그래프, 뉴스, 설정 다섯 개 메뉴가 있는 사이드바가 있고, 본문은 위에서부터 헤드라인 세 건, 주요 이슈 목록과 최신 뉴스 목록, 핵심 지표 세 카드(뉴스 건수 추이, 기업별 건수 Top 10, 기술 주제별 언급 건수) 순으로 놓인다.">
             <div class="ksd-shot-nav">
               <div class="bd"><em>DPLANEX</em><b>AI Market Watch</b></div>
               <ul>
@@ -2012,7 +2016,7 @@ svg text{font-family:var(--font);}
                           <span class="s-ttl tr">NH농협은행이 '에이전틱 AI 은행' 구현을 논의하는 초개인화 토론회 개최 — 마케팅·AX·데이터·플랫폼·테크 부서 팀장급 참여</span>
                           <span class="s-meta"><span class="s-gr g3">3급</span><span class="s-mt">08/19</span><span class="s-mt">관련 기사 1건</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
                         </div>
-                        <div class="s-div"><span class="s-pv">NH농협은행이 마케팅 · AX · 데이터 · 플랫폼 · 테크 부서 팀장급이 참여하는 토론회를 열어 '에이전틱 AI 은행' 구현 방향을 논의했다.</span></div>
+                        <div class="s-div"><span class="s-pv">NH농협은행이 마케팅, AX, 데이터, 플랫폼, 테크 부서 팀장급이 참여하는 토론회를 열어 '에이전틱 AI 은행' 구현 방향을 논의했다.</span></div>
                       </div>
                       <div class="s-card s-pad">
                         <div class="s-top">
@@ -2033,7 +2037,7 @@ svg text{font-family:var(--font);}
                           <span class="s-ttl tr">KB국민은행이 티냅스와 AI 답변 신뢰성 검증 체계 공동 구축 — 통과·차단·재검토 판정</span>
                           <span class="s-meta"><span class="s-gr g2">2급</span><span class="s-mt">08/18</span><span class="s-mt">관련 기사 1건</span><svg class="s-cv"><use href="#nvChev"/></svg></span>
                         </div>
-                        <div class="s-div"><span class="s-pv">KB국민은행이 티냅스와 함께 AI 답변의 신뢰성을 검증하는 체계를 만든다. 판정은 통과 · 차단 · 재검토 세 갈래다.</span></div>
+                        <div class="s-div"><span class="s-pv">KB국민은행이 티냅스와 함께 AI 답변의 신뢰성을 검증하는 체계를 만든다. 판정은 통과, 차단, 재검토 세 갈래다.</span></div>
                       </div>
                       <div class="s-card s-pad">
                         <div class="s-top">
@@ -2178,16 +2182,16 @@ svg text{font-family:var(--font);}
             </div>
           </div>
           <p class="ksd-shot-note">
-            헤드라인 · 주요 이슈의 <b>제목과 등급</b>, 최신 뉴스의 <b>제목과 발행일</b>, 순위에 오른 <b>기업명 · 기술 주제명</b>은 실제 값이다.
+            헤드라인과 주요 이슈의 <b>제목과 등급</b>, 최신 뉴스의 <b>제목과 발행일</b>, 순위에 오른 <b>기업명과 기술 주제명</b>은 실제 값이다.
             <b>건수는 예시</b>이며, 주별 추이 합계는 검증 완료 뉴스 실제 총량(135건)에 맞췄다.
-            줄인 것은 목록 길이뿐이다. 헤드라인 3건은 실제 상한이고, 주요 이슈 · 최신 뉴스 · 순위는 스크롤되는 목록에서 앞 4~5행만 그렸다.
+            줄인 것은 목록 길이뿐이다. 헤드라인 3건은 실제 상한이고, 주요 이슈, 최신 뉴스, 순위는 스크롤되는 목록에서 앞 4~5행만 그렸다.
             헤드라인에 오른 이슈는 아래 주요 이슈 목록에 다시 나오지 않는다.
           </p>
 
           <div class="svc-bd">
             <p class="svc-tx">검증을 통과한 뉴스와, 그 뉴스를 근거로 묶인 이슈를 한 화면에서 확인한다.</p>
-            <p class="svc-tx">이슈에는 1 · 2 · 3급 등급을 부여하고, <b>1급이면서 근거 기사가 최근인 이슈</b> 가운데 세 건을 헤드라인으로 세운다. 따라서 한동안 새 소식이 없던 이슈는 등급이 높아도 헤드라인에 오르지 않는다.</p>
-            <p class="svc-tx">확인 항목은 헤드라인 3건, 등급이 표시된 주요 이슈 목록, 핵심 지표(뉴스 추이, 기업별 · 기술 주제별 노출 순위)다.</p>
+            <p class="svc-tx">이슈에는 1, 2, 3급 등급을 부여하고, <b>1급이면서 근거 기사가 최근인 이슈</b> 가운데 세 건을 헤드라인으로 세운다. 따라서 한동안 새 소식이 없던 이슈는 등급이 높아도 헤드라인에 오르지 않는다.</p>
+            <p class="svc-tx">확인 항목은 헤드라인 3건, 등급이 표시된 주요 이슈 목록, 핵심 지표(뉴스 추이, 기업별과 기술 주제별 노출 순위)다.</p>
           </div>
         </div>
 
@@ -2252,7 +2256,7 @@ svg text{font-family:var(--font);}
                ⚠️ "Slack 전송" 버튼은 실제로도 비활성이다 — 발송 코드가 아직 없어서 회색으로
                   두고 커서만 막아 둔 상태이며, 그래서 목업도 흐린 테두리로 그렸다. -->
           <div class="ksd-shot" role="img"
-               aria-label="보고서 상세 화면. 상단에 Slack 전송 비활성 버튼과 PDF 다운로드 버튼이 있고, 보라색 그라디언트 헤더에 보고서 제목과 기간이 놓인다. 그 아래 주요 동향 카드와, 짧은 버전 · 긴 버전을 전환할 수 있는 주요 이슈 카드가 있으며 이슈마다 참고 뉴스가 연결돼 있다.">
+               aria-label="보고서 상세 화면. 상단에 Slack 전송 비활성 버튼과 PDF 다운로드 버튼이 있고, 보라색 그라디언트 헤더에 보고서 제목과 기간이 놓인다. 그 아래 주요 동향 카드와, 짧은 버전과 긴 버전을 전환할 수 있는 주요 이슈 카드가 있으며 이슈마다 참고 뉴스가 연결돼 있다.">
             <div class="ksd-shot-nav">
               <div class="bd"><em>DPLANEX</em><b>AI Market Watch</b></div>
               <ul>
@@ -2324,8 +2328,8 @@ svg text{font-family:var(--font);}
           </div>
           <p class="ksd-shot-note">
             보고서 <b>3건이 지금까지 발행된 전부</b>다. 목록을 길어 보이게 늘리지 않았다.
-            제목 · 기간 · 이슈 제목 · 첫 번째 참고 뉴스는 실제 값이고,
-            생성일 · 본문 서술 · 두 번째 참고 뉴스 제목은 예시다.
+            제목, 기간, 이슈 제목, 첫 번째 참고 뉴스는 실제 값이고,
+            생성일, 본문 서술, 두 번째 참고 뉴스 제목은 예시다.
             “Slack 전송” 버튼이 흐린 것도 실제 화면 그대로다. 발송 기능이 아직 없어 눌리지 않는다.
           </p>
 
@@ -2367,7 +2371,7 @@ svg text{font-family:var(--font);}
                ⚠️ 라벨 알약이 서로 겹치지 않는 선이 이 배율의 한계다. 연결을 더 넣으려면
                   캔버스 높이를 함께 키워야 한다 — 겹치면 오히려 못 읽는다. -->
           <div class="ksd-shot" role="img"
-               aria-label="지식그래프 화면. 위쪽에 전체·최근 30일·최근 7일 기간 필터가 있고, 왼쪽 캔버스에 기업이 원으로, 관계가 선으로 그려진다. 선 가운데에는 공급계약·기술협업 같은 관계 이름이 붙어 있다. 왼쪽 위에는 금융사·보험사·AI 범례가, 오른쪽 위에는 기업 65개 연결 16개라는 통계가 있다. 오른쪽 패널에는 클릭한 연결선의 두 기업, 관계 라벨, 근거 뉴스가 나온다.">
+               aria-label="지식그래프 화면. 위쪽에 전체, 최근 30일, 최근 7일 기간 필터가 있고, 왼쪽 캔버스에 기업이 원으로, 관계가 선으로 그려진다. 선 가운데에는 공급계약, 기술협업 같은 관계 이름이 붙어 있다. 왼쪽 위에는 금융사, 보험사, AI 범례가, 오른쪽 위에는 기업 65개 연결 16개라는 통계가 있다. 오른쪽 패널에는 클릭한 연결선의 두 기업, 관계 라벨, 근거 뉴스가 나온다.">
             <div class="ksd-shot-nav">
               <div class="bd"><em>DPLANEX</em><b>AI Market Watch</b></div>
               <ul>
@@ -2572,23 +2576,23 @@ svg text{font-family:var(--font);}
             </div>
           </div>
           <p class="ksd-shot-note">
-            <b>기업명 · 관계 이름 · 유형별 색은 실제 값</b>이고, 오른쪽 위의 기업 65개 · 연결 16개도 현재 실제 규모다.
+            <b>기업명, 관계 이름, 유형별 색은 실제 값</b>이고, 오른쪽 위의 기업 65개 · 연결 16개도 현재 실제 규모다.
             그림의 연결은 <b>관계가 쌓였을 때 이 화면이 어떤 모습이 되는지</b>를 담은 것이라 일부가 예시다.
             여러 금융사가 같은 AI 기업으로 모이는 지점에서 관계망이 만들어진다.
-            오른쪽 패널의 근거 뉴스 제목 · 날짜 · 건수도 예시다.
+            오른쪽 패널의 근거 뉴스 제목, 날짜, 건수도 예시다.
           </p>
 
           <div class="svc-bd">
-            <p class="svc-tx">검증된 기사에 등장한 금융사 · 보험사와 AI 기업을 대상으로 한다.</p>
+            <p class="svc-tx">검증된 기사에 등장한 금융사, 보험사와 AI 기업을 대상으로 한다.</p>
             <p class="svc-tx"><b>기사에서 관계가 확인된 경우에만</b> 두 기업을 연결하고, 관계 유형을 함께 등록한다.</p>
-            <p class="svc-tx">금융사 · 보험사와 AI 기업 사이의 실제 접점(기술 협업, 공급계약, 인수, 투자)을 관계망으로 확인한다.</p>
+            <p class="svc-tx">금융사, 보험사와 AI 기업 사이의 실제 접점(기술 협업, 공급계약, 인수, 투자)을 관계망으로 확인한다.</p>
           </div>
           <div class="reject">
             <span class="lb">WHAT IT REFUSES</span>
             <p>관계는 기사에서 확인된 경우에만 등록된다. 같은 기사에 나란히 언급되기만 한 기업은 연결하지 않는다.</p>
             <p>나란히 언급됐을 뿐인 두 기업은 <b>관계를 명시한 문장이 담긴 기사가 수집되는 시점에 연결된다.</b> 그때까지 두 기업은 각자의 노드로 남고, 근거 기사 자체는 뉴스 화면에서 확인할 수 있다.</p>
           </div>
-          <p class="svc-fn">※ 관계 유형은 기술협업 · 공급계약 · 업무협약 · 파트너십 · 지분투자 · 인수다.</p>
+          <p class="svc-fn">※ 관계 유형은 기술협업, 공급계약, 업무협약, 파트너십, 지분투자, 인수다.</p>
         </div>
 
         <!-- 04 뉴스 -->
@@ -2705,7 +2709,7 @@ svg text{font-family:var(--font);}
                ⚠️ 우측 "관련 기업" 배지의 x 버튼과 "기업 추가"는 태그를 수동 교정하는 장치다.
                   카드 본문이 말하는 "잘못 부여된 태그는 수동으로 교정한다"가 이 UI다. -->
           <div class="ksd-shot" role="img"
-               aria-label="뉴스 상세 화면. 위쪽에 뉴스 목록으로 돌아가는 경로와 이전·다음 이동이 있다. 본문 영역에는 발행일과 원문 보기 링크, 기사 제목, 이 기사가 속한 이슈의 시사점, 기사 본문이 차례로 놓인다. 오른쪽에는 관련 기업 배지와 기업 추가 버튼이 있는 패널이 붙는다.">
+               aria-label="뉴스 상세 화면. 위쪽에 뉴스 목록으로 돌아가는 경로와 이전, 다음 이동이 있다. 본문 영역에는 발행일과 원문 보기 링크, 기사 제목, 이 기사가 속한 이슈의 시사점, 기사 본문이 차례로 놓인다. 오른쪽에는 관련 기업 배지와 기업 추가 버튼이 있는 패널이 붙는다.">
             <div class="ksd-shot-nav">
               <div class="bd"><em>DPLANEX</em><b>AI Market Watch</b></div>
               <ul>
@@ -2750,13 +2754,13 @@ svg text{font-family:var(--font);}
                       </div>
                       <div class="s-mt" style="display:block;margin:4px 0 9px 20px;white-space:normal">이 기사가 속한 이슈 · <span style="color:#6B7280">KB국민은행이 티냅스와 AI 답변 신뢰성 검증 체계 공동 구축</span></div>
                       <div class="s-imp">
-                        <p class="s-tx">통과 · 차단 · 재검토로 판정을 나눈 점이 핵심이다. AI 답변을 쓰거나 버리는 두 갈래가 아니라 사람이 다시 보는 칸을 따로 둔 구조이며, 금융권이 생성형 AI를 고객 응대에 붙일 때 필요한 통제 지점을 보여 준다.</p>
+                        <p class="s-tx">통과, 차단, 재검토로 판정을 나눈 점이 핵심이다. AI 답변을 쓰거나 버리는 두 갈래가 아니라 사람이 다시 보는 칸을 따로 둔 구조이며, 금융권이 생성형 AI를 고객 응대에 붙일 때 필요한 통제 지점을 보여 준다.</p>
                       </div>
                     </div>
 
                     <div class="s-card" style="padding:17px 18px">
                       <p class="s-tx">KB국민은행이 설립 3년 차 스타트업 티냅스와 손잡고 AI 답변의 신뢰성을 검증하는 체계를 공동 구축한다고 밝혔다.</p>
-                      <p class="s-tx" style="margin-top:11px">이 체계는 AI가 만든 답변을 통과 · 차단 · 재검토 세 가지로 판정한다. 재검토로 분류된 답변은 담당자가 직접 확인한 뒤에야 고객에게 전달된다.</p>
+                      <p class="s-tx" style="margin-top:11px">이 체계는 AI가 만든 답변을 통과, 차단, 재검토 세 가지로 판정한다. 재검토로 분류된 답변은 담당자가 직접 확인한 뒤에야 고객에게 전달된다.</p>
                       <p class="s-tx" style="margin-top:11px">은행 측은 신생 기업을 택한 이유로 검증 영역에 특화된 기술과 빠른 적용 속도를 들었다.</p>
                     </div>
                   </div>
@@ -2777,18 +2781,18 @@ svg text{font-family:var(--font);}
             </div>
           </div>
           <p class="ksd-shot-note">
-            <b>기사 제목 · 발행일 · 총 135건은 실제 값</b>이고, 기업 배지도 실제 등록된 기업이다.
-            기사 본문 · 이슈 시사점 문구 · 페이지 번호는 예시다.
-            <b>언론사는 자리가 비어 있는 것이 아니라 화면에 아예 없다.</b> 목록과 상세 모두 발행일 · 제목 · 기업 배지만 보여 준다.
+            <b>기사 제목, 발행일, 총 135건은 실제 값</b>이고, 기업 배지도 실제 등록된 기업이다.
+            기사 본문, 이슈 시사점 문구, 페이지 번호는 예시다.
+            <b>언론사는 자리가 비어 있는 것이 아니라 화면에 아예 없다.</b> 목록과 상세 모두 발행일, 제목, 기업 배지만 보여 준다.
             오른쪽 배지의 x 표시와 “기업 추가”는 잘못 붙은 태그를 사람이 고치는 자리다.
           </p>
 
           <div class="svc-bd">
             <p class="svc-tx">수집된 기사 원문과 요약을 대상으로 한다.</p>
-            <p class="svc-tx">등록해 둔 기준으로 관련성을 판정하고, 통과하지 못한 기사는 화면에서 제외한다. 기업 · 기술 주제 태그를 부여하고, 잘못 부여된 태그는 수동으로 교정한다.</p>
+            <p class="svc-tx">등록해 둔 기준으로 관련성을 판정하고, 통과하지 못한 기사는 화면에서 제외한다. 기업과 기술 주제 태그를 부여하고, 잘못 부여된 태그는 수동으로 교정한다.</p>
             <p class="svc-tx"><b>검증 완료 기사만</b> 목록과 상세로 확인한다. 판정 전 기사는 이 화면에 노출되지 않는다. 상세에서는 해당 기사를 근거로 하는 시사점도 함께 확인한다.</p>
           </div>
-          <p class="svc-fn">※ 기업은 금융사 · 보험사 · AI 세 유형으로 나눠 등록한다.</p>
+          <p class="svc-fn">※ 기업은 금융사, 보험사, AI 세 유형으로 나눠 등록한다.</p>
         </div>
 
         <!-- 05 설정 -->
@@ -2972,19 +2976,19 @@ svg text{font-family:var(--font);}
             </div>
           </div>
           <p class="ksd-shot-note">
-            <b>수집 키워드 6건 · 데이터 소스 이름 · 미검증 0건은 실제 값</b>이다.
+            <b>수집 키워드 6건, 데이터 소스 이름, 미검증 0건은 실제 값</b>이다.
             키워드는 33건이 모두 켜져 있고, <b>“기업명 + AI”</b>라는 한 가지 형태를 따른다.
             데이터 소스는 <b>Naver News API 하나</b>다.
             제외 키워드는 등록 건수를 확인하지 못해, 지어내지 않고 화면의 빈 상태 문구를 그대로 뒀다.
-            수집 로그의 시각 · 건수 · 크롤 실패 수는 예시다.
+            수집 로그의 시각, 건수, 크롤 실패 수는 예시다.
           </p>
 
           <div class="svc-bd">
             <p class="svc-tx">수집 대상과 기준 데이터, 그리고 처리 기록을 대상으로 한다.</p>
-            <p class="svc-tx">수집(데이터 소스 · 수집 키워드 · 스케줄), 판정과 알림(분석 프롬프트 · Slack), 기준 데이터(기업 · 기술 주제)를 관리한다.</p>
+            <p class="svc-tx">수집(데이터 소스, 수집 키워드, 스케줄), 판정과 알림(분석 프롬프트와 Slack), 기준 데이터(기업과 기술 주제)를 관리한다.</p>
             <p class="svc-tx"><b>처리 이력</b>에서 수집과 판정이 어디까지 진행됐는지, 검증 대기 중인 뉴스가 쌓여 있지는 않은지 확인한다. 검증 전 뉴스는 다른 화면에 노출되지 않으므로 이 화면이 그것을 확인하는 자리다.</p>
           </div>
-          <p class="svc-fn">※ 데이터 소스와 키워드는 이 화면에서 등록 · 관리하며, 키워드는 수집용과 제외용으로 나눠 개별적으로 켜고 끌 수 있다.</p>
+          <p class="svc-fn">※ 데이터 소스와 키워드는 이 화면에서 등록하고 관리하며, 키워드는 수집용과 제외용으로 나눠 개별적으로 켜고 끌 수 있다.</p>
         </div>
       </div>
 
@@ -3151,7 +3155,7 @@ svg text{font-family:var(--font);}
         <li class="effect rv" style="--d:300ms">
           <span class="idx" aria-hidden="true">07</span>
           <span class="tx">외부 조사 범위 축소
-            <span class="d">공개 자료로 확인되는 현황·동향은 내부에서 확보함. 외부에는 내부 인터뷰처럼 직접 수행해야 하는 부분만 의뢰함</span>
+            <span class="d">공개 자료로 확인되는 현황과 동향은 내부에서 확보함. 외부에는 내부 인터뷰처럼 직접 수행해야 하는 부분만 의뢰함</span>
           </span>
         </li>
       </ol>
@@ -3161,7 +3165,12 @@ svg text{font-family:var(--font);}
 
 <div class="divider"></div>
 
-<article id="ch4" class="chapter">
+<!-- 🔴 2026-09-11 — 04장 전체를 숨겼다 (사용자 지시 "구축 계획 숨김처리해줘").
+     지우지 않고 style="display:none"으로 가린다. 내용은 그대로 남아 있으므로
+     되살리려면 아래 style 속성 하나만 빼고, 위 목차의 <a href="#ch4"> 주석도 함께 푼다.
+     ⚠️ 둘 중 하나만 되돌리면 목차 링크가 안 보이는 곳을 가리키거나, 장은 보이는데
+        목차에서 못 찾는 상태가 된다. -->
+<article id="ch4" class="chapter" style="display:none">
   <div class="wrap">
     <header class="chap-head rv">
       <div class="chap-no" aria-hidden="true">04</div>
@@ -3212,7 +3221,7 @@ svg text{font-family:var(--font);}
                     이력이 문서에서 사라진다.
                  ⚠️ 확정된 것은 이 행뿐이다. 수행 주체 · 소요 산정 · 운영 방안은 그대로
                     결정 필요다. 결정 하나로 나머지를 함께 닫지 말 것. -->
-            <tr><td class="g">구축·운영</td><td class="k">구축 환경</td><td><span class="s"><b>샌드박스에 구축</b> (경영진 결정)</span><span class="s">정보 보안 권고는 <b>개발 환경에서 진행</b>이었음 (정보 보안 <b>정보보안 PM</b>)</span></td><td class="st ok">확정</td></tr>
+            <tr><td class="g">구축과 운영</td><td class="k">구축 환경</td><td><span class="s"><b>샌드박스에 구축</b> (경영진 결정)</span><span class="s">정보 보안 권고는 <b>개발 환경에서 진행</b>이었음 (정보 보안 <b>정보보안 PM</b>)</span></td><td class="st ok">확정</td></tr>
             <tr><td class="g"></td><td class="k">구축 수행 주체</td><td><span class="s"><b>개발팀 리소스</b> 투입 검토</span></td><td class="st chk">결정 필요</td></tr>
             <tr><td class="g"></td><td class="k">구축 소요 산정</td><td><span class="s">담당자 수행 기준.</span><span class="s">업무 병행 <b>0.5 M/D · 11 Work Day</b>, 전담 <b>1.0 M/D · 6 Work Day</b>.</span><span class="s">총 공수는 <b>0.28 M/M</b> (5.5 M/D, 월 20 영업일 기준). 전담은 하루 단위로 끊어 6 Work Day</span></td><td class="st chk">결정 필요</td></tr>
             <tr><td class="g"></td><td class="k">운영 수행 방안</td><td><span class="s">구축 완료 후 서비스를 유지할 담당 지정.</span><span class="s"><b>장애 대응</b>: 서비스 중단이나 수집 실패 시 복구. 발생 시점을 예측할 수 없어 대기 체계 필요</span><span class="s"><b>버그 수정</b>: 동작이 잘못된 부분 교정</span><span class="s"><b>기능 추가 요청 처리</b>: 관계사 요청을 검토해 우선순위를 정하고 반영</span></td><td class="st chk">결정 필요</td></tr>
@@ -3265,7 +3274,7 @@ svg text{font-family:var(--font);}
 
             <rect x="36" y="118" width="232" height="64" rx="9" fill="#fff" stroke="var(--violet-800)" stroke-width="1.5"/>
             <text class="box" x="152" y="144" text-anchor="middle">AI Market Watch</text>
-            <text class="sub" x="152" y="164" text-anchor="middle">수집 · 판정 · 인사이트 생성</text>
+            <text class="sub" x="152" y="164" text-anchor="middle">수집, 판정, 인사이트 생성</text>
             <rect x="476" y="118" width="232" height="64" rx="9" fill="#fff" stroke="var(--violet-800)" stroke-width="1.5"/>
             <text class="box" x="592" y="144" text-anchor="middle">적재 후</text>
             <text class="sub" x="592" y="164" text-anchor="middle">수신 시까지 보관</text>
@@ -3295,15 +3304,15 @@ svg text{font-family:var(--font);}
 
             <rect x="36" y="198" width="232" height="102" rx="9" fill="#fff" stroke="var(--lav-200)"/>
             <text class="lbl" x="52" y="220">전달 대상 (문자열)</text>
-            <text class="it" x="152" y="244" text-anchor="middle">뉴스 · 시사점 · 요약</text>
-            <text class="it" x="152" y="264" text-anchor="middle">인사이트 · 보고서</text>
+            <text class="it" x="152" y="244" text-anchor="middle">뉴스, 시사점, 요약</text>
+            <text class="it" x="152" y="264" text-anchor="middle">인사이트와 보고서</text>
             <text class="it" x="152" y="284" text-anchor="middle">지식그래프</text>
 
             <rect x="476" y="198" width="232" height="102" rx="9" fill="#fff" stroke="var(--lav-200)"/>
             <text class="lbl" x="492" y="220">형식</text>
             <text class="it" x="592" y="244" text-anchor="middle">텍스트 파일 기준</text>
             <text class="it" x="592" y="264" text-anchor="middle">CSV 가능</text>
-            <text class="tag" x="592" y="286" text-anchor="middle" fill="var(--warn)">PDF · 한글 문서 확장자 검토</text>
+            <text class="tag" x="592" y="286" text-anchor="middle" fill="var(--warn)">PDF와 한글 문서 확장자 검토</text>
 
             <rect x="916" y="198" width="232" height="102" rx="9" fill="#fff" stroke="var(--lav-200)"/>
             <text class="lbl" x="932" y="220">수신처</text>
@@ -3338,9 +3347,9 @@ svg text{font-family:var(--font);}
           </thead>
           <tbody>
             <tr><td class="job">교보 키워드 추가</td><td class="d on"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td></tr>
-            <tr><td class="job">샌드박스 환경 · 서비스 구동</td><td class="d on b"></td><td class="d on b"></td><td class="d on b"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td></tr>
+            <tr><td class="job">샌드박스 환경과 서비스 구동</td><td class="d on b"></td><td class="d on b"></td><td class="d on b"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td></tr>
             <tr><td class="job">LLM 연동</td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d on"></td><td class="d on"></td><td class="d on"></td><td class="d on"></td><td class="d on"></td><td class="d"></td><td class="d"></td><td class="d"></td></tr>
-            <tr><td class="job">태블릿 대응 · 앱 배포</td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d on b"></td><td class="d on b"></td><td class="d"></td></tr>
+            <tr><td class="job">태블릿 대응과 앱 배포</td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d on b"></td><td class="d on b"></td><td class="d"></td></tr>
             <tr><td class="job">QA</td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d"></td><td class="d on"></td></tr>
           </tbody>
         </table>
@@ -3353,7 +3362,7 @@ svg text{font-family:var(--font);}
           <thead><tr><th>구분</th><th>작업</th><th>하는 일</th><th>진행자</th><th>상태</th></tr></thead>
           <tbody>
             <tr><td class="g">준비</td><td class="k">교보 키워드 추가</td><td><span class="s">수집 키워드에 <b>교보 계열사</b>를 추가하여 <b>별도의 채널</b>로 운영</span></td><td class="who">담당자</td><td class="st ok">예정</td></tr>
-            <tr><td class="g">구축</td><td class="k">샌드박스 환경<br>서비스 구동</td><td><span class="s"><b>Django 풀스택</b>으로 구축</span><span class="s"><b>프런트엔드</b>는 Tailwind, HTMX, Alpine 정적 파일을 함께 배포</span><span class="s"><b>백엔드</b>는 <b>gunicorn</b> 으로 띄운 컨테이너로 구성 <span style="color:var(--muted);font-weight:400">(gunicorn 은 파이썬 표준 규격 WSGI 서버)</span></span><span class="s">데이터는 <b>PostgreSQL 16</b> 과 <b>pgvector</b> 로 저장</span><span class="s">내부 직원이 웹에서 이용하며, <b>샌드박스 인프라 정책</b>에 맞춰 구축</span></td><td class="who">담당자 · DevOps 담당</td><td class="st ok">예정</td></tr>
+            <tr><td class="g">구축</td><td class="k">샌드박스 환경<br>서비스 구동</td><td><span class="s"><b>Django 풀스택</b>으로 구축</span><span class="s"><b>프런트엔드</b>는 Tailwind, HTMX, Alpine 정적 파일을 함께 배포</span><span class="s"><b>백엔드</b>는 <b>gunicorn</b> 으로 띄운 컨테이너로 구성 <span style="color:var(--muted);font-weight:400">(gunicorn 은 파이썬 표준 규격 WSGI 서버)</span></span><span class="s">데이터는 <b>PostgreSQL 16</b> 과 <b>pgvector</b> 로 저장</span><span class="s">내부 직원이 웹에서 이용하며, <b>샌드박스 인프라 정책</b>에 맞춰 구축</span></td><td class="who">담당자와 DevOps 담당</td><td class="st ok">예정</td></tr>
             <tr><td class="g"></td><td class="k">LLM 연동</td><td><span class="s"><b>RAG 형태로 구현</b>. 수집한 기사를 벡터 데이터베이스에 적재하고 꺼내 씀</span><span class="s"><b>적재</b>: load → split → embed → store</span><span class="s"><b>질의</b>: request → embed → search → generate <span style="color:var(--muted);font-weight:400">(두 흐름은 LangChain 으로 구성)</span></span><span class="s">사람이 하던 <b>관련성 판정, 이슈 묶기, 시사점 작성</b>을 <b>AWS Bedrock AgentCore</b> 로 처리</span><span class="s">경계에 있는 기사는 <b>승인 대기</b>. 승인해야 반영</span></td><td class="who">담당자</td><td class="st ok">예정</td></tr>
             <tr><td class="g"></td><td class="k">태블릿 대응<br>앱 배포</td><td><span class="s">사내 사용은 <b>웹 사이트</b>로 제공</span><span class="s">태블릿에서 더 편하게 쓰도록 <b>동적 레이아웃</b> 적용</span><span class="s"><b>TestFlight</b> 에 올려 사내에서 내려받아 이용</span></td><td class="who">담당자</td><td class="st ok">예정</td></tr>
             <tr><td class="g">검증</td><td class="k">QA</td><td><b>통합테스트</b> 진행</td><td class="who">담당자</td><td class="st ok">예정</td></tr>
@@ -3367,10 +3376,10 @@ svg text{font-family:var(--font);}
           <caption class="sr-only">샌드박스 구축을 시작하기 전에 준비해야 하는 것과 각각의 상태. 네이버 검색 API 의 Client ID 와 Client Secret 은 지금 쓰는 값을 그대로 사용하고, Apple Developer 계정은 SMA 와 같은 계정을 쓴다. AWS 계정과 관리자 권한은 요청하면 바로 발급받을 수 있고, 도메인은 논의를 거쳐 발급할 예정이며, 구축과 별개로 진행할 수 있어 후순위다.</caption>
           <thead><tr><th>시작 전에 필요한 것</th><th>내용</th><th>상태</th></tr></thead>
           <tbody>
-            <tr><td class="k">네이버 검색 API</td><td>지금 쓰는 <b>Client ID · Client Secret</b> 을 그대로 사용</td><td class="st ok">보유</td></tr>
+            <tr><td class="k">네이버 검색 API</td><td>지금 쓰는 <b>Client ID와 Client Secret</b> 을 그대로 사용</td><td class="st ok">보유</td></tr>
             <tr><td class="k">Apple Developer 계정</td><td><b>SMA</b> 와 동일한 계정 사용</td><td class="st ok">보유</td></tr>
-            <tr><td class="k">AWS 계정 · 관리자 키</td><td><b>DevOps 담당</b>께 요청하면 바로 발급 가능</td><td class="st ok">확정</td></tr>
-            <tr><td class="k">도메인</td><td><span class="s"><b>DevOps 담당 · 정보보안 PM</b> 논의 후 발급 예정.</span><span class="s">도메인을 연결하는 일이라 구축과 별개로 진행 가능</span></td><td class="st later">후순위</td></tr>
+            <tr><td class="k">AWS 계정과 관리자 키</td><td><b>DevOps 담당</b>께 요청하면 바로 발급 가능</td><td class="st ok">확정</td></tr>
+            <tr><td class="k">도메인</td><td><span class="s"><b>DevOps 담당과 정보보안 PM</b> 논의 후 발급 예정.</span><span class="s">도메인을 연결하는 일이라 구축과 별개로 진행 가능</span></td><td class="st later">후순위</td></tr>
           </tbody>
         </table>
       </div>
@@ -3446,7 +3455,7 @@ svg text{font-family:var(--font);}
         <span class="sec-no">APPENDIX · HOW IT WAS BUILT</span>
         <h3 class="sec-title" id="sapx">이 서비스를 만든 방법</h3>
         <p class="sec-lead">
-          기획 · 화면 설계 · 구현 · 리서치를 <b>각각 다른 AI Agent가 맡아</b> 이 서비스를 만들었다.
+          기획, 화면 설계, 구현, 리서치를 <b>각각 다른 AI Agent가 맡아</b> 이 서비스를 만들었다.
           <b>AI Agent로 실제 서비스를 만든 사례</b>이므로, 역할을 어떻게 나눴는지 기록으로 남긴다.
         </p>
       </div>
@@ -3458,7 +3467,7 @@ svg text{font-family:var(--font);}
           <tbody>
             <tr><td class="k">product manager</td><td>어떤 기능을 먼저 만들지 정하고, 제품이 지킬 기준을 수립</td></tr>
             <tr><td class="k">product designer</td><td>화면을 설계하고, 화면 전체가 같은 규칙을 따르도록 관리함</td></tr>
-            <tr><td class="k">product engineer</td><td>화면 · 데이터 구조 · 수집 과정을 실제로 구현함</td></tr>
+            <tr><td class="k">product engineer</td><td>화면, 데이터 구조, 수집 과정을 실제로 구현함</td></tr>
             <tr><td class="k">research analyst</td><td>수집된 뉴스를 검증하고 금융권 AI 도입 동향 보고서를 발행함</td></tr>
           </tbody>
         </table>
@@ -3478,7 +3487,7 @@ svg text{font-family:var(--font);}
   <div class="wrap">
     <p class="fmark">AI AGENT RESEARCH SYSTEM</p>
     <p class="fname">AI Market Watch</p>
-    <p class="fsub">금융·보험사의 AI 도입 동향과 관련 AI 기업의 협업 사례를 지속적으로 수집·요약한다</p>
+    <p class="fsub">금융사와 보험사의 AI 도입 동향과 관련 AI 기업의 협업 사례를 지속적으로 수집하고 요약한다</p>
   </div>
 </footer>
 
