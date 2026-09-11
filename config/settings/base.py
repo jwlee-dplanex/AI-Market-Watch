@@ -81,6 +81,10 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
+# collectstatic의 수집 대상(STATICFILES_DIRS)과 수집 결과(STATIC_ROOT)는 반드시
+# 다른 디렉토리여야 한다. 같으면 collectstatic이 자기 소스를 자기 자신에 다시
+# 써넣으려다 "SuspiciousFileOperation" 에러로 죽는다.
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

@@ -220,6 +220,10 @@ __marimo__/
 # Node (Tailwind CLI 빌드 도구체인 — static/vendor/·static/css/tailwind.css는 커밋 대상)
 node_modules/
 
+# Django collectstatic 결과물 — STATICFILES_DIRS(static/)와 별개의 빌드 산출물이라
+# 커밋 대상이 아니다 (2026-09-08, STATIC_ROOT 도입)
+/staticfiles/
+
 # AWS 샌드박스 문서 — 사내 인프라 정보라 저장소에 올리지 않는다 (2026-09-08)
 # 계정 ID, 사무실 IP, VPC·서브넷 ID, IAM 정책이 들어 있다.
 # 로컬에만 두고 필요하면 사내 위키에서 다시 받는다.

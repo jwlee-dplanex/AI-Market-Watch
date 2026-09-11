@@ -12,3 +12,6 @@ requests
 beautifulsoup4
 Markdown
 bleach
+gunicorn
+boto3
+whitenoise

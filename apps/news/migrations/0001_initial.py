@@ -10,6 +10,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
+        ("news", "0000_pgvector_extension"),
     ]
 
     operations = [
