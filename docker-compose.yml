@@ -6,9 +6,7 @@ services:
     # 자동으로 다시 떠야 한다. `unless-stopped`는 "docker compose stop으로 내가
     # 직접 멈춘 게 아니면 재시작한다"는 뜻이라 EC2 재부팅에도 적용되지만,
     # `always`와 실질적으로 같은 상황에서만 쓰인다(사람이 명시적으로 stop한 적이
-    # 없으므로). web과 정책을 맞추기 위해 `always`로 통일한다 — 두 서비스가 항상
-    # 같이 뜨고 같이 죽어야 하는데 재시작 정책이 다르면 "왜 db만 안 떴지"류의
-    # 헷갈림이 생긴다.
+    # 없으므로). `always`로 둔다.
     restart: always
     environment:
       # 프로덕션에서는 DB 비밀번호를 이 파일에 평문으로 남기지 않는다. Docker
@@ -23,8 +21,8 @@ services:
       # 실제로 이 리포의 DJANGO_SECRET_KEY(Django 기본 생성기가 `$`를 포함하는
       # 문자셋을 쓴다)로 재현했다. DB_PASSWORD에 `$`를 쓸 계획이면 `$$`로
       # 이스케이프해야 한다 — 이건 여기 ${DB_PASSWORD} 치환 지점에만 해당하는
-      # 제약이고, 아래 web 서비스는 이 문제를 피하려고 아예 다른 방식(바인드
-      # 마운트)을 쓴다.
+      # 제약이다. Django 앱(호스트 venv에서 실행)은 environ.Env.read_env()로
+      # .env를 직접 파싱하므로 이 함정 자체가 없다.
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
@@ -33,42 +31,13 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  web:
-    build: .
-    container_name: ai_market_watch_web
-    restart: always
-    depends_on:
-      - db
-    environment:
-      # wsgi.py는 DJANGO_SETTINGS_MODULE이 이미 설정돼 있으면 그 값을 그대로
-      # 쓴다(os.environ.setdefault). 컨테이너 안에서는 항상 production을 쓴다.
-      DJANGO_SETTINGS_MODULE: config.settings.production
-      # 컨테이너 안에서는 db가 localhost가 아니라 서비스명(db)으로 접근된다.
-      # django-environ의 read_env()는 "이미 있는 환경변수는 덮어쓰지 않는다"가
-      # 기본 동작이라(overwrite=False), 아래 바인드 마운트로 들어오는 .env의
-      # DB_HOST=localhost보다 여기서 준 값이 항상 이긴다 — EC2 .env에서
-      # DB_HOST를 따로 고칠 필요가 없다.
-      DB_HOST: db
-    ports:
-      # ALB가 없어 이 포트가 곧 서비스 진입점이다. 80으로 매핑해 EIP를 그대로
-      # http://<EIP>/ 로 접속하게 한다(포트 번호를 안 붙여도 되게).
-      - "80:8000"
-    volumes:
-      # 🔴 env_file:이 아니라 바인드 마운트로 .env를 넘긴다. 위 db 서비스의
-      # ${DB_PASSWORD}처럼 Compose가 .env를 직접 파싱하게 하면 값 안의 `$`가
-      # 조용히 잘려나간다(실측 재현: DJANGO_SECRET_KEY가 50자에서 44자로
-      # 줄어듦, 에러 없음). env_file: 도 같은 파서를 타서 동일한 함정에
-      # 걸린다(재현 확인). Django 앱은 어차피 config/settings/base.py에서
-      # environ.Env.read_env(BASE_DIR / ".env")로 .env를 직접 읽으므로,
-      # 파일을 컨테이너 안에 그대로 놓아두고 이 코드가 직접 파싱하게 하면
-      # Compose의 치환 엔진을 거치지 않아 `$`를 있는 그대로 읽는다.
-      - ./.env:/app/.env:ro
-      # collectstatic 산출물을 web 컨테이너들 사이에서 공유하기 위한 볼륨이다.
-      # deploy.sh가 `docker compose run --rm web python manage.py collectstatic`을
-      # 별도 컨테이너에서 실행하는데, 이 볼륨이 없으면 그 결과가 --rm과 함께
-      # 사라지고 실제로 뜨는 web 컨테이너는 빈 STATIC_ROOT를 보게 된다.
-      - static_data:/app/staticfiles
+# 🔴 2026-09-11: web 서비스(Dockerfile 기반 앱 컨테이너)는 없앴다. 「로컬과 EC2를
+# 완전히 같게 한다」는 확정에 따라 앱은 이제 호스트 venv + gunicorn을 systemd
+# 서비스(`aimarketwatch`)로 띄운다 — db만 여전히 여기 Docker로 남는다.
+# Dockerfile·.dockerignore도 함께 지웠다: 컨테이너로 되돌아갈 계획이 없는 채로
+# 남겨두면 "어느 게 실제 배포 경로인가"를 헷갈리게 만든다(이 저장소가 실제로
+# 걸렸던 문제 유형이라 CLAUDE.md에도 원칙으로 박혀 있다). 필요해지면 git
+# 히스토리(이 커밋 이전)에서 그대로 복원할 수 있다.
 
 volumes:
   postgres_data:
-  static_data:
