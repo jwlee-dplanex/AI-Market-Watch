@@ -13,15 +13,19 @@ from services.collector import (
     _parse_pub_date,
     _strip_html,
 )
-from services.crawler import fetch_article_body
+from services.crawler import fetch_article_body, has_complete_sentence
 
 from .models import NewsroomArticle, PaidDomain
 
-# --- 코드 필터 3종 (docs/planning.md 뉴스룸 정책 6번 표: 10-2 유료 구독 · 10-3 기간
+# --- 코드 필터 (docs/planning.md 뉴스룸 정책 6번 표: 10-2 유료 구독 · 10-3 기간
 # 불일치 · 10-4 죽은 링크. 파이프라인 순서는 8번 표 "1 수집 → 2 본문 크롤 → 3 코드
-# 필터 → 4 1단계 LLM"이지만, 이 구현은 코드 필터를 본문 크롤보다 먼저 돈다 — 어차피
+# 필터 → 4 1단계 LLM"이지만, 이 구현은 이 세 필터를 본문 크롤보다 먼저 돈다 — 어차피
 # 버릴 기사에 트래필라투라 본문 추출까지 태우면 낭비이기 때문이다. 결과(필터링되면
-# 저장하지 않는다)는 동일하다. ---
+# 저장하지 않는다)는 동일하다.
+#
+# 10-6 본문 실체 없음(2026-09-14 추가, 뉴스룸 정책 6-3절)은 본문 크롤 *이후*에
+# 돈다 — 크롤 결과(또는 크롤 실패 시 남는 네이버 요약문)를 봐야 판정할 수 있어서
+# 위 세 필터와 자리가 다르다. ---
 
 # 10-3 기간 불일치. planning.md가 정확한 일수를 못박지 않아 PE가 정한 기본값이다 —
 # 매일 브리핑 채널이라도 사람이 며칠 수집을 건너뛸 수 있어(로컬은 수동 실행) 너무
@@ -85,12 +89,19 @@ def collect_newsroom(newsroom) -> dict:
     옮기는 리팩터링은 본 파이프라인 회귀 위험이 커서 하지 않는다). services/crawler.py의
     fetch_article_body()도 손대지 않고 호출만 한다.
 
-    🔴 코드 필터(기간 불일치·유료 매체·죽은 링크)에 걸린 기사는 **저장하지 않는다.**
-    `filter_status`/`judged_by`를 미리 채우는 방식(대안 B)은 기각됐다
-    (docs/planning.md 3745·3732행 — filter_status를 코드 필터가 미리 채우면 5-1 예외가
-    첫날부터 닫혀 목적을 잃는다). collect_naver()의 제외 키워드 필터와 동일한 방식으로
-    행 자체를 만들지 않고 stats 카운트만 남긴다 — 애초에 테이블에 없는 행이므로
-    NewsroomArticleQuerySet.judged()에 절대 영향을 주지 않는다.
+    🔴 코드 필터(기간 불일치·유료 매체·죽은 링크·본문 실체 없음)에 걸린 기사는
+    **저장하지 않는다.** `filter_status`/`judged_by`를 미리 채우는 방식(대안 B)은
+    기각됐다(docs/planning.md 3745·3732행 — filter_status를 코드 필터가 미리 채우면
+    5-1 예외가 첫날부터 닫혀 목적을 잃는다). collect_naver()의 제외 키워드 필터와
+    동일한 방식으로 행 자체를 만들지 않고 stats 카운트만 남긴다 — 애초에 테이블에
+    없는 행이므로 NewsroomArticleQuerySet.judged()에 절대 영향을 주지 않는다.
+
+    🔴 10-6 본문 실체 없음(뉴스룸 정책 6-3절) — 크롤 성공 여부와 무관하게, 최종
+    저장될 본문(크롤 성공분 또는 크롤 실패 시 남는 네이버 요약문)에 마침표로 끝나는
+    완결된 서술문이 하나도 없으면 저장하지 않는다. services/crawler.py의
+    fetch_article_body()가 이미 같은 기준으로 메뉴 덤프류를 걸러 None을 돌려주지만,
+    그 뒤에 남는 네이버 요약문 자체가 메뉴 문자열일 수 있어(크롤 실패 원인이 애초에
+    본문이 메뉴였기 때문) 여기서 한 번 더 확인해야 한다.
 
     ExcludedURL을 확인하지 않는다 — 그건 RA 삭제분 재수집 차단용이고, 뉴스룸은 사람
     삭제 기능 자체가 없다(정책 9번 결정 ⑧). 유일성은 (newsroom, url_hash) 복합 unique로
@@ -100,11 +111,11 @@ def collect_newsroom(newsroom) -> dict:
     반환 dict는 SET-001 `_collect_result.html`과 같은 키 형태를 그대로 쓴다(SET-009
     "지금 수집" 결과가 그 템플릿을 그대로 재사용하기 위함). skipped_excluded는 이
     경로에 존재하지 않는 개념이라 항상 0으로 채운다. skipped_period/skipped_paid/
-    skipped_dead는 이번 코드 필터 3종 전용 카운트다.
+    skipped_dead/skipped_no_substance는 이번 코드 필터 전용 카운트다.
     """
     if not settings.NAVER_CLIENT_ID or not settings.NAVER_CLIENT_SECRET:
         return {"collected": 0, "skipped_dup": 0, "skipped_filter": 0, "skipped_excluded": 0,
-                "skipped_period": 0, "skipped_paid": 0, "skipped_dead": 0,
+                "skipped_period": 0, "skipped_paid": 0, "skipped_dead": 0, "skipped_no_substance": 0,
                 "crawled": 0, "crawl_failed": 0, "errors": ["Naver API key not configured"]}
 
     headers = {
@@ -118,7 +129,7 @@ def collect_newsroom(newsroom) -> dict:
     affiliates = list(newsroom.affiliates.all())
     paid_domains = set(PaidDomain.objects.values_list("domain", flat=True))
     stats = {"collected": 0, "skipped_dup": 0, "skipped_filter": 0, "skipped_excluded": 0,
-              "skipped_period": 0, "skipped_paid": 0, "skipped_dead": 0,
+              "skipped_period": 0, "skipped_paid": 0, "skipped_dead": 0, "skipped_no_substance": 0,
               "crawled": 0, "crawl_failed": 0, "errors": []}
 
     if not keywords:
@@ -163,6 +174,19 @@ def collect_newsroom(newsroom) -> dict:
                 stats["skipped_dead"] += 1
                 continue
 
+            # 본문을 먼저 확정한 뒤 실체 관문을 통과해야 행을 만든다(10-6, 정책
+            # 6-3절) — 크롤 성공분이든, 크롤 실패 시 남는 네이버 요약문(desc)이든
+            # 저장 직전에 같은 기준으로 한 번 더 본다. fetch_article_body()가 이미
+            # 같은 기준을 적용해 메뉴 덤프류를 걸러 None을 돌려주지만, 크롤이
+            # 애초에 실패한 기사는 desc 자체가 메뉴 문자열일 수 있어 크롤러 처방만
+            # 으로는 부족하다.
+            full_body = fetch_article_body(original_url, naver_link)
+            body = full_body if full_body else desc
+
+            if not has_complete_sentence(body):
+                stats["skipped_no_substance"] += 1
+                continue
+
             # source_keyword = 지금 순회 중인 키워드(kw) 그대로 — "어느 키워드로
             # 수집됐는가"를 수집 시점에 공짜로 기록한다(NewsroomArticle.source_keyword
             # 주석 참고). unique_together=(newsroom, url_hash)라 같은 기사가 다른
@@ -174,15 +198,16 @@ def collect_newsroom(newsroom) -> dict:
                 title=title,
                 url=url,
                 url_hash=url_hash,
-                body=desc,
+                body=body,
                 published_at=published_at,
                 source_keyword=kw,
+                # body_is_truncated=True는 "이 body는 원문 전문이 아니라 네이버
+                # 요약문 잔여물이다"라는 뜻이다(정책 6-3절 (f)) — 크롤이 실패해
+                # full_body를 못 얻었을 때만 참이 된다.
+                body_is_truncated=not bool(full_body),
             )
 
-            full_body = fetch_article_body(original_url, naver_link)
             if full_body:
-                article.body = full_body
-                article.save(update_fields=["body"])
                 stats["crawled"] += 1
             else:
                 stats["crawl_failed"] += 1

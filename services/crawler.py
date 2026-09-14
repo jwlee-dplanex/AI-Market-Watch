@@ -1,3 +1,5 @@
+import re
+
 import requests
 import trafilatura
 from bs4 import BeautifulSoup
@@ -9,7 +11,41 @@ HEADERS = {
                   "Chrome/120.0.0.0 Safari/537.36"
 }
 MIN_BODY_LENGTH = 200
+# 실체 축 관문(docs/planning.md 뉴스룸 정책 6-3절). "완결된 서술문"이 한 문장이라도
+# 있으려면 최소 이 정도 길이의 절이 마침표 앞에 있어야 한다는 보수적인 하한이다.
+MIN_SENTENCE_CLAUSE_LENGTH = 10
 TIMEOUT = 8
+
+
+def has_complete_sentence(text: str) -> bool:
+    """문자열 안에 마침표로 끝나는 완결된 서술문이 하나라도 있으면 True.
+
+    뉴스룸 정책 6-3 "본문이 사실상 없는 기사" 절의 실체 축 판별 기준이다. 매체별
+    추출 규칙이나 도메인은 보지 않고 문장 구조만 본다 — 숫자 뒤의 마침표(날짜
+    "2026.09.14", 백분율 "200.4%", 소수점 등)는 문장 종결로 보지 않고, 마침표
+    직전까지의 절이 일정 길이 이상이며 한글을 포함해야 문장으로 인정한다.
+
+    실측(2026-09-14, NewsroomArticle 245건 전수)으로 이 기준이 이데일리 메뉴 덤프
+    9건(등록 시각·기자명·코너명이 줄바꿈으로 나열될 뿐 마침표로 끝나는 문장이 하나도
+    없음)만 정확히 걸러내고, 훨씬 짧은 더벨 절단 기사(예: "인수합병(M&A) 절차가
+    본격화됐다.")는 통과시키는 것을 확인했다. 「적으면」이 아니라 「하나도 없으면」이라
+    보수적으로 잡는다 — 잘못 버리는 비용이 더 크다.
+    """
+    if not text:
+        return False
+    last_boundary = 0
+    for i, ch in enumerate(text):
+        if ch == ".":
+            prev_char = text[i - 1] if i > 0 else ""
+            if prev_char.isdigit():
+                continue
+            clause = text[last_boundary:i].strip()
+            if len(clause) >= MIN_SENTENCE_CLAUSE_LENGTH and re.search(r"[가-힣]", clause):
+                return True
+            last_boundary = i + 1
+        elif ch == "\n":
+            last_boundary = i + 1
+    return False
 
 
 def _is_naver_news(url: str) -> bool:
@@ -26,7 +62,7 @@ def _fetch_naver_news_body(url: str) -> str | None:
             for tag in area(["script", "style"]):
                 tag.decompose()
             text = area.get_text(separator="\n").strip()
-            if len(text) >= MIN_BODY_LENGTH:
+            if len(text) >= MIN_BODY_LENGTH and has_complete_sentence(text):
                 return text
     except Exception:
         pass
@@ -40,7 +76,7 @@ def _fetch_with_trafilatura(url: str) -> str | None:
             text = trafilatura.extract(
                 downloaded, include_comments=False, include_tables=False
             )
-            if text and len(text) >= MIN_BODY_LENGTH:
+            if text and len(text) >= MIN_BODY_LENGTH and has_complete_sentence(text):
                 return text
     except Exception:
         pass

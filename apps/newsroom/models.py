@@ -295,6 +295,24 @@ class NewsroomArticle(models.Model):
     # NewsroomAffiliate docstring 참고.
     affiliates = models.ManyToManyField(NewsroomAffiliate, blank=True, related_name="articles")
 
+    # 분량 축(2026-09-14 추가, 정책 6-3절 (f)) — 이 기사의 body가 원문 전문이 아니라
+    # 네이버 요약문 잔여물이라는 뜻이다. 판별은 길이가 아니라 크롤 성공 여부다:
+    # services/crawler.py의 fetch_article_body()가 None을 돌려줬을 때만 True로
+    # 채운다(collect_newsroom() 참고). 이름을 "crawl_failed"로 하지 않은 이유는 그건
+    # 수집 내부 사정의 이름이고, 화면(ROOM-003)이 묻는 것은 "잘렸는가"이기 때문이다 —
+    # 필드 이름과 화면 조건의 방향이 같아야 뷰·템플릿에 부정 연산이 붙지 않는다.
+    #
+    # 🔴 실체 축(마침표로 끝나는 완결된 서술문이 있는가)을 위한 필드는 별도로 두지
+    # 않는다 — 그 기준에 걸린 기사는 애초에 저장하지 않으므로 표시할 행이 없다.
+    #
+    # ⚠️ 소급분(이 필드 도입 이전에 수집된 기사)은 len(body) < 200으로 채워졌다 —
+    # 크롤 성공이 본문 200자 이상을 보증하므로 이는 추정이 아니라 동치다. 다만 이
+    # 소급은 이데일리 메뉴 덤프 9건(398~414자, 실체 축에 걸려야 했지만 이 필드
+    # 도입 전에 이미 저장된 데이터라 정정하지 않는다)을 잡지 못해 그 9건은 False로
+    # 남는다 — 오류가 아니라 정의대로다. 따라서 body_is_truncated == False를 "전문이
+    # 확보됐다"로 읽으면 안 된다. 정확한 뜻은 "요약문 잔여물이 아니다"까지다.
+    body_is_truncated = models.BooleanField(default=False)
+
     objects = NewsroomArticleQuerySet.as_manager()
 
     class Meta:
