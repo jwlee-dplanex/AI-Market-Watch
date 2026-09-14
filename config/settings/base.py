@@ -101,3 +101,16 @@ ANTHROPIC_MODEL_SMART = env("ANTHROPIC_MODEL_SMART", default="claude-sonnet-5")
 VOYAGE_API_KEY = env("VOYAGE_API_KEY", default="")
 EMBEDDING_MODEL = env("EMBEDDING_MODEL", default="voyage-multilingual-2")
 EMBEDDING_SIMILARITY_THRESHOLD = env.float("EMBEDDING_SIMILARITY_THRESHOLD", default=0.82)
+
+# Bedrock 경유 LLM 판정(docs/planning.md "1번을 LLM으로 옮기는 설계" 9번) — services/llm.py가
+# AnthropicBedrock(aws_region=...)에 그대로 넘긴다. Mantle이 아니다 — 서울 리전에 엔드포인트가
+# 없어 2026-09-14에 AnthropicBedrock으로 확정 검증됐다(같은 문서 「프로덕션 배포」 1-1).
+AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID", default="")
+AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY", default="")
+AWS_DEFAULT_REGION = env("AWS_DEFAULT_REGION", default="ap-northeast-2")
+# Bedrock 모델 ID는 직접 API의 ANTHROPIC_MODEL_FAST와 형식이 다르다("global." 접두사 +
+# 버전 접미사) — 그래서 별도 키로 둔다. 1번(뉴스 정리)에만 쓴다(SMART는 2~4번 몫,
+# 같은 문서 7-(c)).
+BEDROCK_MODEL_FAST = env(
+    "BEDROCK_MODEL_FAST", default="global.anthropic.claude-haiku-4-5-20251001-v1:0",
+)

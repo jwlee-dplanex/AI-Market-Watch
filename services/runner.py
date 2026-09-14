@@ -24,8 +24,16 @@ from apps.setting.models import CollectionLog, Keyword, RunJob
 
 logger = logging.getLogger(__name__)
 
-# 지금 실제로 실행기가 있는 job_key만 여기 나열한다. 나머지(cleanup 등)는 services/llm.py가
-# 비어 있어 아직 없다 — 관리 명령의 choices와 _execute()의 방어 모두 이 목록 하나를 본다.
+# 화면·manage.py run_job 명령이 실제로 열어 두는 job_key만 여기 나열한다. 관리 명령의
+# choices가 이 목록 하나를 본다.
+#
+# 🔴 "cleanup"은 이번 라운드(2라운드, docs/planning.md "1번을 LLM으로 옮기는 설계")에서
+# _run_cleanup()이 실제로 구현됐지만 일부러 여기 넣지 않는다 — 버튼 활성화는 3~4단계
+# 몫이다(오케스트레이터 지시). 화면(apps/setting/views.py setting_run_start())은 애초에
+# "collect"/"newsroom_collect"만 분기하므로 화면에서는 이미 누를 수 없고, manage.py run_job
+# 명령도 choices=IMPLEMENTED_JOB_KEYS라 이 목록에 없으면 거부한다. 검증은 manage.py shell
+# -c로 run_now("cleanup", ...)을 직접 호출해서 한다(PE 작업 원칙 5번 — 부작용 있는 검증은
+# manage.py shell을 거쳐야 AppConfig.ready()가 원치 않게 함께 돌지 않는다).
 IMPLEMENTED_JOB_KEYS = ("collect", "newsroom_collect")
 
 # 하트비트 정지 판정 임계값(초). 별도 감시 프로세스 없이, 화면을 읽는 요청마다
@@ -128,6 +136,92 @@ def _run_collect(run_job_id: int, actor: str) -> None:
     run_collection(actor=CollectionLog.ACTOR_MANUAL, on_progress=_progress_callback(run_job_id))
 
 
+def _save_proposals(run_job_id: int, news, result: dict) -> None:
+    """판정 결과 dict(services/llm.py classify_news()의 반환값)를 RunProposal 행으로
+    저장한다. 한 트랜잭션으로 묶되, 건별 판정 자체가 이미 건별 커밋 단위다(설계
+    8-(a) "전부 돌고 한꺼번에 저장하지 않는다") — 여기서 만드는 여러 행(유지/삭제 1개
+    + 태그 제안 N개)은 그 한 건에 딸린 하나의 판정 결과이므로 함께 묶는다.
+
+    🔴 행은 태그마다 하나다(설계 4-(b)) — tag_corrections·unregistered_org_candidates의
+    원소 각각이 별도 RunProposal 행이 된다."""
+    from apps.setting.models import RunProposal
+
+    with transaction.atomic():
+        proposal_type = (
+            RunProposal.TYPE_DELETE if result["relevance"] == "delete" else RunProposal.TYPE_KEEP
+        )
+        RunProposal.objects.create(
+            run_job_id=run_job_id, news=news, proposal_type=proposal_type,
+            criterion_code=result.get("criterion_code", ""), reason=result.get("reason", ""),
+        )
+        for tag in result.get("tag_corrections", []):
+            proposal_type = (
+                RunProposal.TYPE_TAG_ADD if tag["action"] == "add" else RunProposal.TYPE_TAG_REMOVE
+            )
+            RunProposal.objects.create(
+                run_job_id=run_job_id, news=news, proposal_type=proposal_type,
+                target_name=tag["target_name"], axis=tag["axis"], reason=tag.get("reason", ""),
+            )
+        for candidate in result.get("unregistered_org_candidates", []):
+            RunProposal.objects.create(
+                run_job_id=run_job_id, news=news, proposal_type=RunProposal.TYPE_ORG_CANDIDATE,
+                target_name=candidate["name"], reason=candidate.get("reason", ""),
+            )
+
+
+# 구조적 실패(인증·리전·모델 ID 오류) 감지 임계값(설계 8-(d)) — 이 값만큼 연속으로
+# 실패하면 RunJob을 즉시 실패로 끊는다. 개별 건 실패(rate limit·네트워크 일시 오류·
+# 응답 형식 불량 등)와 구조적 실패를 예외 타입만으로 완전히 가르지 않고 "연속 횟수"로
+# 감지하는 이유는, 400으로만 떨어지는 설정 오류처럼 타입으로는 안 걸러지는 구조적
+# 실패도 있기 때문이다(설계 원문이 그대로 이 방식을 지시한다). 3으로 잡은 근거 —
+# SDK가 rate limit·5xx·네트워크 오류를 이미 최대 2회 자동 재시도하므로, 그러고도
+# 실패가 반복되면 일시적 문제가 아닐 가능성이 높다.
+CLEANUP_STRUCTURAL_FAILURE_THRESHOLD = 3
+
+
+def _run_cleanup(run_job_id: int) -> None:
+    from apps.news.models import News
+    from apps.setting.models import RunProposal
+    from services.llm import PROMPT_VERSION, classify_news
+
+    # 이어하기(설계 8-(b)) — 이미 RunProposal이 있는 News는(어느 RunJob에서 만들어졌든)
+    # 대상에서 뺀다. "같은 입력에 같은 결과가 나온다는 보장이 없어 재판정하지 않는다."
+    targets = list(
+        News.objects.filter(status=News.STATUS_UNVERIFIED)
+        .exclude(pk__in=RunProposal.objects.values("news_id"))
+        .order_by("pk")
+    )
+    RunJob.objects.filter(pk=run_job_id).update(
+        target_count=len(targets), prompt_version=PROMPT_VERSION,
+    )
+
+    consecutive_failures = 0
+    for news in targets:
+        try:
+            result = classify_news(news)
+        except Exception as exc:
+            consecutive_failures += 1
+            RunJob.objects.filter(pk=run_job_id).update(
+                failed_count=F("failed_count") + 1, heartbeat_at=timezone.now(),
+            )
+            logger.warning(
+                "News %s 판정 실패(연속 %d/%d): %s",
+                news.pk, consecutive_failures, CLEANUP_STRUCTURAL_FAILURE_THRESHOLD, exc,
+            )
+            if consecutive_failures >= CLEANUP_STRUCTURAL_FAILURE_THRESHOLD:
+                raise RuntimeError(
+                    f"News {news.pk}까지 {consecutive_failures}건 연속 실패해 구조적 실패로 "
+                    f"판단하고 배치를 끊어요. 마지막 오류: {exc}"
+                ) from exc
+            continue
+        else:
+            consecutive_failures = 0
+            _save_proposals(run_job_id, news, result)
+            RunJob.objects.filter(pk=run_job_id).update(
+                processed_count=F("processed_count") + 1, heartbeat_at=timezone.now(),
+            )
+
+
 def _run_newsroom_collect(run_job_id: int, newsroom_id: int) -> None:
     from apps.newsroom.models import Newsroom
     from apps.newsroom.services import collect_newsroom
@@ -168,10 +262,15 @@ def _execute(run_job_id: int, kwargs: dict) -> None:
                 _run_collect(run_job_id, run_job.actor)
             elif run_job.job_key == "newsroom_collect":
                 _run_newsroom_collect(run_job_id, kwargs["newsroom_id"])
+            elif run_job.job_key == "cleanup":
+                # 화면과 manage.py run_job 명령 둘 다 "cleanup"을 IMPLEMENTED_JOB_KEYS에서
+                # 뺐으므로 이 분기로는 그 경로로 닿지 않는다 — start_run()/run_now()를
+                # 직접 호출(manage.py shell)할 때만 여기 온다(위 IMPLEMENTED_JOB_KEYS 주석).
+                _run_cleanup(run_job_id)
             else:
-                # IMPLEMENTED_JOB_KEYS로 진입을 이미 막아 뒀으므로(관리 명령 choices,
-                # 화면은 collect/newsroom_collect만 start_run을 부름) 정상 경로로는
-                # 닿지 않는다. 방어적으로만 남겨 둔다.
+                # 위 세 분기 밖의 job_key는 아직 실행 로직이 없다. 정상 경로로는 닿지
+                # 않는다(관리 명령 choices, 화면은 collect/newsroom_collect만 start_run을
+                # 부름). 방어적으로만 남겨 둔다.
                 raise ValueError(f"실행 로직이 아직 없는 job_key입니다: {run_job.job_key}")
         except Exception:
             logger.exception(

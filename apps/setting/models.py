@@ -374,11 +374,19 @@ class RunProposal(models.Model):
     TYPE_KEEP = "유지"
     TYPE_TAG_REMOVE = "태그 제거"
     TYPE_TAG_ADD = "태그 추가"
+    # 🔴 5번째 종류(2026-09-14, 2라운드 PE 신설) — docs/planning.md 4-(b)가 열어 둔 자리다.
+    # "미등록 기업은 제안만 하고 등록하지 않는다"(같은 문서) — LLM이 본문의 핵심 주체가
+    # Organization에 없어 보인다고 판단하면 이 종류로 남긴다. axis는 항상 비워 둔다
+    # (Organization/TechTopic 중 어느 쪽인지를 다투는 제안이 아니라 신규 등록 후보이므로
+    # 축 자체가 없다). 확정 버튼도 이 종류는 등록을 실행하지 않는다 — 사람이 SET-007에서
+    # 삼킴 검사를 거쳐 직접 등록한다.
+    TYPE_ORG_CANDIDATE = "기업 후보"
     TYPE_CHOICES = [
         (TYPE_DELETE, "삭제"),
         (TYPE_KEEP, "유지"),
         (TYPE_TAG_REMOVE, "태그 제거"),
         (TYPE_TAG_ADD, "태그 추가"),
+        (TYPE_ORG_CANDIDATE, "기업 후보"),
     ]
 
     STATUS_PENDING = "대기"
