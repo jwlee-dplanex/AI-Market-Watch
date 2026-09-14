@@ -77,7 +77,7 @@ def _is_dead_link(url: str) -> bool:
         return False
 
 
-def collect_newsroom(newsroom) -> dict:
+def collect_newsroom(newsroom, on_progress=None) -> dict:
     """뉴스룸 전용 수집 파이프라인(docs/planning.md 뉴스룸 정책 3·4번 + 6번 표 코드 필터).
 
     본 수집 파이프라인(services/collector.py의 collect_naver())과 완전히 분리된 경로다 —
@@ -112,6 +112,10 @@ def collect_newsroom(newsroom) -> dict:
     "지금 수집" 결과가 그 템플릿을 그대로 재사용하기 위함). skipped_excluded는 이
     경로에 존재하지 않는 개념이라 항상 0으로 채운다. skipped_period/skipped_paid/
     skipped_dead/skipped_no_substance는 이번 코드 필터 전용 카운트다.
+
+    on_progress: services/collector.py의 collect_naver()와 같은 계약 — 키워드 1개
+    처리를 마칠 때마다(성공/실패 무관) 인자 없이 호출된다. services/runner.py가
+    RunJob 하트비트를 갱신하는 자리다.
     """
     if not settings.NAVER_CLIENT_ID or not settings.NAVER_CLIENT_SECRET:
         return {"collected": 0, "skipped_dup": 0, "skipped_filter": 0, "skipped_excluded": 0,
@@ -141,6 +145,8 @@ def collect_newsroom(newsroom) -> dict:
             items = _call_naver_api(kw.keyword, kw.display, headers, sort=kw.sort)
         except Exception as e:
             stats["errors"].append(f"수집 실패 ({kw.keyword}): {e}")
+            if on_progress:
+                on_progress()
             continue
         finally:
             if delay > 0:
@@ -218,5 +224,8 @@ def collect_newsroom(newsroom) -> dict:
             article.affiliates.set(_find_matching_entities(f"{article.title} {article.body}", affiliates))
 
             stats["collected"] += 1
+
+        if on_progress:
+            on_progress()
 
     return stats

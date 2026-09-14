@@ -7,7 +7,7 @@ from django.views.decorators.http import require_POST
 from apps.news.models import News
 from .models import (
     DataSource, Keyword, CollectionLog, LLMLog, SlackConfig,
-    Organization, TechTopic, OrgRelation,
+    Organization, TechTopic, OrgRelation, RunJob,
 )
 
 # SET-006 검증 파이프라인 현황 "stale" 임계값(일). PD 판단값이며 고정 정책이 아니다
@@ -62,9 +62,14 @@ def collect_now(request):
 
 # --- SET-010 실행 (수동 LLM 실행 + 승인 게이트) ---
 # docs/design.md "SET-010 · 실행" 절, templates/setting/run.html 상단 {% comment %}이
-# 정본 컨텍스트 계약이다. 이번 라운드는 "화면이 실제로 열리는 데까지"가 범위라
-# 1단계 수집(양쪽 축 모두)만 실제로 동작하고 나머지는 services/llm.py가 비어 있어
-# 비활성으로 둔다(RunJob·RunProposal 모델의 완전한 구현은 다음 라운드).
+# 정본 컨텍스트 계약이다.
+#
+# 🔴 2026-09-14 개정 — "1번을 LLM으로 옮기는 설계"의 1라운드(실행 뼈대)가 여기 들어왔다.
+# 1단계 수집(양쪽 축 모두)이 이제 services/runner.py의 워커 스레드로 돈다 — 더 이상
+# 요청 안에서 끝까지 동기로 돌지 않는다(EC2 gunicorn --timeout 60에 걸리던 위험, 문서
+# 3-(d)). cleanup 등 나머지 단계는 여전히 services/llm.py가 비어 있어 비활성이다.
+# RunJob·RunProposal 모델은 이번 라운드에 함께 세웠지만 RunProposal 행은 아직 만들지
+# 않는다(2라운드 몫).
 #
 # 🔴 2026-09-04 개정 — jobs 하나가 research_jobs(AI 시장 조사 축)와
 # newsroom_jobs(교보 소식 축) 둘로 갈렸다(사용자 지시, run.html 상단 계약 참고).
@@ -96,21 +101,70 @@ RUN_JOB_LABELS = {
 }
 
 
-def _research_jobs_context():
-    """run.html/_run_graph.html의 research_jobs(AI 시장 조사 축, 5개 키 고정).
-    실행이 요청-응답 한 번 안에서 동기로 끝나므로(백그라운드 잡 없음, RunJob 모델은
-    이번 범위 밖) 'running' 상태는 이 함수가 만들지 않는다 — 실행 중 표시는 HTMX
-    hx-indicator(_run_node.html)가 요청이 떠 있는 동안만 보여준다."""
-    latest = CollectionLog.objects.order_by("-started_at").first()
-    if latest:
-        failed = latest.status == "fail"
-        collect_job = {
-            "state": "failed" if failed else "done",
-            "state_label": "실패" if failed else "완료",
-            "summary": f"마지막 수집 {timezone.localtime(latest.started_at):%m/%d %H:%M}",
+def _run_job_display(job_key):
+    """job_key의 최신 RunJob으로 노드 표시값(state/state_label/summary/elapsed)을
+    만든다. 그 job_key로 RunJob이 한 번도 없었으면 None을 반환한다 — 호출부가 기존
+    방식(CollectionLog, NewsroomArticle.collected_at)으로 idle/done을 채운다.
+
+    ⚠️ 'state'는 templates/setting/_run_node.html이 아는 값(idle/running/review/
+    done/failed)만 써야 한다 — 그 템플릿은 PD 소관이라 이번 라운드에서 고치지
+    않는다. RunJob.STATUS_STOPPED(중단됨)에 대응하는 전용 색이 아직 없어(PD 인계
+    3번, docs/planning.md 10번 "PD 인계"), 잠정적으로 'failed'와 같은 배지 색을
+    쓰되 state_label 텍스트로 실제 상태를 구분한다 — "색이 아니라 텍스트가
+    정본"이라는 그 템플릿 자체의 원칙(43행 주석)을 그대로 따른 것이다."""
+    run_job = RunJob.objects.filter(job_key=job_key).order_by("-started_at", "-pk").first()
+    if not run_job:
+        return None
+    if run_job.status == RunJob.STATUS_RUNNING:
+        seconds = int((timezone.now() - run_job.started_at).total_seconds())
+        elapsed = f"{seconds // 60}분 {seconds % 60}초째" if seconds >= 60 else f"{seconds}초째"
+        return {"state": "running", "state_label": "실행 중", "summary": "", "elapsed": elapsed}
+    if run_job.status == RunJob.STATUS_STOPPED:
+        return {
+            "state": "failed",
+            "state_label": "중단됨",
+            "summary": f"{run_job.processed_count}/{run_job.target_count}건까지 처리하다 끊겼어요",
         }
+    if run_job.status == RunJob.STATUS_FAILED:
+        return {"state": "failed", "state_label": "실패", "summary": "실행이 실패했어요"}
+    if run_job.status == RunJob.STATUS_DONE:
+        return {
+            "state": "done",
+            "state_label": "완료",
+            "summary": f"마지막 실행 {timezone.localtime(run_job.finished_at):%m/%d %H:%M} · {run_job.processed_count}건",
+        }
+    # 대기/확정됨/취소됨 — 이번 라운드의 collect/newsroom_collect는 여기 닿지 않는다
+    # (승인 게이트가 없는 작업이라 확정·취소 상태로 가는 경로가 없다).
+    return None
+
+
+def _current_running_job():
+    """지금 시스템 전체에서 진행중인 RunJob(있으면 그 인스턴스, 없으면 None).
+    run.html/_run_graph.html의 running_job 컨텍스트 키 그대로다 — 두 템플릿 모두
+    이 값을 진위값으로만 쓴다(속성 접근 없음). 읽기 전에 하트비트가 끊긴 진행중
+    RunJob을 먼저 중단됨으로 정리한다(감시 프로세스 없이 읽는 쪽이 판정, 문서
+    3-(e))."""
+    from services.runner import mark_stale_running_as_stopped
+    mark_stale_running_as_stopped()
+    return RunJob.objects.filter(status=RunJob.STATUS_RUNNING).order_by("-started_at").first()
+
+
+def _research_jobs_context():
+    """run.html/_run_graph.html의 research_jobs(AI 시장 조사 축, 5개 키 고정)."""
+    run_display = _run_job_display("collect")
+    if run_display:
+        collect_job = run_display
     else:
-        collect_job = {"state": "idle", "state_label": "대기", "summary": ""}
+        latest = CollectionLog.objects.order_by("-started_at").first()
+        if latest:
+            failed = latest.status == "fail"
+            collect_job = {
+                "state": "failed" if failed else "done",
+                "state_label": "실패" if failed else "완료",
+                "summary": f"마지막 수집 {timezone.localtime(latest.started_at):%m/%d %H:%M}",
+            }
+        else:
+            collect_job = {"state": "idle", "state_label": "대기", "summary": ""}
 
     jobs = {
         "collect": {
@@ -157,17 +211,21 @@ def _newsroom_jobs_context():
 
     room = _target_newsroom()
     if room:
-        latest_article = NewsroomArticle.objects.filter(newsroom=room).order_by("-collected_at").first()
-        if latest_article:
-            collect_job = {
-                "state": "done",
-                "state_label": "완료",
-                # CollectionLog는 본 파이프라인 전용이라 여기 쓰지 않는다(코디네이터 지시) —
-                # 마지막 실행 요약은 NewsroomArticle.collected_at으로 만든다.
-                "summary": f"마지막 수집 {timezone.localtime(latest_article.collected_at):%m/%d %H:%M}",
-            }
+        run_display = _run_job_display("newsroom_collect")
+        if run_display:
+            collect_job = run_display
         else:
-            collect_job = {"state": "idle", "state_label": "대기", "summary": ""}
+            latest_article = NewsroomArticle.objects.filter(newsroom=room).order_by("-collected_at").first()
+            if latest_article:
+                collect_job = {
+                    "state": "done",
+                    "state_label": "완료",
+                    # CollectionLog는 본 파이프라인 전용이라 여기 쓰지 않는다(코디네이터 지시) —
+                    # 마지막 실행 요약은 NewsroomArticle.collected_at으로 만든다.
+                    "summary": f"마지막 수집 {timezone.localtime(latest_article.collected_at):%m/%d %H:%M}",
+                }
+            else:
+                collect_job = {"state": "idle", "state_label": "대기", "summary": ""}
         collect_job.update({
             "can_run": True,
             "block_reason": "",
@@ -207,19 +265,19 @@ def setting_run(request):
     return render(request, "setting/run.html", {
         "setting_menu": _setting_menu("run"),
         "graph_url": reverse("setting_run_graph"),
-        "running_job": None,
+        "running_job": _current_running_job(),
         "research_jobs": _research_jobs_context(),
         "newsroom_jobs": _newsroom_jobs_context(),
     })
 
 
 def setting_run_graph(request):
-    """폴링 대상 조각(3초). 지금은 모든 실행이 동기라 running_job이 항상 None이고,
-    _run_graph.html은 running_job이 없으면 폴링 트리거 자체를 달지 않는다 — 그래서
-    이 뷰가 실제로 반복 호출될 일은 아직 없지만, 계약대로 URL은 열려 있어야 한다."""
+    """폴링 대상 조각(3초). running_job이 있어야 _run_graph.html이 폴링 트리거를
+    단다 — _current_running_job()이 RunJob을 실제로 읽으므로, 이제 이 뷰는 실행
+    중일 때 3초마다 반복 호출된다."""
     return render(request, "setting/_run_graph.html", {
         "graph_url": reverse("setting_run_graph"),
-        "running_job": None,
+        "running_job": _current_running_job(),
         "research_jobs": _research_jobs_context(),
         "newsroom_jobs": _newsroom_jobs_context(),
     })
@@ -230,21 +288,27 @@ def setting_run_start(request, job):
     if job not in RUN_JOB_KEYS:
         raise Http404
     if job == "collect":
-        from services.collector import run_collection
-        run_collection(actor=CollectionLog.ACTOR_MANUAL)
+        from services.runner import start_run
+        start_run("collect", actor=RunJob.ACTOR_SCREEN)
     elif job == "newsroom_collect":
         room = _target_newsroom()
         if room:
-            from apps.newsroom.services import collect_newsroom
-            collect_newsroom(room)
+            from services.runner import start_run
+            start_run("newsroom_collect", actor=RunJob.ACTOR_SCREEN, newsroom_id=room.pk)
         # 대상 채널을 못 고르면(0개 또는 2개 이상) 조용히 아무 일도 하지 않는다 —
         # 노드 자체가 그 경우 can_run=False라 UI에서는 여기로 POST가 오지 않는다.
     # 나머지 여섯 단계 — services/llm.py가 비어 있어 아직 아무 일도 하지 않는다
     # (범위 밖). 노드 자체가 run_url 없이 비활성이라 UI에서는 여기로 POST가 오지
     # 않지만, 직접 호출되더라도 그래프를 안전하게 다시 그려 준다.
+    #
+    # start_run()은 RunJob을 만들고 워커 스레드를 띄운 뒤 즉시 반환한다 — 여기서
+    # 수집이 끝나기를 기다리지 않는다(gunicorn 요청 타임아웃에 걸리지 않는 이유,
+    # docs/planning.md "실행 모델" 3-(d)). 이미 다른 작업이 진행중이면 start_run()이
+    # None을 반환하고 아무것도 새로 만들지 않는다 — 아래 그래프 재렌더는 그 현재
+    # 상태(진행중인 다른 작업)를 그대로 보여준다.
     return render(request, "setting/_run_graph.html", {
         "graph_url": reverse("setting_run_graph"),
-        "running_job": None,
+        "running_job": _current_running_job(),
         "research_jobs": _research_jobs_context(),
         "newsroom_jobs": _newsroom_jobs_context(),
     })

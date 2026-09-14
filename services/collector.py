@@ -193,7 +193,14 @@ def _link_tech_topics(news: News, text: str, topics: list[TechTopic]) -> None:
     news.tech_topics.set(_find_matching_entities(text, topics))
 
 
-def collect_naver() -> dict:
+def collect_naver(on_progress=None) -> dict:
+    """on_progress: 키워드 1개 처리(성공 또는 실패)를 마칠 때마다 인자 없이 호출되는
+    콜백. services/runner.py가 이 자리에 걸어 RunJob 하트비트와 처리 건수를 갱신한다
+    (docs/planning.md "실행 모델" 3-(e)). 이번 라운드는 기사 건별이 아니라 키워드 건별
+    이다 — collect_naver()의 기존 아이템 루프 안에는 진행 신호를 보낼 지점이 여러 개라
+    (필터·중복·제외 등 continue 지점이 다섯 곳) 건드리면 동작 검증된 로직을 건드리는
+    범위가 커진다. 키워드 개수(19개 실측, 2026-09-14)가 곧 대상 건수가 되는 이 단위로도
+    하트비트 목적(멈췄는지 판정)은 충분히 달성된다."""
     if not settings.NAVER_CLIENT_ID or not settings.NAVER_CLIENT_SECRET:
         return {"collected": 0, "skipped_dup": 0, "skipped_filter": 0, "skipped_excluded": 0,
                 "crawled": 0, "crawl_failed": 0, "errors": ["Naver API key not configured"]}
@@ -224,6 +231,8 @@ def collect_naver() -> dict:
             items = _call_naver_api(kw.keyword, display, headers, sort=kw.sort)
         except Exception as e:
             stats["errors"].append(f"수집 실패 ({kw.keyword}): {e}")
+            if on_progress:
+                on_progress()
             continue
         finally:
             if delay > 0:
@@ -298,10 +307,13 @@ def collect_naver() -> dict:
             _link_tech_topics(news, matching_text, topics)
             stats["collected"] += 1
 
+        if on_progress:
+            on_progress()
+
     return stats
 
 
-def run_collection(actor: str) -> dict:
+def run_collection(actor: str, on_progress=None) -> dict:
     """수집 진입점 단일화 지점(docs/planning.md "수집 파이프라인 관측성 정책" 2번).
 
     collect_naver()를 부르는 모든 호출부 — SET-001 "지금 수집"(수동), 스케줄러(자동) — 는
@@ -331,7 +343,7 @@ def run_collection(actor: str) -> dict:
     """
     started_at = timezone.now()
     try:
-        stats = collect_naver()
+        stats = collect_naver(on_progress=on_progress)
     except Exception as e:
         stats = {"collected": 0, "skipped_dup": 0, "skipped_filter": 0, "skipped_excluded": 0,
                   "crawled": 0, "crawl_failed": 0, "errors": [f"수집 중 처리되지 않은 예외: {e}"]}

@@ -1,5 +1,5 @@
 from django.db import models
-from apps.news.models import News
+from apps.news.models import News, TagCorrectionRecord
 
 
 class DataSource(models.Model):
@@ -240,3 +240,189 @@ class OrgRelation(models.Model):
 
     def __str__(self):
         return f"{self.org_a} × {self.org_b}: {self.label}"
+
+
+class RunJob(models.Model):
+    """SET-010 실행 한 번(docs/planning.md "1번을 LLM으로 옮기는 설계" 4-(a) "RunJob —
+    실행 한 번"). 화면 버튼이나 관리 명령이 누른 작업 하나의 생애주기를 담는다.
+
+    🔴 요청 밖 워커 스레드가 진행 상황을 쓰는 유일한 저장소다. gunicorn 워커가 여럿이면
+    스레드가 뜬 워커와 폴링이 오는 워커가 다를 수 있어(같은 문서 "실행 모델" 3-(c)),
+    전역 변수나 모듈 상태로 진행 상황을 들고 있으면 폴링이 그것을 보지 못한다. 그래서
+    진행 건수와 상태는 예외 없이 이 테이블에 쓴다 — services/runner.py가 유일하게
+    이 테이블에 쓰는 코드이고, 읽는 쪽(apps/setting/views.py)은 조회만 한다.
+
+    🔴 상태 7가지 중 `완료`와 `확정됨`을 반드시 구분한다 — 판정이 끝난 것과 사람이
+    확정 버튼을 누른 것은 다른 사건이고, 합치면 승인 게이트가 상태 위에서 사라진다.
+    이번 라운드(수집만 실제로 돈다)는 확정 게이트가 없는 작업이라 `확정됨`까지 가는
+    경로가 없지만, 2라운드의 `cleanup`이 그 경로를 쓸 수 있도록 값 자체는 지금 만들어
+    둔다.
+    """
+
+    STATUS_PENDING = "대기"
+    STATUS_RUNNING = "진행중"
+    STATUS_DONE = "완료"
+    STATUS_FAILED = "실패"
+    STATUS_STOPPED = "중단됨"
+    STATUS_CONFIRMED = "확정됨"
+    STATUS_CANCELED = "취소됨"
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "대기"),
+        (STATUS_RUNNING, "진행중"),
+        (STATUS_DONE, "완료"),
+        (STATUS_FAILED, "실패"),
+        (STATUS_STOPPED, "중단됨"),
+        (STATUS_CONFIRMED, "확정됨"),
+        (STATUS_CANCELED, "취소됨"),
+    ]
+
+    ACTOR_SCREEN = "화면"
+    ACTOR_COMMAND = "관리 명령"
+    ACTOR_CHOICES = [
+        (ACTOR_SCREEN, "화면"),
+        (ACTOR_COMMAND, "관리 명령"),
+    ]
+
+    job_key = models.CharField(
+        max_length=30, db_index=True,
+        help_text="apps/setting/views.py RUN_JOB_KEYS의 값(collect, cleanup 등). 그 목록이 "
+                   "계속 늘 수 있어 고정 choices로 박지 않는다 — DeletedNewsRecord.criterion_code와 "
+                   "같은 이유(docs/planning.md '판정 기록 보존 정책' 1번).",
+    )
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    # 하트비트 — 워커 스레드가 진행마다(이번 라운드는 키워드 1개 처리마다) 갱신한다.
+    # 별도 감시 프로세스는 없다. 읽는 쪽(services/runner.py의 mark_stale_running_as_stopped())이
+    # 화면 요청이 들어올 때마다 이 값과 지금 시각의 차이를 보고 판정한다(같은 문서 3-(e)).
+    heartbeat_at = models.DateTimeField(null=True, blank=True)
+    target_count = models.IntegerField(default=0)
+    processed_count = models.IntegerField(default=0)
+    failed_count = models.IntegerField(default=0)
+    actor = models.CharField(max_length=20, choices=ACTOR_CHOICES, default=ACTOR_SCREEN)
+    # 🔴 이번 라운드는 필드만 만들고 비워 둔다 — 수집에는 채울 프롬프트 버전이 없다
+    # (docs/planning.md 같은 절 "🔴 프롬프트 버전은 필드만 만들고 비워 둡니다").
+    prompt_version = models.CharField(max_length=50, blank=True, default="")
+
+    class Meta:
+        ordering = ["-started_at", "-pk"]
+        constraints = [
+            # 진행중(STATUS_RUNNING="진행중") 행은 시스템 전체에 최대 1개만 허용한다.
+            # "같은 job이 이미 진행중이면 못 누르게"(문서 3-(g))가 요구하는 최소치는
+            # job_key 단위 잠금이지만, run.html의 기존 화면 계약이 이미 축을 넘는 전역
+            # 잠금이다(_run_graph.html "🔴 잠금은 축을 넘어 전역이다" — LLM/외부 API가
+            # 하나라 두 축을 동시에 돌리면 비용과 rate limit이 겹친다). 잠금 범위가
+            # 화면과 DB에서 어긋나면 "화면엔 하나만 도는 것처럼 보이는데 실제로는 둘이
+            # 돈다"는 불일치가 생기므로, DB 제약도 화면과 같은 전역 범위로 맞춘다.
+            # status 필드 자체에 조건부 유니크를 걸면(조건을 만족하는 행은 전부 값이
+            # "진행중"으로 같으므로) "진행중인 행은 전체에서 1개"가 강제된다.
+            models.UniqueConstraint(
+                fields=["status"],
+                condition=models.Q(status="진행중"),
+                name="unique_running_run_job",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.job_key} — {self.status}"
+
+
+class RunProposal(models.Model):
+    """SET-010 제안 한 건(docs/planning.md 같은 절 4-(b) "RunProposal — 제안 한 건").
+
+    🔴 이번 라운드는 모델과 마이그레이션만 세운다 — 행은 만들지 않는다. services/llm.py가
+    비어 있어 판정 자체가 없기 때문이다. 2라운드에서 뒤늦게 만들면 마이그레이션이
+    쪼개져 되돌리기가 어려워지므로 지금 함께 세운다(오케스트레이터 지시).
+
+    🔴 `target_name`과 `axis`는 docs/planning.md 4-(b)에 PM이 정식으로 편입한 필드다
+    (2026-09-14) — 처음 구현 때는 문서 밖 추가였지만 지금은 설계 그 자체다. 둘 다
+    "태그 제거"/"태그 추가" 제안이 확정될 때 `correct_news_tag(news, target, action=...)`를
+    실제로 실행하는 데 필요하다 — `target_name`만으로는 그 이름이 `Organization`인지
+    `TechTopic`인지 알 수 없고(`correct_news_tag()`는 객체를 받아 축을 자동 판별하지,
+    이름 문자열만으로는 판별할 수 없다), `axis`가 그 축을 담는다. 값은
+    `TagCorrectionRecord.axis`와 같은 어휘를 그대로 참조해 쓴다(드리프트 방지, 아래
+    필드 정의 참고).
+
+    ⚠️ **왜 FK가 아니라 문자열인가(target_name·axis 공통, PM 확정 근거)**
+    1. 확정되면 이 값이 그대로 `TagCorrectionRecord.target_name`(문자열)이 된다.
+       타입이 다르면 그 사이에 변환이 생기고, 변환이 있는 자리가 곧 어긋나는 자리다.
+    2. 🔴 LLM이 내놓는 것이 애초에 이름이다. FK라면 저장 시점에 대상 해석이 끝나
+       있어야 하는데, **"해석 실패"(본문의 핵심 주체가 `Organization`에 아직 없는
+       경우)가 바로 이 파이프라인이 다뤄야 하는 상황**이다(docs/planning.md 4-(b)
+       "미등록 기업은 제안만 하고 등록하지 않는다"). FK로는 그런 제안 자체를 만들 수
+       없다.
+    3. 확정 후에도 남는 이력이므로, 대상이 나중에 개명·비활성화돼도 제안 당시 값이
+       그대로 남아야 한다는 근거(TagCorrectionRecord.target_name과 동일)도 함께
+       적용된다.
+
+    **대가**: 확정 시점에 이 이름으로 실제 Organization/TechTopic을 찾지 못할 수 있다
+    (그사이 개명·삭제됐거나, LLM이 존재하지 않는 이름을 냈거나). 그때는 **그 제안
+    하나만 실패로 남기고 나머지 제안은 그대로 확정한다** — 확정 전체를 막지 않는다
+    (2라운드에서 확정 뷰를 구현할 때 지킬 규칙).
+
+    🔴 **행은 태그 하나당 하나다.** 한 행에 여러 태그를 담지 않는다 — 사람이 검토
+    화면에서 태그 단위로 채택/거절을 갈라야 하고("셋을 떼자고 했는데 둘만 맞다"가
+    실제 경로), 묶으면 「삭제 제안과 태그 제안을 따로 확정한다」가 지키려던 것이
+    태그들 사이에서 다시 무너진다. 거절 분포로 프롬프트 정확도를 재는 관측(4-(b)
+    "이것이 프롬프트 정확도를 잴 유일한 정답지")도 묶으면 셀 수 없어진다.
+
+    ⚠️ 대상 `News` FK에 unique를 걸지 않는다 — 한 기사에 제안이 여러 개(예: 삭제 제안
+    1개 + 태그 제거 제안 2개) 달릴 수 있다.
+    """
+
+    TYPE_DELETE = "삭제"
+    TYPE_KEEP = "유지"
+    TYPE_TAG_REMOVE = "태그 제거"
+    TYPE_TAG_ADD = "태그 추가"
+    TYPE_CHOICES = [
+        (TYPE_DELETE, "삭제"),
+        (TYPE_KEEP, "유지"),
+        (TYPE_TAG_REMOVE, "태그 제거"),
+        (TYPE_TAG_ADD, "태그 추가"),
+    ]
+
+    STATUS_PENDING = "대기"
+    STATUS_ACCEPTED = "채택"
+    STATUS_REJECTED = "거절"
+    STATUS_CANCELED = "취소"
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "대기"),
+        (STATUS_ACCEPTED, "채택"),
+        (STATUS_REJECTED, "거절"),
+        (STATUS_CANCELED, "취소"),
+    ]
+
+    run_job = models.ForeignKey(RunJob, on_delete=models.CASCADE, related_name="proposals")
+    # LLMLog.news와 같은 이유로 SET_NULL + null=True다 — 채택된 삭제 제안이 확정되면
+    # delete_news_with_record()가 대상 News 자체를 지운다. CASCADE였다면 그 순간 이
+    # 제안 행(감사 기록)까지 함께 사라져 "무엇을 왜 제안했는가"가 남지 않는다. 거절된
+    # 제안은 News가 그대로 남으므로 FK도 그대로 유지된다.
+    # unique를 걸지 않는다 — 한 기사에 제안이 여러 개(삭제 1 + 태그 제거 2 등) 달릴 수 있다.
+    news = models.ForeignKey(News, on_delete=models.SET_NULL, null=True, blank=True, related_name="run_proposals")
+    proposal_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
+    # DeletedNewsRecord.criterion_code와 같은 이유로 자유 문자열이다 — 판정 기준 개정이
+    # 잦아 enum으로 박지 않는다(docs/planning.md "판정 기록 보존 정책" 1번).
+    criterion_code = models.CharField(max_length=20, blank=True)
+    reason = models.TextField(blank=True)
+    target_name = models.CharField(
+        max_length=200, blank=True,
+        help_text="태그 제거/추가 제안의 대상 Organization/TechTopic 이름. 삭제/유지 제안은 비워 둔다. "
+                   "FK가 아니라 문자열인 이유는 클래스 docstring 참고.",
+    )
+    # TagCorrectionRecord.axis와 같은 값을 그대로 참조한다(자체 상수를 새로 만들지 않음 —
+    # 드리프트 방지). correct_news_tag()가 target 객체 타입으로 축을 자동 판별하는데,
+    # RunProposal은 target을 이름 문자열(target_name)로만 들고 있어 그 판별을 대신할
+    # 값이 필요하다.
+    axis = models.CharField(
+        max_length=20, choices=TagCorrectionRecord.AXIS_CHOICES, blank=True,
+        help_text="태그 제거/추가 제안의 축(기업/기술 주제). 삭제/유지 제안은 비워 둔다. "
+                   "FK가 아니라 문자열인 이유는 클래스 docstring 참고.",
+    )
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    judged_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-judged_at", "-pk"]
+
+    def __str__(self):
+        return f"RunProposal({self.proposal_type}, news={self.news_id})"
