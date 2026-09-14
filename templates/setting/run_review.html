@@ -29,6 +29,11 @@
                  프롬프트를 고치는 입구는 SET-003 하나여야 한다. 링크만 둔다.
    output        ③ OUTPUT 칸.  delete_count / retag_count / keep_count / insight_count (모두 int)
                  🔴 확정 버튼 라벨과 hx-confirm 문구가 이 숫자를 읽는다.
+                 uncovered_count(int, 기본 0) — 입력 건수 중 아직 어떤 제안도(삭제/교정/유지)
+                 받지 못한 건수. 🔴 확정 버튼을 여닫는 것은 이 값이다(2026-09-14 수정) —
+                 채택(체크) 건수가 아니다. LLM이 전부 "유지"로 판정해 delete_count=
+                 retag_count=insight_count=0이어도 uncovered_count가 0이면 버튼은 열려야
+                 한다. 상세 근거는 아래 Alpine 루트 주석.
 
    delete_items  삭제 제안 목록. 각 항목은
                    id / title / published_at(date) / source / reason / body_preview
@@ -62,23 +67,54 @@
 
   ⚠️ 버튼에는 서버가 렌더한 hx-confirm(정적)과 Alpine이 거는 :hx-confirm(동적)이 둘 다 있다.
      Alpine이 뜨면 동적 값이 정적 값을 덮어쓰고, Alpine이 못 뜨면 정적 값이 그대로 남는다.
-     즉 어느 쪽이든 확인 창은 반드시 뜬다(안전 쪽으로 실패한다).
+     즉 어느 쪽이든 확인 창은 반드시 뜬다(안전 쪽으로 실패한다). 이 이중 방어는 아래 수정과
+     무관하게 그대로 둔다.
+
+  🔴 PE 수정(2026-09-14) — 확정 버튼을 여닫는 조건을 "채택(체크) 건수"에서 "제안 커버리지"로
+     바꿨다. 종전에는 :disabled="!delCount && !fixCount && !insCount"라 delCount 등이
+     체크박스 해제로 0이 되면(또는 애초에 LLM이 전부 "유지"로 판정해 delete_items/retag_items
+     자체가 비면) 버튼이 잠겼다 — 그런데 "116건 전부 유지"는 정상적으로 일어나는 결과이고,
+     그날은 삭제·교정 제안이 원래 0건이다. 그 경우에도 확정을 눌러야 "남은 뉴스 전량을
+     검증됨으로 전환"하는 일이 일어나므로, 채택 건수가 0이라는 이유로 잠그면 안 된다.
+     그래서 지금은 delCount/fixCount/insCount(체크박스로 실시간으로 줄어드는 값)를 잠금
+     조건에서 뺐다 — 이 값들은 라벨·hx-confirm 문구에만 쓴다. 잠금은 keepCount(유지, 체크박스가
+     없어 서버가 내려준 값 그대로 고정)와 uncoveredCount(제안 자체를 못 받은 입력 건수)만 본다.
+     uncoveredCount > 0이면 "판정 자체가 덜 끝난 것"이라 사람이 확정해도 완전하지 않으므로
+     잠근다. 넷이 전부 0(delCount=fixCount=insCount=keepCount=0)이면 애초에 확정할 대상이
+     없는 것이라 그때도 잠근다 — 이 경우는 review.input.count 자체가 0일 때만 일어난다.
+  ⚠️ 이번 라운드에는 review.output.uncovered_count를 채우는 실제 제안 생성이 없다
+     (services/llm.py가 비어 있다). confirm_url도 항상 빈 문자열이라 아래 x-data가 걸린
+     버튼 자체가 렌더되지 않고, 대신 파일 하단의 "아직 확정 기능이 연결되지 않았어요"
+     placeholder 버튼이 보인다 — 그것이 이번 라운드의 올바른 빈 상태다. 이 x-data는 2라운드
+     이후 confirm_url이 채워질 때를 위해 지금 바로잡아 둔다.
 {% endcomment %}
 <div x-data="{
        delCount: {{ review.output.delete_count|default:0 }},
        fixCount: {{ review.output.retag_count|default:0 }},
        insCount: {{ review.output.insight_count|default:0 }},
+       keepCount: {{ review.output.keep_count|default:0 }},
+       uncoveredCount: {{ review.output.uncovered_count|default:0 }},
        labelText() {
          const parts = [];
          if (this.delCount) parts.push('삭제 ' + this.delCount + '건');
          if (this.fixCount) parts.push('교정 ' + this.fixCount + '건');
          if (this.insCount) parts.push('시사점 ' + this.insCount + '건');
+         if (this.keepCount) parts.push('유지 ' + this.keepCount + '건');
          return parts.length ? parts.join(', ') + ' 확정' : '확정할 항목이 없어요';
        },
        confirmText() {
          return this.delCount
            ? '기사 ' + this.delCount + '건을 지워요. 되돌릴 수 없어요. 진행할까요?'
            : null;
+       },
+       isDisabled() {
+         if (this.uncoveredCount) return true;
+         return !this.delCount && !this.fixCount && !this.insCount && !this.keepCount;
+       },
+       disabledReason() {
+         if (this.uncoveredCount) return this.uncoveredCount + '건이 아직 판정되지 않았어요';
+         if (this.isDisabled()) return '확정할 항목이 없어요';
+         return '';
        },
        clearAll(refName) {
          this.$refs[refName].querySelectorAll('input[type=checkbox]').forEach(c => c.checked = false);
@@ -390,9 +426,10 @@
             hx-disabled-elt="this"
             {% if review.output.delete_count %}hx-confirm="기사 {{ review.output.delete_count }}건을 지워요. 되돌릴 수 없어요. 진행할까요?"{% endif %}
             :hx-confirm="confirmText()"
-            :disabled="!delCount && !fixCount && !insCount"
+            :disabled="isDisabled()"
+            :title="disabledReason()"
             class="px-4 py-2 bg-primary text-white text-xs font-medium rounded-[10px] hover:bg-primary-hover transition-colors disabled:opacity-50">
-      <span x-text="labelText()">{% if review.output.delete_count and review.output.retag_count %}삭제 {{ review.output.delete_count }}건, 교정 {{ review.output.retag_count }}건 확정{% elif review.output.delete_count %}삭제 {{ review.output.delete_count }}건 확정{% elif review.output.retag_count %}교정 {{ review.output.retag_count }}건 확정{% elif review.output.insight_count %}시사점 {{ review.output.insight_count }}건 확정{% else %}확정할 항목이 없어요{% endif %}</span>
+      <span x-text="labelText()">{% if review.output.delete_count and review.output.retag_count %}삭제 {{ review.output.delete_count }}건, 교정 {{ review.output.retag_count }}건 확정{% elif review.output.delete_count %}삭제 {{ review.output.delete_count }}건 확정{% elif review.output.retag_count %}교정 {{ review.output.retag_count }}건 확정{% elif review.output.insight_count %}시사점 {{ review.output.insight_count }}건 확정{% elif review.output.keep_count %}유지 {{ review.output.keep_count }}건 확정{% else %}확정할 항목이 없어요{% endif %}</span>
     </button>
     {% else %}
     <button type="button" disabled

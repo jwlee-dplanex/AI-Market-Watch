@@ -50,16 +50,6 @@ def sources(request):
     })
 
 
-@require_POST
-def collect_now(request):
-    from services.collector import run_collection
-    # 실행 주체 = 수동(화면). CollectionLog는 run_collection() 진입점 안에서 남는다 — 여기서
-    # 직접 CollectionLog.objects.create()를 부르지 않는다(docs/planning.md "수집 파이프라인
-    # 관측성 정책" 2번 — 호출부에 로그 책임을 맡기지 않는 구조 결정).
-    stats = run_collection(actor=CollectionLog.ACTOR_MANUAL)
-    return render(request, "setting/_collect_result.html", {"stats": stats})
-
-
 # --- SET-010 실행 (수동 LLM 실행 + 승인 게이트) ---
 # docs/design.md "SET-010 · 실행" 절, templates/setting/run.html 상단 {% comment %}이
 # 정본 컨텍스트 계약이다.
@@ -204,8 +194,10 @@ def _target_newsroom():
 
 def _newsroom_jobs_context():
     """run.html/_run_graph.html의 newsroom_jobs(교보 소식 축, 4개 키 고정).
-    1단계 수집만 apps/newsroom/services.py의 collect_newsroom()을 실제로 부른다
-    (SET-009의 "지금 수집" 버튼과 같은 함수를 공유하는 두 번째 진입점).
+    1단계 수집만 apps/newsroom/services.py의 collect_newsroom()을 실제로 부른다.
+    🔴 2026-09-14 — SET-009 "지금 수집" 버튼이 같은 함수를 요청 스레드에서 직접
+    불러 RunJob 전역 잠금을 거치지 않는 두 번째 진입점이었다(SET-001의 collect_now와
+    같은 유형의 버그). 그 버튼을 철거해 지금은 이 축의 유일한 호출부다.
     2~4단계는 미구현이라 NOT_IMPLEMENTED_REASON으로 비활성이다."""
     from apps.newsroom.models import Newsroom, NewsroomArticle
 
@@ -694,15 +686,6 @@ def setting_newsroom_delete(request, pk):
     response = HttpResponse()
     response["HX-Redirect"] = reverse("setting_newsroom")
     return response
-
-
-@require_POST
-def setting_newsroom_collect(request, pk):
-    from apps.newsroom.models import Newsroom
-    from apps.newsroom.services import collect_newsroom
-    room = get_object_or_404(Newsroom, pk=pk)
-    stats = collect_newsroom(room)
-    return render(request, "setting/_collect_result.html", {"stats": stats})
 
 
 def _newsroom_keyword_context(room):

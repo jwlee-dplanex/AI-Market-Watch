@@ -316,12 +316,17 @@ def collect_naver(on_progress=None) -> dict:
 def run_collection(actor: str, on_progress=None) -> dict:
     """수집 진입점 단일화 지점(docs/planning.md "수집 파이프라인 관측성 정책" 2번).
 
-    collect_naver()를 부르는 모든 호출부 — SET-001 "지금 수집"(수동), 스케줄러(자동) — 는
-    반드시 이 함수를 거쳐야 한다. 호출부에 로그 책임을 맡기면 "경로가 2개인데 하나가 로그를
-    빠뜨리는" 실수(collect_now가 CollectionLog를 안 남기던 실제 버그)가 반복되므로, 로그 기록을
-    진입점 자체에 묶어 호출부가 몇 개로 늘어도 빠지지 않게 한다. (참고: 기동 시 catch-up(자동
-    복구) 경로는 2026-08-04에 도입했다가 같은 날 철회됐다 — 아래 actor 인자의 ACTOR_CATCHUP
-    값도 그 흔적으로 남아 있을 뿐 현재 이 값으로 호출하는 코드는 없다.)
+    collect_naver()를 부르는 모든 호출부는 반드시 이 함수를 거쳐야 한다. 호출부에 로그
+    책임을 맡기면 "경로가 2개인데 하나가 로그를 빠뜨리는" 실수(당시 apps/setting/views.py의
+    collect_now 뷰가 CollectionLog를 안 남기던 실제 버그)가 반복되므로, 로그 기록을 진입점
+    자체에 묶어 호출부가 몇 개로 늘어도 빠지지 않게 한다. (참고: 기동 시 catch-up(자동 복구)
+    경로는 2026-08-04에 도입했다가 같은 날 철회됐다 — 아래 actor 인자의 ACTOR_CATCHUP 값도
+    그 흔적으로 남아 있을 뿐 현재 이 값으로 호출하는 코드는 없다.)
+
+    🔴 2026-09-14 — 당시 유일한 수동 호출부였던 SET-001 "지금 수집"(collect_now 뷰)은
+    services/runner.py의 RunJob 전역 잠금을 거치지 않아 두 버튼(SET-001과 SET-010)이
+    같은 작업을 동시에 실행할 수 있는 경로였다. 그 뷰와 URL을 철거했고, 지금 이 함수를
+    부르는 경로는 services/runner.py의 _run_collect(SET-010 "1단계 수집") 하나뿐이다.
 
     - 반드시 CollectionLog를 1건 남긴다 — 성공이든 collect_naver()가 잡아 stats["errors"]에
       담은 부분 실패든, collect_naver() 자체가 던진 미처리 예외든 전부 여기서 로그로 남긴다.
@@ -336,8 +341,8 @@ def run_collection(actor: str, on_progress=None) -> dict:
     먼저 반영돼, 수집은 성공했는데 로그 기록에서 psycopg2.UndefinedColumn이 났다. 당시 있었던
     catch-up 경로를 타고 이 예외가 apps.py의 ready()까지 전파돼 개발 서버가 파일을 저장할
     때마다(autoreload 재기동마다) 기동 자체를 실패시켰고, 이 사고를 계기로 catch-up 자체는
-    철회됐다). catch-up이 없어진 지금도 이 방어는 유지한다 — 스케줄 잡(_job_collect)이나
-    collect_now 뷰가 로그 실패로 죽는 것 자체가 바람직하지 않기 때문이다. 로그 실패는 logger로
+    철회됐다). catch-up이 없어진 지금도 이 방어는 유지한다 — 호출부(지금은 SET-010의
+    워커 스레드)가 로그 실패로 죽는 것 자체가 바람직하지 않기 때문이다. 로그 실패는 logger로
     드러내고 stats는 그대로 반환한다 — "기록에 실패했다"를 조용히 삼키진 않되, 그 실패가
     호출부(뷰·스케줄러)를 끌고 내려가게 두지 않는다.
     """

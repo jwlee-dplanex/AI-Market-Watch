@@ -144,6 +144,17 @@ def _execute(run_job_id: int, kwargs: dict) -> None:
     끝나면 RunJob을 완료 또는 실패로 바꾼다 — 확정됨으로는 절대 바꾸지 않는다(승인
     게이트는 사람이 검토 화면에서 직접 누르는 별도 뷰의 몫, 문서 4-(a)).
 
+    🔴 PE 수정(2026-09-14) — 마지막 update()에 status=STATUS_RUNNING 조건을 건다(종전에는
+    조건 없이 덮어썼다). mark_stale_running_as_stopped()가 하트비트 정지를 오판해 이 RunJob을
+    먼저 중단됨으로 바꿔 버리면, 사용자가 화면에서 재실행해 새 RunJob과 새 스레드가 뜬다 —
+    그런데 원래 스레드(유령)는 여전히 돌고 있다가 나중에 여기 도달해 같은 RunJob을 완료/실패로
+    되돌려 쓰면, 그 사이 새로 시작된 RunJob의 진행 상태와 뒤섞여 두 스레드가 같은 작업을 동시에
+    수집하는 사고로 이어진다. status=STATUS_RUNNING 조건을 걸면 이미 다른 상태로 바뀐 RunJob은
+    유령 스레드가 더 이상 덮어쓰지 못한다.
+    ⚠️ 조건에 안 맞아 update()가 0건이면(유령 스레드가 실제로 돌았다는 뜻) 조용히 넘어가지
+    않고 반드시 logger.warning으로 남긴다 — 안 남기면 유령 스레드가 돈 사실 자체가 아무 데도
+    기록되지 않는다.
+
     🔴 끝나면 반드시 connection.close()를 부른다(finally). Django는 요청-응답
     주기가 끝날 때 DB 커넥션을 자동으로 정리하는데, 워커 스레드는 그 주기 밖에서
     돈다 — gunicorn처럼 오래 사는 프로세스에서 이 함수가 반복 호출되면(수집을 여러
@@ -166,13 +177,25 @@ def _execute(run_job_id: int, kwargs: dict) -> None:
             logger.exception(
                 "RunJob %s(%s) 실행 중 처리되지 않은 예외가 발생했어요.", run_job_id, run_job.job_key,
             )
-            RunJob.objects.filter(pk=run_job_id).update(
+            updated = RunJob.objects.filter(pk=run_job_id, status=RunJob.STATUS_RUNNING).update(
                 status=RunJob.STATUS_FAILED, finished_at=timezone.now(),
             )
+            if not updated:
+                logger.warning(
+                    "RunJob %s(%s) 실패 처리를 건너뛰었어요 — 이미 실행중 상태가 아니었어요. "
+                    "하트비트 정지 판정으로 먼저 상태가 바뀐 뒤에도 이 스레드가 계속 돈 "
+                    "유령 스레드로 보여요.", run_job_id, run_job.job_key,
+                )
             return
 
-        RunJob.objects.filter(pk=run_job_id).update(
+        updated = RunJob.objects.filter(pk=run_job_id, status=RunJob.STATUS_RUNNING).update(
             status=RunJob.STATUS_DONE, finished_at=timezone.now(),
         )
+        if not updated:
+            logger.warning(
+                "RunJob %s(%s) 완료 처리를 건너뛰었어요 — 이미 실행중 상태가 아니었어요. "
+                "하트비트 정지 판정으로 먼저 상태가 바뀐 뒤에도 이 스레드가 계속 돈"
+                "유령 스레드로 보여요.", run_job_id, run_job.job_key,
+            )
     finally:
         connection.close()

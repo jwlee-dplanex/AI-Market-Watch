@@ -108,10 +108,16 @@ def collect_newsroom(newsroom, on_progress=None) -> dict:
     충분하다. DataSource("Naver News API") 활성 여부도 확인하지 않는다 — 그 테이블은
     본 파이프라인 전용으로 남기기로 확정됐다(정책 4번 표 "재사용 안 함").
 
-    반환 dict는 SET-001 `_collect_result.html`과 같은 키 형태를 그대로 쓴다(SET-009
-    "지금 수집" 결과가 그 템플릿을 그대로 재사용하기 위함). skipped_excluded는 이
-    경로에 존재하지 않는 개념이라 항상 0으로 채운다. skipped_period/skipped_paid/
+    반환 dict는 collect_naver()의 stats와 같은 키 형태를 그대로 쓴다. skipped_excluded는
+    이 경로에 존재하지 않는 개념이라 항상 0으로 채운다. skipped_period/skipped_paid/
     skipped_dead/skipped_no_substance는 이번 코드 필터 전용 카운트다.
+
+    🔴 2026-09-14 — 이 dict가 화면에 그대로 렌더되던 곳(SET-009 "지금 수집" →
+    setting/_collect_result.html)은 철거됐다. collect_newsroom()이 SET-001과 같은
+    유형의 버그(services/runner.py의 RunJob 전역 잠금을 거치지 않는 두 번째 호출부)를
+    갖고 있었기 때문이다. 지금 이 함수를 부르는 경로는 services/runner.py의
+    _run_newsroom_collect(SET-010 교보 소식 축 "1단계 수집") 하나뿐이고, 그 호출부는
+    반환값을 쓰지 않는다(진행 상황은 on_progress 콜백으로만 RunJob에 반영한다).
 
     on_progress: services/collector.py의 collect_naver()와 같은 계약 — 키워드 1개
     처리를 마칠 때마다(성공/실패 무관) 인자 없이 호출된다. services/runner.py가
