@@ -101,7 +101,11 @@ if ! sudo nginx -t; then
   exit 1
 fi
 
-sudo systemctl reload nginx
+# reload가 아니라 reload-or-restart다. nginx가 아직 떠 있지 않은 상태(최초 도입
+# 직후나 사람이 멈춰 둔 경우)에서 `systemctl reload`는 실패하고, set -e가 배포
+# 전체를 여기서 멈춘다. reload-or-restart는 떠 있으면 무중단 reload, 내려가 있으면
+# start로 동작한다.
+sudo systemctl reload-or-restart nginx
 
 echo "==> 배포 완료"
 sudo systemctl status aimarketwatch --no-pager
