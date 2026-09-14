@@ -49,11 +49,17 @@ venv\Scripts\python manage.py shell --settings=config.settings.local
   | Python | 3.12.10 + `venv/` | 3.12.14 + `venv/` |
   | 패키지 | `requirements.txt` — 🔴 **전이 의존성까지 전부 `==` 고정** | 같음 |
   | DB | `docker compose up -d db` | 같음 |
-  | 앱 | `runserver` | `gunicorn` (systemd 유닛 `aimarketwatch`) |
+  | 앱 | `runserver` | `gunicorn` 127.0.0.1:8000 (systemd 유닛 `aimarketwatch`) |
+  | 앞단 | 없음 | 🔴 **nginx** 80번 — 정적 파일과 리버스 프록시 |
   | 설정 | `config.settings.local` | `config.settings.production` |
   | 로그 | 터미널 | `sudo journalctl -u aimarketwatch -f` |
 
-  - **배포는 `scripts/deploy.sh`** — `git pull` → db 기동 → `pg_isready` 대기 → `pip install` → `makemigrations --check` → `migrate` → `collectstatic` → `systemctl restart`. 🔴 **`main`이 아니면 스크립트가 멈춘다.**
+  - **배포는 `scripts/deploy.sh`** — `git pull` → db 기동 → `pg_isready` 대기 → `pip install` → `makemigrations --check` → `migrate` → `collectstatic` → systemd 유닛 복사 → `systemctl restart` → nginx 설정 복사 → `nginx -t` → `reload-or-restart`. 🔴 **`main`이 아니면 스크립트가 멈춘다.**
+    - 🔴 **`deploy.sh`가 `git pull`로 자기 자신을 갈아치운다** (2026-09-14 실측). EC2가 오래된 커밋에 있으면 **옛 스크립트가 새 파일들을 상대로 계속 돌아** 엉뚱한 곳에서 죽는다. 실제로 삭제된 `web` 서비스를 빌드하려다 `no such service: web`으로 멈췄다. **그 경우 한 번 더 실행하면 새 스크립트로 정상 완료된다** — pull은 이미 끝나 있기 때문이다.
+    - ⚠️ **nginx 설정은 반영 전에 `nginx -t`로 검사하고, 실패하면 이전 설정으로 되돌린다.** 로컬에 nginx가 없어서(아래) 문법 오류를 잡는 자리가 거기뿐이다. 되돌리지 않으면 지금은 멀쩡해 보여도 **다음 재부팅에서 nginx가 아예 뜨지 못한다.**
+  - 🔴 **서버 설정의 정본은 `deploy/`다** (2026-09-14). `deploy/nginx.conf`와 `deploy/aimarketwatch.service`를 고쳐 커밋하고, **EC2의 `/etc/` 아래를 직접 편집하지 않는다.** 종전에 systemd 유닛이 EC2에만 있어서 무엇이 적용돼 있는지 로컬에서 확인할 수 없었고 변경 이력도 남지 않았다.
+    - ⚠️ **로컬에는 nginx를 올리지 않는다** (사용자 확정). 「완전히 같게」 원칙이 지키는 것은 **패키지 집합**이지 실행 방식이 아니다 — 계기가 `anthropic` 0.116.0 대 1.5.0 드리프트였다. gunicorn과 whitenoise는 `requirements.txt`에 고정돼 로컬에도 설치돼 있고 쓰지 않을 뿐이지만, nginx는 pip 밖의 OS 서비스라 애초에 동기화 대상이 아니다. 로컬에 세워도 앞에 놓이는 것이 `runserver`라 오히려 새로운 차이를 만든다.
+    - ⚠️ **`deploy/*`와 `scripts/*.sh`는 `.gitattributes`가 LF로 못박는다.** CRLF로 커밋되면 bash가 줄마다 `$'\r': command not found`를 뱉고 systemd `ExecStart`의 마지막 인자에 `\r`이 붙는다.
   - 🔴 **개발한 것을 EC2에 올리려면 `develop`을 `main`으로 병합해야 한다.** 이 한 걸음을 빠뜨리면 EC2가 `pull`해도 아무것도 안 바뀐다.
   - 🔴 **패키지를 새로 깔거나 올렸으면 로컬에서 `pip freeze > requirements.txt`를 다시 돌린다.** 안 하면 EC2가 옛 버전에 묶인다. 실제로 한 번 갈렸다(anthropic 0.116.0 대 1.5.0).
   - ⚠️ **로컬 DB를 프로덕션으로 올리지 않는다.** 2026-09-11의 최초 이관은 프로덕션 DB가 비어 있을 때 정본을 처음 세운 것이고, **두 번째 이관은 예외가 아니라 위반이다.** 상세는 `docs/planning.md` 8-(b).

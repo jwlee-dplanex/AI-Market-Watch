@@ -57,14 +57,20 @@ venv\Scripts\python manage.py runserver --settings=config.settings.local
 AWS 클라우드 환경(EC2)에서 운영됩니다.
 
 ```
-Django 5.2  ←  gunicorn (systemd 관리)  ←  WhiteNoise (정적 파일)
-                      │
-              PostgreSQL 16 + pgvector (Docker)
+브라우저
+   ↓
+nginx        80번. 정적 파일 서빙과 리버스 프록시
+   ↓
+gunicorn     127.0.0.1:8000. systemd 유닛으로 관리
+   ↓
+Django 5.2
+   ↓
+PostgreSQL 16 + pgvector (Docker)
 ```
 
-Django 애플리케이션을 gunicorn이 구동하고 프로세스는 systemd가 관리합니다. 데이터베이스는 Docker 컨테이너로 실행하며, 정적 파일은 WhiteNoise가 직접 서빙합니다. 별도의 웹 서버나 로드밸런서는 두지 않은 최소 구성입니다.
+nginx가 바깥을 상대하면서 정적 파일을 디스크에서 직접 내려주고, 나머지 요청만 gunicorn에게 넘깁니다. gunicorn은 루프백 주소만 듣기 때문에 외부에서 직접 접속할 수 없습니다. 서버 설정은 nginx와 systemd 유닛 모두 [`deploy/`](./deploy/)에서 버전 관리하며, 배포할 때마다 문법 검사를 거쳐 반영됩니다.
 
-로컬 개발 환경과 프로덕션은 같은 구조를 유지합니다. 차이는 `runserver` 대신 gunicorn을 사용한다는 점뿐이며, Python 버전과 패키지 버전까지 동일하게 고정되어 있습니다. 개발은 `develop`에서 하고 배포는 `main`에서 합니다. 🔴 **병합하지 않으면 배포해도 반영되지 않습니다.** 배포 절차와 운영 규칙은 [`docs/dev.md`](./docs/dev.md) 10장에 있습니다.
+로컬 개발 환경과 프로덕션은 같은 구조를 유지합니다. Python 버전과 패키지 버전이 동일하게 고정되어 있고, 차이는 `runserver` 대신 gunicorn을 사용한다는 점과 앞단에 nginx가 있다는 점뿐입니다. 개발은 `develop`에서 하고 배포는 `main`에서 합니다. 🔴 **병합하지 않으면 배포해도 반영되지 않습니다.** 배포 절차와 운영 규칙은 [`docs/dev.md`](./docs/dev.md) 10장에 있습니다.
 
 ## 개발 방식
 

@@ -991,10 +991,39 @@ venv\Scripts\python manage.py runserver --settings=config.settings.local
 | 브랜치 | 🔴 `main` 고정 |
 | Python | 3.12.14 + `venv/` (호스트) |
 | DB | Docker `db` 서비스 하나 (pgvector/pgvector:pg16) |
-| 앱 | gunicorn, systemd 유닛 `aimarketwatch` |
-| 로그 | `sudo journalctl -u aimarketwatch -f` |
+| 앱 | gunicorn `127.0.0.1:8000`, systemd 유닛 `aimarketwatch` |
+| 앞단 | 🔴 nginx 1.30.4, 80번 (2026-09-14 도입) |
+| 로그 | `sudo journalctl -u aimarketwatch -f` / `sudo journalctl -u nginx -f` |
 
 🔴 **로컬과 완전히 같은 구조다** — Docker로 PostgreSQL만 띄우고 앱은 venv에서 돈다. 앱을 컨테이너에 넣는 종전 설계는 폐기됐고 `Dockerfile`과 `.dockerignore`도 삭제됐다. 경위와 근거는 `docs/planning.md` 「프로덕션 배포」 절 1-2.
+
+### 10-1. nginx (2026-09-14 도입)
+
+```
+브라우저 → nginx(80) → gunicorn(127.0.0.1:8000) → Django → PostgreSQL
+              └─ /static/ 은 여기서 끝난다
+```
+
+**넣은 이유는 셋이다.**
+
+1. **80번 포트 특권 제거** — 1024번 아래는 root만 열 수 있어, 비root(`ec2-user`)로 바인딩하려고 유닛에 `AmbientCapabilities=CAP_NET_BIND_SERVICE`를 붙여 두고 있었다. nginx가 80번을 맡으면서 그 줄을 지웠다. 🔴 **되살리지 말 것** — 8000번 바인딩에는 아무 특권도 필요 없다.
+2. **느린 연결 흡수** — 2026-09-11의 `WORKER TIMEOUT`(`(no URI read)`)이 sync 워커가 브라우저의 빈 keep-alive 연결에 묶인 것이었다. nginx가 요청을 전부 받아 모은 뒤 넘기므로 이 실패 모드가 구조적으로 사라진다. ⚠️ **`--worker-class gthread`는 되돌리지 않는다** — 워커 수가 유한하다는 사실 자체는 그대로다.
+3. **HTTPS 종단 자리 확보** — 도메인이 붙으면 TLS를 nginx에서 끊는다. 그때 `production.py`의 `SECURE_SSL_REDIRECT`와 `SESSION_COOKIE_SECURE`와 `CSRF_COOKIE_SECURE`를 **함께** 켜고 `SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")`를 지정한다.
+
+**설정의 정본은 `deploy/`다.** `deploy/nginx.conf`와 `deploy/aimarketwatch.service`를 고쳐 커밋하고, **EC2의 `/etc/` 아래를 직접 편집하지 않는다.** `deploy.sh`가 배포마다 복사한다.
+
+⚠️ **WhiteNoise는 제거하지 않았다.** nginx가 `/static/`을 먼저 가로채므로 중복 비용이 없고, nginx 설정이 어긋났을 때 앱이 여전히 정적 파일을 내려주는 안전망이 된다.
+
+🔴 **최초 설치 시 `sudo chmod o+x /home/ec2-user`가 필요하다.** nginx는 `nginx` 사용자로 도는데 Amazon Linux의 홈 디렉토리 기본 권한이 700이라, 이게 없으면 `staticfiles/`를 열지 못해 `/static/`이 전부 403이 난다.
+
+**검증은 로컬 PC에서 한다.**
+
+```powershell
+curl.exe -sI http://13.209.239.47/
+curl.exe -sI http://13.209.239.47/static/vendor/lucide.min.js
+```
+
+⚠️ **EC2 안에서 자기 EIP로 `curl`하면 멈춘다.** 보안그룹이 사무실 IP만 허용하기 때문이며 고장이 아니다. 안에서 확인하려면 `curl -H "Host: 13.209.239.47" http://127.0.0.1/`처럼 **Host 헤더를 붙여야** 한다 — Amazon Linux 2023의 기본 server 블록이 `default_server`라, Host가 우리 `server_name`과 정확히 일치할 때만 우리 블록이 선택된다.
 
 ### 배포 절차
 
@@ -1016,8 +1045,15 @@ cd ~/AI-Market-Watch && ./scripts/deploy.sh
 브랜치 확인(main이 아니면 중단) → git pull --ff-only → docker compose up -d db
 → pg_isready 대기 → pip install -r requirements.txt
 → makemigrations --check --dry-run → migrate → collectstatic
-→ systemctl restart aimarketwatch → systemctl status
+→ systemd 유닛 복사 + daemon-reload → systemctl restart aimarketwatch
+→ nginx 설정 복사 → nginx -t → reload-or-restart nginx → status 둘
 ```
+
+🔴 **`deploy.sh`가 `git pull`로 자기 자신을 갈아치운다** (2026-09-14 실측). EC2가 오래된 커밋에 있으면 **옛 스크립트가 새 파일들을 상대로 계속 돌아** 엉뚱한 곳에서 죽는다. 실제로 삭제된 `web` 서비스를 빌드하려다 `no such service: web`으로 멈췄다. **그 경우 한 번 더 실행하면 새 스크립트로 정상 완료된다** — `pull`은 이미 끝나 있기 때문이다.
+
+⚠️ **nginx 설정은 반영 전에 `nginx -t`로 검사하고 실패하면 이전 설정으로 되돌린다.** 로컬에 nginx가 없어 문법 오류를 잡는 자리가 거기뿐이다. 되돌리지 않으면 지금은 `reload`를 건너뛰어 멀쩡해 보여도 **다음 재부팅에서 nginx가 아예 뜨지 못한다.**
+
+⚠️ **`reload`가 아니라 `reload-or-restart`다.** nginx가 아직 떠 있지 않은 상태에서 `reload`는 실패하고 `set -e`가 배포 전체를 그 자리에서 멈춘다.
 
 ⚠️ **`makemigrations --check`가 `migrate`보다 먼저다.** 모델은 고쳤는데 마이그레이션 파일을 커밋하지 않은 채 배포하면 DB 스키마가 조용히 코드보다 뒤처진다.
 
