@@ -1,0 +1,54 @@
+# AI Market Watch — gunicorn systemd 유닛
+#
+# 배포 위치: /etc/systemd/system/aimarketwatch.service
+# scripts/deploy.sh가 이 파일을 복사하고 daemon-reload한다.
+#
+# 🔴 이 파일이 저장소에 있는 이유 (2026-09-14 신설).
+# 종전에는 EC2에만 존재했다. 그러면 지금 무엇이 적용돼 있는지 로컬에서 확인할
+# 방법이 없고, 고칠 때마다 사람이 EC2에서 직접 편집하므로 변경 이력도 남지 않는다.
+# 실제로 nginx를 넣으면서 이 파일을 고쳐야 했을 때, 내용을 EC2에서 다시 읽어
+# 와야만 정확한 수정이 가능했다. deploy/nginx.conf도 같은 이유로 저장소에 있다.
+#
+# ⚠️ 2026-09-14 변경 두 가지 (nginx 도입).
+#   1. --bind 0.0.0.0:80  →  127.0.0.1:8000
+#      80번은 이제 nginx가 받는다. gunicorn은 루프백만 들으므로 외부에서 직접
+#      붙을 수 없다.
+#   2. AmbientCapabilities=CAP_NET_BIND_SERVICE 삭제
+#      1024번 아래 포트는 root만 열 수 있어서, 비root(ec2-user)로 80번을
+#      바인딩하려고 이 앱에 특권을 하나 붙여 두고 있었다. nginx가 80번을 맡으면서
+#      더 이상 필요하지 않다. 🔴 되살리지 말 것 — 8000번 바인딩에는 아무 특권도
+#      필요하지 않으므로, 이 줄이 있으면 쓰이지 않는 권한만 남는다.
+
+[Unit]
+Description=AI Market Watch (gunicorn)
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+User=ec2-user
+Group=ec2-user
+WorkingDirectory=/home/ec2-user/AI-Market-Watch
+Environment=DJANGO_SETTINGS_MODULE=config.settings.production
+
+# EC2가 매일 19:00에 정지되고 08:00에 다시 켜지므로, 앱이 뜰 때 DB 컨테이너가
+# 이미 떠 있다는 보장이 없다. docker-compose.yml의 restart: always와 양쪽에서
+# 같은 요구를 받는다.
+ExecStartPre=/usr/bin/docker compose up -d db
+
+# --worker-class gthread는 2026-09-11의 WORKER TIMEOUT 대응이다. sync 워커가
+# 브라우저의 빈 keep-alive 연결에 묶여 (no URI read)로 죽었다. nginx가 앞에
+# 서면서 그 요청 버퍼링이 구조적으로 해결되지만, gthread를 되돌리지는 않는다 —
+# 워커 수가 유한하다는 사실 자체는 그대로다.
+ExecStart=/home/ec2-user/AI-Market-Watch/venv/bin/gunicorn config.wsgi:application \
+  --bind 127.0.0.1:8000 \
+  --workers 2 --worker-class gthread --threads 4 \
+  --timeout 60 --graceful-timeout 30 --keep-alive 5 \
+  --access-logfile - --error-logfile -
+
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

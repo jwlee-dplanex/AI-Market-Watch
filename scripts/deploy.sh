@@ -62,8 +62,47 @@ venv/bin/python manage.py migrate --settings=config.settings.production
 echo "==> collectstatic"
 venv/bin/python manage.py collectstatic --noinput --settings=config.settings.production
 
+# systemd 유닛과 nginx 설정은 2026-09-14부터 저장소가 정본이다(deploy/). 종전에는
+# EC2에만 있어서 무엇이 적용돼 있는지 로컬에서 확인할 수 없었고 변경 이력도
+# 남지 않았다. 배포마다 복사하므로, 고칠 일이 생기면 EC2를 편집하지 않고
+# deploy/ 아래를 고쳐 커밋한다.
+echo "==> systemd 유닛 반영"
+sudo cp deploy/aimarketwatch.service /etc/systemd/system/aimarketwatch.service
+sudo systemctl daemon-reload
+
 echo "==> 앱 재기동"
 sudo systemctl restart aimarketwatch
 
+# 🔴 nginx 설정은 반영하기 전에 검사한다. 로컬에는 nginx가 없으므로(사용자 확정)
+# 문법 오류를 잡는 자리가 여기뿐이다. `nginx -t`는 /etc/nginx 전체를 읽으므로
+# 파일을 먼저 놓아야 검사할 수 있고, 따라서 실패 시 되돌릴 백업을 먼저 뜬다.
+# 되돌리지 않으면 지금은 reload를 건너뛰어 멀쩡해 보이지만, 다음 재부팅에서
+# nginx가 아예 뜨지 못한다.
+NGINX_CONF=/etc/nginx/conf.d/aimarketwatch.conf
+
+if ! command -v nginx >/dev/null 2>&1; then
+  echo "nginx가 설치돼 있지 않습니다 — 'sudo dnf install -y nginx' 후 다시 배포하세요." >&2
+  exit 1
+fi
+
+echo "==> nginx 설정 반영"
+if [ -f "$NGINX_CONF" ]; then
+  sudo cp "$NGINX_CONF" "$NGINX_CONF.bak"
+fi
+sudo cp deploy/nginx.conf "$NGINX_CONF"
+
+if ! sudo nginx -t; then
+  echo "nginx 설정이 유효하지 않습니다 — 이전 설정으로 되돌립니다." >&2
+  if [ -f "$NGINX_CONF.bak" ]; then
+    sudo mv "$NGINX_CONF.bak" "$NGINX_CONF"
+  else
+    sudo rm -f "$NGINX_CONF"
+  fi
+  exit 1
+fi
+
+sudo systemctl reload nginx
+
 echo "==> 배포 완료"
 sudo systemctl status aimarketwatch --no-pager
+sudo systemctl status nginx --no-pager
