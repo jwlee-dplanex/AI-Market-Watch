@@ -1,0 +1,31 @@
+# 🔴 EC2(Linux)에서 실행되거나 읽히는 파일은 LF로 저장한다 (2026-09-14 신설).
+#
+# ⚠️ 이것은 버그 수정이 아니라 예방책이다. 확인 시점의 저장소 blob은 이미 전부
+# LF였다(실측: deploy/nginx.conf 4,331바이트 중 CR 0개, deploy/aimarketwatch.service
+# 2,622바이트 중 0개, scripts/deploy.sh 4,855바이트 중 0개). 지금 LF인 이유는
+# 이 PC의 core.autocrlf=true가 커밋 방향에서 CRLF를 LF로 바꿔 주기 때문이다.
+#
+# 그 안전장치가 사람의 로컬 설정 하나에 매달려 있는 것이 문제다. autocrlf가
+# 꺼진 환경에서 편집기가 CRLF로 저장하면 그대로 커밋되고, 그때 EC2에서 나는
+# 증상은 원인을 짐작하기 어렵다.
+#   - deploy.sh — bash가 줄마다 `$'\r': command not found`를 뱉는다.
+#   - systemd 유닛 — ExecStart 마지막 인자에 \r이 붙어 옵션 값이 깨진다.
+#     `--error-logfile -` 이 `--error-logfile $'-\r'`가 되는 식이다.
+#   - nginx.conf — 지시어 값 끝에 \r이 남아 경로나 헤더 값이 미묘하게 어긋난다.
+# 파일 속성으로 못박으면 로컬 설정과 무관하게 LF가 보장된다.
+#
+# ⚠️ 리포 전체에 `* text=auto eol=lf`를 걸지 않는다. Windows 작업 트리가 한 번에
+#    바뀌어 diff가 폭발하고 이 문제와 무관한 파일까지 건드린다. 범위는
+#    「Linux에서 실행되는 것」으로 좁게 둔다.
+#
+# 🔴 줄바꿈을 확인할 때 `grep -c $'\r'`를 쓰지 말 것. 이 환경(Git Bash)에서
+#    모든 줄에 매치돼 CR이 없는 파일도 전부 CRLF로 보고한다. 실제로 이 파일을
+#    만든 계기가 그 오측이었다. `od -c` 조합도 어긋난 값을 냈다(CR이 LF보다 많다는
+#    불가능한 결과). 신뢰할 수 있는 방법은 바이트 수 차이다.
+#
+#        a=$(git cat-file blob "$sha" | wc -c)
+#        b=$(git cat-file blob "$sha" | tr -d '\r' | wc -c)
+#        echo "CR $((a-b))개"
+
+deploy/*        text eol=lf
+scripts/*.sh    text eol=lf
