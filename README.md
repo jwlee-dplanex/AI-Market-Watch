@@ -84,4 +84,4 @@ PM과 PD와 PE는 플랫폼을 만드는 축이고 RA는 플랫폼을 사용하�
 - [`docs/planning.md`](./docs/planning.md) — 제품 정책. 관련성 판단 기준과 승격 기준
 - [`docs/design.md`](./docs/design.md) — 화면별 와이어프레임과 컴포넌트 스펙
 - [`docs/dev.md`](./docs/dev.md) — 데이터 모델, URL 구조, 배포 절차
-- [`docs/reports/`](./docs/reports/) — 서비스 소개 자료. 문제 정의와 기대 효과는 이 문서에 있습니다
+- **서비스 소개 자료** — 문제 정의와 기대 효과는 이 문서에 있습니다. ⚠️ 저장소에 포함하지 않습니다(`docs/reports/`, 로컬 전용)

@@ -38,11 +38,17 @@
   — clean_lines()가 잔여물만 있는 본문을 전부 걷어내면 body는 차 있어도 렌더 결과가
   빈 문자열일 수 있다.
 
-  🔴 "원문에서 이어 읽기" 링크(2026-09-14, 정책 6-3절 (f))는 2026-09-11에 지운
-  결정을 뒤집는 것이 아니다. 그 지시의 근거는 "원문이 다 보여야지"였고, 그 전제는
-  article.body_is_truncated가 참인 기사(더벨 절단처럼 크롤이 실패해 네이버 요약문
-  잔여물만 남은 경우)에는 성립하지 않는다. 전제가 성립하는 기사(body_is_truncated가
-  거짓)에서는 위 결정이 그대로 유지되고, 성립하지 않는 기사에만 예외로 링크가 열린다.
+  🔴 본문 아래에 "원문에서 이어 읽기" 링크를 두지 않는다 — 잘린 기사에도 두지
+  않는다. 2026-09-14에 body_is_truncated가 참일 때만 되살리는 안(정책 6-3절 (f))이
+  들어왔다가 같은 날 다시 빠졌다(사용자 지시 — "기존에 원문 보기가 있잖아").
+
+  ⚠️ 되돌린 근거는 "원문이 다 보이는가"가 아니라 헤더와의 중복이다. 헤더의
+  "원문 보기"가 이미 같은 article.url을 가리키므로, 본문이 잘렸든 아니든 링크를
+  하나 더 두면 같은 곳으로 가는 두 번째 링크일 뿐이다. body_is_truncated는
+  화면 링크를 켜는 스위치가 아니라 데이터 상태를 적는 필드로만 남는다.
+
+  ⚠️ 조건을 붙이면 괜찮다는 식으로 다시 넣지 말 것. 조건이 바꾸는 것은 노출
+  빈도이지 중복이라는 사실이 아니다.
 {% endcomment %}
 
 <!-- 브레드크럼 + 이전/다음 -->
@@ -141,19 +147,15 @@
       ⚠️ 아래 else 절(본문을 못 가져온 경우)의 "원문 보기" 버튼은 남긴다. 그때는
       보여 줄 본문이 없어서 원문으로 보내는 것이 유일한 경로다.
 
-      🔴 바로 아래 body_is_truncated 조건부 링크는 이 결정을 다시 여는 것이 아니다
-      — 상단 파일 헤더 주석의 "원문에서 이어 읽기" 항목 참고. 이 결정이 지킨 전제
-      ("원문이 다 보여야지")가 성립하는 기사에서는 위 그대로 링크가 없다.
+      🔴 2026-09-14에 body_is_truncated가 참일 때만 이 링크를 되살리는 안이
+      들어왔다가 같은 날 다시 빠졌다(사용자 지시 — "기존에 원문 보기가 있잖아").
+      되돌린 근거가 위 ①(헤더와의 중복)이라는 점이 중요하다. 그 근거는 본문이
+      잘렸는지와 무관하게 성립한다 — 잘린 기사에서도 헤더의 "원문 보기"가 같은
+      article.url을 가리키므로 링크를 하나 더 두면 그냥 중복이다.
+      ⚠️ 조건을 붙이면 괜찮다는 식으로 이 링크를 다시 넣지 말 것. 조건이 바꾸는
+      것은 노출 빈도이지 중복이라는 사실이 아니다.
     {% endcomment %}
     <div class="text-sm text-gray-700 leading-[1.9] markdown-spacing">{{ rendered_body }}</div>
-    {% if article.body_is_truncated %}
-    <div class="mt-4 pt-4 border-t border-[#E5E5E5] text-center">
-      <a href="{{ article.url }}" target="_blank" rel="noopener noreferrer"
-         class="inline-flex items-center gap-1 text-sm text-primary hover:underline">
-        원문에서 이어 읽기 <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
-      </a>
-    </div>
-    {% endif %}
     {% else %}
     <div class="p-12 text-center text-gray-400">
       <i data-lucide="file-text" class="w-10 h-10 mx-auto mb-3 opacity-40"></i>
