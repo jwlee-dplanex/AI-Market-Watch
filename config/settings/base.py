@@ -108,9 +108,24 @@ EMBEDDING_SIMILARITY_THRESHOLD = env.float("EMBEDDING_SIMILARITY_THRESHOLD", def
 AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID", default="")
 AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY", default="")
 AWS_DEFAULT_REGION = env("AWS_DEFAULT_REGION", default="ap-northeast-2")
-# Bedrock 모델 ID는 직접 API의 ANTHROPIC_MODEL_FAST와 형식이 다르다("global." 접두사 +
-# 버전 접미사) — 그래서 별도 키로 둔다. 1번(뉴스 정리)에만 쓴다(SMART는 2~4번 몫,
-# 같은 문서 7-(c)).
+# Bedrock 모델 ID는 직접 API의 ANTHROPIC_MODEL_FAST와 형식이 다르다("global." 접두사와
+# 버전 접미사가 붙는다). 그래서 별도 키로 둔다. 1번(뉴스 정리)에만 쓴다(SMART는 3~5번 몫,
+# docs/planning.md "3~5단계를 LLM으로 옮기는 설계" 7-(c)).
 BEDROCK_MODEL_FAST = env(
     "BEDROCK_MODEL_FAST", default="global.anthropic.claude-haiku-4-5-20251001-v1:0",
+)
+# 3~5번(주요 이슈, 주간 보고서, 월간 보고서) 생성 전용. 종전 "확인 필요"였던 자리를
+# 2026-09-15 PE가 실측으로 채웠다. boto3 bedrock.list_inference_profiles()로 서울
+# 리전에서 "global.anthropic.claude-sonnet-5"(ACTIVE)를 확인했고, AnthropicBedrock으로
+# 실제 최소 토큰 호출(max_tokens=16)까지 성공했다(응답 model="claude-sonnet-5",
+# stop_reason="end_turn"). FAST와 달리 날짜와 버전 접미사("-20251001-v1:0" 같은)가 없다.
+# 이 프로파일 ID 자체가 실측된 정확한 형태이며 PE가 추정해 붙인 것이 아니다.
+#
+# 🔴 2026-09-15 사용자 지시로 기본값을 다시 Haiku ID로 내렸다. 키는 그대로 두고 값만 바꿨다.
+# 다음 사람이 판단할 수 있도록 세 가지를 남긴다.
+# ① Sonnet은 서울 리전에서 실제로 동작한다(바로 위 주석). 안 되는 상태가 아니다.
+# ② 그런데도 Haiku를 쓰는 이유는 비용이다(2026-09-15 사용자 지시 "무조건 비용을 아껴야 해").
+# ③ 되돌리는 방법은 이 값 한 줄을 "global.anthropic.claude-sonnet-5"로 바꾸는 것뿐이다.
+BEDROCK_MODEL_SMART = env(
+    "BEDROCK_MODEL_SMART", default="global.anthropic.claude-haiku-4-5-20251001-v1:0",
 )

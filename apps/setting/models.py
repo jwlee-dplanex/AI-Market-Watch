@@ -1,5 +1,6 @@
 from django.db import models
-from apps.news.models import News, TagCorrectionRecord
+from apps.news.models import Insight, News, TagCorrectionRecord
+from apps.reports.models import Report
 
 
 class DataSource(models.Model):
@@ -303,6 +304,27 @@ class RunJob(models.Model):
     # 🔴 이번 라운드는 필드만 만들고 비워 둔다 — 수집에는 채울 프롬프트 버전이 없다
     # (docs/planning.md 같은 절 "🔴 프롬프트 버전은 필드만 만들고 비워 둡니다").
     prompt_version = models.CharField(max_length=50, blank=True, default="")
+    # 🔴 2026-09-15 PE 신설 — services/llm.py classify_news()가 반환하는 _usage를 담을
+    # 자리가 그동안 없어(RunJob에도 LLMLog에도 저장되지 않아) 실제 토큰 데이터가 전혀
+    # 없었다(오케스트레이터 지적). count_tokens가 Bedrock에서 지원되지 않아 응답 usage가
+    # 비용을 재는 유일한 수단인데 그 값을 버리고 있었다.
+    #
+    # 건별이 아니라 RunJob(배치) 단위 합계로 둔 이유:
+    # ① review.step.tokens(검토 화면 "AI가 한 일" 칸)가 읽는 값은 배치 전체의 토큰
+    #    합계이지 건별 값이 아니다 — apps/setting/views.py `_run_review_context()` 참고.
+    # ② PM이 비용 산식을 갱신하려면 "배치 전체에 입력/출력/캐시 생성/캐시 읽기 토큰이
+    #    각각 얼마나 들었는가"만 있으면 된다 — 캐시 생성은 배치 첫 건에서 한 번만 크게
+    #    잡히고 나머지는 캐시 읽기이므로, 배치 합계만으로도 그 비율(캐시 적중률)이
+    #    그대로 드러난다. 건별 값이 추가로 밝혀 주는 것은 기사 본문 길이에 따른 편차뿐인데,
+    #    지금 비용 산식이 요구하는 것은 그 편차가 아니라 배치 총비용이다.
+    # ③ 건별로 남기면 행이 계속 늘어난다(2026-09-15까지 두 배치 139건) — 최소 구현
+    #    원칙상, 지금 실제로 필요한 것(①·②)을 넘어서는 저장 구조를 미리 만들지 않는다.
+    #    건별 편차 분석이 실제로 필요해지면(예: 프롬프트가 더 길어져 기사 길이별 비용
+    #    차이를 추적해야 할 때) 그때 건별 로그를 별도로 추가한다.
+    input_tokens = models.IntegerField(default=0)
+    output_tokens = models.IntegerField(default=0)
+    cache_creation_input_tokens = models.IntegerField(default=0)
+    cache_read_input_tokens = models.IntegerField(default=0)
 
     class Meta:
         ordering = ["-started_at", "-pk"]
@@ -374,19 +396,25 @@ class RunProposal(models.Model):
     TYPE_KEEP = "유지"
     TYPE_TAG_REMOVE = "태그 제거"
     TYPE_TAG_ADD = "태그 추가"
-    # 🔴 5번째 종류(2026-09-14, 2라운드 PE 신설) — docs/planning.md 4-(b)가 열어 둔 자리다.
-    # "미등록 기업은 제안만 하고 등록하지 않는다"(같은 문서) — LLM이 본문의 핵심 주체가
-    # Organization에 없어 보인다고 판단하면 이 종류로 남긴다. axis는 항상 비워 둔다
-    # (Organization/TechTopic 중 어느 쪽인지를 다투는 제안이 아니라 신규 등록 후보이므로
-    # 축 자체가 없다). 확정 버튼도 이 종류는 등록을 실행하지 않는다 — 사람이 SET-007에서
-    # 삼킴 검사를 거쳐 직접 등록한다.
-    TYPE_ORG_CANDIDATE = "기업 후보"
+    # 🔴 5번째 종류(2026-09-14, 2라운드 PE 신설. 2026-09-15 `기업 후보`에서 `태그 후보`로
+    # 일반화 — docs/planning.md 4-(b) 🔴 개정 (2026-09-15)). "미등록 기업/기술 주제는
+    # 제안만 하고 등록하지 않는다"(같은 문서) — LLM이 본문의 핵심 주체가 Organization·
+    # TechTopic 어느 쪽에도 없어 보인다고 판단하면 이 종류로 남긴다. `axis`는 그 대상이
+    # 기업인지 기술 주제인지를 담는다(TYPE_TAG_ADD/TYPE_TAG_REMOVE와 같은 방식 — 아래
+    # axis 필드 정의 참고). 확정 버튼도 이 종류는 등록을 실행하지 않는다 — 사람이
+    # SET-007(기업) 또는 SET-008(기술 주제)에서 삼킴 검사를 거쳐 직접 등록한다.
+    #
+    # 별도 종류를 신설하지 않고 기존 `기업 후보`를 일반화한 이유는 위 문서 개정 절 참고 —
+    # 두 축의 성격 차이는 SET-007/SET-008의 등록 판단에서 갈리지, 제안 레코드의 모양에서
+    # 갈리지 않는다. 확정해도 아무 동작이 없고, 확정 버튼이 열리는 커버리지 조건에서
+    # 빠지는 성질은 그대로 상속된다.
+    TYPE_TAG_CANDIDATE = "태그 후보"
     TYPE_CHOICES = [
         (TYPE_DELETE, "삭제"),
         (TYPE_KEEP, "유지"),
         (TYPE_TAG_REMOVE, "태그 제거"),
         (TYPE_TAG_ADD, "태그 추가"),
-        (TYPE_ORG_CANDIDATE, "기업 후보"),
+        (TYPE_TAG_CANDIDATE, "태그 후보"),
     ]
 
     STATUS_PENDING = "대기"
@@ -423,7 +451,7 @@ class RunProposal(models.Model):
     # 값이 필요하다.
     axis = models.CharField(
         max_length=20, choices=TagCorrectionRecord.AXIS_CHOICES, blank=True,
-        help_text="태그 제거/추가 제안의 축(기업/기술 주제). 삭제/유지 제안은 비워 둔다. "
+        help_text="태그 제거/추가/후보 제안의 축(기업/기술 주제). 삭제/유지 제안은 비워 둔다. "
                    "FK가 아니라 문자열인 이유는 클래스 docstring 참고.",
     )
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=STATUS_PENDING)
@@ -434,3 +462,88 @@ class RunProposal(models.Model):
 
     def __str__(self):
         return f"RunProposal({self.proposal_type}, news={self.news_id})"
+
+
+class RunDraft(models.Model):
+    """SET-010 3~5단계(주요 이슈, 주간 보고서, 월간 보고서) 초안 한 건
+    (docs/planning.md "3~5단계를 LLM으로 옮기는 설계" 3번 "산출물의 모양이 다르다,
+    그래서 RunProposal에 담지 않는다").
+
+    🔴 `RunProposal`을 늘리지 않고 새로 만든 이유는 선호가 아니라 구조다.
+    `RunProposal.news`는 **단수 FK**인데 `Insight`와 `Report`의 근거 기사는 M2M이고,
+    그 목록 자체가 산출물의 본체다(출처 기반 작성 원칙. `Insight.news`/`Report.news`에
+    연결된 기사가 출처 표기 역할을 겸한다). 단수 FK에 M2M을 담을 방법이 없으므로
+    "겸하게 되는 대가를 치를지"가 아니라 "애초에 안 들어간다"이다.
+
+    `RunProposal`과 같은 성질을 상속한다. `run_job` FK로 묶이고, 확정 전까지 DB에
+    반영되지 않으며, 채택/거절/취소 상태를 가진다. `status`는 `RunProposal.STATUS_CHOICES`를
+    그대로 참조한다(드리프트 방지. `axis`가 `TagCorrectionRecord.AXIS_CHOICES`를
+    참조하는 것과 같은 이유).
+
+    🔴 절대 상속하지 않는 것이 있다. **벡터를 달지 않는다.** 나중에 초안 중복 감지가
+    필요해져도 검색 대상 벡터(`Embedding`)와 같은 테이블에 넣지 않는다. 한 테이블이면
+    조회부가 필터를 빼먹는 순간 초안이 실제 검색 결과에 섞이고, 그것이 이 프로젝트가
+    반복한 "어겨도 에러가 안 나는" 실패 유형이다.
+
+    `draft_type`에 따라 쓰지 않는 칸이 생긴다(이슈 초안은 `overview`와 `date_from`,
+    `date_to`가 비고, 보고서 초안은 `implication`과 `grade`가 빈다). 공통 칸 둘에
+    매핑표를 붙이는 안보다 이쪽을 택한 이유는 `Insight`/`Report`의 필드 이름을 그대로
+    쓰면 확정 코드가 옮겨 담는 자리에서 헷갈리지 않기 때문이다(빈 칸 몇 개보다 변환이
+    있는 자리가 더 위험하다).
+    """
+
+    TYPE_INSIGHT = "이슈"
+    TYPE_WEEKLY = "주간 보고서"
+    TYPE_MONTHLY = "월간 보고서"
+    TYPE_CHOICES = [
+        (TYPE_INSIGHT, "이슈"),
+        (TYPE_WEEKLY, "주간 보고서"),
+        (TYPE_MONTHLY, "월간 보고서"),
+    ]
+
+    run_job = models.ForeignKey(RunJob, on_delete=models.CASCADE, related_name="drafts")
+    draft_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
+    title = models.CharField(max_length=500)
+    content = models.TextField(help_text="Insight.content 또는 Report.content.")
+    implication = models.TextField(blank=True, help_text="이슈 전용. Insight.implication.")
+    overview = models.TextField(blank=True, help_text="보고서 전용. Report.overview.")
+    # 🔴 자체 상수를 새로 만들지 않고 Insight.GRADE_CHOICES를 그대로 참조한다
+    # (RunProposal.axis가 TagCorrectionRecord.AXIS_CHOICES를 참조한 것과 같은 드리프트
+    # 방지). 기본값은 빈 문자열이다. Insight.GRADE_UNSPECIFIED("미지정")는 "판정했으나
+    # 등급을 못 정했다"는 뜻인 반면, 여기서 빈 문자열은 "이 초안 종류에 등급이라는 개념이
+    # 없다"(보고서 초안)는 뜻이라 서로 다르다. 이슈 초안은 프롬프트 조립과 판정 단계에서
+    # 반드시 값을 채운다(승격 위계 등급 정책 3번 "RA가 생성 시점에 매긴다, 필수").
+    grade = models.CharField(
+        max_length=20, choices=Insight.GRADE_CHOICES, blank=True, default="",
+        help_text="이슈 전용. Insight.GRADE_CHOICES를 그대로 참조한다.",
+    )
+    # 🔴 2026-09-15 PE 신설(3단계 라운드) — templates/setting/run_review.html
+    # insight_items 계약의 grade_reason. "RunDraft에 이 칸이 없다"는 그 파일의 실측을
+    # 이 필드로 메운다. "이유 없는 체크박스 목록은 사람이 검토할 수 없다"는 그 계약의
+    # 근거를 그대로 따라 넣는 쪽을 택했다 — grade와 마찬가지로 이슈 초안 전용이다.
+    grade_reason = models.TextField(blank=True, help_text="이슈 전용. LLM이 그 등급을 고른 이유.")
+    date_from = models.DateField(null=True, blank=True, help_text="보고서 전용.")
+    date_to = models.DateField(null=True, blank=True, help_text="보고서 전용.")
+    news = models.ManyToManyField(News, related_name="run_drafts", help_text="근거 기사.")
+    status = models.CharField(
+        max_length=10, choices=RunProposal.STATUS_CHOICES, default=RunProposal.STATUS_PENDING,
+    )
+    # 확정으로 만들어진 대상이다. 되돌릴 때 무엇을 지울지 아는 자리(draft_type별로 정확히
+    # 하나만 채워진다). GenericForeignKey 대신 별도 FK 둘로 가른 이유는 위 클래스
+    # docstring의 content/implication/overview 판단과 같다. 이 코드베이스에
+    # GenericForeignKey 선례가 없고, 타입이 갈리는 변환 지점을 새로 만들지 않는다.
+    # on_delete는 SET_NULL이다. RunProposal.news와 같은 근거로, 되돌리기(확정된
+    # Insight/Report를 지움)가 일어나도 RunDraft 행 자체(감사 기록)는 남아야 한다.
+    created_insight = models.ForeignKey(
+        Insight, on_delete=models.SET_NULL, null=True, blank=True, related_name="run_drafts",
+    )
+    created_report = models.ForeignKey(
+        Report, on_delete=models.SET_NULL, null=True, blank=True, related_name="run_drafts",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+
+    def __str__(self):
+        return f"RunDraft({self.draft_type}, {self.title})"

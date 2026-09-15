@@ -1,17 +1,19 @@
 import logging
 
+from django.conf import settings
 from django.contrib import messages
+from django.db import transaction
 from django.db.models import Count, Min, Max, Exists, OuterRef
 from django.http import Http404, HttpResponse
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
-from apps.news.models import DeletedNewsRecord, News, TagCorrectionRecord
+from apps.news.models import DeletedNewsRecord, Insight, News, TagCorrectionRecord
 from apps.news.services import correct_news_tag, delete_news_with_record
 from .models import (
     DataSource, Keyword, CollectionLog, LLMLog, SlackConfig,
-    Organization, TechTopic, OrgRelation, RunJob, RunProposal,
+    Organization, TechTopic, OrgRelation, RunJob, RunProposal, RunDraft,
 )
 
 logger = logging.getLogger(__name__)
@@ -99,11 +101,17 @@ RUN_JOB_LABELS = {
 # 완료(STATUS_DONE)여도 승인 게이트가 있는 job은 사람이 확정을 누르기 전까지 "검토
 # 대기"로 보여야 한다(apps/setting/models.py RunJob docstring "완료와 확정됨을 반드시
 # 구분한다" 원칙). 승인 게이트가 없는 collect/newsroom_collect는 이 목록에 넣지 않는다
-# — 그 둘은 STATUS_DONE이 곧 "더 할 일 없음"이다. 2라운드는 cleanup만 구현됐다.
-GATED_JOB_KEYS = ("cleanup",)
+# — 그 둘은 STATUS_DONE이 곧 "더 할 일 없음"이다.
+# 🔴 2026-09-15 PE 개정 — "insight"를 추가했다. _run_review_context()가 _job_run_state()를
+# 그대로 불러 검토 화면 머리글 상태를 만들므로, 여기 없으면 초안이 쌓인 배치도 review
+# 화면에서 "완료"로 잘못 찍힌다.
+# 🔴 2026-09-15 2라운드 — 메인 그래프(_research_jobs_context)도 이번에 insight 버튼을
+# 열었다(선행 잠금 _insight_block_reason()과 함께). 위 문단이 말하는 "검토 대기" 전환은
+# 그 버튼이 열렸든 닫혔든 GATED_JOB_KEYS만 보고 동작하므로 이 상수 자체는 그대로다.
+GATED_JOB_KEYS = ("cleanup", "insight")
 
 # SET-010 검토 화면(run_review.html) 판정 기준 코드 범례. services/llm.py의
-# SYSTEM_PROMPT가 내는 criterion_code enum(1-a/1-b/3/4/5/6/S-KLS/기타)과 값·순서를
+# _build_system_prompt()가 내는 criterion_code enum(1-a/1-b/3/4/5/6/S-KLS/기타)과 값·순서를
 # 그대로 맞춘다(드리프트 방지). CRITERION_LABELS는 삭제 제안 행 pill의 native title
 # 한 줄(criterion_label)에도 같이 쓴다 — 팝오버(긴 설명, apps/dashboard/tooltips.py)와
 # pill 툴팁(짧은 한 줄)은 분량만 다르고 뜻은 같아야 한다.
@@ -123,6 +131,55 @@ CRITERION_LEGEND = [
     for code in CRITERION_LABELS
 ] + [{"code": "기타", "tooltip_key": "", "aria_label": "판정 기준 기타"}]
 
+# SET-010 진행 표시(docs/planning.md "SET-010 진행 표시" 2번) — job_key별로 무엇을 세는지
+# 다르다. 수집은 키워드 단위(전체 건수를 실행 전에 모른다), 판정은 기사 단위다. 통일하지
+# 않고 낱말만 계약 키(progress_unit)로 내린다 — 최종 문구(어순 등)는 PD가
+# _run_node.html에서 정한다. 여기 없는 job_key(아직 미구현)는 빈 문자열로 떨어진다.
+PROGRESS_UNIT_BY_JOB = {
+    "collect": "키워드",
+    "cleanup": "기사",
+    "newsroom_collect": "키워드",
+    "newsroom_filter": "기사",
+}
+
+# 중단 요약(state=='stopped')의 세 갈래(PD 확정, 2026-09-15) — "다시 누르면 어디서부터인가"가
+# 단계마다 다르다. collect/newsroom_collect는 collector 중복 체크가 이미 받은 기사를
+# 걸러 이어받고, cleanup/newsroom_filter는 제안이 이미 있는 기사가 다음 대상에서 빠져
+# 남은 건부터 잇지만, insight/weekly/monthly(1호출 단계)는 중간이 없어 처음부터 다시
+# 돈다 — 그 갈래엔 건수를 찍지 않는다("29건까지 했다"가 "29건은 남아 있겠지"로 오독된다).
+RESUME_FROM_SCRATCH_JOB_KEYS = ("insight", "weekly", "monthly")
+
+# SET-010 검토 화면(run_review.html) "① 검토 대상"/"② AI가 한 일" 칸에 쓰는 낱말
+# (docs/design.md 5차 개정 ⑦ PE 인계). cleanup만 실제 LLM 판정 배치를 갖고 있어
+# 지금은 이 값만 채운다 — insight 등 미구현 job_key는 없으면 review.input/step이
+# 그 칸을 채우지 않고 조용히 기존 빈 상태 문구로 떨어진다(템플릿이 이미 그렇게 짜여 있다).
+# 🔴 2026-09-15 PE 신설 — "insight" 항목을 더했다(3단계 판정 데이터 층). summary 문구는
+# run_review.html 상단 계약이 든 예시 그대로다.
+REVIEW_INPUT_LABEL_BY_JOB = {"cleanup": "미검증 뉴스", "insight": "검증된 뉴스"}
+REVIEW_STEP_SUMMARY_BY_JOB = {"cleanup": "기사마다 관련성을 판정했어요", "insight": "같은 사건을 이슈로 묶었어요"}
+
+# 🔴 2026-09-15 2라운드 PE 신설 — _run_job_display()의 "대상 0건" 교착 방지 분기(아래)가
+# 쓰는 job_key별 요약 문구. GATED_JOB_KEYS 두 job의 "대상"이 서로 다른 말이라(cleanup은
+# 미검증 뉴스, insight는 이슈로 묶을 뉴스) 문구도 갈라야 한다 — 하나로 고정해 두면
+# insight가 대상 0건으로 끝났을 때 "정리할 미검증 뉴스가 없었어요"라는, insight와
+# 무관한(cleanup 전용) 문장이 그대로 찍힌다. 실제로 인위 RunJob(job_key="insight",
+# target_count=0)으로 재현해 확인한 문제다(트랜잭션 롤백 검증, 커밋하지 않음).
+ZERO_TARGET_SUMMARY_BY_JOB = {
+    "cleanup": "정리할 미검증 뉴스가 없었어요",
+    "insight": "이슈로 묶을 뉴스가 없었어요",
+}
+
+# 🔴 2026-09-15 PE 신설 — review.step.model이 종전에는 settings.ANTHROPIC_MODEL_FAST로
+# 고정돼 있었다(3~5단계 설계 인계 "job_key로 갈라야 한다"). cleanup은 실제로
+# services/llm.py classify_news()가 settings.BEDROCK_MODEL_FAST를 쓰고 그 친숙한 이름이
+# ANTHROPIC_MODEL_FAST다. insight(및 나중의 weekly/monthly)는 generate_insights()가
+# settings.BEDROCK_MODEL_SMART를 쓴다 — 🔴 그 값을 그대로 보여준다. 친숙한 이름
+# ANTHROPIC_MODEL_SMART("claude-sonnet-5")를 대신 보여주면, BEDROCK_MODEL_SMART가 지금
+# 비용 때문에 Haiku를 가리키고 있는데(config/settings/base.py) 화면은 Sonnet이 돌았다고
+# 말하는 거짓 표시가 된다. 문자열이 길어도(예: "global.anthropic.claude-haiku-...")
+# 템플릿이 자르지 않기로 이미 정해져 있다(run_review.html 상단 계약).
+REVIEW_MODEL_KEY_BY_JOB = {"insight": "BEDROCK_MODEL_SMART", "weekly": "BEDROCK_MODEL_SMART", "monthly": "BEDROCK_MODEL_SMART"}
+
 
 def _job_run_state(run_job, job_key):
     """RunJob.status를 화면 어휘(idle/running/review/done/failed/stopped)로 바꾼다.
@@ -136,7 +193,13 @@ def _job_run_state(run_job, job_key):
     if run_job.status == RunJob.STATUS_FAILED:
         return "failed", "실패"
     if run_job.status == RunJob.STATUS_DONE:
-        if job_key in GATED_JOB_KEYS:
+        # 🔴 대상 0건이면 검토할 제안 자체가 없다(RunProposal이 하나도 없다). 그런데도
+        # review로 보내면 노드는 "결과 검토하기"만 내주고 검토 화면은 확정 버튼이 잠겨
+        # 있어(isDisabled(), 커버리지 0) 빠져나갈 길이 없는 교착에 빠진다 — 2026-09-15에
+        # 실제로 사용자가 이 상태에 갇혀 RunJob을 손으로 취소됨으로 바꿔야 했다.
+        # 대상이 없으면 애초에 검토할 것도 없으므로 done으로 내려 실행 버튼을 그대로
+        # 돌려준다.
+        if job_key in GATED_JOB_KEYS and run_job.target_count > 0:
             return "review", "검토 대기"
         return "done", "완료"
     if run_job.status == RunJob.STATUS_CONFIRMED:
@@ -162,12 +225,42 @@ def _run_job_display(job_key):
     if state == "running":
         seconds = int((timezone.now() - run_job.started_at).total_seconds())
         elapsed = f"{seconds // 60}분 {seconds % 60}초째" if seconds >= 60 else f"{seconds}초째"
-        return {"state": state, "state_label": state_label, "summary": "", "elapsed": elapsed}
-    if state == "stopped":
-        return {
-            "state": state, "state_label": state_label,
-            "summary": f"{run_job.processed_count}/{run_job.target_count}건까지 처리하다 끊겼어요",
+        display = {
+            "state": state, "state_label": state_label, "summary": "", "elapsed": elapsed,
+            # 🔴 분자는 처리를 마친 수(성공+실패)다(docs/planning.md "SET-010 진행 표시"
+            # 5-(a)) — processed_count만 쓰면 실패가 섞인 배치가 목표 건수(target_count)에
+            # 끝내 못 닿은 채 완료돼, "71건 중 68건"에서 멈춘 것처럼 보인다. DB 필드
+            # (processed_count)의 뜻 자체는 바꾸지 않는다 — 검토 화면과 로그가 그 뜻으로
+            # 읽는다. 여기서 합치는 건 화면에 내리는 값뿐이다.
+            "progress_current": run_job.processed_count + run_job.failed_count,
+            "progress_total": run_job.target_count,
+            "progress_unit": PROGRESS_UNIT_BY_JOB.get(job_key, ""),
         }
+        if run_job.failed_count:
+            display["progress_failed"] = run_job.failed_count
+        return display
+    if state == "stopped":
+        # 🔴 세 갈래(PD 확정, 2026-09-15) — "다시 누르면 어디서부터인가"에 답한다.
+        # 빗금 표기(종전 "29/71건")를 걷고 위 진행 줄과 같은 어순("N건 중 M건")으로
+        # 맞춘다 — 실행 중에 보던 표기와 3초 뒤 멈췄을 때 표기가 다르면 같은 수인지
+        # 확인하는 데 시간이 든다.
+        current = run_job.processed_count + run_job.failed_count  # 위 running과 같은 이유로 실패 건도 더한다.
+        if job_key in RESUME_FROM_SCRATCH_JOB_KEYS:
+            # 🔴 건수를 찍지 않는다 — 처음부터 다시 돌아서 "어디까지 했는지"가 다시
+            # 누르는 판단에 아무 도움이 되지 않는다. 건수를 보이면 "그만큼은 남아
+            # 있겠지"로 오독된다(사실과 반대).
+            summary = "중간에 멈췄어요. 다시 누르면 처음부터 실행해요"
+        elif job_key in ("collect", "newsroom_collect"):
+            summary = (
+                f"{PROGRESS_UNIT_BY_JOB.get(job_key, '')} {run_job.target_count}건 중 {current}건까지 "
+                "수집하고 멈췄어요. 다시 누르면 이어서 해요"
+            )
+        else:  # cleanup, newsroom_filter
+            summary = (
+                f"{PROGRESS_UNIT_BY_JOB.get(job_key, '')} {run_job.target_count}건 중 {current}건까지 "
+                "판정하고 멈췄어요. 남은 기사부터 이어해요"
+            )
+        return {"state": state, "state_label": state_label, "summary": summary}
     if state == "failed":
         return {"state": state, "state_label": state_label, "summary": "실행이 실패했어요"}
     if state == "review":
@@ -176,6 +269,13 @@ def _run_job_display(job_key):
             "summary": f"{run_job.processed_count}건 판정을 마쳤어요, 검토를 기다리고 있어요",
         }
     if run_job.status == RunJob.STATUS_DONE:
+        if job_key in GATED_JOB_KEYS and run_job.target_count == 0:
+            # 대상 0건 교착 방지(위 _job_run_state 주석과 같은 사고) — state는 이미
+            # "done"으로 내려오므로(review로 가지 않는다) 요약 문구만 그 사정에 맞게
+            # 따로 말해 준다. job_key마다 "대상"이 다른 말이라 ZERO_TARGET_SUMMARY_BY_JOB로
+            # 갈라 쓴다(위 정의 주석 참고).
+            summary = ZERO_TARGET_SUMMARY_BY_JOB.get(job_key, "처리할 대상이 없었어요")
+            return {"state": state, "state_label": state_label, "summary": summary}
         return {
             "state": state, "state_label": state_label,
             "summary": f"마지막 실행 {timezone.localtime(run_job.finished_at):%m/%d %H:%M}, {run_job.processed_count}건",
@@ -199,6 +299,32 @@ def _current_running_job():
     from services.runner import mark_stale_running_as_stopped
     mark_stale_running_as_stopped()
     return RunJob.objects.filter(status=RunJob.STATUS_RUNNING).order_by("-started_at").first()
+
+
+def _insight_block_reason() -> str:
+    """3단계(주요 이슈) 선행 잠금 사유. 빈 문자열이면 잠기지 않는다(docs/planning.md
+    "3~5단계를 LLM으로 옮기는 설계" 2번 표, PM 설계 "선행 미완은 경고가 아니라 버튼
+    잠금이다"). 순서가 뜻을 가진다 — 먼저 걸리는 조건의 문구가 화면에 뜬다.
+
+    🔴 두 번째 조건(확정되지 않은 cleanup 배치)은 위 표에 없는 방어 조건이다. 보통은
+    첫 조건(미검증 News 존재)이 먼저 걸린다 — cleanup 배치가 확정 전이면 그 배치가
+    다뤘던 News는 여전히 미검증 상태로 남기 때문이다(확정 뷰에서만 상태가 바뀐다).
+    다만 그 배치의 대상 News가 NEWS-002에서 개별로 먼저 삭제되면(ExcludedURL 경로)
+    미검증 건수가 0으로 떨어지면서도 그 배치 자체는 여전히 확정 전이라, 첫 조건만으로는
+    못 잡는 틈이 생긴다. RunJob 상태를 직접 봐서 그 틈을 막는다."""
+    unverified_count = News.objects.filter(status=News.STATUS_UNVERIFIED).count()
+    if unverified_count:
+        return f"아직 정리되지 않은 뉴스가 {unverified_count}건 있어요"
+
+    pending_cleanup = RunJob.objects.filter(job_key="cleanup", status=RunJob.STATUS_DONE).exists()
+    if pending_cleanup:
+        return "2단계 정리 결과를 아직 확정하지 않았어요"
+
+    unassigned_count = News.objects.verified().filter(insights__isnull=True).count()
+    if unassigned_count == 0:
+        return "이슈로 묶을 뉴스가 없어요"
+
+    return ""
 
 
 def _research_jobs_context():
@@ -246,7 +372,26 @@ def _research_jobs_context():
     })
     jobs["cleanup"] = cleanup_job
 
-    for key in RESEARCH_JOB_KEYS[2:]:
+    # 3단계 주요 이슈 — 이번 라운드에서 실행 버튼을 연다(services/runner.py
+    # IMPLEMENTED_JOB_KEYS에 "insight" 추가와 짝을 이룬다). GATED_JOB_KEYS에 "insight"가
+    # 이미 있어(이전 라운드) 완료(STATUS_DONE)면 _run_job_display()가 그대로
+    # state="review"를 내려 cleanup과 똑같이 "결과 검토하기" 버튼으로 바뀐다 — 여기서
+    # 따로 분기하지 않는다. can_run/block_reason만 _insight_block_reason()이 결정한다
+    # (PM 설계 "선행 미완은 경고가 아니라 버튼 잠금이다").
+    insight_display = _run_job_display("insight")
+    insight_job = insight_display or {"state": "idle", "state_label": "대기", "summary": ""}
+    insight_block_reason = _insight_block_reason()
+    insight_job.update({
+        "can_run": not insight_block_reason,
+        "block_reason": insight_block_reason,
+        "warning": "",
+        "confirm_text": "",
+        "run_url": reverse("setting_run_start", args=["insight"]),
+        "review_url": reverse("setting_run_review", args=["insight"]),
+    })
+    jobs["insight"] = insight_job
+
+    for key in RESEARCH_JOB_KEYS[3:]:
         jobs[key] = {
             "state": "idle",
             "state_label": "대기",
@@ -371,10 +516,16 @@ def setting_run_start(request, job):
     elif job == "cleanup":
         from services.runner import start_run
         start_run("cleanup", actor=RunJob.ACTOR_SCREEN)
-    # 나머지 여섯 단계(insight/weekly/monthly, 뉴스룸 2~4단계) — services/llm.py의
-    # 판정 로직은 지금 cleanup 하나만 쓴다. 노드 자체가 run_url 없이 비활성이라
-    # UI에서는 여기로 POST가 오지 않지만, 직접 호출되더라도 그래프를 안전하게 다시
-    # 그려 준다.
+    elif job == "insight":
+        # 🔴 2026-09-15 PE 개정 — 선행 잠금(_insight_block_reason())을 통과했을 때만
+        # 노드가 run_url을 채워 여기로 POST를 보낸다. 화면이 아닌 경로로 직접 호출되면
+        # 여기서는 다시 검사하지 않는다 — start_run() 자체가 대상 0건이어도 안전하게
+        # 완료 처리하도록 이미 짜여 있다(services/runner.py _run_insight() "대상 0건").
+        from services.runner import start_run
+        start_run("insight", actor=RunJob.ACTOR_SCREEN)
+    # 나머지 다섯 단계(weekly/monthly, 뉴스룸 2~4단계) — services/llm.py의 판정 로직이
+    # 아직 없다. 노드 자체가 run_url 없이 비활성이라 UI에서는 여기로 POST가 오지
+    # 않지만, 직접 호출되더라도 그래프를 안전하게 다시 그려 준다.
     #
     # start_run()은 RunJob을 만들고 워커 스레드를 띄운 뒤 즉시 반환한다 — 여기서
     # 수집이 끝나기를 기다리지 않는다(gunicorn 요청 타임아웃에 걸리지 않는 이유,
@@ -400,6 +551,76 @@ def _body_preview(body: str) -> str:
     return body[:BODY_PREVIEW_CHARS] + "..."
 
 
+def _format_duration(seconds: int) -> str:
+    """review.step.duration 등에 쓰는 소요 시간 문자열. _run_job_display()의 elapsed
+    포맷("1분 12초째")과 같은 자리수 규칙을 쓰되 접미사 "째"는 붙이지 않는다 — elapsed는
+    "지금 몇 초째"(진행 중, 계속 갱신)를 말하고 이건 "다 걸린 시간"(완료, 고정값)을
+    말해 뜻이 다르다."""
+    return f"{seconds // 60}분 {seconds % 60}초" if seconds >= 60 else f"{seconds}초"
+
+
+def _collected_period(proposals) -> str:
+    """review.input.period — 이 배치가 다룬 뉴스의 수집일 범위(예: "09.02 ~ 09.03").
+    RunJob은 대상 News 목록 자체를 따로 저장하지 않으므로, 이 배치가 남긴
+    RunProposal이 참조하는 News.collected_at으로 근사한다 — 판정 도중 실패해 제안이
+    생기지 않은 대상은 이 범위에서 빠지지만(연속 3회 실패면 배치 자체가 끊기므로
+    실패 건수는 대개 0이거나 소수다), 범위가 하루 이틀 단위로 넓어 그 편차가 눈에 띄는
+    차이를 만들지 않는다."""
+    dates = sorted({timezone.localtime(p.news.collected_at).date() for p in proposals if p.news_id})
+    if not dates:
+        return ""
+    if dates[0] == dates[-1]:
+        return f"{dates[0]:%m.%d}"
+    return f"{dates[0]:%m.%d} ~ {dates[-1]:%m.%d}"
+
+
+def _insight_items_context(run_job):
+    """SET-010 3단계(주요 이슈) 검토 화면의 insight_items 목록. 계약은
+    templates/setting/run_review.html 상단 주석 "insight_items" 절이 정본이다.
+
+    🔴 id는 RunDraft.pk다(News.pk가 아니다) — 확정 POST의 grade_<id>·insight_ids가
+    이 값을 그대로 되돌려 보낸다.
+
+    🔴 news_items의 url은 News.uid로 만든다(pk가 아니다) — NEWS-002의 URL 패턴이
+    <shortuuid:uid>다(apps/news/urls.py). 3단계 입력은 이미 검증된 News라 실제로
+    열린다(2단계 삭제 목록과 달리 404가 아니다, 템플릿 상단 계약 "근거 기사를 새 탭으로
+    여는 이유")."""
+    drafts = list(
+        RunDraft.objects.filter(
+            run_job=run_job, draft_type=RunDraft.TYPE_INSIGHT, status=RunProposal.STATUS_PENDING,
+        ).prefetch_related("news").order_by("pk")
+    )
+    items = []
+    for draft in drafts:
+        news_list = list(draft.news.order_by("published_at"))
+        news_range = ""
+        if news_list:
+            first_date = timezone.localtime(news_list[0].published_at).date()
+            last_date = timezone.localtime(news_list[-1].published_at).date()
+            news_range = (
+                f"{first_date:%m.%d}" if first_date == last_date
+                else f"{first_date:%m.%d} ~ {last_date:%m.%d}"
+            )
+        items.append({
+            "id": draft.pk,
+            "title": draft.title,
+            "implication": draft.implication,
+            "content": draft.content,
+            "grade": draft.grade,
+            "grade_reason": draft.grade_reason,
+            "news_count": len(news_list),
+            "news_range": news_range,
+            "news_items": [
+                {
+                    "title": n.title, "published_at": n.published_at, "source": n.source_domain,
+                    "url": reverse("news_detail", args=[n.uid]),
+                }
+                for n in news_list
+            ],
+        })
+    return items
+
+
 def _run_review_context(job_key):
     """SET-010 검토 화면(run_review.html)의 review dict를 만든다. 계약은
     templates/setting/run_review.html 상단 주석과 docs/design.md "4차 개정" ⑩번 표가
@@ -414,11 +635,17 @@ def _run_review_context(job_key):
         "job_label": RUN_JOB_LABELS[job_key],
         "back_url": reverse("setting_run"),
         "confirm_url": reverse("setting_run_review_confirm", args=[job_key]),
-        # "모두 취소"(제안 폐기)는 이번 라운드 범위 밖이다 — setting_run_review_cancel이
-        # 아직 실제로 아무 것도 취소하지 않는 스텁이라, URL을 비워 템플릿이 버튼 자체를
-        # 감추게 한다(run_review.html 상단 계약 "cancel_url 비어 있으면 버튼을 감춘다").
-        "cancel_url": "",
+        # 🔴 2026-09-15 PE 개정 — setting_run_review_cancel이 이제 실제로 취소한다(아래
+        # 뷰 참고). 3단계(주요 이슈)는 이 URL이 반드시 있어야 한다 — 초안 0건으로 끝난
+        # 배치(묶을 이슈가 없는 날)는 확정 버튼이 채택할 것이 없어 잠기고, cancel_url까지
+        # 비면 그 RunJob이 검토 대기에서 나올 길이 화면에 하나도 없다(템플릿 상단 계약
+        # "3단계에서 cancel_url을 반드시 채운다").
+        "cancel_url": reverse("setting_run_review_cancel", args=[job_key]),
         "org_admin_url": reverse("setting_organizations"),
+        # 🔴 2026-09-15 신설 — 태그 후보가 기업 전용에서 기업/기술 주제 축 일반화로
+        # 바뀌면서(docs/planning.md 4-(b) 개정) 기술 주제 후보도 등록 화면 링크가
+        # 필요해졌다. SET-008(기술 주제 관리)로 보낸다.
+        "topic_admin_url": reverse("setting_tech_topics"),
         "criterion_legend": CRITERION_LEGEND,
     }
 
@@ -432,24 +659,59 @@ def _run_review_context(job_key):
         "state": state,
         "state_label": state_label,
         "progress": (
-            f"{run_job.target_count}건 중 {run_job.processed_count}건 처리" if run_job.target_count else ""
+            # 🔴 분자는 처리를 마친 수(성공+실패)다 — _run_job_display()의 같은 자리와
+            # 같은 이유(docs/planning.md "SET-010 진행 표시" 5-(a)). processed_count만
+            # 쓰면 실패가 섞인 배치가 "116건 중 113건"처럼 목표 건수에 못 닿은 채로
+            # 보인다.
+            f"{run_job.target_count}건 중 {run_job.processed_count + run_job.failed_count}건 처리"
+            if run_job.target_count else ""
         ),
         "failed_str": f"실패 {run_job.failed_count}건" if run_job.failed_count else "",
         "resumable": state == "stopped",
     }
-    review["step"] = {"prompt_version": run_job.prompt_version}
 
     proposals = list(
         RunProposal.objects.filter(run_job=run_job, status=RunProposal.STATUS_PENDING)
         .select_related("news")
         .order_by("-news__published_at", "news_id", "pk")
     )
+
+    # docs/design.md 5차 개정 ⑦ PE 인계 — review.input/review.step을 채운다. cleanup만
+    # 실제 LLM 판정 배치가 있어(REVIEW_*_BY_JOB) 지금은 그 job_key만 채워진다.
+    review["input"] = {}
+    if job_key in REVIEW_INPUT_LABEL_BY_JOB:
+        # 🔴 target_count는 run_job이 존재하는 한 항상 "알려진 값"이다(0도 "정말 0건"이지
+        # "아직 못 받았다"가 아니다) — run_job이 없는 경우는 위에서 이미 조기 반환했다.
+        review["input"] = {
+            "count": run_job.target_count,
+            "label": REVIEW_INPUT_LABEL_BY_JOB[job_key],
+            "period": _collected_period(proposals),
+        }
+
+    step = {"prompt_version": run_job.prompt_version}
+    if job_key in REVIEW_STEP_SUMMARY_BY_JOB:
+        step["summary"] = REVIEW_STEP_SUMMARY_BY_JOB[job_key]
+        model_setting_key = REVIEW_MODEL_KEY_BY_JOB.get(job_key, "ANTHROPIC_MODEL_FAST")
+        step["model"] = getattr(settings, model_setting_key)
+        if run_job.started_at and run_job.finished_at:
+            step["duration"] = _format_duration(int((run_job.finished_at - run_job.started_at).total_seconds()))
+        # 🔴 2026-09-15 PE 신설 — RunJob에 배치 합계 토큰(input/output/캐시 생성/캐시
+        # 읽기)이 쌓이는 자리가 생겨(services/runner.py _run_cleanup(), 모델 docstring
+        # 참고) 여기서 그대로 읽는다. processed_count가 0이면(아직 한 건도 판정하지
+        # 않았거나 전부 실패) 합계도 전부 0이라 의미 없는 "토큰 0"을 보여주지 않는다.
+        if run_job.processed_count:
+            total_tokens = (
+                run_job.input_tokens + run_job.output_tokens
+                + run_job.cache_creation_input_tokens + run_job.cache_read_input_tokens
+            )
+            step["tokens"] = f"{total_tokens:,}"
+    review["step"] = step
     # 태그 제안의 target_type(기업 배지 색) 조회 — 제안마다 쿼리하지 않게 한 번에 모은다.
     org_type_by_name = dict(Organization.objects.values_list("name", "org_type"))
 
     delete_items = []
     retag_by_news = {}  # news_id 순서 보존(dict, 3.7+) — "같은 기사 행이 흩어지지 않게"
-    org_candidates = []
+    tag_candidates = []
     keep_count = 0
     delete_news_ids = set()
 
@@ -489,9 +751,19 @@ def _run_review_context(job_key):
                 "target_type": org_type_by_name.get(p.target_name, "") if p.axis == TagCorrectionRecord.AXIS_ORGANIZATION else "",
                 "reason": p.reason,
             })
-        elif p.proposal_type == RunProposal.TYPE_ORG_CANDIDATE:
-            org_candidates.append({
+        elif p.proposal_type == RunProposal.TYPE_TAG_CANDIDATE:
+            # 🔴 2026-09-15 개정(docs/planning.md 4-(b)) — 기업 전용이던 후보를 축
+            # 일반화했다. axis_label로 화면에서 기업/기술 주제를 갈라 보여주고,
+            # admin_url을 축별로 다르게 둬(SET-007/SET-008) 템플릿이 분기 없이 바로
+            # 링크를 쓸 수 있게 한다.
+            tag_candidates.append({
                 "name": p.target_name,
+                "axis": p.axis,
+                "axis_label": dict(TagCorrectionRecord.AXIS_CHOICES).get(p.axis, p.axis),
+                "admin_url": (
+                    review["org_admin_url"] if p.axis == TagCorrectionRecord.AXIS_ORGANIZATION
+                    else review["topic_admin_url"]
+                ),
                 "reason": p.reason,
                 "title": p.news.title,
                 "published_at": p.news.published_at,
@@ -505,18 +777,51 @@ def _run_review_context(job_key):
 
     review["delete_items"] = delete_items
     review["retag_groups"] = retag_groups
-    review["org_candidates"] = org_candidates
-    review["output"] = {
+    # 🔴 2026-09-15 개정 — org_candidates에서 tag_candidates로 이름을 바꿨다(축 일반화).
+    # 화면 쪽(templates/setting/run_review.html)도 함께 바뀌어야 한다 — PD 인계 사항.
+    review["tag_candidates"] = tag_candidates
+
+    # 🔴 2026-09-15 PE 신설 — 3단계(주요 이슈) 초안. RunProposal이 아니라 RunDraft에서
+    # 온다(설계 3번 "산출물의 모양이 다르다"). insight_count는 None과 0을 구분해 내린다
+    # — job_key가 "insight"가 아니면 아예 키를 만들지 않아 템플릿이 기존 정리 작업용
+    # 문구(삭제·태그 교정·유지)로 떨어지고, "insight"인데 초안이 0건이면 정확히 0을
+    # 내려 "새로 쓴 이슈 초안 0건"이 찍히게 한다.
+    output = {
         "delete_count": len(delete_items),
         "retag_count": sum(len(g["items"]) for g in retag_groups),
         "keep_count": keep_count,
         # 🔴 커버리지·잠금 조건에 세지 않는다(run_review.html 상단 계약, design.md 4차
-        # 개정 ⑩번) — OUTPUT 칸에만 별도로 찍는다.
-        "candidate_count": len(org_candidates),
-        "insight_count": 0,  # 3단계(주요 이슈)는 이번 라운드 범위 밖 — RunProposal에 해당 종류가 없다.
+        # 개정 ⑩번) — OUTPUT 칸에만 별도로 찍는다. 이제 기업 후보뿐 아니라 기술 주제
+        # 후보도 합산한 개수다.
+        "candidate_count": len(tag_candidates),
+        # 🔴 uncovered_count는 target_count - processed_count의 일반식을 그대로 쓴다.
+        # cleanup은 이 식이 맞다(건별 판정이라 대상 전량에 제안이 있어야 한다). insight는
+        # 아래에서 무조건 0으로 덮어쓴다 — 이유는 바로 아래 분기.
         "uncovered_count": max(run_job.target_count - run_job.processed_count, 0),
     }
+    if job_key == "insight":
+        insight_items = _insight_items_context(run_job)
+        review["insight_items"] = insight_items
+        output["insight_count"] = len(insight_items)
+        output["draft_noun"] = RunDraft.TYPE_INSIGHT
+        # 🔴 3단계는 배치 전체가 LLM 호출 1회다(설계 7-(a)) — "대상 전량에 제안이 있어야
+        # 한다"는 커버리지 개념 자체가 이 단계에 없다(설계 PD 인계 3번). 위 일반식을 그대로
+        # 쓰면 이슈로 묶이지 않고 남은 기사 수가 그대로 uncovered_count로 잡혀 확정 버튼이
+        # 영영 잠긴다 — 이슈에 안 묶인 기사가 남는 것은 정상이다("입력 기사 전부를
+        # 어딘가에 묶을 필요가 없다", services/llm.py _build_insight_system_prompt()).
+        output["uncovered_count"] = 0
+    review["output"] = output
     return review
+
+
+# 🔴 2026-09-15 PE 신설 — job_key별 grade_choices. run_review.html 계약이 "미지정"을
+# 빼라고 요구한다(그대로 내리면 브라우저가 select의 첫 option을 고르므로 미지정 Insight가
+# 아무도 안 누른 채 만들어진다). Insight.GRADE_CHOICES를 그대로 참조해 드리프트를 막되
+# GRADE_UNSPECIFIED 한 항목만 걸러 낸다. 4, 5단계(보고서)는 등급이 없으므로 빈 채로
+# 둔다(이번 라운드 범위 밖, RESEARCH_JOB_KEYS 중 "insight"만 채운다).
+GRADE_CHOICES_BY_JOB = {
+    "insight": [c for c in Insight.GRADE_CHOICES if c[0] != Insight.GRADE_UNSPECIFIED],
+}
 
 
 def setting_run_review(request, job):
@@ -529,8 +834,51 @@ def setting_run_review(request, job):
     return render(request, "setting/run_review.html", {
         "setting_menu": _setting_menu("run"),
         "review": _run_review_context(job),
-        "grade_choices": [],
+        "grade_choices": GRADE_CHOICES_BY_JOB.get(job, []),
     })
+
+
+def _confirm_insight_drafts(request, run_job) -> None:
+    """SET-010 3단계(주요 이슈) 확정. 채택된 RunDraft마다 Insight를 만들어 근거
+    News를 M2M으로 옮기고, 등급은 사람이 고른 값을 그대로 쓴다(설계 6번 표). 거절된
+    초안은 지우지 않고 상태만 남긴다 — 거절 분포가 프롬프트 정확도를 잴 정답지라는
+    원칙이 2단계와 같다.
+
+    🔴 축약본(content_short/implication_short)은 비워 둔다 — RA가 채운다(모델
+    default가 이미 빈 문자열이라 여기서 따로 손대지 않는다).
+    🔴 headliner_order도 건드리지 않는다 — RA가 배치 단위로 전량 교체한다."""
+    accepted_ids = set(request.POST.getlist("insight_ids"))
+    pending = list(
+        RunDraft.objects.filter(
+            run_job=run_job, draft_type=RunDraft.TYPE_INSIGHT, status=RunProposal.STATUS_PENDING,
+        ).prefetch_related("news")
+    )
+    for draft in pending:
+        if str(draft.pk) not in accepted_ids:
+            draft.status = RunProposal.STATUS_REJECTED
+            draft.save(update_fields=["status"])
+            continue
+
+        grade = request.POST.get(f"grade_{draft.pk}", "")
+        if not grade:
+            # grade_choices에는 "미지정"이 없지만(템플릿 계약), item.grade가 애초에
+            # 비어 있던 초안은 select 맨 앞에 고를 수 없는 안내 option이 붙는다(템플릿
+            # 상단 계약). 그 상태로 확정하면 여기로 빈 문자열이 온다 — 태그 교정
+            # 대상을 못 찾았을 때와 같은 처리(messages.warning, 확정 전체는 막지 않음).
+            grade = Insight.GRADE_UNSPECIFIED
+            messages.warning(
+                request, f"'{draft.title}' 이슈에 등급을 고르지 않아 미지정으로 저장했어요.",
+            )
+
+        with transaction.atomic():
+            insight = Insight.objects.create(
+                title=draft.title, content=draft.content, implication=draft.implication,
+                grade=grade,
+            )
+            insight.news.set(draft.news.all())
+            draft.created_insight = insight
+            draft.status = RunProposal.STATUS_ACCEPTED
+            draft.save(update_fields=["created_insight", "status"])
 
 
 @require_POST
@@ -563,6 +911,16 @@ def setting_run_review_confirm(request, job):
         response["HX-Redirect"] = reverse("setting_run")
         return response
 
+    if job == "insight":
+        # 🔴 3단계(주요 이슈)는 산출물의 모양이 달라(설계 3번) RunProposal이 아니라
+        # RunDraft를 다룬다 — 아래 삭제/태그 교정 경로와 완전히 갈라진 별도 확정 경로다.
+        _confirm_insight_drafts(request, run_job)
+        run_job.status = RunJob.STATUS_CONFIRMED
+        run_job.save(update_fields=["status"])
+        response = HttpResponse()
+        response["HX-Redirect"] = reverse("setting_run")
+        return response
+
     accepted_delete_ids = set(request.POST.getlist("delete_ids"))
     accepted_retag_ids = set(request.POST.getlist("retag_ids"))
 
@@ -572,7 +930,7 @@ def setting_run_review_confirm(request, job):
     )
     relevance_proposals = [p for p in pending if p.proposal_type in (RunProposal.TYPE_DELETE, RunProposal.TYPE_KEEP)]
     tag_proposals = [p for p in pending if p.proposal_type in (RunProposal.TYPE_TAG_ADD, RunProposal.TYPE_TAG_REMOVE)]
-    candidate_proposals = [p for p in pending if p.proposal_type == RunProposal.TYPE_ORG_CANDIDATE]
+    candidate_proposals = [p for p in pending if p.proposal_type == RunProposal.TYPE_TAG_CANDIDATE]
 
     delete_failed = 0
     tag_not_found = 0  # 대상 이름을 이름/별칭 어느 쪽으로도 찾지 못한 경우
@@ -688,9 +1046,10 @@ def setting_run_review_confirm(request, job):
             p.status = RunProposal.STATUS_ACCEPTED
             p.save(update_fields=["status"])
 
-    # ③ 기업 후보 — 아무 것도 실행하지 않는다(Organization을 만들지 않는다). 채택도
-    # 거절도 아니라서 취소로 남긴다(design.md 4차 개정 ⑩번 "기업 후보 종류는 아무 것도
-    # 하지 않는다").
+    # ③ 태그 후보(기업 또는 기술 주제) — 아무 것도 실행하지 않는다(Organization·
+    # TechTopic을 만들지 않는다). 채택도 거절도 아니라서 취소로 남긴다(design.md 4차
+    # 개정 ⑩번 "후보 종류는 아무 것도 하지 않는다", 2026-09-15 축 일반화 이후에도
+    # 그대로 상속되는 성질 — docs/planning.md 4-(b) 개정).
     for p in candidate_proposals:
         p.status = RunProposal.STATUS_CANCELED
         p.save(update_fields=["status"])
@@ -712,8 +1071,29 @@ def setting_run_review_confirm(request, job):
 
 @require_POST
 def setting_run_review_cancel(request, job):
+    """검토 화면의 "모두 취소". 🔴 종전에는 아무 것도 하지 않는 스텁이었다 — 초안이나
+    제안이 0건으로 끝난 배치(3단계는 "묶을 이슈가 없는 날" 등)가 확정 버튼도 잠긴 채
+    검토 대기에 영영 남는 교착이 났다(run_review.html 상단 계약 "3단계에서 cancel_url을
+    반드시 채운다").
+
+    대기 중이던 RunProposal·RunDraft는 지우지 않고 취소로 남긴다(거절과 다른 값 —
+    사람이 내용을 보고 거절한 게 아니라 통째로 버린 것이라 거절 분포를 오염시키지
+    않는다, 확정 뷰의 같은 판단과 동일). 실제 데이터(News·Insight 등)는 아무것도
+    건드리지 않는다."""
     if job not in RUN_JOB_KEYS:
         raise Http404
+
+    run_job = RunJob.objects.filter(job_key=job).order_by("-started_at", "-pk").first()
+    if run_job is not None and run_job.status in (RunJob.STATUS_DONE, RunJob.STATUS_STOPPED):
+        RunProposal.objects.filter(run_job=run_job, status=RunProposal.STATUS_PENDING).update(
+            status=RunProposal.STATUS_CANCELED,
+        )
+        RunDraft.objects.filter(run_job=run_job, status=RunProposal.STATUS_PENDING).update(
+            status=RunProposal.STATUS_CANCELED,
+        )
+        run_job.status = RunJob.STATUS_CANCELED
+        run_job.save(update_fields=["status"])
+
     response = HttpResponse()
     response["HX-Redirect"] = reverse("setting_run")
     return response

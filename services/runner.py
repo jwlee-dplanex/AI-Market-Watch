@@ -29,10 +29,15 @@ logger = logging.getLogger(__name__)
 #
 # 🔴 "cleanup"은 2026-09-14 2라운드에서 _run_cleanup()이 구현됐고, 이번(검토 화면 +
 # 확정 뷰) 라운드에서 apps/setting/views.py의 setting_run_start()가 "cleanup" 분기를
-# 얻어 버튼이 실제로 열렸다 — 그래서 여기 함께 넣는다. 확정 경로(승인 게이트) 없이
+# 얻어 버튼이 실제로 열렸다 — 그래서 여기 함께 넣는다. 확정 경로(휴먼 인 더 루프) 없이
 # 버튼만 열면 사람이 판정을 쌓아 놓고 확정할 자리가 없어지므로, 검토 화면과 확정 뷰가
 # 먼저 갖춰진 뒤에 이 목록에 추가한 것이다.
-IMPLEMENTED_JOB_KEYS = ("collect", "newsroom_collect", "cleanup")
+#
+# 🔴 "insight"는 2026-09-15 라운드에서 함께 연다. _run_insight()와 검토 화면(insight
+# 초안 확정 경로)은 이미 지난 라운드에 갖춰져 있었고, 이번 라운드는 버튼 자체
+# (apps/setting/views.py setting_run_start()의 "insight" 분기와 _research_jobs_context()의
+# can_run)와 선행 잠금(_insight_block_reason())을 함께 연다.
+IMPLEMENTED_JOB_KEYS = ("collect", "newsroom_collect", "cleanup", "insight")
 
 # 하트비트 정지 판정 임계값(초). 별도 감시 프로세스 없이, 화면을 읽는 요청마다
 # mark_stale_running_as_stopped()가 이 값으로 "진행중인데 멈춘 것"을 가려낸다
@@ -55,15 +60,59 @@ IMPLEMENTED_JOB_KEYS = ("collect", "newsroom_collect", "cleanup")
 # 헬스체크 타임아웃 관례(수 분)와도 맞는다.
 HEARTBEAT_STALE_SECONDS = 180
 
+# 🔴 3~5단계(주요 이슈, 주간 보고서, 월간 보고서) 전용 임계값(docs/planning.md
+# "3~5단계를 LLM으로 옮기는 설계" 9-(b)). 위 180초는 "건별 진행 간격"(키워드 1개
+# 처리마다 하트비트를 찍는 collect와 cleanup)의 실측으로 잡은 값인데, 3~5단계는 배치
+# 전체를 한 호출에 담아(같은 문서 7-(a)) **호출 하나가 통째로 걸리는 시간**이 그
+# 간격이다. 시작할 때 한 번 하트비트를 찍고 그 호출이 끝날 때까지 다시 찍을 자리가
+# 없으므로, 180초를 그대로 쓰면 호출이 3분을 넘기는 순간 살아있는 실행을 중단됨으로
+# 오판한다.
+#
+# ⚠️ 3단계가 아직 구현되지 않아(services/llm.py에 3~5단계 함수가 없다) 실측이
+# 불가능하다. 그래서 실측이 아니라 **근거 있는 추정**이다. 첫 실행 후 PE가 실제
+# 소요 시간으로 이 값을 교체한다(문서 9-(b) "값은 확인 필요다. PE가 첫 실행에서
+# 재고 정한다").
+#
+# 추정 근거: services/llm.py classify_news()가 쓰는 AnthropicBedrock 클라이언트는
+# 요청 하나당 기본 타임아웃이 10분(600초)이고(claude-api 스킬 "Client config" 문서.
+# Python과 Ruby는 초 단위, 기본 10분), SDK 기본 재시도(max_retries=2)가 타임아웃에도
+# 걸리므로 이론상 최악은 600초를 세 번(첫 시도 더하기 재시도 두 번) 반복한 1,800초까지
+# 늘어날 수 있다(같은 문서 "Timeouts are retried, wall-clock can reach timeout times
+# max_retries plus 1"). 그 최악값을 그대로 쓰면 실제로 죽은 스레드도 30분 동안
+# "진행중"으로 남아 전역 실행 잠금(RunJob.Meta.unique_running_run_job)을 그만큼 오래
+# 붙잡는다. 그 대가가 크다고 보고, 첫 시도(600초)에 재시도 한 번의 여유(300초)만 더한
+# 900초(15분)를 잠정값으로 둔다. 그 이상 길어지는 재시도는 "진짜 죽은 프로세스"로
+# 보고 중단됨 처리해 잠금을 푼다.
+HEARTBEAT_STALE_SECONDS_BY_JOB_KEY = {
+    "insight": 900,
+    "weekly": 900,
+    "monthly": 900,
+}
+
 
 def mark_stale_running_as_stopped() -> int:
     """하트비트가 끊긴 지 오래된 진행중 RunJob을 중단됨으로 표시한다. 감시 프로세스를
     따로 두지 않고, 화면을 읽는 요청(apps/setting/views.py의 setting_run() 등)마다
-    이 함수를 호출해 그 자리에서 판정한다(문서 3-(e)). 반환값은 중단됨으로 바뀐 건수."""
-    threshold = timezone.now() - timedelta(seconds=HEARTBEAT_STALE_SECONDS)
-    return RunJob.objects.filter(
-        status=RunJob.STATUS_RUNNING, heartbeat_at__lt=threshold,
+    이 함수를 호출해 그 자리에서 판정한다(문서 3-(e)). 반환값은 중단됨으로 바뀐 건수.
+
+    🔴 job_key별로 임계값이 갈리므로(위 HEARTBEAT_STALE_SECONDS_BY_JOB_KEY) 단일
+    UPDATE 한 번으로 끝내던 종전 구조를 "특수 job_key마다 한 번, 나머지 한 번"으로
+    바꿨다. 쿼리가 늘지만 비용은 무시할 만하다. RunJob.Meta.unique_running_run_job이
+    "진행중" 행을 시스템 전체에 최대 1개로 강제하므로, 이 함수가 실제로 갱신 대상으로
+    보는 행은 항상 0개 아니면 1개다."""
+    now = timezone.now()
+    stopped = 0
+    special_keys = list(HEARTBEAT_STALE_SECONDS_BY_JOB_KEY.keys())
+    for job_key, seconds in HEARTBEAT_STALE_SECONDS_BY_JOB_KEY.items():
+        threshold = now - timedelta(seconds=seconds)
+        stopped += RunJob.objects.filter(
+            job_key=job_key, status=RunJob.STATUS_RUNNING, heartbeat_at__lt=threshold,
+        ).update(status=RunJob.STATUS_STOPPED)
+    default_threshold = now - timedelta(seconds=HEARTBEAT_STALE_SECONDS)
+    stopped += RunJob.objects.exclude(job_key__in=special_keys).filter(
+        status=RunJob.STATUS_RUNNING, heartbeat_at__lt=default_threshold,
     ).update(status=RunJob.STATUS_STOPPED)
+    return stopped
 
 
 def _create_running_job(job_key: str, actor: str) -> RunJob | None:
@@ -140,8 +189,13 @@ def _save_proposals(run_job_id: int, news, result: dict) -> None:
     8-(a) "전부 돌고 한꺼번에 저장하지 않는다") — 여기서 만드는 여러 행(유지/삭제 1개
     + 태그 제안 N개)은 그 한 건에 딸린 하나의 판정 결과이므로 함께 묶는다.
 
-    🔴 행은 태그마다 하나다(설계 4-(b)) — tag_corrections·unregistered_org_candidates의
-    원소 각각이 별도 RunProposal 행이 된다."""
+    🔴 행은 태그마다 하나다(설계 4-(b)) — tag_corrections·tag_candidates의 원소 각각이
+    별도 RunProposal 행이 된다.
+
+    🔴 2026-09-15 개정 — `unregistered_org_candidates`(기업 전용)가 `tag_candidates`(축
+    일반화, services/llm.py 참고)로 바뀌었다. 각 원소가 axis("organization"/
+    "tech_topic")를 직접 들고 있어 여기서 그대로 RunProposal.axis에 옮긴다 — 종전에는
+    기업 전용이라 axis를 비워 뒀지만, 이제는 태그 제거/추가와 같은 방식으로 채운다."""
     from apps.setting.models import RunProposal
 
     with transaction.atomic():
@@ -160,10 +214,11 @@ def _save_proposals(run_job_id: int, news, result: dict) -> None:
                 run_job_id=run_job_id, news=news, proposal_type=proposal_type,
                 target_name=tag["target_name"], axis=tag["axis"], reason=tag.get("reason", ""),
             )
-        for candidate in result.get("unregistered_org_candidates", []):
+        for candidate in result.get("tag_candidates", []):
             RunProposal.objects.create(
-                run_job_id=run_job_id, news=news, proposal_type=RunProposal.TYPE_ORG_CANDIDATE,
-                target_name=candidate["name"], reason=candidate.get("reason", ""),
+                run_job_id=run_job_id, news=news, proposal_type=RunProposal.TYPE_TAG_CANDIDATE,
+                target_name=candidate["name"], axis=candidate["axis"],
+                reason=candidate.get("reason", ""),
             )
 
 
@@ -223,9 +278,94 @@ def _run_cleanup(run_job_id: int) -> None:
         else:
             consecutive_failures = 0
             _save_proposals(run_job_id, news, result)
+            # 🔴 2026-09-15 PE 신설 — classify_news()가 반환하는 _usage를 RunJob 배치
+            # 합계에 누적한다(모델 docstring "건별이 아니라 배치 단위 합계로 둔 이유"
+            # 참고). F() 표현식으로 원자 증가시킨다 — 폴링·다른 갱신과 겹쳐도 경합에
+            # 안전한 이유는 processed_count와 같다.
+            usage = result.get("_usage", {})
             RunJob.objects.filter(pk=run_job_id).update(
                 processed_count=F("processed_count") + 1, heartbeat_at=timezone.now(),
+                input_tokens=F("input_tokens") + usage.get("input_tokens", 0),
+                output_tokens=F("output_tokens") + usage.get("output_tokens", 0),
+                cache_creation_input_tokens=(
+                    F("cache_creation_input_tokens") + usage.get("cache_creation_input_tokens", 0)
+                ),
+                cache_read_input_tokens=(
+                    F("cache_read_input_tokens") + usage.get("cache_read_input_tokens", 0)
+                ),
             )
+
+
+def _run_insight(run_job_id: int) -> None:
+    """SET-010 조사 축 3단계(주요 이슈) — docs/planning.md "3~5단계를 LLM으로 옮기는
+    설계"가 정본. 2단계와 정반대로 배치 전체를 한 번에 호출한다(같은 문서 7-(a)).
+
+    🔴 건별 루프가 아니라 호출 1회다 — 그래서 CLEANUP_STRUCTURAL_FAILURE_THRESHOLD 같은
+    연속 실패 카운터가 없다. generate_insights()가 던지는 예외를 여기서 잡지 않고
+    그대로 올려보낸다 — _execute()의 바깥 try/except가 그 예외를 받아 RunJob을 실패로
+    남긴다(설계 9-(a) "실패하면 이 배치는 처음부터 다시 돈다", 9-(c) "1회면 그대로
+    실패로 남긴다"). 부분 저장도 하지 않는다(9-(d)) — RunDraft 생성을 트랜잭션 하나로
+    묶어, 응답 파싱 뒤 저장 중 한 건이라도 실패하면 전부 롤백된다.
+
+    🔴 대상은 "검증된 News 중 어느 Insight에도 아직 안 묶인 것"이다(설계 2번 잠금 표
+    "검증된 News 중 어느 Insight에도 안 묶인 것이 0건이면 잠근다"의 반대편 — 그 표가
+    말하는 "이슈로 묶을 뉴스"가 바로 이 쿼리의 대상이다). 이미 어느 Insight에든 묶인
+    News는 다시 대상에 넣지 않는다 — "기존 Insight에 새 기사를 붙이는 갱신 경로는
+    이번 범위 밖"(설계 10번 "미루는 것").
+
+    🔴 processed_count는 "생성된 이슈 수"가 아니라 target_count와 같은 값(len(targets))을
+    쓴다. LLM이 한 번에 전체 입력을 고려해 판정했다는 뜻에서 "처리를 마친 기사 수"라는
+    기존 필드 의미(cleanup과 동일)를 유지한다 — 이슈로 묶이지 않고 남은 기사도 "고려는
+    됐다"는 점에서 처리를 마친 것이다. 새 필드를 만들지 않는다(진행 표시 국면 세분화는
+    다음 라운드, docs/planning.md "SET-010 진행 표시" 절)."""
+    from apps.news.models import News
+    from apps.setting.models import RunDraft
+    from services.llm import PROMPT_VERSION_INSIGHT, generate_insights
+
+    targets = list(
+        News.objects.verified().filter(insights__isnull=True).order_by("published_at", "pk")
+    )
+    RunJob.objects.filter(pk=run_job_id).update(
+        target_count=len(targets), prompt_version=PROMPT_VERSION_INSIGHT,
+    )
+    if not targets:
+        # 대상 0건 — 화면 잠금(설계 2번)이 이 상태를 막는 정상 경로이지만, 관리 명령
+        # 등으로 직접 불렸을 때를 대비해 방어적으로 그대로 완료 처리한다. RunDraft를
+        # 하나도 만들지 않으면 검토 화면은 "채택할 것이 없다"로 정상 렌더된다.
+        return
+
+    result = generate_insights(targets)
+
+    news_by_id = {news.pk: news for news in targets}
+    issues = result.get("issues", [])
+    with transaction.atomic():
+        for issue in issues:
+            draft = RunDraft.objects.create(
+                run_job_id=run_job_id,
+                draft_type=RunDraft.TYPE_INSIGHT,
+                title=issue["title"],
+                content=issue["content"],
+                implication=issue["implication"],
+                grade=issue["grade"],
+                grade_reason=issue.get("grade_reason", ""),
+            )
+            # 응답의 news_ids 중 이번 배치 대상에 실제로 있는 것만 연결한다 — LLM이
+            # 존재하지 않는 id를 냈을 가능성을 방어한다(응답은 신뢰하되 검증한다).
+            matched = [news_by_id[nid] for nid in issue.get("news_ids", []) if nid in news_by_id]
+            draft.news.set(matched)
+
+    usage = result.get("_usage", {})
+    RunJob.objects.filter(pk=run_job_id).update(
+        processed_count=len(targets), heartbeat_at=timezone.now(),
+        input_tokens=F("input_tokens") + usage.get("input_tokens", 0),
+        output_tokens=F("output_tokens") + usage.get("output_tokens", 0),
+        cache_creation_input_tokens=(
+            F("cache_creation_input_tokens") + usage.get("cache_creation_input_tokens", 0)
+        ),
+        cache_read_input_tokens=(
+            F("cache_read_input_tokens") + usage.get("cache_read_input_tokens", 0)
+        ),
+    )
 
 
 def _run_newsroom_collect(run_job_id: int, newsroom_id: int) -> None:
@@ -272,8 +412,14 @@ def _execute(run_job_id: int, kwargs: dict) -> None:
                 # 2026-09-14 검토 화면 + 확정 뷰 라운드에서 화면(SET-010 "실행" 버튼)이
                 # 이 분기에 닿는 정상 경로가 됐다(apps/setting/views.py setting_run_start()).
                 _run_cleanup(run_job_id)
+            elif run_job.job_key == "insight":
+                # 🔴 2026-09-15 2라운드 — IMPLEMENTED_JOB_KEYS에 "insight"가 들어오고
+                # apps/setting/views.py의 setting_run_start()가 "insight" 분기와 선행
+                # 잠금(_insight_block_reason())을 얻어, 이제 화면 버튼이 이 분기로 닿는
+                # 정상 경로다.
+                _run_insight(run_job_id)
             else:
-                # 위 세 분기 밖의 job_key는 아직 실행 로직이 없다. 정상 경로로는 닿지
+                # 위 분기 밖의 job_key는 아직 실행 로직이 없다. 정상 경로로는 닿지
                 # 않는다(관리 명령 choices, 화면은 collect/newsroom_collect/cleanup만
                 # start_run을 부름). 방어적으로만 남겨 둔다.
                 raise ValueError(f"실행 로직이 아직 없는 job_key입니다: {run_job.job_key}")
