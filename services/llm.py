@@ -1195,3 +1195,290 @@ def generate_monthly_report(insights) -> dict:
     """대상 월의 Insight 배치를 한 번에 판정해 월간 결산 보고서 초안을 만든다.
     반환값·예외는 generate_weekly_report()와 같다."""
     return _generate_report(insights, "월간 결산", CRITERIA_TEXT_MONTHLY_REPORT)
+
+
+# ============================================================================
+# 교보 소식(뉴스룸) 축 2단계 필터 — docs/planning.md "뉴스룸" 절 12-2가 정본.
+#
+# 🔴 조사 축과 결이 다른 것 셋 (12-2 (a)(b)(d)).
+#   - 호출 단위: 배치 전체 1호출이다(insight/weekly/monthly와 같다) — 파급력 순위와
+#     중복 묶기가 다른 기사와 비교해야만 판정되기 때문이다.
+#   - 휴먼 인 더 루프가 없다 — 판정 결과를 RunProposal 같은 중간 그릇 없이
+#     NewsroomArticle에 바로 쓴다. 되돌릴 수 있고(filter_status 한 칸을 바꿀 뿐,
+#     행을 지우지 않는다) 채널로 바로 나가지도 않아서다(ROOM-002까지가 끝).
+#   - 🔴 판정 기준 원문을 코드에 두지 않는다. 호출부(services/runner.py)가
+#     Newsroom.filter_prompt를 그대로 읽어 이 함수에 넘긴다 — 뉴스룸은 채널이
+#     여럿일 수 있어 프롬프트가 데이터일 수밖에 없다(조사 축 "프롬프트는 코드에
+#     둔다" 결정과 갈리는 지점, 같은 문서 5번 말미).
+#
+# 캐싱은 켜지 않는다(12-2 (e)) — 호출이 1회면 캐시 읽기가 0회인데 캐시 쓰기 단가가
+# 두 배라 비용만 오른다.
+# ============================================================================
+
+
+def _build_newsroom_filter_system_prompt(filter_prompt: str) -> str:
+    """뉴스룸 2단계 시스템 프롬프트. 판정 기준 원문(filter_prompt)은 호출부가
+    Newsroom.filter_prompt를 그대로 읽어 넘긴 것을 그대로 삽입한다 — 요약·재서술
+    없이(조사 축 6-(A) "요약이 아니라 선택이다"와 같은 원칙, DB가 이미 그 발췌·해석을
+    끝낸 원문을 들고 있다).
+
+    f-string 삽입이라 filter_prompt 안에 중괄호가 섞여 있어도 안전하다 — 파이썬은
+    소스 코드의 `{expr}` 리터럴 자리만 보고 그 안에 들어가는 런타임 값의 내용은
+    보지 않는다(프로젝트 "프롬프트 치환은 .format()이 아니라 .replace()" 원칙이
+    경고하는 것은 반대 방향, 즉 템플릿 문자열 자체에 `.format(**kwargs)`를 쓰는
+    경우다 — 여기서는 해당하지 않는다)."""
+    return f"""당신은 교보생명 그룹 구성원이 읽는 사내 소식 채널("교보 소식")의 편집자입니다. 아래 지침 원문을 그대로 적용해, 주어진 기사 배치 중 브리핑에 실을 기사를 고르고 순위를 매기세요. 지침을 요약하거나 바꾸지 마세요.
+
+<지침_원문>
+{filter_prompt}
+</지침_원문>
+
+임무: 아래 <입력_기사> 목록의 기사 전부에 대해, 위 지침의 1단계 몫(요약, 비즈니스 파급력 순위, 중복 기사 묶기, 중요도 낮음, 제외 리스트, 민감 내용)을 적용해 판정하세요. 기간·유료 구독·죽은 링크·본문 실체 같은 항목은 이미 코드가 걸러낸 뒤라 신경 쓰지 마세요.
+
+각 기사에 대해 빠짐없이 아래 스키마로 응답하세요.
+- id: <입력_기사>의 각 기사 앞 [id=N]의 N.
+- status: 브리핑에 실을 가치가 있으면 "passed", 지침에 걸려 제외해야 하면 "rejected".
+- summary: status가 "passed"면 1~2문장 요약. "rejected"면 빈 문자열로 두세요.
+- impact_rank: status가 "passed"인 기사끼리 비즈니스 파급력 순으로 매긴 순위(1이 가장 크다). 같은 순위를 쓰지 마세요. "rejected"거나, "passed"이지만 아래 duplicate_of_id로 다른 기사에 묶이는 기사는 0으로 두세요(순위는 대표 기사에만 매깁니다).
+- duplicate_of_id: 이 기사가 다른 기사와 같은 사건을 다루고 있으면, 그 사건의 대표로 삼을 기사의 id를 적으세요. 이 기사 자신이 대표(또는 중복이 없음)면 0으로 두세요. 묶인 기사도 status는 "passed"입니다 — 중복은 제외가 아닙니다.
+"""
+
+
+OUTPUT_SCHEMA_NEWSROOM_FILTER = {
+    "type": "object",
+    "properties": {
+        "articles": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "integer"},
+                    "status": {"type": "string", "enum": ["passed", "rejected"]},
+                    "summary": {"type": "string"},
+                    "impact_rank": {"type": "integer"},
+                    "duplicate_of_id": {"type": "integer"},
+                },
+                "required": ["id", "status", "summary", "impact_rank", "duplicate_of_id"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["articles"],
+    "additionalProperties": False,
+}
+
+
+def _build_newsroom_filter_user_message(articles) -> str:
+    """배치 전체를 하나의 사용자 메시지로 조립한다(12-2 (a), 건별 호출이 아니다).
+    id는 NewsroomArticle.pk를 그대로 쓴다 — _build_insight_user_message()와 같은
+    방식(응답의 id/duplicate_of_id를 별도 해석 없이 그 pk로 바로 찾는다)."""
+    blocks = []
+    for article in articles:
+        blocks.append(
+            f"[id={article.pk}] {article.title}\n"
+            f"발행일: {timezone.localtime(article.published_at):%Y-%m-%d}\n"
+            f"매체: {article.source_domain}\n\n"
+            f"{article.body}"
+        )
+    return "<입력_기사>\n" + "\n\n---\n\n".join(blocks) + "\n</입력_기사>"
+
+
+def _parse_newsroom_filter_response(response) -> dict:
+    """구조화 출력을 파싱한다. _parse_insight_response()와 같은 방식(json.loads()만,
+    문자열 매칭 금지)이다."""
+    text_block = next((b for b in response.content if b.type == "text"), None)
+    if text_block is None:
+        raise LLMJudgmentError(
+            f"뉴스룸 필터 응답에 text 블록이 없어요(stop_reason={response.stop_reason})."
+        )
+    try:
+        data = json.loads(text_block.text)
+    except json.JSONDecodeError as exc:
+        raise LLMJudgmentError(f"뉴스룸 필터 응답 JSON 파싱에 실패했어요: {exc}") from exc
+
+    usage = response.usage
+    data["_usage"] = {
+        "input_tokens": usage.input_tokens,
+        "output_tokens": usage.output_tokens,
+        "cache_creation_input_tokens": getattr(usage, "cache_creation_input_tokens", 0) or 0,
+        "cache_read_input_tokens": getattr(usage, "cache_read_input_tokens", 0) or 0,
+    }
+    return data
+
+
+def filter_newsroom_articles(articles, filter_prompt: str) -> dict:
+    """뉴스룸 기사 배치를 한 번에 판정한다. 이 함수는 LLM을 부르고 결과를 반환할
+    뿐 DB에 아무것도 쓰지 않는다(generate_insights()와 같은 계약) — 저장은
+    호출부(services/runner.py _run_newsroom_filter())가 한다.
+
+    모델은 BEDROCK_MODEL_SMART다(12-2 (e), 전 단계 Haiku 확정을 그대로 따른다 —
+    그 설정 키가 지금 Haiku를 가리키는 것이 2026-09-15 사용자 확정이다).
+
+    Args:
+        articles: 판정할 NewsroomArticle 목록(filter_status=pending 전량).
+        filter_prompt: 그 뉴스룸의 Newsroom.filter_prompt 원문.
+
+    Returns:
+        {"articles": [...], "_usage": {...}} — articles의 각 원소는
+        id/status/summary/impact_rank/duplicate_of_id.
+
+    Raises:
+        LLMStructuralError: 인증·권한·리소스 오류.
+        LLMJudgmentError: 그 밖의 실패. 호출 1회라 이어하기가 없다 — 실패하면 이
+            배치는 처음부터 다시 돈다.
+    """
+    client = _get_client()
+    try:
+        response = client.messages.create(
+            model=settings.BEDROCK_MODEL_SMART,
+            max_tokens=8192,
+            system=_build_newsroom_filter_system_prompt(filter_prompt),
+            messages=[{"role": "user", "content": _build_newsroom_filter_user_message(articles)}],
+            output_config={"format": {"type": "json_schema", "schema": OUTPUT_SCHEMA_NEWSROOM_FILTER}},
+        )
+    except (anthropic.AuthenticationError, anthropic.PermissionDeniedError, anthropic.NotFoundError) as exc:
+        logger.error("뉴스룸 필터 중 구조적 오류(인증/권한/리소스): %s", exc)
+        raise LLMStructuralError(str(exc)) from exc
+    except anthropic.RateLimitError as exc:
+        logger.warning("뉴스룸 필터 중 rate limit에 걸렸어요: %s", exc)
+        raise LLMJudgmentError(str(exc)) from exc
+    except anthropic.APIConnectionError as exc:
+        logger.warning("뉴스룸 필터 중 네트워크 오류: %s", exc)
+        raise LLMJudgmentError(str(exc)) from exc
+    except anthropic.APIStatusError as exc:
+        logger.warning("뉴스룸 필터 중 API 오류(status=%s): %s", exc.status_code, exc)
+        raise LLMJudgmentError(str(exc)) from exc
+    else:
+        return _parse_newsroom_filter_response(response)
+
+
+# ============================================================================
+# 교보 소식(뉴스룸) 축 3단계 발송문 — docs/planning.md "뉴스룸" 절 12-3이 정본.
+#
+# 🔴 2단계와 같은 것 — 배치 전체 1호출, 모델은 BEDROCK_MODEL_SMART(지금 Haiku를
+# 가리키는 것이 2026-09-15 사용자 확정), 캐싱을 켜지 않는다(호출 1회면 캐시 읽기가
+# 0회인데 캐시 쓰기 단가가 두 배라 비용만 오른다), 판정 기준 원문을 코드가 아니라
+# Newsroom.compose_prompt에서 그대로 읽는다(뉴스룸은 채널마다 프롬프트가 다를 수
+# 있어 프롬프트가 데이터일 수밖에 없다).
+#
+# 🔴 2단계와 다른 것 — 입력이 "판정할 기사 전량"이 아니라 "이미 통과해 순위가
+# 매겨진 기사"(filter_status=passed, duplicate_of가 None)뿐이고, 출력이 기사별
+# 판정 배열이 아니라 조립된 메시지 본문 하나(body)다. 순서는 호출부
+# (services/runner.py _run_newsroom_compose())가 이미 impact_rank로 정렬해
+# 넘긴다 — 이 함수는 순서를 다시 매기지 않는다(12-3 (a) "3단계가 순서를 다시
+# 정하지 않는다").
+# ============================================================================
+
+
+def _build_newsroom_compose_system_prompt(compose_prompt: str) -> str:
+    """뉴스룸 3단계 시스템 프롬프트. compose_prompt(호출부가 Newsroom.compose_prompt를
+    그대로 읽어 넘긴 것)를 요약·재서술 없이 그대로 삽입한다 —
+    _build_newsroom_filter_system_prompt()와 같은 이유(f-string 삽입이라 원문에
+    중괄호가 섞여 있어도 안전하다)."""
+    return f"""당신은 교보생명 그룹 구성원이 읽는 사내 소식 채널("교보 소식")의 편집자입니다. 아래 지침 원문을 그대로 적용해, 이미 통과 판정을 받은 기사 목록으로 하나의 Slack 메시지 본문을 작성하세요. 지침을 요약하거나 바꾸지 마세요.
+
+<지침_원문>
+{compose_prompt}
+</지침_원문>
+
+임무: 아래 <입력_기사> 목록은 이미 2단계에서 통과 판정을 받았고 비즈니스 파급력 순위 순서 그대로 나열돼 있습니다. 순서를 다시 매기지 마세요. 목록에 있는 기사를 하나도 빠뜨리지 말고, 각 기사의 제목·요약·링크를 위 지침의 [출력 템플릿]에 맞춰 하나의 메시지 본문으로 조립하세요.
+
+아래 스키마로 응답하세요.
+- body: 완성된 Slack 메시지 본문 전체 하나.
+"""
+
+
+OUTPUT_SCHEMA_NEWSROOM_COMPOSE = {
+    "type": "object",
+    "properties": {
+        "body": {"type": "string"},
+    },
+    "required": ["body"],
+    "additionalProperties": False,
+}
+
+
+def _build_newsroom_compose_user_message(articles) -> str:
+    """이미 통과·순위가 매겨진 기사 배치를 하나의 사용자 메시지로 조립한다. 순서는
+    호출부가 이미 impact_rank로 정렬해 넘긴 순서를 그대로 따른다(12-3 (a))."""
+    blocks = []
+    for article in articles:
+        blocks.append(
+            f"[순위 {article.impact_rank}] {article.title}\n"
+            f"요약: {article.summary}\n"
+            f"링크: {article.url}"
+        )
+    return "<입력_기사>\n" + "\n\n---\n\n".join(blocks) + "\n</입력_기사>"
+
+
+def _parse_newsroom_compose_response(response) -> dict:
+    """구조화 출력을 파싱한다. _parse_newsroom_filter_response()와 같은 방식이다
+    (json.loads()만, 문자열 매칭 금지)."""
+    text_block = next((b for b in response.content if b.type == "text"), None)
+    if text_block is None:
+        raise LLMJudgmentError(
+            f"뉴스룸 발송문 응답에 text 블록이 없어요(stop_reason={response.stop_reason})."
+        )
+    try:
+        data = json.loads(text_block.text)
+    except json.JSONDecodeError as exc:
+        raise LLMJudgmentError(f"뉴스룸 발송문 응답 JSON 파싱에 실패했어요: {exc}") from exc
+
+    usage = response.usage
+    data["_usage"] = {
+        "input_tokens": usage.input_tokens,
+        "output_tokens": usage.output_tokens,
+        "cache_creation_input_tokens": getattr(usage, "cache_creation_input_tokens", 0) or 0,
+        "cache_read_input_tokens": getattr(usage, "cache_read_input_tokens", 0) or 0,
+    }
+    return data
+
+
+def compose_newsroom_message(articles, compose_prompt: str) -> dict:
+    """통과·순위가 매겨진 뉴스룸 기사 배치로 발송문 본문 하나를 만든다. 이 함수는
+    LLM을 부르고 결과를 반환할 뿐 DB에 아무것도 쓰지 않는다(filter_newsroom_articles()와
+    같은 계약) — 저장과 코드 검증은 호출부(services/runner.py
+    _run_newsroom_compose())가 한다.
+
+    🔴 통과 0건이면 이 함수를 부르지 않는다(12-3 (a)) — 호출부가 그 경우 LLM을
+    부르지 않고 코드로 고정 문구를 만든다. 이 함수는 articles가 최소 1건 있다고
+    가정한다.
+
+    모델은 BEDROCK_MODEL_SMART다(12-3 (g), 2단계와 같은 확정을 그대로 따른다).
+
+    Args:
+        articles: 발송문에 담을 NewsroomArticle 목록. impact_rank 순으로 이미
+            정렬돼 있어야 한다(호출부 책임).
+        compose_prompt: 그 뉴스룸의 Newsroom.compose_prompt 원문.
+
+    Returns:
+        {"body": "...", "_usage": {...}}.
+
+    Raises:
+        LLMStructuralError: 인증·권한·리소스 오류.
+        LLMJudgmentError: 그 밖의 실패. 호출 1회라 이어하기가 없다 — 실패하면 이
+            배치는 처음부터 다시 돈다.
+    """
+    client = _get_client()
+    try:
+        response = client.messages.create(
+            model=settings.BEDROCK_MODEL_SMART,
+            max_tokens=8192,
+            system=_build_newsroom_compose_system_prompt(compose_prompt),
+            messages=[{"role": "user", "content": _build_newsroom_compose_user_message(articles)}],
+            output_config={"format": {"type": "json_schema", "schema": OUTPUT_SCHEMA_NEWSROOM_COMPOSE}},
+        )
+    except (anthropic.AuthenticationError, anthropic.PermissionDeniedError, anthropic.NotFoundError) as exc:
+        logger.error("뉴스룸 발송문 작성 중 구조적 오류(인증/권한/리소스): %s", exc)
+        raise LLMStructuralError(str(exc)) from exc
+    except anthropic.RateLimitError as exc:
+        logger.warning("뉴스룸 발송문 작성 중 rate limit에 걸렸어요: %s", exc)
+        raise LLMJudgmentError(str(exc)) from exc
+    except anthropic.APIConnectionError as exc:
+        logger.warning("뉴스룸 발송문 작성 중 네트워크 오류: %s", exc)
+        raise LLMJudgmentError(str(exc)) from exc
+    except anthropic.APIStatusError as exc:
+        logger.warning("뉴스룸 발송문 작성 중 API 오류(status=%s): %s", exc.status_code, exc)
+        raise LLMJudgmentError(str(exc)) from exc
+    else:
+        return _parse_newsroom_compose_response(response)

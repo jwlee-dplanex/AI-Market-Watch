@@ -4,9 +4,12 @@
 없는 판정 경로 0개"가 성립한다.
 
 - `delete_news_with_record()` (P0) — 뉴스 삭제. 절차(한 트랜잭션):
-  ① DeletedNewsRecord 생성 → ② ExcludedURL.get_or_create → ③ news.delete()
-  ①이 실패하면 ②·③도 실행되지 않고 삭제 자체가 취소된다 — 근거를 남기지 못할 바에는
+  ① DeletedNewsRecord 생성 → ①-b 사후 뒤집힘 기록(RunProposal) → ② ExcludedURL.get_or_create
+  → ③ news.delete()
+  ①이 실패하면 뒤 단계도 실행되지 않고 삭제 자체가 취소된다 — 근거를 남기지 못할 바에는
   삭제를 미루는 쪽이 안전하다(그 뉴스는 아직 미검증이라 검증 게이트가 화면 노출을 막아준다).
+  ①-b는 docs/planning.md 4-(b) 🔴 개정 (2026-09-15) 구현 — 이 News에 채택된 "유지"
+  제안이 있으면 RunProposal.reversed_at/reversed_by를 자동으로 채운다.
 
 - `correct_news_tag()` (P1) — 살아남는 뉴스의 기업/기술 주제 태그 교정(추가·제거).
   삭제와 달리 뉴스 자체는 남으므로 ExcludedURL·본문 스냅샷은 필요 없고, TagCorrectionRecord
@@ -14,6 +17,7 @@
 """
 
 from django.db import transaction
+from django.utils import timezone
 
 from .models import DeletedNewsRecord, ExcludedURL, News, TagCorrectionRecord
 
@@ -85,6 +89,22 @@ def delete_news_with_record(
             ),
             matched_keywords_snapshot=list(news.matched_keywords),
         )
+
+        # ①-b 사후 뒤집힘 기록(docs/planning.md 4-(b) 🔴 개정 (2026-09-15)) — 이 News에
+        # 채택된 "유지" 제안이 달려 있으면, 그 제안이 확정 뒤에 뒤집혔다는 사실을 이
+        # 자리에서 자동으로 남긴다. RunProposal.news는 SET_NULL이라 아래 ③에서
+        # news.delete()가 실행되는 순간 그 연결이 끊기므로, 삭제 전인 지금 찾아야 한다.
+        # 로컬 import — apps.setting.models가 apps.news.models를 import하므로 모듈
+        # 최상단에 두면 순환 임포트가 된다(correct_news_tag()의 Organization/TechTopic
+        # 로컬 import와 같은 이유).
+        from apps.setting.models import RunProposal
+
+        RunProposal.objects.filter(
+            news=news,
+            proposal_type=RunProposal.TYPE_KEEP,
+            status=RunProposal.STATUS_ACCEPTED,
+            reversed_at__isnull=True,
+        ).update(reversed_at=timezone.now(), reversed_by=judged_by)
 
         # ② 재수집 차단 인덱스 — 기존 RA 안전 삭제 패턴과 동일, 어떤 경우에도 건너뛰지 않는다.
         ExcludedURL.objects.get_or_create(url_hash=news.url_hash)

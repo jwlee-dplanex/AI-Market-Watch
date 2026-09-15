@@ -37,7 +37,7 @@
           </button>
         </div>
 
-        <!-- 수정 모달 -->
+        {% comment %}수정 모달{% endcomment %}
         <div x-show="editOpen" x-cloak
              class="fixed inset-0 z-50 flex items-center justify-center"
              @keydown.escape.window="editOpen=false">

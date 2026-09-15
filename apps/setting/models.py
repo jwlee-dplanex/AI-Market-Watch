@@ -254,7 +254,7 @@ class RunJob(models.Model):
     이 테이블에 쓰는 코드이고, 읽는 쪽(apps/setting/views.py)은 조회만 한다.
 
     🔴 상태 7가지 중 `완료`와 `확정됨`을 반드시 구분한다 — 판정이 끝난 것과 사람이
-    확정 버튼을 누른 것은 다른 사건이고, 합치면 승인 게이트가 상태 위에서 사라진다.
+    확정 버튼을 누른 것은 다른 사건이고, 합치면 휴먼 인 더 루프가 상태 위에서 사라진다.
     이번 라운드(수집만 실제로 돈다)는 확정 게이트가 없는 작업이라 `확정됨`까지 가는
     경로가 없지만, 2라운드의 `cleanup`이 그 경로를 쓸 수 있도록 값 자체는 지금 만들어
     둔다.
@@ -456,6 +456,38 @@ class RunProposal(models.Model):
     )
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=STATUS_PENDING)
     judged_at = models.DateTimeField(auto_now_add=True)
+
+    # 🔴 사후 뒤집힘(2026-09-15 PM 결정, docs/planning.md 4-(b) "🔴 개정 (2026-09-15)
+    # 정답지에 구멍이 있다") — `RunProposal.status`만 보면 확정 뒤에 사람이 뒤집은
+    # 유지 제안이 여전히 `채택`으로 보여 프롬프트 정확도가 거짓으로 100%가 된다
+    # (실측: RunProposal 110·293. 유지 제안 정확도가 `status`만 보면 17/17인데
+    # 실제는 15/17이었다).
+    #
+    # `status`를 새 값으로 덮어쓰지 않고(그러면 "확정 시점에 사람이 이걸 받았다"는
+    # 사실이 사라진다) 칸을 하나 더 두는 이유는 PM 결정 그대로다 — `status`는
+    # 원래부터 사후에 바뀌는 칸이고, 제안 당시 기록을 지고 있는 것은 proposal_type·
+    # criterion_code·reason 셋이라 이 개정이 그 셋을 건드리지 않기 때문이다.
+    #
+    # 🔴 이 두 필드는 사람이 기억해서 채우지 않는다. `apps/news/services.py`의
+    # `delete_news_with_record()`가 채택된 `유지` 제안을 가진 News가 삭제되는 순간
+    # 자동으로 채운다(RA가 배치 확정 뒤 오판을 발견해 그 자리에서 삭제할 때가 주
+    # 경로다) — 쓰는 쪽을 사람의 성실성 밖으로 빼는 것이 이 결정의 본체다.
+    #
+    # ⚠️ 뒤집기 전용 사유 칸은 따로 두지 않는다 — 사유와 기준 코드는 그 삭제가 남기는
+    # DeletedNewsRecord.reason/criterion_code에 이미 있다. 같은 값을 두 곳에 두면
+    # 갈린다.
+    reversed_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="이 제안(채택된 '유지')이 확정 뒤에 뒤집혀 삭제된 시각. "
+                   "delete_news_with_record()가 자동으로 채운다. judged_at은 제안이 "
+                   "만들어진 시각이라 이 값에 쓸 수 없다(auto_now_add).",
+    )
+    reversed_by = models.CharField(
+        max_length=30, blank=True,
+        help_text="뒤집은 주체. DeletedNewsRecord 판정 주체 어휘를 그대로 쓴다(RA / "
+                   "사용자(화면 삭제) / 소급 정비 / 자동 판정) — delete_news_with_record() "
+                   "호출 시 넘긴 judged_by 값이 그대로 들어온다.",
+    )
 
     class Meta:
         ordering = ["-judged_at", "-pk"]

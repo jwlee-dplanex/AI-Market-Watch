@@ -51,7 +51,7 @@
   빈도이지 중복이라는 사실이 아니다.
 {% endcomment %}
 
-<!-- 브레드크럼 + 이전/다음 -->
+{% comment %}브레드크럼 + 이전/다음{% endcomment %}
 <div class="flex items-center justify-between mb-4">
   {% comment %}
     브레드크럼 첫 마디 (2026-09-04, PD).
@@ -98,10 +98,10 @@
   </div>
 </div>
 
-<!-- 단일 컬럼: 사이드 패널 없음(채울 데이터가 없다) -->
+{% comment %}단일 컬럼: 사이드 패널 없음(채울 데이터가 없다){% endcomment %}
 <div class="space-y-4">
 
-  <!-- 헤더 -->
+  {% comment %}헤더{% endcomment %}
   <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-6">
     <div class="flex items-center gap-2 mb-3">
       <span class="text-xs text-gray-400">
@@ -128,7 +128,7 @@
   </div>
   {% endif %}
 
-  <!-- 본문 -->
+  {% comment %}본문{% endcomment %}
   <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-6">
     {% with rendered_body=article.body|news_body %}
     {% if rendered_body %}

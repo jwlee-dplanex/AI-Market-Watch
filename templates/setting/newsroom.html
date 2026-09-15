@@ -56,7 +56,7 @@
 <div class="flex gap-4 items-start"
      x-data="{ selected: {{ initial_selected|default:'null' }}, newRoomOpen: false }">
 
-  <!-- 채널 목록 (좌) -->
+  {% comment %}채널 목록 (좌){% endcomment %}
   <div class="w-52 flex-shrink-0 bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-2">
     {% for room in rooms %}
     <button @click="selected = {{ room.id }}"
@@ -103,7 +103,7 @@
     {% endcomment %}
   </div>
 
-  <!-- 편집 패널 (우) -->
+  {% comment %}편집 패널 (우){% endcomment %}
   <div class="flex-1 min-w-0 bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-6">
     {% for room in rooms %}
     <div x-show="selected === {{ room.id }}" x-cloak>
@@ -117,7 +117,7 @@
         {% endif %}
       </div>
 
-      <!-- 기본: 폼 시작 -->
+      {% comment %}기본: 폼 시작{% endcomment %}
       <form id="room-form-{{ room.id }}" method="post" action="{% url 'setting_newsroom_save' %}">
         {% csrf_token %}
         <input type="hidden" name="room_id" value="{{ room.id }}">
@@ -139,9 +139,9 @@
           </label>
         </div>
       </form>
-      <!-- 기본: 폼 끝. 아래 수집 섹션은 이 폼 밖(HTMX 별도 엔드포인트)이다. -->
+      {% comment %}기본: 폼 끝. 아래 수집 섹션은 이 폼 밖(HTMX 별도 엔드포인트)이다.{% endcomment %}
 
-      <!-- 수집 -->
+      {% comment %}수집{% endcomment %}
       <div class="mb-8">
         <p class="text-xs font-semibold text-gray-500 mb-3">수집</p>
         <div id="room-keyword-panel-{{ room.id }}">
@@ -168,7 +168,7 @@
         </div>
       </div>
 
-      <!-- 선별·작성: 필드는 위 room-form에 form= 속성으로 연결 -->
+      {% comment %}선별·작성: 필드는 위 room-form에 form= 속성으로 연결{% endcomment %}
       <div class="mb-8">
         {% comment %}
           🔴 「준비 중이에요」 캡션을 걷어냈다 (2026-09-15). 2단계 필터와 3단계
@@ -248,7 +248,7 @@
         </div>
       </div>
 
-      <!-- 발송: 필드는 위 room-form에 form= 속성으로 연결 -->
+      {% comment %}발송: 필드는 위 room-form에 form= 속성으로 연결{% endcomment %}
       <div class="mb-8"
            x-data="{ revealed: false, hour: '{{ room.send_hour|stringformat:'02d' }}', minute: '{{ room.send_minute|stringformat:'02d' }}', freq: '{{ room.send_frequency }}' }">
         {% comment %}

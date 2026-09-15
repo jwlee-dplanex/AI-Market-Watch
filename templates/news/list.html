@@ -11,7 +11,7 @@
 {% endcomment %}
 <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-4 mb-4" x-data="{ sourceOpen: false }">
   <form method="get" class="flex items-center gap-3 flex-wrap">
-    <!-- 검색 -->
+    {% comment %}검색{% endcomment %}
     <div class="relative flex-1 min-w-60">
       <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
       <input type="text" name="q" value="{{ request.GET.q }}" placeholder="뉴스를 검색해주세요"
@@ -38,12 +38,12 @@
   </form>
 </div>
 
-<!-- 결과 수 -->
+{% comment %}결과 수{% endcomment %}
 <div class="flex items-center justify-between mb-3">
   <p class="text-sm text-gray-500">총 <span class="font-semibold text-gray-900">{{ total_count|default:0 }}</span>건</p>
 </div>
 
-<!-- 뉴스 목록 -->
+{% comment %}뉴스 목록{% endcomment %}
 {% csrf_token %}
 <div id="news-list">
   {% include "news/_list.html" %}

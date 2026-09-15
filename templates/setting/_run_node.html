@@ -26,11 +26,15 @@
      폭이 모자라면 줄을 바꿔도 된다 — 대신 줄바꿈 선을 분기선과 구분되게 그린다
      (_run_graph.html의 교보 소식 축 주석 참고).
      ⚠️ 이 값을 바꾸면 _run_graph.html의 파생 치수를 함께 고쳐야 한다 —
-        공통       w-[900px](컨테이너 = 276×3 + 36×2), w-[138px](= 276 / 2)
-        리서치 축  w-[450px](= 900 / 2, 정중앙),
-                   w-[616px](분기 카드 묶음 = 276 + 64 + 276),
-                   w-[340px](= 616 − 276, 두 카드 중앙 사이)
-        교보 소식  w-[588px](한 행 = 276×2 + 36, 900 안에서 가운데)
+        공통       w-[900px](컨테이너 = 276×3 + 36×2)
+        리서치 축  w-[616px](4, 5단계 카드 묶음 = 276 + 64 + 276)
+        교보 소식  w-[588px](한 행 = 276×2 + 36, 900 안에서 가운데),
+                   w-[138px](= 276 / 2, 줄바꿈 가로선)
+     🔴 2026-09-15에 파생 치수 둘이 사라졌다. 리서치 축 분기선을 걷어내면서
+        w-[450px](= 900 / 2, 정중앙)과 w-[340px](= 616 − 276, 두 카드 중앙 사이)이
+        쓰이지 않게 됐다. 지금 3단계와 4, 5단계 사이에는 선이 없고 여백 48px
+        (mt-6 + pt-6)만이 두 줄을 가른다. 같은 날 뒤에 라벨 한 줄도 사용자 지시로
+        빠졌다 — 되살리지 말 것, 근거는 _run_graph.html의 같은 날 주석에 있다.
 
   ⚠️ 실행·검토 주소는 url 템플릿태그로 역참조하지 않고 컨텍스트 문자열(job.run_url,
      job.review_url)로 받는다. 아직 만들지 않은 URL 이름을 역참조하면 NoReverseMatch로
@@ -91,21 +95,33 @@
          것만 말하고 얼마나 남았는지에 답하지 못해서 사용자가 두 번 물렸다
          ("3분 21초째 이걸 보여주지 말고 29 / 71 이걸 3초마다 보여주라고 했어").
 
+      🔴 2026-09-15 10차 개정. 형태를 nn/nn (시간) 한 줄로 바꿨다
+         (사용자 지시 "nn/nn (시간) 이렇게만 해줘").
+         종전         10건 중 0건 / 21초째      두 줄
+         현행         0/10 (21초)               한 줄
+         🔴 이 앱에서 빗금 표기를 처음 쓰는 자리다. 5차 개정이 "빗금은 이 앱 어디에도
+            없어 쓰지 않는다"고 적었던 것을 사용자 지시가 뒤집었다. 걷어내지 말 것.
+         ⚠️ elapsed 문자열이 "21초째"에서 "21초"로 바뀌어야 괄호 안이 말이 된다.
+            서버 몫이다(run.html 계약 elapsed 항목). 안 바뀌어도 "0/10 (21초째)"로
+            읽히기만 할 뿐 화면은 깨지지 않는다.
+
       ▣ 언제나 두 줄이다. 주 한 줄 + 보조 한 줄
         ┌ 276px ───────────────────────────────┐
-        │  ◐  기사 71건 중 29건                  │ ← 주   text-xs gray-600 medium
-        │     1분 12초째   실패 3건              │ ← 보조 text-[10px] gray-400
+        │  ◐  29/71 (1분 12초)                  │ ← 주   text-xs gray-600 medium
+        │     실패 3건                          │ ← 보조 text-[10px] gray-400
         └──────────────────────────────────────┘
 
-      🔴 ① 단위 낱말은 글자로 박지 않는다. progress_unit이 앞에 붙는다
-        수집은 기사가 아니라 **키워드**를 센다. 종전처럼 "건"만 쓰면 수집 노드가
-        "19건 중 7건"으로 찍혀 무엇을 세는지 거짓말을 한다.
-        ⚠️ 값이 없거나 비면 **낱말을 생략하고** 종전 표기("71건 중 29건")로 떨어진다.
-           없는 단위를 "기사"로 지어내면 같은 거짓말이 돌아온다. 생략은 침묵이지
-           거짓이 아니다.
-        ⚠️ 어순은 이 앱의 기존 표기를 따른다. run_review.html의 run.progress가
-           "116건 중 87건 처리"이고 graph/_org_panel.html이 "전체 N건 중 10건"이다.
-           🔴 29/71 같은 빗금 표기는 이 앱 어디에도 쓰지 않는다.
+      🔴 ① 단위 낱말은 보이는 줄에서 뺐다. title(마우스 올림)로 내렸다
+        수집은 기사가 아니라 **키워드**를 센다. 종전 "19건 중 7건"이 무엇을 세는지
+        거짓말을 해서 progress_unit이 생겼는데, 빗금 표기에는 그 낱말이 들어갈 자리가
+        없다("키워드 7/19 (21초)"는 사용자가 못박은 형태가 아니다).
+        🔴 그래도 거짓이 되지는 않는다. 빗금은 단위를 **말하지 않을 뿐** "건"이나
+           "기사"라고 말하지 않는다. 생략은 침묵이지 거짓이 아니다.
+        🔴 progress_unit은 죽은 키가 아니다. 아래 title에 "키워드 19건 중 7건"으로
+           그대로 살아 있고, 중단 요약(서버가 만드는 문장)도 계속 이 낱말을 쓴다.
+           값을 내리는 것을 멈추지 말 것.
+        ⚠️ 낱말을 앞에 붙일 자리는 폭으로는 남아 있다("키워드 7/19 (21초)"가 17자라
+           276px 안에 들어간다). 붙일지는 사용자 판단이고 PD가 먼저 붙이지 않았다.
 
       🔴 ② 실패 수는 보조 줄에 둔다. 0이면 자리째 사라진다
         끝나고 나서야 알면 연속 실패로 배치가 끊기기 직전까지 사람이 모른다.
@@ -117,9 +133,15 @@
       🔴 ③ 셀 수 없는 단계는 주와 보조가 뒤집힌다
         3단계부터 5단계까지는 배치 전체가 LLM 1호출이라 분자도 분모도 없다.
                      주                        보조
-          셀 수 있음  71건 중 29건              경과 시간, 실패 수
-          못   셈     progress_note(말)         국면 수, 경과 시간, 지난 실행
+          셀 수 있음  29/71 (1분 12초)          실패 수
+          못   셈     progress_note(말)         2/3 (1분 12초), 실패 수, 지난 실행
         가르는 기준은 **progress_note의 유무 하나**다. 낱말을 비교하지 않는다.
+        🔴 10차 개정. 국면 수도 같은 nn/nn (시간) 형태로 맞췄다. 두 자리가 3초마다
+           번갈아 뜨는데 한쪽만 빗금이면 같은 성질의 수를 한 화면에서 두 모양으로
+           읽는다. 종전 "3국면 중 2국면"은 title로 내렸다. 빗금으로 가면서 "국면"이
+           들어갈 자리가 사라졌고, 그 낱말은 여기서만 쓰이는 단위라 더 아쉽다.
+        ⚠️ 국면 수가 아직 없는 구간(총 국면 수를 모르는 시작 직후)에는 보조 줄이
+           경과 시간만 찍는다. 괄호만 덩그러니 남기지 않는다.
         🔴 그래서 뷰는 셀 수 있는 단계에 progress_note를 내리지 않는다. 내리면
            숫자가 보조로 내려가 위계가 뒤집힌다.
         ⚠️ 국면 수는 진행률이 아니다. 시간의 대부분이 LLM 국면 하나에 몰려서
@@ -153,22 +175,29 @@
 
       <div class="flex-1 min-w-0 flex flex-col gap-0.5">
 
-        {% comment %} 주 줄. progress_note가 있으면 말이 주가 되고 국면 수가 그 옆으로 내려간다. {% endcomment %}
+        {% comment %}
+          주 줄. progress_note가 있으면 말이 주가 되고 nn/nn (시간)이 보조로 내려간다.
+          ⚠️ title은 셋 다 "무엇을 세는가"를 말한다. 보이는 줄에서 단위 낱말을 뺀
+             대신 여기서 온전한 문장으로 남긴다.
+        {% endcomment %}
         {% if job.progress_note %}
-        <div class="flex items-baseline gap-1.5 overflow-hidden">
-          <span class="text-xs leading-4 text-gray-600 font-medium min-w-0 truncate" title="{{ job.progress_note }}">{{ job.progress_note }}</span>
-          {% if job.progress_total %}<span class="text-[10px] leading-4 text-gray-400 whitespace-nowrap flex-shrink-0">{{ job.progress_total }}{{ job.progress_unit|default:"건" }} 중 {{ job.progress_current|default:0 }}{{ job.progress_unit|default:"건" }}</span>{% endif %}
-        </div>
+        <span class="text-xs leading-4 text-gray-600 font-medium whitespace-nowrap truncate" title="{{ job.progress_note }}">{{ job.progress_note }}</span>
         {% elif job.progress_total %}
-        <span class="text-xs leading-4 text-gray-600 font-medium whitespace-nowrap">{% if job.progress_unit %}{{ job.progress_unit }} {% endif %}{{ job.progress_total }}건 중 {{ job.progress_current|default:0 }}건</span>
+        <span class="text-xs leading-4 text-gray-600 font-medium whitespace-nowrap"
+              title="{% if job.progress_unit %}{{ job.progress_unit }} {% endif %}{{ job.progress_total }}건 중 {{ job.progress_current|default:0 }}건">{{ job.progress_current|default:0 }}/{{ job.progress_total }}{% if job.elapsed %} ({{ job.elapsed }}){% endif %}</span>
         {% else %}
         <span class="text-xs leading-4 text-gray-500 whitespace-nowrap">{{ job.elapsed|default:"실행하고 있어요" }}</span>
         {% endif %}
 
         {% comment %} 보조 줄. 비어 있어도 min-h-4로 자리를 지킨다(높이 고정). {% endcomment %}
         <div class="flex items-center gap-2 min-h-4 overflow-hidden">
-          {% if job.progress_note or job.progress_total %}
-            {% if job.elapsed %}<span class="text-[10px] leading-4 text-gray-400 whitespace-nowrap flex-shrink-0">{{ job.elapsed }}</span>{% endif %}
+          {% if job.progress_note %}
+            {% if job.progress_total %}
+            <span class="text-[10px] leading-4 text-gray-400 whitespace-nowrap flex-shrink-0"
+                  title="{{ job.progress_total }}{{ job.progress_unit|default:'국면' }} 중 {{ job.progress_current|default:0 }}{{ job.progress_unit|default:'국면' }}">{{ job.progress_current|default:0 }}/{{ job.progress_total }}{% if job.elapsed %} ({{ job.elapsed }}){% endif %}</span>
+            {% elif job.elapsed %}
+            <span class="text-[10px] leading-4 text-gray-400 whitespace-nowrap flex-shrink-0">{{ job.elapsed }}</span>
+            {% endif %}
           {% endif %}
           {% if job.progress_failed %}<span class="text-[10px] leading-4 text-orange-500 whitespace-nowrap flex-shrink-0">실패 {{ job.progress_failed }}건</span>{% endif %}
           {% if job.progress_note and job.last_duration %}<span class="text-[10px] leading-4 text-gray-400 whitespace-nowrap">지난 실행 {{ job.last_duration }}</span>{% endif %}
@@ -179,9 +208,16 @@
     {% comment %}
       실행 중이 아닐 때의 요약 한 줄. 문자열을 서버가 통째로 만들어 내려준다.
 
-      🔴 ④ 중단 요약에 빗금을 쓰지 않는다. "29/71건까지"가 아니라
-         "기사 71건 중 29건까지"다. 위 진행 줄과 어순이 같아야 같은 수를
-         두 번 다르게 읽지 않는다.
+      🔴 ④ 중단 요약에는 빗금을 쓰지 않는다. 위 진행 줄이 10차 개정으로 빗금이
+         됐지만 이 자리는 "기사 71건 중 29건까지"를 유지한다. 근거 둘이다.
+           ① 여기는 계기판이 아니라 문장이다. "다시 누르면 이어서 해요"가 뒤에
+              붙는 산문이라 숫자만 빗금으로 박으면 문장이 끊긴다.
+           ② 🔴 이 화면에는 "9/11에 썼어요" 같은 날짜 표기가 이미 있다. 문장 안의
+              "7/19까지"는 7월 19일로 읽힌다. 진행 줄은 실행 중에 경과 시간과 함께
+              뜨므로 그 오독이 생기지 않는다.
+         ⚠️ 그래서 두 표기가 한 화면에 함께 산다. 다리는 진행 줄의 title이다.
+            거기에 "키워드 19건 중 7건"이 그대로 있어 두 표기가 같은 수임을
+            확인할 자리가 있다.
       🔴 ⑤ 중단 요약이 답해야 하는 것은 "어디까지 했는가"가 아니라
          "다시 누르면 어디서부터인가"다. 단계마다 답이 달라서 문구도 갈린다.
          계약과 예시 문구는 run.html 상단 "summary" 항목에 정리해 뒀다.

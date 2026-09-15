@@ -1,4 +1,4 @@
-<!-- 현재 연결된 기관 -->
+{% comment %}현재 연결된 기관{% endcomment %}
 <div class="flex flex-wrap gap-1.5 mb-3" id="linked-orgs">
   {% for org in linked_orgs %}
   <span class="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium
@@ -21,7 +21,7 @@
   {% endfor %}
 </div>
 
-<!-- 기관 추가 -->
+{% comment %}기관 추가{% endcomment %}
 <div x-data="{ open: false }" class="relative">
   <button type="button" @click="open = !open"
           class="text-xs text-primary hover:underline flex items-center gap-1">

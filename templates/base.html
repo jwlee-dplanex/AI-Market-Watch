@@ -10,50 +10,52 @@
   {% endcomment %}
   <title>AI Market Watch</title>
 
-  <!-- 파비콘 (docs/design.md 1.6 로고 · 심볼 · 파비콘) -->
+  {% comment %}파비콘 (docs/design.md 1.6 로고 · 심볼 · 파비콘){% endcomment %}
   <link rel="icon" type="image/svg+xml" href="{% static 'img/logo_image.svg' %}">
   <link rel="apple-touch-icon" href="{% static 'img/logo_image.svg' %}">
   <meta name="theme-color" content="#60269E">
 
-  <!-- Tailwind CSS (로컬 빌드 — tailwind.config.js, `npm run build`) -->
+  {% comment %}Tailwind CSS (로컬 빌드 — tailwind.config.js, `npm run build`){% endcomment %}
   <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
 
-  <!-- Google Fonts -->
+  {% comment %}Google Fonts{% endcomment %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&family=Noto+Serif+KR:wght@400;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
 
-  <!-- HTMX -->
+  {% comment %}HTMX{% endcomment %}
   <script src="{% static 'vendor/htmx.min.js' %}"></script>
 
-  <!-- Alpine.js -->
+  {% comment %}Alpine.js{% endcomment %}
   <style>[x-cloak] { display: none !important; }</style>
   <script defer src="{% static 'vendor/alpine.min.js' %}"></script>
 
-  <!-- 페이지 전환(예: 대시보드/지식그래프 기간 필터의 ?period= 전체 재로드) 부드럽게: 흰 화면 깜빡임 완화.
-       아키텍처는 그대로(순수 <a href> GET 재로드) 두고 시각 효과만 얹는다(2026-07 PM 정책).
-       1) 크로미움 계열(Chrome 126+)은 MPA View Transitions(@view-transition { navigation: auto })로
-          자동 크로스페이드 — CSS 한 줄로 활성화, 미지원 브라우저는 그냥 무시(안전한 점진적 향상).
-       2) 미지원 브라우저(Firefox/Safari 등)는 @supports로 감지해서 본문(main)에 순수 CSS fade-in만 적용.
-          두 효과를 동시에 걸면 view transition 크로스페이드 위에 페이드가 겹쳐 이중 깜빡임처럼
-          보일 수 있어 @supports not (...)으로 상호 배타적으로 나눴다.
-       3) (2026-07 PM 정책 A) root 전환 그룹(전체 페이지 스냅샷)의 애니메이션은 끈다 — 그대로 두면
-          안 바뀌는 사이드바(<aside>)·헤더(<header>)까지 옛/새 페이지 전체가 통째로 크로스페이드되어
-          화면 전체가 깜빡이는 것처럼 보였다. 대신 본문(<main>)에만 별도 view-transition-name을 지정해
-          그 영역만 독립된 전환 그룹으로 분리하고 거기에만 크로스페이드를 건다.
-       이 화면(대시보드·지식그래프)뿐 아니라 사이트 전체 페이지 이동에 적용해도 자연스럽다고 판단해
-       base.html에 공통으로 넣었다(개별 템플릿에 중복 적용하지 않음). -->
+  {% comment %}
+    페이지 전환(예: 대시보드/지식그래프 기간 필터의 ?period= 전체 재로드) 부드럽게: 흰 화면 깜빡임 완화.
+    아키텍처는 그대로(순수 <a href> GET 재로드) 두고 시각 효과만 얹는다(2026-07 PM 정책).
+    1) 크로미움 계열(Chrome 126+)은 MPA View Transitions(@view-transition { navigation: auto })로
+       자동 크로스페이드 — CSS 한 줄로 활성화, 미지원 브라우저는 그냥 무시(안전한 점진적 향상).
+    2) 미지원 브라우저(Firefox/Safari 등)는 @supports로 감지해서 본문(main)에 순수 CSS fade-in만 적용.
+       두 효과를 동시에 걸면 view transition 크로스페이드 위에 페이드가 겹쳐 이중 깜빡임처럼
+       보일 수 있어 @supports not (...)으로 상호 배타적으로 나눴다.
+    3) (2026-07 PM 정책 A) root 전환 그룹(전체 페이지 스냅샷)의 애니메이션은 끈다 — 그대로 두면
+       안 바뀌는 사이드바(<aside>)·헤더(<header>)까지 옛/새 페이지 전체가 통째로 크로스페이드되어
+       화면 전체가 깜빡이는 것처럼 보였다. 대신 본문(<main>)에만 별도 view-transition-name을 지정해
+       그 영역만 독립된 전환 그룹으로 분리하고 거기에만 크로스페이드를 건다.
+    이 화면(대시보드·지식그래프)뿐 아니라 사이트 전체 페이지 이동에 적용해도 자연스럽다고 판단해
+    base.html에 공통으로 넣었다(개별 템플릿에 중복 적용하지 않음).
+  {% endcomment %}
   <style>
     @view-transition {
       navigation: auto;
     }
-    /* 전체(root) 크로스페이드는 끔 — 사이드바·헤더가 여기 휩쓸려 함께 깜빡이던 원인 */
+    {% comment %}전체(root) 크로스페이드는 끔 — 사이드바·헤더가 여기 휩쓸려 함께 깜빡이던 원인{% endcomment %}
     ::view-transition-old(root),
     ::view-transition-new(root) {
       animation: none;
       mix-blend-mode: normal;
     }
-    /* 본문 콘텐츠(<main>)만 별도 전환 그룹으로 분리해서 부드럽게 */
+    {% comment %}본문 콘텐츠(<main>)만 별도 전환 그룹으로 분리해서 부드럽게{% endcomment %}
     main {
       view-transition-name: main-content;
     }
@@ -130,7 +132,7 @@
     }
   </style>
 
-  <!-- Lucide Icons -->
+  {% comment %}Lucide Icons{% endcomment %}
   <script src="{% static 'vendor/lucide.min.js' %}"></script>
 
   {% block extra_head %}{% endblock %}
@@ -150,7 +152,7 @@
 
 <div class="flex h-screen overflow-hidden">
 
-  <!-- 사이드바 -->
+  {% comment %}사이드바{% endcomment %}
   <aside class="w-60 bg-[#401771] flex flex-col flex-shrink-0"
          x-data="{ aboutOpen: false }">
     {% comment %}
@@ -171,7 +173,7 @@
       </a>
     </div>
 
-    <!-- 네비게이션 -->
+    {% comment %}네비게이션{% endcomment %}
     <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
       <a href="{% url 'dashboard' %}"
          class="flex items-center gap-3 px-3 py-2 rounded-[10px] text-sm font-medium transition-colors
@@ -354,7 +356,7 @@
       </button>
     </div>
 
-    <!-- 하단 수집 상태 -->
+    {% comment %}하단 수집 상태{% endcomment %}
     <div class="px-4 py-4 border-t border-white/10">
       <p class="text-xs text-white/40">마지막 수집</p>
       <p class="text-xs text-white/70 mt-0.5">{{ last_collected_at|date:"m/d H:i"|default:"수집 기록 없음" }}</p>
@@ -363,10 +365,10 @@
     {% include "components/_about_modal.html" %}
   </aside>
 
-  <!-- 메인 영역 -->
+  {% comment %}메인 영역{% endcomment %}
   <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
 
-    <!-- 상단 헤더 -->
+    {% comment %}상단 헤더{% endcomment %}
     <header class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between flex-shrink-0">
       <h1 class="text-base font-semibold text-gray-900">{% block page_title %}{% endblock %}</h1>
       <div class="flex items-center gap-3">
@@ -374,7 +376,7 @@
       </div>
     </header>
 
-    <!-- 콘텐츠 -->
+    {% comment %}콘텐츠{% endcomment %}
     <main class="flex-1 overflow-y-auto p-6">
       {% comment %}
         [Django messages 전역 표시] 2026-09-15, PD 신설.

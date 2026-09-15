@@ -69,12 +69,40 @@ class Newsroom(models.Model):
         return NewsroomArticle.objects.for_newsroom_display(self).count()
 
     @property
+    def pending_count(self):
+        """판정 전(filter_status=pending) 기사 수. docs/planning.md 뉴스룸 정책 12-1
+        결정 (b) "적체를 화면이 말하게 한다" 구현 — SET-010 교보 2단계 노드와
+        SET-009 뉴스룸 관리가 함께 쓴다(같은 문서 12-5 PE 인계 5번). 노출 게이트
+        (for_newsroom_display)를 거치지 않는다 — pending은 애초에 그 게이트 밖의
+        개념(5-1 예외가 닫힌 뒤에는 화면에 안 보이는 쪽)이라 article_count와는
+        다른 질문에 답한다."""
+        return self.articles.filter(filter_status=NewsroomArticle.STATUS_PENDING).count()
+
+    @property
     def has_filter_history(self):
         """5-1 예외("판정 도입 전 예외")가 닫혔는지 여부 — 이 뉴스룸에 filter_status가
         pending이 아닌 기사가 한 건이라도 있으면 True. NewsroomArticleQuerySet.judged()와
         판정 기준을 공유한다(docs: for_newsroom_display() docstring 참고) — ROOM-002 캡션과
         아래 today_metric() 라벨 전환이 반드시 같은 조건이어야 어긋나지 않는다."""
         return self.articles.judged().exists()
+
+    @property
+    def latest_message(self):
+        """SET-009 발송 섹션(templates/setting/_newsroom_message.html)이 쓰는 가장
+        최근 발송 레코드 1건 또는 None(docs/planning.md 뉴스룸 정책 12-3 (b)(c)).
+        목록이 아니다 — 그 화면은 항상 최신 1건만 보여준다."""
+        return self.messages.order_by("-created_at", "-pk").first()
+
+    @property
+    def mark_sent_url(self):
+        """「보냈다고 표시하기」 POST URL 문자열. 최신 발송 레코드가 없으면 빈
+        문자열을 돌려준다 — _newsroom_message.html이 그 경우 버튼을 안전하게
+        비활성으로 떨어뜨린다(그 조각의 컨텍스트 계약)."""
+        message = self.latest_message
+        if not message:
+            return ""
+        from django.urls import reverse
+        return reverse("setting_newsroom_message_mark_sent", args=[message.pk])
 
     @property
     def today_metric(self):
@@ -313,6 +341,31 @@ class NewsroomArticle(models.Model):
     # 확보됐다"로 읽으면 안 된다. 정확한 뜻은 "요약문 잔여물이 아니다"까지다.
     body_is_truncated = models.BooleanField(default=False)
 
+    # 2단계 LLM 산출물 둘(2026-09-15 PE 신설, docs/planning.md 뉴스룸 정책 12-2 (c)
+    # "필드 형태와 이름은 PE가 정한다") — filter_status/judged_by/summary만으로는
+    # 지침 7(파급력 정렬)과 8·10-5(중복 묶기)의 산출물을 담을 자리가 없어(실측,
+    # 12-2 (c) 표) 그대로 버려지고 있었다. 둘 다 통과(passed)한 기사에만 채운다 —
+    # 제외(rejected)·판정 전(pending)은 None으로 남는다.
+    impact_rank = models.PositiveSmallIntegerField(
+        null=True, blank=True, default=None,
+        help_text="2단계 LLM이 매긴 비즈니스 파급력 순위(1이 가장 크다). 같은 실행 "
+                   "배치 안에서만 비교 가능하다 — 서로 다른 날 배치의 순위를 "
+                   "직접 비교하지 않는다. 3단계 발송문이 이 순서를 그대로 따른다 "
+                   "(정책 12-2 표 '2단계는 그 순서를 따름').",
+    )
+    # self-FK를 택한 이유 — 정책 12-2 (c)가 "대표 1건만 남기고 나머지는 묶음으로
+    # 표시로 정했다"와 "중복으로 묶인 기사를 rejected로 떨어뜨리지 않는다"(제외와
+    # 중복은 다른 뜻이라 filter_status 한 칸에 같이 담지 않는다) 둘을 요구한다.
+    # 대표 기사는 duplicate_of가 None이고, 같은 사건의 나머지 기사는 그 대표를
+    # 가리킨다 — 그룹을 담을 별도 모델을 두지 않아도 "이 기사의 대표가 무엇인가"
+    # 하나의 질문으로 묶음이 그대로 표현된다.
+    duplicate_of = models.ForeignKey(
+        "self", null=True, blank=True, on_delete=models.SET_NULL, related_name="duplicates",
+        help_text="같은 사건을 다루는 대표 기사. 대표 기사 자신은 None이다. filter_status는 "
+                   "두 기사 모두 passed로 그대로 둔다 — 이 필드로만 묶고 제외 처리하지 않는다. "
+                   "대표만 펼쳐 보이고 나머지를 묶음으로 접어 보이는 것은 화면(PD) 몫이다.",
+    )
+
     objects = NewsroomArticleQuerySet.as_manager()
 
     class Meta:
@@ -335,3 +388,74 @@ class NewsroomArticle(models.Model):
             return netloc[4:] if netloc.startswith("www.") else netloc
         except ValueError:
             return ""
+
+
+class NewsroomMessage(models.Model):
+    """뉴스룸 3단계(발송문) 산출물 — 발송 레코드 1건(docs/planning.md 뉴스룸 정책
+    12-3 (b) "담을 자리가 없다(실측). 발송 레코드를 별도 모델로 신설한다"). 기사별
+    요약은 이미 2단계 산출물(NewsroomArticle.summary)이고 ROOM-002가 그것을 쓴다 —
+    이 모델이 다시 만들면 같은 값이 두 곳에 생겨 정본이 둘이 된다. 여기 담는 것은
+    그 요약들을 조립한 "한 덩어리 글" 하나뿐이다.
+
+    🔴 `Newsroom`에 칸을 더하지 않고 별도 모델로 둔 이유(12-3 (b) 표) — 발송문은
+    날마다 한 건씩 쌓이는 이력이다. 채널 레코드에 넣으면 어제 것이 오늘 것에
+    덮인다.
+
+    🔴 발송 코드가 없다(2026-09-15 사용자 확정, "Slack 메시지는 구현하지마"). 사람이
+    하는 일은 이 레코드의 body를 읽고 복사해서 Slack에 직접 붙여넣고, 여기로 돌아와
+    "보냈다고 표시하기"를 누르는 것뿐이다(12-3 (c)) — sent_at이 그 표시를 담는다.
+    """
+
+    STATUS_DRAFT = "draft"
+    STATUS_SENT_MANUAL = "sent_manual"
+    # 🔴 지금 쓰이지 않아도 미리 넣어 둔다(12-3 (d), PM 지시) — 나중에 4단계(자동
+    # 발송)를 만들 때 상태 어휘를 늘리면 기존 행의 뜻이 소급으로 바뀐다. 뉴스룸은
+    # filter_status 문자열(excluded 대 rejected)에서 이미 한 번 그 실패를 겪었다.
+    STATUS_SENT_AUTO = "sent_auto"
+    STATUS_FAILED = "failed"
+    STATUS_CHOICES = [
+        (STATUS_DRAFT, "초안"),
+        (STATUS_SENT_MANUAL, "수동 발송함"),
+        (STATUS_SENT_AUTO, "자동 발송함"),
+        (STATUS_FAILED, "실패"),
+    ]
+
+    newsroom = models.ForeignKey(Newsroom, on_delete=models.CASCADE, related_name="messages")
+    # 이 발송문이 다루는 날짜(만들어진 시점의 로컬 날짜). "어느 채널의 며칠 치
+    # 소식인가"를 남긴다(12-3 (b) 표 "뉴스룸 FK, 대상 날짜").
+    date = models.DateField()
+    # 메시지 본문 원문 — 이 모델의 본체다. 사람이 여기서 그대로 복사해 Slack에
+    # 붙여넣는다. 검증에 걸려도(아래 status) 지우지 않는다 — 지우면 지침 1(전수
+    # 나열)을 LLM이 어떻게 어겼는지가 사라진다(12-3 (e)).
+    body = models.TextField(blank=True)
+    # 포함 기사 — 생성 시점의 집합을 얼려 둔다. 그날 통과분(filter_status)은
+    # 재판정으로 나중에 바뀔 수 있어, 코드 검증(아래 status)과 article_count가
+    # 대조할 대상은 이 M2M이 얼려 둔 집합이어야 한다(12-3 (b) 표).
+    articles = models.ManyToManyField(NewsroomArticle, blank=True, related_name="messages")
+    status = models.CharField(max_length=15, choices=STATUS_CHOICES, default=STATUS_DRAFT)
+    created_at = models.DateTimeField(auto_now_add=True)
+    # 🔴 사람이 "보냈다고 표시한" 시각 — 4단계(자동 발송) 시각과 같은 칸을 쓰지
+    # 않는다(12-3 (d)). 이 모델에는 자동 발송 코드 자체가 없어 지금은 그 값이 생길
+    # 일이 없지만, 나중에 생겨도 별도 칸이 필요하다는 뜻을 필드 하나로 못박아 둔다.
+    sent_at = models.DateTimeField(null=True, blank=True)
+    # 코드 검증(정책 12-3 (e)) 실패 사유. status가 실패일 때만 채워진다.
+    error = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+
+    def __str__(self):
+        return f"{self.newsroom.name} {self.date}"
+
+    @property
+    def article_count(self):
+        """SET-009 발송 섹션이 보이는 "기사 N건" 줄. 저장 시점에 얼린 articles
+        집합의 크기이지, 지금 이 순간의 통과 기사 수가 아니다."""
+        return self.articles.count()
+
+    @property
+    def status_label(self):
+        """SET-009 발송 섹션이 그대로 찍는 배지 문구("초안"/"수동 발송함"/"실패").
+        choices의 한국어 라벨을 그대로 쓴다 — 템플릿이 문자열을 하드코딩하지
+        않는다."""
+        return self.get_status_display()

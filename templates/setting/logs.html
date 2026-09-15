@@ -4,7 +4,8 @@
 {% block setting_content %}
 <div x-data="{ tab: 'collection' }">
 
-  <!-- 검증 파이프라인 현황 (운영자 전용, 2026-08-04 검증 게이트 정책 PD 인계 —
+  {% comment %}
+       검증 파이프라인 현황 (운영자 전용, 2026-08-04 검증 게이트 정책 PD 인계 —
        docs/planning.md "검증 게이트: 미검증 뉴스는 화면에 노출하지 않는다" 5번,
        docs/design.md SET-006 절 "검증 파이프라인 현황 블록" 참고).
        미검증 뉴스는 사용자 화면에서 완전히 숨기므로, 이 화면(운영자 전용)에서만 "검증이 밀린 것"과
@@ -22,7 +23,8 @@
          않으므로(docs/planning.md 3번) 이 정책 도입 후 RA가 첫 배치를 검증 전환하기 전까지는 None.
        - orphan_relation_count (int): 신규(2026-08-04, docs/design.md SET-006 절 "미노출 관계" 지표 참고).
          라벨은 있지만 전체 기간 기준으로도 검증 공동언급이 0건이라 지식그래프 어느 기간에도 나타나지
-         않는 OrgRelation 건수. -->
+         않는 OrgRelation 건수.
+  {% endcomment %}
   <div class="bg-white rounded-[10px] shadow-sm mb-4 {% if unverified_tier == 'stale' or orphan_relation_count %}border border-yellow-200{% else %}border border-[#E5E5E5]{% endif %}">
     <div class="px-5 py-4 flex items-center justify-between flex-wrap gap-4">
       <div class="min-w-0">
@@ -33,7 +35,7 @@
         <p class="text-xs text-gray-400 mt-0.5">RA가 아직 판정하지 않은 뉴스는 사용자 화면에 보이지 않아요. 여기서만 확인할 수 있어요.</p>
       </div>
       <div class="flex items-center gap-8 flex-wrap">
-        <!-- ① 미검증 건수 -->
+        {% comment %}① 미검증 건수{% endcomment %}
         <div>
           <p class="text-xs text-gray-400 mb-1">미검증 뉴스</p>
           <p class="text-lg font-semibold {% if unverified_tier == 'stale' %}text-yellow-700{% else %}text-gray-900{% endif %}">
@@ -50,7 +52,7 @@
           {% endif %}
         </div>
 
-        <!-- ② 가장 오래된 미검증 뉴스 수집일 -->
+        {% comment %}② 가장 오래된 미검증 뉴스 수집일{% endcomment %}
         <div>
           <p class="text-xs text-gray-400 mb-1">가장 오래된 미검증 뉴스</p>
           <p class="text-lg font-semibold {% if unverified_tier == 'stale' %}text-yellow-700{% else %}text-gray-900{% endif %}">
@@ -61,7 +63,7 @@
           {% endif %}
         </div>
 
-        <!-- ③ 마지막 검증 완료 시각 -->
+        {% comment %}③ 마지막 검증 완료 시각{% endcomment %}
         <div>
           <p class="text-xs text-gray-400 mb-1">마지막 검증 완료</p>
           <p class="text-lg font-semibold {% if last_verified_at %}text-gray-900{% else %}text-sm text-gray-400{% endif %}">
@@ -71,7 +73,8 @@
       </div>
     </div>
 
-    <!-- ④ 그래프에 안 보이는 관계 — 기존 3개 지표 아래, 같은 카드 안에 구분선으로 얹는다.
+    {% comment %}
+         ④ 그래프에 안 보이는 관계 — 기존 3개 지표 아래, 같은 카드 안에 구분선으로 얹는다.
          docs/design.md SET-006 절 "미노출 관계 지표 추가" 참고. 시간축이 없는 지표라 미검증
          지표처럼 2일 임계값을 두지 않고 0건/그 외 2단계(clear/attention)로만 강조한다.
 
@@ -79,7 +82,8 @@
          컨텍스트 변수명(orphan_relation_count)만 그대로 두기로 했으므로 — 사용자가 리네임 범위를
          화면 문구로 한정했다 — 코드 용어에 맞춰 이 라벨을 되돌리지 말 것.
          문서 개념명은 "미노출 관계", 화면 라벨은 "그래프에 안 보이는 관계"로 층위가 나뉜다.
-         보조 표기 "(지식그래프)"는 라벨 자체가 이미 그래프를 말하므로 함께 뺐다. -->
+         보조 표기 "(지식그래프)"는 라벨 자체가 이미 그래프를 말하므로 함께 뺐다.
+    {% endcomment %}
     <div class="px-5 py-3 border-t border-gray-100">
       <p class="text-xs text-gray-400 mb-1">그래프에 안 보이는 관계</p>
       <p class="text-lg font-semibold flex items-center gap-2 {% if orphan_relation_count %}text-yellow-700{% else %}text-gray-900{% endif %}">
@@ -97,7 +101,7 @@
     </div>
   </div>
 
-  <!-- 탭 -->
+  {% comment %}탭{% endcomment %}
   <div class="flex gap-1 mb-4 bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-1 w-fit">
     <button @click="tab = 'collection'"
             class="px-4 py-2 text-xs font-medium rounded-[10px] transition-colors"
@@ -111,7 +115,7 @@
     </button>
   </div>
 
-  <!-- 수집 로그 탭 -->
+  {% comment %}수집 로그 탭{% endcomment %}
   <div x-show="tab === 'collection'">
     <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm">
       <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
@@ -175,7 +179,7 @@
     </div>
   </div>
 
-  <!-- LLM 이력 탭 -->
+  {% comment %}LLM 이력 탭{% endcomment %}
   <div x-show="tab === 'llm'" x-cloak>
     <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm">
       <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">

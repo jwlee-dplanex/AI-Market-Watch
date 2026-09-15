@@ -6,10 +6,12 @@
 
 {% block extra_head %}
 <style>
-  /* insight.content / insight.implication 마크다운 렌더링 시 문단 간 여백만 최소로 부여.
+  {% comment %}
+     insight.content / insight.implication 마크다운 렌더링 시 문단 간 여백만 최소로 부여.
      reports/detail.html의 .markdown-content와 달리 폰트 크기/색상은 지정하지 않는다 —
      이 페이지들은 이미 text-sm/text-xs + text-gray-700 등으로 크기가 지정돼 있어서,
-     .markdown-content의 고정 font-size를 그대로 가져오면 기존 지정과 충돌한다. */
+     .markdown-content의 고정 font-size를 그대로 가져오면 기존 지정과 충돌한다.
+  {% endcomment %}
   .markdown-spacing p { margin-bottom: 0.75rem; }
   .markdown-spacing p:last-child { margin-bottom: 0; }
   .markdown-spacing ul, .markdown-spacing ol { margin: 0 0 0.75rem 1.25rem; }
@@ -18,10 +20,12 @@
   .markdown-spacing ol { list-style: decimal; }
   .markdown-spacing li { margin-bottom: 0.25rem; }
 
-  /* 주요 이슈 / 최신 뉴스 카드 내부 스크롤 영역용 얇은 스크롤바.
-     카드 테두리와 동일 토큰(#E5E5E5)을 재사용한다. */
+  {% comment %}
+     주요 이슈 / 최신 뉴스 카드 내부 스크롤 영역용 얇은 스크롤바.
+     카드 테두리와 동일 토큰(#E5E5E5)을 재사용한다.
+  {% endcomment %}
   .dashboard-scroll {
-    scrollbar-width: thin;               /* Firefox */
+    scrollbar-width: thin;               {% comment %}Firefox{% endcomment %}
     scrollbar-color: #E5E5E5 transparent;
   }
   .dashboard-scroll::-webkit-scrollbar { width: 6px; }
@@ -32,7 +36,8 @@
   }
   .dashboard-scroll::-webkit-scrollbar-thumb:hover { background-color: #D4D4D4; }
 
-  /* 아코디언 펼침/접힘 애니메이션 — "관련 기사" 블록 전용 (2026-08-07, PD, 사용자 요청 —
+  {% comment %}
+     아코디언 펼침/접힘 애니메이션 — "관련 기사" 블록 전용 (2026-08-07, PD, 사용자 요청 —
      "부드럽게 열리고 닫히게"). 헤드라인·주요 이슈 본문은 세 번째 구조 변경(2026-08-08,
      "더보기" 전환, 이 파일 아래 마크업 쪽 주석 참고)으로 이 클래스를 더 이상 쓰지 않는다 —
      "관련 기사"는 접힘이 진짜 0(관련 기사 유무와 무관하게 버튼을 안 누르면 아예 없는 영역)
@@ -53,7 +58,8 @@
      ease-in-out은 헤드라인/주요 이슈 본문이 미리보기와 "반대 방향으로 동시에" 움직이던
      시절, 그 급출발을 완화하려던 임시 처방이었다. 그 구조 자체가 없어졌으니 "관련 기사"가
      원래 매끄럽다고 검증됐던 값(200ms ease-out)으로 되돌리는 게 맞다 — 오히려 이 값 쪽이
-     더 먼저 검증된 값이라 안전하다. */
+     더 먼저 검증된 값이라 안전하다.
+  {% endcomment %}
   .accordion-collapse {
     display: grid;
     grid-template-rows: 0fr;
@@ -467,14 +473,16 @@
 {% endif %}
 
 
-<!-- 주요 이슈 + 최신 뉴스 (2026-08-06, PD, 사용자 확정으로 "핵심 지표" 위로 이동 —
+{% comment %}
+     주요 이슈 + 최신 뉴스 (2026-08-06, PD, 사용자 확정으로 "핵심 지표" 위로 이동 —
      "이번 주 무슨 일이 있었나"를 지표보다 먼저 보여준다. 같은 날 이 위에 "헤드라인"(신설 당시
      명칭 "헤드라이너", 같은 날 화면 표시만 개칭) 섹션이 추가로 신설됐다(위 헤드라인 블록 참고)
      — 최종 순서는 헤드라인 → 이 블록 → 핵심 지표. docs/design.md ALL-001 절 "핵심 지표 섹션을
-     최하단으로 이동"/"헤드라인 상세" 참고. 이 블록 마크업 자체는 변경 없음. -->
+     최하단으로 이동"/"헤드라인 상세" 참고. 이 블록 마크업 자체는 변경 없음.
+{% endcomment %}
 <div class="grid grid-cols-3 gap-4 mb-6">
 
-  <!-- 주요 이슈 (2/3) -->
+  {% comment %}주요 이슈 (2/3){% endcomment %}
   <div class="col-span-2">
     <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-5 flex flex-col max-h-[40rem]">
       {% comment %}
@@ -622,7 +630,7 @@
     </div>
   </div>
 
-  <!-- 최신 뉴스 (1/3) -->
+  {% comment %}최신 뉴스 (1/3){% endcomment %}
   <div class="col-span-1">
     <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-5 flex flex-col max-h-[40rem]">
       <div class="flex items-center justify-between mb-4 shrink-0">
@@ -665,12 +673,14 @@
 </div>
 
 
-<!-- 핵심 지표 (정량화 축: 기간별 추이 / 기관별 랭킹 / 기술주제별 랭킹) —
+{% comment %}
+     핵심 지표 (정량화 축: 기간별 추이 / 기관별 랭킹 / 기술주제별 랭킹) —
      2026-08-06 PD, "주요 이슈 + 최신 뉴스" 아래로 이동(위 이력 주석 참고).
      마크업은 templates/dashboard/_metrics.html로 분리했다(2026-08-06, PE, 사용자 요청) —
      기간 필터 버튼을 누르면 HTMX가 이 include 결과와 완전히 동일한 fragment로 갈아끼운다
      (apps.dashboard.views.dashboard_metrics). 분리 이유·hx-* 배선은 _metrics.html 자체
-     주석을 참고(중복 방지를 위해 이 파일에는 옮기지 않았다). -->
+     주석을 참고(중복 방지를 위해 이 파일에는 옮기지 않았다).
+{% endcomment %}
 {% include "dashboard/_metrics.html" %}
 
 {% endblock %}

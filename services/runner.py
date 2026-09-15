@@ -12,7 +12,9 @@ apps/setting/management/commands/run_job.py는 둘 다 이 모듈의 start_run()
 상황을 들고 있으면 폴링이 그것을 못 본다.
 """
 
+import hashlib
 import logging
+import re
 import threading
 from datetime import timedelta
 
@@ -42,7 +44,23 @@ logger = logging.getLogger(__name__)
 # insight와 같은 구조(배치 전체 1호출, 이어하기 없음)를 그대로 쓰되 대상이 News가
 # 아니라 Insight다 — services/report_periods.py가 정본으로 계산한 대상 기간의 Insight를
 # 읽는다.
-IMPLEMENTED_JOB_KEYS = ("collect", "newsroom_collect", "cleanup", "insight", "weekly", "monthly")
+#
+# 🔴 "newsroom_filter"는 뒤이은 라운드(교보 소식 축 2단계)에서 연다(docs/planning.md
+# "뉴스룸" 절 12-2, 12-5 PE 인계 2번). insight/weekly/monthly와 같은 구조(배치 전체
+# 1호출)이지만 휴먼 인 더 루프가 없다 — 판정 결과를 RunProposal 같은 중간 그릇 없이
+# NewsroomArticle에 바로 쓴다(12-2 (b)(c)). apps/setting/views.py의
+# setting_run_start()가 "newsroom_filter" 분기와 버튼(can_run = pending_count > 0)을
+# 함께 연다.
+#
+# 🔴 "newsroom_compose"는 같은 날 뒤이은 라운드(교보 소식 축 3단계)에서 연다
+# (docs/planning.md "뉴스룸" 절 12-3, 12-5 PE 인계 6~7번). newsroom_filter와 같은
+# 것 셋(배치 전체 1호출, 휴먼 인 더 루프 없음, 판정 기준 원문을 코드가 아니라
+# Newsroom.compose_prompt에서 읽는다) — 다른 것은 대상이 NewsroomArticle이 아니라
+# 새 모델 NewsroomMessage(발송 레코드) 1건이라는 점이다(12-3 (b)).
+IMPLEMENTED_JOB_KEYS = (
+    "collect", "newsroom_collect", "cleanup", "insight", "weekly", "monthly",
+    "newsroom_filter", "newsroom_compose",
+)
 
 # 하트비트 정지 판정 임계값(초). 별도 감시 프로세스 없이, 화면을 읽는 요청마다
 # mark_stale_running_as_stopped()가 이 값으로 "진행중인데 멈춘 것"을 가려낸다
@@ -92,6 +110,15 @@ HEARTBEAT_STALE_SECONDS_BY_JOB_KEY = {
     "insight": 900,
     "weekly": 900,
     "monthly": 900,
+    # 🔴 "newsroom_filter"도 배치 전체 1호출이라 같은 임계값을 쓴다(교보 배치는
+    # 하루 20건 안팎으로 insight/weekly/monthly보다 입력이 작아 실제로는 더 짧게
+    # 끝날 가능성이 높지만, 아직 실측이 없어 같은 근거 있는 추정을 그대로 쓴다).
+    # 첫 실행 후 PE가 실제 소요 시간으로 교체한다(위 주석과 같은 절차).
+    "newsroom_filter": 900,
+    # 🔴 "newsroom_compose"도 같은 이유(배치 전체 1호출)로 같은 임계값을 쓴다.
+    # 입력이 판정 전량이 아니라 그중 통과분(대개 더 작다)이라 filter보다도 짧게
+    # 끝날 가능성이 높지만, 아직 실측이 없다.
+    "newsroom_compose": 900,
 }
 
 
@@ -479,6 +506,198 @@ def _run_newsroom_collect(run_job_id: int, newsroom_id: int) -> None:
     collect_newsroom(room, on_progress=_progress_callback(run_job_id))
 
 
+def _run_newsroom_filter(run_job_id: int, newsroom_id: int) -> None:
+    """SET-010 교보 소식 축 2단계(필터) — docs/planning.md "뉴스룸" 절 12-2가 정본.
+    _run_insight()와 같은 구조(배치 전체 1호출, 이어하기 없음)이지만 두 가지가
+    다르다.
+
+    🔴 휴먼 인 더 루프가 없다(12-2 (b)) — RunProposal/RunDraft 같은 중간 그릇을
+    거치지 않고 판정 결과를 NewsroomArticle에 바로 저장한다. GATED_JOB_KEYS에
+    "newsroom_filter"를 넣지 않은 것과 짝을 이룬다(apps/setting/views.py) — 그래서
+    이 job은 완료(STATUS_DONE)가 곧 끝이고 "확정" 단계로 가지 않는다.
+
+    🔴 판정 기준 원문은 코드가 아니라 Newsroom.filter_prompt다(12-2 (d)) — 이
+    함수가 room을 읽어 그 원문을 services/llm.py에 그대로 넘긴다. RunJob.prompt_version은
+    그 원문의 해시 앞자리와 글자 수로 채운다(같은 절 "원문이 바뀌면 값도 바뀌기만
+    하면 된다") — 코드 상수가 없어 cleanup/insight처럼 버전 문자열을 미리 못 박을
+    수 없기 때문이다.
+    """
+    from apps.newsroom.models import Newsroom, NewsroomArticle
+    from services.llm import filter_newsroom_articles
+
+    room = Newsroom.objects.get(pk=newsroom_id)
+    targets = list(
+        room.articles.filter(filter_status=NewsroomArticle.STATUS_PENDING).order_by("pk")
+    )
+
+    prompt_version = (
+        f"newsroom_filter-room{room.pk}-{len(room.filter_prompt)}c-"
+        f"{hashlib.sha256(room.filter_prompt.encode()).hexdigest()[:8]}"
+    )
+    RunJob.objects.filter(pk=run_job_id).update(
+        target_count=len(targets), prompt_version=prompt_version,
+    )
+    if not targets:
+        # 대상 0건 — 화면(_newsroom_jobs_context()의 can_run = pending_count > 0)이
+        # 이 상태를 막는 정상 경로이지만, 관리 명령 등으로 직접 불렸을 때를 대비해
+        # 방어적으로 그대로 완료 처리한다(_run_insight()와 같은 판단).
+        return
+
+    result = filter_newsroom_articles(targets, room.filter_prompt)
+
+    articles_by_id = {article.pk: article for article in targets}
+    with transaction.atomic():
+        for item in result.get("articles", []):
+            # 응답에 없는 id나 이번 배치 밖의 id는 건너뛴다 — 응답은 신뢰하되
+            # 검증한다(_run_insight()의 news_ids 매칭과 같은 원칙).
+            article = articles_by_id.get(item.get("id"))
+            if article is None:
+                continue
+            passed = item.get("status") == "passed"
+            article.filter_status = (
+                NewsroomArticle.STATUS_PASSED if passed else NewsroomArticle.STATUS_REJECTED
+            )
+            article.judged_by = NewsroomArticle.JUDGED_BY_LLM
+            article.summary = item.get("summary", "") if passed else ""
+            rank = item.get("impact_rank") or 0
+            article.impact_rank = rank if passed and rank > 0 else None
+            dup_id = item.get("duplicate_of_id") or 0
+            article.duplicate_of = articles_by_id.get(dup_id) if passed and dup_id else None
+            article.save(update_fields=[
+                "filter_status", "judged_by", "summary", "impact_rank", "duplicate_of",
+            ])
+
+    usage = result.get("_usage", {})
+    RunJob.objects.filter(pk=run_job_id).update(
+        processed_count=len(targets), heartbeat_at=timezone.now(),
+        input_tokens=F("input_tokens") + usage.get("input_tokens", 0),
+        output_tokens=F("output_tokens") + usage.get("output_tokens", 0),
+        cache_creation_input_tokens=(
+            F("cache_creation_input_tokens") + usage.get("cache_creation_input_tokens", 0)
+        ),
+        cache_read_input_tokens=(
+            F("cache_read_input_tokens") + usage.get("cache_read_input_tokens", 0)
+        ),
+    )
+
+
+# docs/planning.md "뉴스룸" 절 12-3 (a) — compose_prompt의 [출력 템플릿] 마지막
+# 줄이 이미 이렇게 적어 뒀다: "(통과 기사가 없을 경우 이 프롬프트를 부르지 않고,
+# 코드가 '오늘은 새로운 소식이 없습니다.'를 고정 문자열로 보냅니다)". 문구를
+# 재서술하지 않고 그대로 옮겼다 — 실패와 진짜 빈 날을 구분하기 위한 고정 문구라서다
+# (8번 실패 설계 표 "여기서 '오늘은 새로운 소식이 없습니다'를 보내면 절대 안 된다"의
+# 반대쪽, 즉 진짜 빈 날에는 이 문구를 쓰는 것이 맞다).
+NEWSROOM_COMPOSE_EMPTY_BODY = "오늘은 새로운 소식이 없습니다."
+
+
+def _validate_newsroom_message(body: str, target_count: int) -> list:
+    """뉴스룸 3단계 코드 검증(docs/planning.md 뉴스룸 정책 12-3 (e)) — 초안을
+    NewsroomMessage로 저장하기 "전"에 돈다. 발송 시점이 아니라 저장 전인 이유는
+    사람이 화면(SET-009)에서 보는 문구가 검증되지 않은 것이면 안 되기 때문이다
+    (사람이 승인한 것과 실제로 화면에 남는 것이 갈리면 안 된다).
+
+    무엇을 보는지와 그 근거 — Newsroom.compose_prompt의 [출력 템플릿]을 실측해
+    정했다(services/llm.py _build_newsroom_compose_system_prompt()가 그대로
+    읽는 원문과 같다):
+        *1. (기사 제목 1)*
+        • 한 줄 요약 : ...
+        • 기사 원문 링크 : <(링크 URL)|보러가기>
+    ① 항목 수 — "*N. " 형태로 시작하는 볼드 번호 줄의 개수가 target_count(통과
+       기사 수)와 같은지 본다. 다르면 지침 1(전수 나열)을 어긴 것이다 — LLM이
+       몇 건을 조용히 빠뜨리는 실패가 8번 실패 설계 표가 명시한 대표 유형이다
+       ("지침 1 위반은 LLM이 조용히 저지르는 대표적 실패라 코드가 센다").
+    ② 링크 수 — "|보러가기>" 문자열의 개수가 target_count와 같은지 본다. 다르면
+       지침 4(링크 필수)를 어긴 것이다. 항목 수만으로는 "항목은 다 있는데 그중
+       하나에 링크가 빠졌다" 같은 개별 누락을 못 잡아 따로 센다.
+
+    Returns:
+        빈 리스트면 통과. 비어 있지 않으면 각 원소가 실패 사유 한 줄이다 — 전부
+        NewsroomMessage.error에 이어 붙는다(호출부)."""
+    errors = []
+    item_count = len(re.findall(r"^\*\d+\.\s", body, re.MULTILINE))
+    if item_count != target_count:
+        errors.append(f"기사 {target_count}건인데 메시지 항목이 {item_count}개예요")
+    link_count = body.count("|보러가기>")
+    if link_count != target_count:
+        errors.append(f"기사 {target_count}건인데 링크가 {link_count}개예요")
+    return errors
+
+
+def _run_newsroom_compose(run_job_id: int, newsroom_id: int) -> None:
+    """SET-010 교보 소식 축 3단계(발송문) — docs/planning.md "뉴스룸" 절 12-3이
+    정본. _run_newsroom_filter()와 같은 것 셋 — 배치 전체 1호출, 휴먼 인 더 루프
+    없음(중간 그릇 없이 바로 저장), 판정 기준 원문을 코드가 아니라
+    Newsroom.compose_prompt에서 그대로 읽는다.
+
+    🔴 다른 것 — 저장 대상이 NewsroomArticle이 아니라 새 모델 NewsroomMessage
+    (발송 레코드) 1건이다. 담을 자리가 없어(정책 12-3 (b), 실측) 이번 라운드에서
+    모델을 신설했다.
+
+    🔴 통과(passed·duplicate_of 없음) 기사가 0건이면 LLM을 부르지 않고 코드가
+    고정 문구로 NewsroomMessage를 만든다(12-3 (a)) — compose_prompt의 [출력
+    템플릿] 원문이 이미 그렇게 적어 두었다(위 NEWSROOM_COMPOSE_EMPTY_BODY 주석).
+
+    🔴 코드 검증(정책 12-3 (e))은 저장 "전"에 돈다 — 걸리면 NewsroomMessage.status를
+    실패로 남기되 본문은 그대로 저장한다(지우면 "지침 1을 어떻게 어겼는지"가
+    사라진다). RunJob 자체는 실패로 끊지 않는다 — LLM 호출은 성공했고, 걸린 것은
+    그 산출물의 구조적 완결성이라 배치 자체의 실패(인증·리전 등)와는 다른 사건이다.
+    """
+    from apps.newsroom.models import Newsroom, NewsroomArticle, NewsroomMessage
+    from services.llm import compose_newsroom_message
+
+    room = Newsroom.objects.get(pk=newsroom_id)
+    targets = list(
+        room.articles.filter(
+            filter_status=NewsroomArticle.STATUS_PASSED, duplicate_of__isnull=True,
+        ).order_by("impact_rank", "pk")
+    )
+
+    prompt_version = (
+        f"newsroom_compose-room{room.pk}-{len(room.compose_prompt)}c-"
+        f"{hashlib.sha256(room.compose_prompt.encode()).hexdigest()[:8]}"
+    )
+    RunJob.objects.filter(pk=run_job_id).update(
+        target_count=len(targets), prompt_version=prompt_version,
+    )
+
+    today = timezone.localtime(timezone.now()).date()
+
+    if not targets:
+        NewsroomMessage.objects.create(
+            newsroom=room, date=today, body=NEWSROOM_COMPOSE_EMPTY_BODY,
+            status=NewsroomMessage.STATUS_DRAFT,
+        )
+        RunJob.objects.filter(pk=run_job_id).update(
+            processed_count=0, heartbeat_at=timezone.now(),
+        )
+        return
+
+    result = compose_newsroom_message(targets, room.compose_prompt)
+    body = result.get("body", "")
+    errors = _validate_newsroom_message(body, len(targets))
+
+    with transaction.atomic():
+        message = NewsroomMessage.objects.create(
+            newsroom=room, date=today, body=body,
+            status=NewsroomMessage.STATUS_FAILED if errors else NewsroomMessage.STATUS_DRAFT,
+            error="; ".join(errors),
+        )
+        message.articles.set(targets)
+
+    usage = result.get("_usage", {})
+    RunJob.objects.filter(pk=run_job_id).update(
+        processed_count=len(targets), heartbeat_at=timezone.now(),
+        input_tokens=F("input_tokens") + usage.get("input_tokens", 0),
+        output_tokens=F("output_tokens") + usage.get("output_tokens", 0),
+        cache_creation_input_tokens=(
+            F("cache_creation_input_tokens") + usage.get("cache_creation_input_tokens", 0)
+        ),
+        cache_read_input_tokens=(
+            F("cache_read_input_tokens") + usage.get("cache_read_input_tokens", 0)
+        ),
+    )
+
+
 def _execute(run_job_id: int, kwargs: dict) -> None:
     """워커 스레드(start_run) 또는 호출 스레드(run_now)에서 블로킹으로 실행되는 본체.
     끝나면 RunJob을 완료 또는 실패로 바꾼다 — 확정됨으로는 절대 바꾸지 않는다(승인
@@ -525,6 +744,17 @@ def _execute(run_job_id: int, kwargs: dict) -> None:
                 _run_weekly(run_job_id)
             elif run_job.job_key == "monthly":
                 _run_monthly(run_job_id)
+            elif run_job.job_key == "newsroom_filter":
+                # 🔴 이번 라운드 — apps/setting/views.py의 setting_run_start()가
+                # "newsroom_filter" 분기를 얻어, 화면 버튼이 이 분기로 닿는 정상
+                # 경로다. 휴먼 인 더 루프가 없어(위 _run_newsroom_filter() docstring)
+                # cleanup/insight와 달리 확정 단계 없이 여기서 판정이 끝난다.
+                _run_newsroom_filter(run_job_id, kwargs["newsroom_id"])
+            elif run_job.job_key == "newsroom_compose":
+                # 🔴 같은 날 뒤이은 라운드 — apps/setting/views.py의 setting_run_start()가
+                # "newsroom_compose" 분기를 얻어, 화면 버튼이 이 분기로 닿는 정상
+                # 경로다. newsroom_filter와 같은 이유로 확정 단계 없이 여기서 끝난다.
+                _run_newsroom_compose(run_job_id, kwargs["newsroom_id"])
             else:
                 # 위 분기 밖의 job_key는 아직 실행 로직이 없다. 정상 경로로는 닿지
                 # 않는다(관리 명령 choices, 화면은 collect/newsroom_collect/cleanup만

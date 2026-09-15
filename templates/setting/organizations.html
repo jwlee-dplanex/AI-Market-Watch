@@ -4,9 +4,9 @@
 {% block setting_content %}
 <div x-data="{ activeTab: '전체', modalOpen: false, editOrg: null }">
 
-  <!-- 헤더 -->
+  {% comment %}헤더{% endcomment %}
   <div class="flex items-center justify-between mb-4">
-    <!-- 유형 탭 필터 -->
+    {% comment %}유형 탭 필터{% endcomment %}
     <div class="flex gap-1 bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-1">
       <button @click="activeTab = '전체'"
               class="px-3 py-1.5 text-xs font-medium rounded-[10px] transition-colors"
@@ -38,7 +38,7 @@
     </div>
   </div>
 
-  <!-- 기관 추가/수정 Modal -->
+  {% comment %}기관 추가/수정 Modal{% endcomment %}
   <div x-show="modalOpen" x-cloak x-transition
        class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center"
        @keydown.escape.window="modalOpen=false">
@@ -94,7 +94,7 @@
     </div>
   </div>
 
-  <!-- 유형별 섹션 (HTMX target) -->
+  {% comment %}유형별 섹션 (HTMX target){% endcomment %}
   {% csrf_token %}
   <div id="org-table">
     {% include "setting/_organizations.html" %}

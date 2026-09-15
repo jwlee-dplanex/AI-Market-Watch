@@ -1,6 +1,6 @@
 <div class="grid grid-cols-2 gap-4">
 
-  <!-- 수집 키워드 -->
+  {% comment %}수집 키워드{% endcomment %}
   <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm">
     <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
       <div>
@@ -70,7 +70,7 @@
               </button>
             </div>
 
-            <!-- 수정 모달 -->
+            {% comment %}수정 모달{% endcomment %}
             <div x-show="editOpen" x-cloak
                  class="fixed inset-0 z-50 flex items-center justify-center"
                  @keydown.escape.window="editOpen=false">
@@ -137,7 +137,7 @@
     </div>
   </div>
 
-  <!-- 제외 키워드 -->
+  {% comment %}제외 키워드{% endcomment %}
   <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm">
     <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
       <div>
@@ -182,7 +182,7 @@
               </button>
             </div>
 
-            <!-- 수정 모달 -->
+            {% comment %}수정 모달{% endcomment %}
             <div x-show="editOpen" x-cloak
                  class="fixed inset-0 z-50 flex items-center justify-center"
                  @keydown.escape.window="editOpen=false">

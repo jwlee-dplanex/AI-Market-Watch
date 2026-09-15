@@ -1,7 +1,7 @@
 {% for group in grouped %}
 <div x-show="activeTab === '전체' || activeTab === '{{ group.type }}'" x-cloak class="mb-6">
 
-  <!-- 섹션 헤더 -->
+  {% comment %}섹션 헤더{% endcomment %}
   <div class="flex items-center gap-3 mb-2 px-1">
     <span class="text-xs font-semibold px-2.5 py-1 rounded-full
       {% if group.type == '금융사' %}bg-blue-100 text-blue-700
@@ -14,7 +14,7 @@
     <div class="flex-1 h-px bg-gray-100"></div>
   </div>
 
-  <!-- 기관 테이블 -->
+  {% comment %}기관 테이블{% endcomment %}
   <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm overflow-hidden">
     {% if group.orgs %}
     <table class="w-full text-sm">

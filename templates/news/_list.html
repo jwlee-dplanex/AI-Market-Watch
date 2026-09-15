@@ -79,7 +79,7 @@
 </div>
 {% endif %}
 
-<!-- 페이지네이션 -->
+{% comment %}페이지네이션{% endcomment %}
 {% if is_paginated %}
 <div class="flex items-center justify-center gap-1 mt-6">
   {% if page_obj.has_previous %}

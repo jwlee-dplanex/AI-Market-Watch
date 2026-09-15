@@ -1,4 +1,5 @@
 import logging
+from datetime import timedelta
 
 from django.conf import settings
 from django.contrib import messages
@@ -59,7 +60,7 @@ def sources(request):
     })
 
 
-# --- SET-010 실행 (수동 LLM 실행 + 승인 게이트) ---
+# --- SET-010 실행 (수동 LLM 실행 + 휴먼 인 더 루프) ---
 # docs/design.md "SET-010 · 실행" 절, templates/setting/run.html 상단 {% comment %}이
 # 정본 컨텍스트 계약이다.
 #
@@ -99,9 +100,9 @@ RUN_JOB_LABELS = {
     "newsroom_send": "4단계 발송",
 }
 
-# 완료(STATUS_DONE)여도 승인 게이트가 있는 job은 사람이 확정을 누르기 전까지 "검토
+# 완료(STATUS_DONE)여도 휴먼 인 더 루프가 있는 job은 사람이 확정을 누르기 전까지 "검토
 # 대기"로 보여야 한다(apps/setting/models.py RunJob docstring "완료와 확정됨을 반드시
-# 구분한다" 원칙). 승인 게이트가 없는 collect/newsroom_collect는 이 목록에 넣지 않는다
+# 구분한다" 원칙). 휴먼 인 더 루프가 없는 collect/newsroom_collect는 이 목록에 넣지 않는다
 # — 그 둘은 STATUS_DONE이 곧 "더 할 일 없음"이다.
 # 🔴 2026-09-15 PE 개정 — "insight"를 추가했다. _run_review_context()가 _job_run_state()를
 # 그대로 불러 검토 화면 머리글 상태를 만들므로, 여기 없으면 초안이 쌓인 배치도 review
@@ -111,7 +112,7 @@ RUN_JOB_LABELS = {
 # 그 버튼이 열렸든 닫혔든 GATED_JOB_KEYS만 보고 동작하므로 이 상수 자체는 그대로다.
 #
 # 🔴 같은 날 뒤이은 라운드 — "weekly"·"monthly"를 더한다(4, 5단계). 둘 다 확정하면
-# Report가 실제로 생기는 승인 게이트가 있으므로 완료 즉시가 아니라 검토 대기를 거친다.
+# Report가 실제로 생기는 휴먼 인 더 루프가 있으므로 완료 즉시가 아니라 검토 대기를 거친다.
 GATED_JOB_KEYS = ("cleanup", "insight", "weekly", "monthly")
 
 # SET-010 검토 화면(run_review.html) 판정 기준 코드 범례. services/llm.py의
@@ -138,20 +139,44 @@ CRITERION_LEGEND = [
 # SET-010 진행 표시(docs/planning.md "SET-010 진행 표시" 2번) — job_key별로 무엇을 세는지
 # 다르다. 수집은 키워드 단위(전체 건수를 실행 전에 모른다), 판정은 기사 단위다. 통일하지
 # 않고 낱말만 계약 키(progress_unit)로 내린다 — 최종 문구(어순 등)는 PD가
-# _run_node.html에서 정한다. 여기 없는 job_key(아직 미구현)는 빈 문자열로 떨어진다.
+# _run_node.html에서 정한다. 여기 없는 job_key(아직 미구현, 또는 아래처럼 국면 표시로
+# 확정된 job)는 빈 문자열로 떨어진다.
+#
+# 🔴 "newsroom_filter"(그리고 insight/weekly/monthly/newsroom_compose)는 여기
+# 없다 — 배치 전체 1호출 job이라 건별 진행 간격이라는 개념이 없다(docs/planning.md
+# 뉴스룸 12-2 (a) "배치 전체 1호출을 택한다").
+#
+# ⚠️ 2026-09-15 정정 — 이 자리에 있던 종전 문장은 틀렸다. "여기서 빼면
+# _run_job_display()의 진행률(progress_current/progress_total)이 꺼진다"고
+# 적혀 있었는데, 실제로 진행률을 그릴지 말지 가르는 키는 progress_unit이 아니라
+# progress_total이었다(_run_node.html "{% elif job.progress_total %}") —
+# progress_unit은 title(마우스 올림) 문구에만 쓰인다. 그래서 이 dict에서
+# "newsroom_filter"를 뺐어도 target_count가 progress_total로 그대로 내려가
+# "0/39"가 찍혔고, 사용자가 화면에서 직접 발견했다("시간초는 가는데 앞에있는
+# 숫자가 안올라가"). 실제 조치는 _run_job_display()가 RESUME_FROM_SCRATCH_JOB_KEYS에
+# 있는 job_key에는 progress_current/progress_total/progress_unit 셋 다 내리지
+# 않는 것이다(그 함수의 "running" 분기 참고) — 이 dict는 이제 "1호출이 아닌
+# job의 단위 낱말"만 담당하고, 1호출 job을 막는 실제 방어선이 아니다.
 PROGRESS_UNIT_BY_JOB = {
     "collect": "키워드",
     "cleanup": "기사",
     "newsroom_collect": "키워드",
-    "newsroom_filter": "기사",
 }
 
 # 중단 요약(state=='stopped')의 세 갈래(PD 확정, 2026-09-15) — "다시 누르면 어디서부터인가"가
 # 단계마다 다르다. collect/newsroom_collect는 collector 중복 체크가 이미 받은 기사를
-# 걸러 이어받고, cleanup/newsroom_filter는 제안이 이미 있는 기사가 다음 대상에서 빠져
-# 남은 건부터 잇지만, insight/weekly/monthly(1호출 단계)는 중간이 없어 처음부터 다시
-# 돈다 — 그 갈래엔 건수를 찍지 않는다("29건까지 했다"가 "29건은 남아 있겠지"로 오독된다).
-RESUME_FROM_SCRATCH_JOB_KEYS = ("insight", "weekly", "monthly")
+# 걸러 이어받고, cleanup은 제안이 이미 있는 기사가 다음 대상에서 빠져 남은 건부터
+# 잇지만, insight/weekly/monthly(1호출 단계)는 중간이 없어 처음부터 다시 돈다 — 그
+# 갈래엔 건수를 찍지 않는다("29건까지 했다"가 "29건은 남아 있겠지"로 오독된다).
+#
+# 🔴 "newsroom_filter"도 이 갈래다(2026-09-15 PE 추가, docs/planning.md 뉴스룸 12-5 PE
+# 인계 3번) — 배치 전체 1호출이라 cleanup과 달리 중간이 없다. 종전 코드는 이 job을
+# collect류(이어하기)로 취급해 "남은 기사부터 이어해요"라고 말했는데, 1호출에는 애초에
+# "남은 기사"라는 게 없어 사실과 달랐다(같은 절 실측).
+#
+# 🔴 "newsroom_compose"도 같은 이유로 여기 들어간다(뉴스룸 정책 12-3 (a) "배치
+# 전체 1호출") — 발송문도 배치 하나를 한 번에 조립하는 1호출이라 중간이 없다.
+RESUME_FROM_SCRATCH_JOB_KEYS = ("insight", "weekly", "monthly", "newsroom_filter", "newsroom_compose")
 
 # SET-010 검토 화면(run_review.html) "① 검토 대상"/"② AI가 한 일" 칸에 쓰는 낱말
 # (docs/design.md 5차 개정 ⑦ PE 인계). cleanup만 실제 LLM 판정 배치를 갖고 있어
@@ -182,6 +207,11 @@ ZERO_TARGET_SUMMARY_BY_JOB = {
     # 없었어요")가 그대로 찍혀 4, 5단계와 무관한 문장이 뜬다.
     "weekly": "이번 주에 만들어진 이슈가 없었어요",
     "monthly": "지난달에 만들어진 이슈가 없었어요",
+    # 🔴 뉴스룸 3단계(2026-09-15 PE 추가) — 통과 기사가 0건이어도 실행이 실패한 게
+    # 아니다. LLM을 부르지 않고 코드가 고정 문구("오늘은 새로운 소식이 없습니다.")로
+    # NewsroomMessage를 만들고 정상 완료된다(정책 12-3 (a)) — 그 사실을 요약이
+    # 말해 줘야 "0건인데 왜 완료라고 하지"로 읽히지 않는다.
+    "newsroom_compose": "통과한 기사가 없어 고정 문구로 만들었어요",
 }
 
 # 🔴 2026-09-15 PE 신설 — review.step.model이 종전에는 settings.ANTHROPIC_MODEL_FAST로
@@ -239,18 +269,49 @@ def _run_job_display(job_key):
     state, state_label = _job_run_state(run_job, job_key)
     if state == "running":
         seconds = int((timezone.now() - run_job.started_at).total_seconds())
-        elapsed = f"{seconds // 60}분 {seconds % 60}초째" if seconds >= 60 else f"{seconds}초째"
+        # 🔴 2026-09-15 10차 개정 — "21초째"에서 "21초"로("째" 접미사 제거).
+        # nn/nn (시간) 형태로 괄호 안에 들어가는 자리라 "21초째"로 두면 "0/10
+        # (21초째)"처럼 문장이 아닌 자리에 문장형 접미사가 남는다
+        # (_run_node.html "⚠️ elapsed 문자열이 '21초째'에서 '21초'로 바뀌어야
+        # 괄호 안이 말이 된다" 계약).
+        elapsed = f"{seconds // 60}분 {seconds % 60}초" if seconds >= 60 else f"{seconds}초"
         display = {
             "state": state, "state_label": state_label, "summary": "", "elapsed": elapsed,
-            # 🔴 분자는 처리를 마친 수(성공+실패)다(docs/planning.md "SET-010 진행 표시"
-            # 5-(a)) — processed_count만 쓰면 실패가 섞인 배치가 목표 건수(target_count)에
-            # 끝내 못 닿은 채 완료돼, "71건 중 68건"에서 멈춘 것처럼 보인다. DB 필드
-            # (processed_count)의 뜻 자체는 바꾸지 않는다 — 검토 화면과 로그가 그 뜻으로
-            # 읽는다. 여기서 합치는 건 화면에 내리는 값뿐이다.
-            "progress_current": run_job.processed_count + run_job.failed_count,
-            "progress_total": run_job.target_count,
-            "progress_unit": PROGRESS_UNIT_BY_JOB.get(job_key, ""),
         }
+        # 🔴 2026-09-15 PE 수정(사용자가 화면에서 직접 발견 — newsroom_filter가
+        # "0/39 (9초)"를 보였다. "시간초는 가는데 앞에있는 숫자가 안올라가").
+        #
+        # 🔴 종전 진단이 틀렸다 — 위 PROGRESS_UNIT_BY_JOB 정의 주석은 "newsroom_filter를
+        # 거기서 빼면 진행률(progress_current/progress_total)이 꺼진다"고 적고
+        # 있었는데 사실이 아니다. _run_node.html이 국면 표시(progress_note)와
+        # 건수 표시(progress_current/progress_total) 중 무엇을 그릴지 가르는 키는
+        # progress_total이지 progress_unit이 아니다(그 템플릿 181행
+        # "{% elif job.progress_total %}") — progress_unit은 title(마우스 올림)
+        # 문구에만 쓰인다. 그래서 progress_unit을 빼도 target_count(예: 39)가
+        # progress_total로 그대로 내려가 "0/39"가 그대로 찍혔다.
+        #
+        # 🔴 진짜 조치 — 배치 전체 1호출 job에는 progress_current/progress_total/
+        # progress_unit 셋 다 아예 내리지 않는다. 그러면 템플릿 181행의 elif가
+        # 거짓이 되어 "else" 분기(job.elapsed만 표시)로 떨어진다. 이 job들은
+        # 호출 하나가 끝날 때까지 processed_count가 0에 머물러 있어 "숫자가
+        # 안 올라가는" 게 아니라 "숫자 자체가 의미가 없다"가 맞다 — 사용자가
+        # 고른 해법("거짓말만 걷어내기")대로 숫자를 아예 안 보인다.
+        #
+        # 🔴 판정 기준은 RESUME_FROM_SCRATCH_JOB_KEYS를 그대로 재사용한다(새 목록을
+        # 만들지 않는다) — "배치 전체 1호출이라 중간이 없다"가 그 목록과 이 조건이
+        # 서 있는 같은 사실이다. 목록을 두 벌로 쪼개면 1호출 job이 새로 늘 때
+        # 한쪽만 고쳐서 이 버그가 되살아난다(실제로 이번 사고가 그 유형이었다 —
+        # PROGRESS_UNIT_BY_JOB이라는 별도 목록을 만들었다가 갱신을 깜빡했다).
+        if job_key not in RESUME_FROM_SCRATCH_JOB_KEYS:
+            # 🔴 분자는 처리를 마친 수(성공+실패)다(docs/planning.md "SET-010 진행
+            # 표시" 5-(a)) — processed_count만 쓰면 실패가 섞인 배치가 목표
+            # 건수(target_count)에 끝내 못 닿은 채 완료돼, "71건 중 68건"에서
+            # 멈춘 것처럼 보인다. DB 필드(processed_count)의 뜻 자체는 바꾸지
+            # 않는다 — 검토 화면과 로그가 그 뜻으로 읽는다. 여기서 합치는 건
+            # 화면에 내리는 값뿐이다.
+            display["progress_current"] = run_job.processed_count + run_job.failed_count
+            display["progress_total"] = run_job.target_count
+            display["progress_unit"] = PROGRESS_UNIT_BY_JOB.get(job_key, "")
         if run_job.failed_count:
             display["progress_failed"] = run_job.failed_count
         return display
@@ -270,7 +331,10 @@ def _run_job_display(job_key):
                 f"{PROGRESS_UNIT_BY_JOB.get(job_key, '')} {run_job.target_count}건 중 {current}건까지 "
                 "수집하고 멈췄어요. 다시 누르면 이어서 해요"
             )
-        else:  # cleanup, newsroom_filter
+        else:
+            # cleanup — 건별 판정이라 이어하기가 성립하는 유일한 남은 job_key다.
+            # newsroom_filter는 2026-09-15에 위 RESUME_FROM_SCRATCH_JOB_KEYS로 옮겨졌다
+            # (1호출이라 여기 닿지 않는다).
             summary = (
                 f"{PROGRESS_UNIT_BY_JOB.get(job_key, '')} {run_job.target_count}건 중 {current}건까지 "
                 "판정하고 멈췄어요. 남은 기사부터 이어해요"
@@ -284,7 +348,16 @@ def _run_job_display(job_key):
             "summary": f"{run_job.processed_count}건 판정을 마쳤어요, 검토를 기다리고 있어요",
         }
     if run_job.status == RunJob.STATUS_DONE:
-        if job_key in GATED_JOB_KEYS and run_job.target_count == 0:
+        # 🔴 2026-09-15 PE 개정 — 조건을 GATED_JOB_KEYS 소속에서 ZERO_TARGET_SUMMARY_BY_JOB
+        # 소속으로 바꿨다. 종전엔 "대상 0건이 review로 잘못 떨어지는 교착을 막는다"는
+        # GATED 전용 사고를 막는 코드였는데, 뉴스룸 3단계(newsroom_compose)는 게이트가
+        # 없어도(휴먼 인 더 루프가 없어 GATED_JOB_KEYS에 들지 않는다) 대상 0건이
+        # 완료로 정상 처리되는 job이라(정책 12-3 (a), LLM 없이 고정 문구로 끝난다)
+        # 같은 특수 요약이 필요하다. ZERO_TARGET_SUMMARY_BY_JOB에 있다는 사실 자체가
+        # "이 job은 0건일 때 일반 문구로는 부족하다"는 신호이므로, 그 멤버십 하나로
+        # 판정을 옮기면 GATED 여부와 무관하게 옳다 — cleanup/insight/weekly/monthly는
+        # 여전히 GATED이자 이 dict에도 있어 동작이 그대로다.
+        if job_key in ZERO_TARGET_SUMMARY_BY_JOB and run_job.target_count == 0:
             # 대상 0건 교착 방지(위 _job_run_state 주석과 같은 사고) — state는 이미
             # "done"으로 내려오므로(review로 가지 않는다) 요약 문구만 그 사정에 맞게
             # 따로 말해 준다. job_key마다 "대상"이 다른 말이라 ZERO_TARGET_SUMMARY_BY_JOB로
@@ -349,19 +422,24 @@ def _weekly_job_context():
     시점의 Report.date_from/date_to 저장도 services/runner.py가 같은 함수를 쓴다
     (docs/planning.md "3~5단계를 LLM으로 옮기는 설계" 2-1-(d) "뷰가 날짜를 따로
     계산하지 않는다"). "대상 기간에 Insight가 0건이다" 판정도 같은 문서의
-    insights_in_period()를 그대로 쓴다.
+    insights_in_period()를 그대로 쓴다. 주차 이름은 report_periods._week_number_in_month()
+    를 그대로 쓴다 — 새로 만들지 않는다.
 
-    🔴 잠금 사유가 둘로 갈린다(설계 2-1) — 같은 조건("대상 주 Report가 이미 있다")이
-    "아직 만들 때가 아니다"(오늘이 그 주 밖)와 "이미 만들었다"(오늘이 그 주 안)를
-    함께 가리킬 수 있어서다. 순서는 0건 판정이 먼저다(설계 2번 표 "이슈 0건이면 두
-    경우 모두 이번 주에 만들어진 이슈가 없어요가 앞선다").
+    🔴 2026-09-15 10차 개정 — summary가 「언제 썼다」가 아니라 「언제부터 만들 수
+    있다」를 말한다(docs/design.md "SET-010 · 실행" 10차 개정 ①②④번). 세 갈래다.
+      - 재료 없음(대상 주 Insight 0건): "3단계 이슈를 확정하면 열려요"
+      - 때가 아님(대상 주 Report가 이미 있음): "{다음 주차}는 {다음 금요일}부터
+        만들 수 있어요" — 다음 대상 주는 date_to + 7일이다(다음 금요일).
+      - 열려 있음: "{이번 주차}를 지금 만들 수 있어요"
+    block_reason(툴팁)도 함께 바뀐다 — "이번 주"처럼 오늘 기준으로 흔들리는 말 대신
+    주차 이름을 박아 "{이번 주차} 보고서가 이미 있어요"로 통일한다(9차가 화면
+    안팎을 갈랐던 "이번 주 보고서가 이미 있어요/금요일부터 만들 수 있어요" 두
+    문구가 10차에서 하나로 합쳐졌다 — 근거는 design.md 10차 개정 ③번).
 
-    🔴 summary도 함께 바꾼다(templates/setting/run.html 상단 계약 "summary와
-    block_reason을 짝으로 쓰는 단계들") — block_reason은 마우스를 올려야 보이고
-    항상 보이는 줄은 summary 하나다. 이미 쓴 보고서가 있어 잠긴 경우, summary가
-    "9월 2주차를 9/12에 썼어요"처럼 주차 표기를 남겨야 block_reason의 "금요일부터"가
-    어느 주를 가리키는지 사람이 알 수 있다."""
-    from services.report_periods import insights_in_period, target_week
+    🔴 idle/done일 때만 summary를 덮는다(design.md 10차 개정 ④번 말미) — running은
+    summary가 빈 문자열이어야 진행 표시가 그 자리를 받고(_run_job_display() 참고),
+    stopped/failed/review는 지금 벌어진 일을 말하는 게 더 급하다."""
+    from services.report_periods import _week_number_in_month, insights_in_period, target_week
 
     today = timezone.localtime(timezone.now()).date()
     date_from, date_to = target_week(today)
@@ -372,19 +450,25 @@ def _weekly_job_context():
     can_run, block_reason = True, ""
     if not insights_in_period(date_from, date_to).exists():
         can_run, block_reason = False, "이번 주에 만들어진 이슈가 없어요"
+        summary_override = "3단계 이슈를 확정하면 열려요"
     else:
         existing = Report.objects.filter(period_type="weekly", date_from=date_from).first()
         if existing:
             can_run = False
-            block_reason = (
-                "이번 주 보고서가 이미 있어요" if date_from <= today <= date_to
-                else "주간 보고서는 금요일부터 만들 수 있어요"
+            week_no = _week_number_in_month(date_to)
+            block_reason = f"{date_to.month}월 {week_no}주차 보고서가 이미 있어요"
+            next_to = date_to + timedelta(days=7)
+            next_week_no = _week_number_in_month(next_to)
+            summary_override = (
+                f"{next_to.month}월 {next_week_no}주차는 {next_to.month}/{next_to.day} "
+                "금요일부터 만들 수 있어요"
             )
-            week_no = (existing.date_to.day - 1) // 7 + 1
-            written = timezone.localtime(existing.created_at)
-            job["summary"] = (
-                f"{existing.date_to.month}월 {week_no}주차를 {written.month}/{written.day}에 썼어요"
-            )
+        else:
+            week_no = _week_number_in_month(date_to)
+            summary_override = f"{date_to.month}월 {week_no}주차를 지금 만들 수 있어요"
+
+    if job["state"] in ("idle", "done"):
+        job["summary"] = summary_override
 
     job.update({
         "can_run": can_run,
@@ -401,7 +485,16 @@ def _monthly_job_context():
     """run.html/_run_graph.html의 research_jobs["monthly"](5단계 월간 보고서).
     _weekly_job_context()와 같은 계약이되 갈래가 하나뿐이다 — 대상 월을 직전 달로
     정의하는 순간 "대상 월이 끝났는가"는 정의상 항상 참이라 "아직 열릴 때가 아니에요"에
-    해당하는 조건이 없다(설계 2-1-(b) 2번)."""
+    해당하는 조건이 없다(설계 2-1-(b) 2번).
+
+    🔴 2026-09-15 10차 개정 — weekly와 같은 세 갈래(design.md 10차 개정 ①②④번).
+      - 재료 없음: "3단계 이슈를 확정하면 열려요"
+      - 때가 아님(대상 월 Report가 이미 있음): "{이번 달}월 결산은 {다음 달 1일}
+        부터 만들 수 있어요" — target_month()는 "직전 달"을 대상으로 삼으므로,
+        다음에 열리는 결산의 대상 달은 정확히 today.month(오늘이 속한 달)이고
+        그 시작일은 다음 달 1일이다.
+      - 열려 있음: "{대상 월}월 결산을 지금 만들 수 있어요"
+    """
     from services.report_periods import insights_in_period, target_month
 
     today = timezone.localtime(timezone.now()).date()
@@ -413,14 +506,21 @@ def _monthly_job_context():
     can_run, block_reason = True, ""
     if not insights_in_period(date_from, date_to).exists():
         can_run, block_reason = False, "지난달에 만들어진 이슈가 없어요"
+        summary_override = "3단계 이슈를 확정하면 열려요"
     else:
         existing = Report.objects.filter(period_type="monthly", date_from=date_from).first()
         if existing:
-            can_run, block_reason = False, "지난달 결산이 이미 있어요"
-            written = timezone.localtime(existing.created_at)
-            job["summary"] = (
-                f"{existing.date_from.month}월분을 {written.month}/{written.day}에 썼어요"
-            )
+            can_run = False
+            block_reason = f"{date_from.month}월 결산이 이미 있어요"
+            # target_month()가 "직전 달"을 대상으로 삼으므로, 다음에 열리는 결산의
+            # 대상 달은 오늘이 속한 달(today.month)이고 그 시작일은 다음 달 1일이다.
+            next_month = today.month + 1 if today.month < 12 else 1
+            summary_override = f"{today.month}월 결산은 {next_month}/1부터 만들 수 있어요"
+        else:
+            summary_override = f"{date_from.month}월 결산을 지금 만들 수 있어요"
+
+    if job["state"] in ("idle", "done"):
+        job["summary"] = summary_override
 
     job.update({
         "can_run": can_run,
@@ -515,16 +615,56 @@ def _target_newsroom():
     return active_rooms[0] if len(active_rooms) == 1 else None
 
 
+def _newsroom_filter_summary(room) -> str:
+    """SET-010 교보 2단계 노드의 idle/done 요약 문구(PD 확정, 2026-09-15,
+    docs/planning.md "뉴스룸" 절 12-1 결정 (b), 12-5 PE 인계 5번). 세 갈래다 —
+    실행 중/중단/실패는 이 함수를 쓰지 않는다(_newsroom_jobs_context()가 그 상태는
+    _run_job_display()의 일반 표시를 그대로 쓰고, "완료"일 때만 이 문구로 덮어쓴다).
+
+    | 상태 | summary |
+    |---|---|
+    | 판정 전 N건 있음 | "판정 전 N건, MM/DD부터" |
+    | 판정 전 0건, 이력 있음 | "통과 N건, 제외 N건" |
+    | 판정 전 0건, 이력 없음 | "판정할 기사가 없어요" |
+
+    `room.pending_count`(apps/newsroom/models.py)와 같은 조건을 쓴다 — SET-009가
+    거기서 같은 수를 보인다(12-1 결정 (b) "SET-009 뉴스룸 관리에도 같은 수를 한 줄
+    둔다")."""
+    from apps.newsroom.models import NewsroomArticle
+
+    pending_count = room.pending_count
+    if pending_count:
+        oldest = (
+            room.articles.filter(filter_status=NewsroomArticle.STATUS_PENDING)
+            .order_by("collected_at").first()
+        )
+        return f"판정 전 {pending_count}건, {timezone.localtime(oldest.collected_at):%m/%d}부터"
+    passed_count = room.articles.filter(filter_status=NewsroomArticle.STATUS_PASSED).count()
+    rejected_count = room.articles.filter(filter_status=NewsroomArticle.STATUS_REJECTED).count()
+    if passed_count or rejected_count:
+        return f"통과 {passed_count}건, 제외 {rejected_count}건"
+    return "판정할 기사가 없어요"
+
+
 def _newsroom_jobs_context():
     """run.html/_run_graph.html의 newsroom_jobs(교보 소식 축, 4개 키 고정).
-    1단계 수집만 apps/newsroom/services.py의 collect_newsroom()을 실제로 부른다.
+    1~3단계는 각각 apps/newsroom/services.py의 collect_newsroom(),
+    services/llm.py의 filter_newsroom_articles(), compose_newsroom_message()를
+    실제로 부른다(3단계는 이번 라운드에서 연다, docs/planning.md "뉴스룸" 절 12-3).
     🔴 2026-09-14 — SET-009 "지금 수집" 버튼이 같은 함수를 요청 스레드에서 직접
     불러 RunJob 전역 잠금을 거치지 않는 두 번째 진입점이었다(SET-001의 collect_now와
     같은 유형의 버그). 그 버튼을 철거해 지금은 이 축의 유일한 호출부다.
-    2~4단계는 미구현이라 NOT_IMPLEMENTED_REASON으로 비활성이다."""
+    🔴 4단계(Slack 발송)는 만들지 않기로 확정됐다(정책 12-0) — 미구현이 아니라
+    결정이라 NOT_IMPLEMENTED_REASON을 쓰지 않는다(아래 jobs["newsroom_send"])."""
     from apps.newsroom.models import Newsroom, NewsroomArticle
 
     room = _target_newsroom()
+    no_room_reason = (
+        "" if room
+        else "수집할 채널이 없어요" if not Newsroom.objects.filter(is_active=True).exists()
+        else "활성 채널이 여러 개라 어느 채널인지 정할 수 없어요"
+    )
+
     if room:
         run_display = _run_job_display("newsroom_collect")
         if run_display:
@@ -550,10 +690,6 @@ def _newsroom_jobs_context():
             "review_url": "",
         })
     else:
-        no_room_reason = (
-            "수집할 채널이 없어요" if not Newsroom.objects.filter(is_active=True).exists()
-            else "활성 채널이 여러 개라 어느 채널인지 정할 수 없어요"
-        )
         collect_job = {
             "state": "idle", "state_label": "대기", "summary": no_room_reason,
             "can_run": False, "block_reason": no_room_reason,
@@ -561,18 +697,92 @@ def _newsroom_jobs_context():
         }
 
     jobs = {"newsroom_collect": collect_job}
-    for key in NEWSROOM_JOB_KEYS[1:]:
-        jobs[key] = {
-            "state": "idle",
-            "state_label": "대기",
-            "summary": NOT_IMPLEMENTED_REASON,
-            "can_run": False,
-            "block_reason": NOT_IMPLEMENTED_REASON,
+
+    # 2단계 필터 — 이번 라운드에서 버튼을 연다(정책 12-2, 12-5 PE 인계 2~5번).
+    # 🔴 휴먼 인 더 루프가 없어(12-2 (b)) GATED_JOB_KEYS에 넣지 않는다 — 완료
+    # (STATUS_DONE)가 그대로 "완료"로 보여야지 "검토 대기"로 떨어지면 안 된다.
+    # review_url도 비운다 — _run_node.html의 "결과 검토하기" 버튼 조건 둘(GATED
+    # 여부·review_url 존재) 중 하나만 비워도 될 것을, 둘 다 비워 구조적으로 막는다.
+    if room:
+        pending_count = room.pending_count
+        filter_display = _run_job_display("newsroom_filter")
+        summary = _newsroom_filter_summary(room)
+        if filter_display:
+            # "완료"일 때만 PD가 정한 세 갈래 문구로 덮어쓴다 — running/stopped/failed는
+            # _run_job_display()의 일반 표시(경과 시간, 중단 요약 등)를 그대로 쓴다.
+            if filter_display["state"] == "done":
+                filter_display["summary"] = summary
+            filter_job = filter_display
+        else:
+            filter_job = {"state": "idle", "state_label": "대기", "summary": summary}
+        filter_job.update({
+            "can_run": pending_count > 0,
+            "block_reason": "" if pending_count > 0 else "판정할 기사가 없어요",
             "warning": "",
             "confirm_text": "",
-            "run_url": "",
-            "review_url": reverse("setting_run_review", args=[key]),
+            "run_url": reverse("setting_run_start", args=["newsroom_filter"]) if pending_count > 0 else "",
+            "review_url": "",
+        })
+    else:
+        filter_job = {
+            "state": "idle", "state_label": "대기", "summary": no_room_reason,
+            "can_run": False, "block_reason": no_room_reason,
+            "warning": "", "confirm_text": "", "run_url": "", "review_url": "",
         }
+    jobs["newsroom_filter"] = filter_job
+
+    # 3단계 발송문 — 이번 라운드에서 버튼을 연다(정책 12-3, 12-5 PE 인계 6~7번).
+    # 🔴 휴먼 인 더 루프가 없다(12-3 (f) "3단계에 별도 확정 버튼을 두지 않는다" —
+    # 사람이 끼어드는 자리가 이미 복사 행위 자체다) — GATED_JOB_KEYS에 넣지 않고
+    # review_url도 비운다. 결과는 SET-009 발송 섹션(_newsroom_message.html)이
+    # 보여준다 — 검토 화면이 따로 필요 없다.
+    if room:
+        compose_target_count = room.articles.filter(
+            filter_status=NewsroomArticle.STATUS_PASSED, duplicate_of__isnull=True,
+        ).count()
+        compose_display = _run_job_display("newsroom_compose")
+        compose_job = compose_display or {"state": "idle", "state_label": "대기", "summary": ""}
+        if compose_target_count > 0:
+            compose_can_run, compose_block_reason = True, ""
+        elif pending_count > 0:
+            # 🔴 아직 2단계를 안 돌렸거나 방금 수집한 기사가 판정 전으로 남아 있다
+            # — "무엇을 하면 풀리는지"가 읽히도록 2단계 실행을 구체적으로 가리킨다.
+            compose_can_run, compose_block_reason = False, "판정 전 기사가 있어요. 2단계 필터를 먼저 실행해 주세요"
+        else:
+            # 🔴 2단계까지 이미 끝냈는데 통과가 0건인 정상적인 빈 날이다 — 더 누르라고
+            # 시킬 다음 동작이 없으므로(다음 수집을 기다리는 것뿐) 사실만 말한다.
+            compose_can_run, compose_block_reason = False, "통과한 기사가 없어요"
+        compose_job.update({
+            "can_run": compose_can_run,
+            "block_reason": compose_block_reason,
+            "warning": "",
+            "confirm_text": "",
+            "run_url": reverse("setting_run_start", args=["newsroom_compose"]) if compose_can_run else "",
+            "review_url": "",
+        })
+    else:
+        compose_job = {
+            "state": "idle", "state_label": "대기", "summary": no_room_reason,
+            "can_run": False, "block_reason": no_room_reason,
+            "warning": "", "confirm_text": "", "run_url": "", "review_url": "",
+        }
+    jobs["newsroom_compose"] = compose_job
+
+    # 4단계 발송 — 만들지 않기로 확정됐다(정책 12-0, 2026-09-15 사용자 지시 "Slack
+    # 메시지는 구현하지마"). "아직 안 만들었다"가 아니라 "안 만들기로 했다"이므로
+    # 문구도 그 사실을 말한다 — NOT_IMPLEMENTED_REASON("아직 만들지 않은
+    # 기능이에요")을 쓰면 순서를 기다리는 중으로 읽힌다(design.md ⑥ PE 인계 표).
+    jobs["newsroom_send"] = {
+        "state": "idle",
+        "state_label": "만들지 않음",
+        "summary": "만들지 않기로 한 단계예요",
+        "can_run": False,
+        "block_reason": "Slack 발송은 만들지 않기로 했어요. 3단계 발송문을 복사해서 직접 보내 주세요",
+        "warning": "",
+        "confirm_text": "",
+        "run_url": "",
+        "review_url": "",
+    }
     return jobs
 
 
@@ -630,7 +840,24 @@ def setting_run_start(request, job):
     elif job == "monthly":
         from services.runner import start_run
         start_run("monthly", actor=RunJob.ACTOR_SCREEN)
-    # 나머지 세 단계(뉴스룸 2~4단계) — services/llm.py의 판정 로직이 아직 없다.
+    elif job == "newsroom_filter":
+        # 🔴 이번 라운드 — 노드 자체가 판정 전 기사가 있을 때만(_newsroom_jobs_context()의
+        # can_run = pending_count > 0) run_url을 채운다. newsroom_collect와 같은 이유로
+        # 대상 채널을 다시 고른다 — 활성 채널이 0개나 2개 이상이면 그사이 바뀐 것이라
+        # 조용히 아무 일도 하지 않는다.
+        room = _target_newsroom()
+        if room:
+            from services.runner import start_run
+            start_run("newsroom_filter", actor=RunJob.ACTOR_SCREEN, newsroom_id=room.pk)
+    elif job == "newsroom_compose":
+        # 🔴 이번 라운드 — 노드 자체가 통과 기사가 있을 때만
+        # (_newsroom_jobs_context()의 compose_can_run) run_url을 채운다.
+        # newsroom_filter와 같은 이유로 대상 채널을 다시 고른다.
+        room = _target_newsroom()
+        if room:
+            from services.runner import start_run
+            start_run("newsroom_compose", actor=RunJob.ACTOR_SCREEN, newsroom_id=room.pk)
+    # 나머지 한 단계(뉴스룸 4단계 발송) — 만들지 않기로 확정됐다(정책 12-0).
     # 노드 자체가 run_url 없이 비활성이라 UI에서는 여기로 POST가 오지 않지만,
     # 직접 호출되더라도 그래프를 안전하게 다시 그려 준다.
     #
@@ -986,7 +1213,7 @@ GRADE_CHOICES_BY_JOB = {
 
 
 def setting_run_review(request, job):
-    """SET-010 검토 화면(승인 게이트). 계약은 templates/setting/run_review.html 상단
+    """SET-010 검토 화면(휴먼 인 더 루프). 계약은 templates/setting/run_review.html 상단
     주석이 정본이다. 실제 컨텍스트는 _run_review_context()가 만든다 — 대상 job_key로
     RunJob이 한 번도 없었으면 job_label/back_url 등 URL류만 채우고 나머지는 빈 상태로
     정상 렌더된다(그 함수 안에서 처리)."""
@@ -1720,3 +1947,26 @@ def setting_newsroom_keyword_delete(request, room_pk, pk):
     room = get_object_or_404(Newsroom, pk=room_pk)
     NewsroomKeyword.objects.filter(pk=pk, newsroom=room).delete()
     return render(request, "setting/_newsroom_keywords.html", _newsroom_keyword_context(room))
+
+
+@require_POST
+def setting_newsroom_message_mark_sent(request, pk):
+    """SET-009 발송 섹션(setting/_newsroom_message.html)의 「보냈다고 표시하기」
+    (docs/planning.md 뉴스룸 정책 12-3 (d)).
+
+    🔴 sent_at이 이미 있으면 덮어쓰지 않는다 — 두 사람이 거의 동시에 눌러도 먼저
+    찍힌 시각이 보존된다. 나중 요청이 덮으면 "언제 나갔나"가 틀어진다.
+    🔴 「표시 되돌리기」는 만들지 않는다(비대칭이 의도, 12-3 (d)) — 잘못 표시해도
+    복사 버튼이 그대로 살아 있어 그냥 다시 보내면 되고, 되돌릴 수 있으면 두 번째
+    사람이 또 붙여 넣는다. 그래서 이 뷰에는 취소·되돌리기 분기 자체가 없다.
+
+    HTMX가 이 조각(_newsroom_message.html)만 갈아 끼운다(hx-target + hx-swap
+    innerHTML) — 페이지 전체를 다시 그리면 열어 둔 채널 선택(Alpine)과 자동 높이
+    조절된 프롬프트 textarea가 초기화된다."""
+    from apps.newsroom.models import NewsroomMessage
+    message = get_object_or_404(NewsroomMessage, pk=pk)
+    if not message.sent_at:
+        message.sent_at = timezone.now()
+        message.status = NewsroomMessage.STATUS_SENT_MANUAL
+        message.save(update_fields=["sent_at", "status"])
+    return render(request, "setting/_newsroom_message.html", {"room": message.newsroom})

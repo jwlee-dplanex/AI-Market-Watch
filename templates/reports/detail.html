@@ -5,16 +5,22 @@
 
 {% block extra_head %}
 <style>
-  /* report.overview / report.content 마크다운 렌더링 스타일.
+  {% comment %}
+     report.overview / report.content 마크다운 렌더링 스타일.
      기존 디자인 시스템 톤(text-sm/leading-relaxed/text-gray-700, 카드 소제목
-     text-sm font-semibold text-gray-900)을 그대로 값으로 옮겨 재사용한다. */
-  /* 장문 본문의 세로 리듬 (2026-08-04) — 폭은 그대로 두고 행간·문단 간격만 넓혔다.
+     text-sm font-semibold text-gray-900)을 그대로 값으로 옮겨 재사용한다.
+  {% endcomment %}
+  {% comment %}
+     장문 본문의 세로 리듬 (2026-08-04) — 폭은 그대로 두고 행간·문단 간격만 넓혔다.
      한 줄이 길수록 눈이 줄 끝에서 다음 줄 첫 글자로 돌아올 때 헤매는데, 행간이
      넓으면 그 되돌아오기가 쉬워진다. 본문 폭을 좁히는 안은 메인 영역에 여백이
-     너무 많이 생겨 사용자가 반려했다(2026-08-04). */
-  /* word-break: keep-all — 한국어는 어절(띄어쓰기) 단위로 끊어야 읽힌다. 기본값(normal)은
+     너무 많이 생겨 사용자가 반려했다(2026-08-04).
+  {% endcomment %}
+  {% comment %}
+     word-break: keep-all — 한국어는 어절(띄어쓰기) 단위로 끊어야 읽힌다. 기본값(normal)은
      줄 끝에서 '금융권에서는' 같은 어절을 '금융권에' / '서는'으로 쪼개는데, 그때마다 눈이
-     멈춘다. 이 한 줄이 폭·행간 조정보다 체감이 클 수 있다. */
+     멈춘다. 이 한 줄이 폭·행간 조정보다 체감이 클 수 있다.
+  {% endcomment %}
   .markdown-content { color: #374151; font-size: 0.875rem; line-height: 1.9; word-break: keep-all; }
   .markdown-content h1, .markdown-content h2, .markdown-content h3,
   .markdown-content h4, .markdown-content h5, .markdown-content h6 {
@@ -37,8 +43,10 @@
     background: #f3f4f6; padding: 0.1rem 0.3rem; border-radius: 4px;
     font-family: 'JetBrains Mono', monospace; font-size: 0.8125rem;
   }
-  /* 표(2026-08-27) — 폭이 본문을 넘으면 페이지 전체가 가로로 밀리므로, table 자체를
-     block + overflow-x:auto로 만들어 표 안에서만 가로 스크롤되게 한다(래핑 div 불필요). */
+  {% comment %}
+     표(2026-08-27) — 폭이 본문을 넘으면 페이지 전체가 가로로 밀리므로, table 자체를
+     block + overflow-x:auto로 만들어 표 안에서만 가로 스크롤되게 한다(래핑 div 불필요).
+  {% endcomment %}
   .markdown-content table {
     display: block; overflow-x: auto; width: max-content; max-width: 100%;
     margin-bottom: 1.15rem; border-collapse: collapse;
@@ -49,35 +57,43 @@
   }
   .markdown-content th { background: #f9fafb; font-weight: 600; color: #111827; }
 
-  /* PDF 다운로드 (인쇄 CSS + window.print(), 2026-08-04) — REPORT-002 전용.
+  {% comment %}
+     PDF 다운로드 (인쇄 CSS + window.print(), 2026-08-04) — REPORT-002 전용.
      화면에서는 참고뉴스가 앱 내부 상세(news_detail)로 링크되지만, 인쇄물을 받는
      사람은 앱에 접근할 수 없으므로 인쇄에서만 news.url(원문 기사)로 바꿔 보여준다.
-     .news-link-print는 기본 숨김(화면) → @media print에서만 노출. */
+     .news-link-print는 기본 숨김(화면) → @media print에서만 노출.
+  {% endcomment %}
   .news-link-print { display: none; }
 
   @media print {
-    /* 브라우저가 넣는 머리글/바닥글(URL·날짜·페이지 번호)과 "배경 그래픽" 기본 꺼짐은
+    {% comment %}
+       브라우저가 넣는 머리글/바닥글(URL·날짜·페이지 번호)과 "배경 그래픽" 기본 꺼짐은
        CSS로 통제할 수 없다 — 사용자가 인쇄 대화상자에서 직접 조정해야 한다.
        안내 툴팁을 뒀다가 제거했다(2026-08-04, 매번 보이는 안내가 방해가 됨).
-       아래는 우리가 통제 가능한 범위. */
+       아래는 우리가 통제 가능한 범위.
+    {% endcomment %}
 
     @page {
       size: A4;
-      /* 상하 18mm·좌우 16mm — Word/한글 문서의 통상 여백(20~25mm)보다 살짝 좁게 잡았다.
+      {% comment %}
+         상하 18mm·좌우 16mm — Word/한글 문서의 통상 여백(20~25mm)보다 살짝 좁게 잡았다.
          본문 폭을 화면과 동일하게 유지한 채(요구사항: 화면 밖 폭 제한 금지) 인쇄에서만
          여백을 주는 것이라, 여백을 너무 넓히면 A4 폭 대비 실제 텍스트 폭이 좁아져
          한 줄에 담기는 글자 수가 줄고 페이지 수가 늘어난다. 표지가 없는 실무 보고서
-         톤이라 좁은 편을 택했다. */
+         톤이라 좁은 편을 택했다.
+      {% endcomment %}
       margin: 18mm 16mm;
     }
 
-    /* 앱 셸(사이드바·헤더) 및 화면 전용 조작 요소 숨김 */
+    {% comment %}앱 셸(사이드바·헤더) 및 화면 전용 조작 요소 숨김{% endcomment %}
     aside, header, .no-print { display: none !important; }
 
-    /* 앱 셸은 h-screen + overflow-hidden/auto 로 뷰포트 높이에 맞춰 잘리는 SPA 레이아웃이다.
+    {% comment %}
+       앱 셸은 h-screen + overflow-hidden/auto 로 뷰포트 높이에 맞춰 잘리는 SPA 레이아웃이다.
        그대로 인쇄하면 화면에 보이던 한 화면 분량만 찍히고 나머지가 잘린다. base.html을
        건드리지 않고(REPORT-002 범위 밖) 이 페이지의 print 스타일에서만 구조적 선택자로
-       높이 제약을 풀어 문서 전체 길이만큼 자연스럽게 흐르게 한다. */
+       높이 제약을 풀어 문서 전체 길이만큼 자연스럽게 흐르게 한다.
+    {% endcomment %}
     body, body > div, body > div > div, main {
       display: block !important;
       height: auto !important;
@@ -86,29 +102,37 @@
     main { padding: 0 !important; }
     body { background: white !important; }
 
-    /* 배경 그래픽이 꺼져 있어도 보라 그라디언트 헤더가 찍히도록 시도 — 브라우저 "배경
-       그래픽" 체크박스가 우선하는 환경도 있어 100% 보장은 못 하지만 해가 되지 않는다. */
+    {% comment %}
+       배경 그래픽이 꺼져 있어도 보라 그라디언트 헤더가 찍히도록 시도 — 브라우저 "배경
+       그래픽" 체크박스가 우선하는 환경도 있어 100% 보장은 못 하지만 해가 되지 않는다.
+    {% endcomment %}
     * {
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
     }
 
-    /* 카드 잉크 절약 — 그림자·테두리만 제거(요구사항 그대로). 배경(bg-gray-50/50)·여백은
+    {% comment %}
+       카드 잉크 절약 — 그림자·테두리만 제거(요구사항 그대로). 배경(bg-gray-50/50)·여백은
        그대로 둔다 — 브라우저 "배경 그래픽"이 꺼져 있으면 어차피 안 찍히고(기본값), 사용자가
-       켜둔 경우엔 옅은 회색 배경이 남아 이슈 카드 사이 구분을 여전히 눈으로 도와준다. */
+       켜둔 경우엔 옅은 회색 배경이 남아 이슈 카드 사이 구분을 여전히 눈으로 도와준다.
+    {% endcomment %}
     .report-card { box-shadow: none !important; }
-    /* 카드를 페이지 경계에서 쪼개지 않게 막으면(break-inside: avoid) 카드가 통째로 다음
+    {% comment %}
+       카드를 페이지 경계에서 쪼개지 않게 막으면(break-inside: avoid) 카드가 통째로 다음
        장으로 밀려 앞 페이지 아래가 크게 빈다. 사용자가 "이어서 나오게" 를 택해(2026-08-04)
        그 규칙을 뺐다 — 여백 없애기와 카드 안 갈리기는 동시에 만족할 수 없다.
-       제목 고아 방지(아래 break-after)는 여백을 거의 만들지 않으므로 유지한다. */
+       제목 고아 방지(아래 break-after)는 여백을 거의 만들지 않으므로 유지한다.
+    {% endcomment %}
     .issue-card { border: none !important; }
 
-    /* 제목만 페이지 끝에 홀로 남는 것(고아 제목) 방지 — "주요 이슈" 다음에 곧바로 페이지가
+    {% comment %}
+       제목만 페이지 끝에 홀로 남는 것(고아 제목) 방지 — "주요 이슈" 다음에 곧바로 페이지가
        넘어가 1번 이슈가 다음 장에서 시작하던 문제(2026-08-04 사용자 보고).
        break-after: avoid는 "이 요소 바로 뒤에서 페이지를 넘기지 말라"는 뜻이다.
        break-inside를 함께 주는 이유: 제목 자체가 두 줄일 때 줄 사이에서 갈리는 것도 막는다.
        .report-card h2는 "주요 동향"·"주요 이슈" 같은 섹션 제목, .issue-card h3은 개별 이슈 제목,
-       .markdown-content h1~h6은 RA가 본문에 쓴 소제목이다. */
+       .markdown-content h1~h6은 RA가 본문에 쓴 소제목이다.
+    {% endcomment %}
     .report-card h2,
     .issue-card h3,
     .markdown-content h1, .markdown-content h2, .markdown-content h3,
@@ -119,22 +143,26 @@
       page-break-inside: avoid;
     }
 
-    /* 참고뉴스: 화면용 앱 내부 링크는 숨기고 원문 링크 버전만 노출 */
+    {% comment %}참고뉴스: 화면용 앱 내부 링크는 숨기고 원문 링크 버전만 노출{% endcomment %}
     .news-link-print { display: block !important; }
 
-    /* 본문 타이포그래피는 지면에 맞게 살짝 촘촘히 — 행간 1.9/문단간격 1.15rem은 "긴
+    {% comment %}
+       본문 타이포그래피는 지면에 맞게 살짝 촘촘히 — 행간 1.9/문단간격 1.15rem은 "긴
        화면 스크롤에서 눈이 줄 끝→다음 줄 앞으로 되돌아오기 쉽게" 하려는 화면 전용
        근거였다. 종이는 페이지 전환 자체가 눈에 쉬는 지점을 주고, 인쇄물은 페이지 수가
        늘어나는 게 오히려 읽는 흐름과 자원(용지)을 더 쓰게 하므로 인쇄에서만 줄인다.
-       word-break: keep-all(한국어 어절 단위 줄바꿈)은 화면과 동일하게 유지한다. */
+       word-break: keep-all(한국어 어절 단위 줄바꿈)은 화면과 동일하게 유지한다.
+    {% endcomment %}
     .markdown-content { line-height: 1.6; }
     .markdown-content p { margin-bottom: 0.85rem; }
 
-    /* 표는 인쇄에서 가로 스크롤을 쓰지 않는다 (2026-08-28 사용자 보고).
+    {% comment %}
+       표는 인쇄에서 가로 스크롤을 쓰지 않는다 (2026-08-28 사용자 보고).
        화면용 display:block + overflow-x:auto를 그대로 인쇄하면 스크롤바가 찍히는 데서
        끝나지 않고 넘치는 칸이 잘려 나간다 — 종이에는 밀어서 볼 방법이 없기 때문이다.
        인쇄에서는 일반 표로 되돌려 지면 폭에 맞춰 접히게 하고, 글자를 한 단계 줄여
-       칸이 지나치게 좁아지는 것을 막는다. 행이 페이지 경계에서 갈리는 것도 막는다. */
+       칸이 지나치게 좁아지는 것을 막는다. 행이 페이지 경계에서 갈리는 것도 막는다.
+    {% endcomment %}
     .markdown-content table {
       display: table !important;
       width: 100% !important;
@@ -150,12 +178,14 @@
     .markdown-content tr { break-inside: avoid; page-break-inside: avoid; }
     .markdown-content thead { display: table-header-group; }
 
-    /* 첫 칸(기업·주체)이 너무 좁게 눌리는 것 방지 (2026-08-31 사용자 보고).
+    {% comment %}
+       첫 칸(기업·주체)이 너무 좁게 눌리는 것 방지 (2026-08-31 사용자 보고).
        table-layout: auto 는 글자가 많은 칸에 폭을 몰아주는데, 결산 표는 내용 칸이
        100자를 넘는 일이 잦아 회사 이름이 한두 글자씩 끊겨 세로로 길어졌다.
        keep-all 은 한국어 회사명이 어절 중간에서 갈리지 않게 하고, min-width 는
        그래도 남는 압박을 막는다. ⚠️ 화면은 가로 스크롤이 있어 이 문제가 없으므로
-       인쇄에서만 건다. */
+       인쇄에서만 건다.
+    {% endcomment %}
     .markdown-content th:first-child,
     .markdown-content td:first-child {
       min-width: 6.5em;
@@ -235,7 +265,7 @@ header_actions는 base.html에서 flex-shrink-0 헤더 안이라 본문을 스�
 
 {% block content %}
 
-<!-- 브레드크럼 (인쇄 시 브레드크럼+상태 배지 함께 숨김: no-print) -->
+{% comment %}브레드크럼 (인쇄 시 브레드크럼+상태 배지 함께 숨김: no-print){% endcomment %}
 <nav class="no-print flex items-center justify-between gap-2 text-xs text-gray-400 mb-4">
   <div class="flex items-center gap-2">
     <a href="{% url 'report_list' %}" class="hover:text-primary">보고서</a>
@@ -248,7 +278,7 @@ header_actions는 base.html에서 flex-shrink-0 헤더 안이라 본문을 스�
   {% endcomment %}
 </nav>
 
-<!-- 보고서 헤더 (Violet 그라디언트) -->
+{% comment %}보고서 헤더 (Violet 그라디언트){% endcomment %}
 {% comment %}
   우측 상단 DPLANEX 워드마크 — 화면·인쇄 모두 노출한다(2026-08-04).
   원본이 138x26px(가로 비율 5.31:1)라 표시 높이를 22px로 잡아 원본보다 작게 쓴다 —
@@ -314,7 +344,7 @@ header_actions는 base.html에서 flex-shrink-0 헤더 안이라 본문을 스�
 </div>
 {% endif %}
 
-<!-- 주요 동향 개요 -->
+{% comment %}주요 동향 개요{% endcomment %}
 {% if report.overview %}
 <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-6 mb-4 report-card">
   <h2 class="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
@@ -398,7 +428,7 @@ header_actions는 base.html에서 flex-shrink-0 헤더 안이라 본문을 스�
 {% endif %}
 {% endif %}
 
-<!-- 빈 상태: 완료 상태인데 본문이 모두 비어있는 경우 -->
+{% comment %}빈 상태: 완료 상태인데 본문이 모두 비어있는 경우{% endcomment %}
 {% if report.status == 'done' and not report.overview and not report.content %}
 <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-12 text-center text-gray-400 mb-4 report-card">
   <i data-lucide="inbox" class="w-10 h-10 mx-auto mb-3 opacity-40"></i>

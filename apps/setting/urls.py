@@ -32,4 +32,5 @@ urlpatterns = [
     path("newsroom/<int:room_pk>/keywords/add/", views.setting_newsroom_keyword_add, name="setting_newsroom_keyword_add"),
     path("newsroom/<int:room_pk>/keywords/<int:pk>/update/", views.setting_newsroom_keyword_update, name="setting_newsroom_keyword_update"),
     path("newsroom/<int:room_pk>/keywords/<int:pk>/delete/", views.setting_newsroom_keyword_delete, name="setting_newsroom_keyword_delete"),
+    path("newsroom/message/<int:pk>/mark-sent/", views.setting_newsroom_message_mark_sent, name="setting_newsroom_message_mark_sent"),
 ]

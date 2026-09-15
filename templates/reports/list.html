@@ -47,7 +47,7 @@
 <div class="space-y-6">
   {% for year in year_groups %}
   <div>
-    <!-- 연도 헤더 -->
+    {% comment %}연도 헤더{% endcomment %}
     {% comment %}
       heading에서 제외 (2026-08-08, PD, 사용자 확정 — 전 화면 제목 태그 정리). docs/design.md
       "제목 태그 층위 규칙" 참고 — 연도 구분자는 news/_list.html의 날짜 구분자와 같은 성격

@@ -15,7 +15,8 @@
   .edge-label-g text { font-family: "Malgun Gothic", "맑은 고딕", system-ui, sans-serif; }
 </style>
 
-<!-- 기간 필터 — 대시보드·지식그래프 공통 정책(전체/최근 30일/최근 7일). 기본값은 "전체"
+{% comment %}
+     기간 필터 — 대시보드·지식그래프 공통 정책(전체/최근 30일/최근 7일). 기본값은 "전체"
      (services/periods.py DEFAULT_PERIOD, 2026-08-05부터). 이 주석은 예전에 "둘 다 최근 7일로
      통일"이라고 적었던 시절 그대로 남아 있었는데 DEFAULT_PERIOD 변경 때 갱신되지 않았다 — 실제로는
      resolve_period()가 항상 유효한 값을 반환해 selected_period가 비는 경우가 없으므로 아래 "최근
@@ -26,7 +27,8 @@
      (HTMX 부분 스왑 대신). 이 화면은 D3 초기화 스크립트가 최상위 const/let 선언을 쓰는데, HTMX로 이
      <script>만 부분 재실행하면 브라우저가 같은 전역 스코프에 const를 두 번 선언하는 SyntaxError를
      던진다(두 번째 기간 전환부터 발생). 전체 페이지 재로드면 매번 새 문서라 이 문제 자체가 없고,
-     기존 필터 패턴과도 톤이 맞는다. -->
+     기존 필터 패턴과도 톤이 맞는다.
+{% endcomment %}
 {% comment %}
   🔴 검색 바 (2026-09-08 사용자 지시 — "지식 그래프에도 검색 넣어줘 / 기존의 기간
      필터 부분에 검색을 넣어주고 기간 필터의 위치는 오른쪽으로 이동하게 해줘").
@@ -102,10 +104,10 @@
 
 <div class="flex gap-4" style="height: calc(100vh - 9.5rem);">
 
-  <!-- 그래프 캔버스 -->
+  {% comment %}그래프 캔버스{% endcomment %}
   <div class="flex-1 bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm overflow-hidden relative">
 
-    <!-- 범례 — 클릭으로 타입 토글 -->
+    {% comment %}범례 — 클릭으로 타입 토글{% endcomment %}
     <div class="absolute top-4 left-4 z-10 flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-[10px] px-3 py-2 shadow-sm border border-[#E5E5E5]">
       <button onclick="toggleCategory(0, this)"
               class="flex items-center gap-1.5 text-xs text-gray-600 px-2 py-1 rounded-full hover:bg-gray-50 transition-all select-none">
@@ -121,7 +123,7 @@
       </button>
     </div>
 
-    <!-- 통계 — org_count/edge_count는 뷰에서 선택된 기간으로 이미 필터된 값(기간 정합성 계약) -->
+    {% comment %}통계 — org_count/edge_count는 뷰에서 선택된 기간으로 이미 필터된 값(기간 정합성 계약){% endcomment %}
     <div class="absolute top-4 right-4 z-10 text-xs text-gray-400 bg-white/90 backdrop-blur-sm rounded-[10px] px-3 py-2 shadow-sm border border-[#E5E5E5]">
       기업 {{ org_count }}개{% if edge_count %} · 연결 {{ edge_count }}개{% endif %}
     </div>
@@ -147,7 +149,7 @@
     <svg id="graph-svg" class="w-full h-full"></svg>
   </div>
 
-  <!-- 기업 패널 -->
+  {% comment %}기업 패널{% endcomment %}
   <div class="w-72 flex-shrink-0 overflow-y-auto">
     <div id="org-panel" class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-5 h-full">
       <div class="flex flex-col items-center justify-center h-full text-center text-gray-400 gap-3">
