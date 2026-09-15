@@ -37,7 +37,12 @@ logger = logging.getLogger(__name__)
 # 초안 확정 경로)은 이미 지난 라운드에 갖춰져 있었고, 이번 라운드는 버튼 자체
 # (apps/setting/views.py setting_run_start()의 "insight" 분기와 _research_jobs_context()의
 # can_run)와 선행 잠금(_insight_block_reason())을 함께 연다.
-IMPLEMENTED_JOB_KEYS = ("collect", "newsroom_collect", "cleanup", "insight")
+#
+# 🔴 "weekly"·"monthly"는 같은 날 뒤이은 라운드에서 연다(4, 5단계). _run_report()가
+# insight와 같은 구조(배치 전체 1호출, 이어하기 없음)를 그대로 쓰되 대상이 News가
+# 아니라 Insight다 — services/report_periods.py가 정본으로 계산한 대상 기간의 Insight를
+# 읽는다.
+IMPLEMENTED_JOB_KEYS = ("collect", "newsroom_collect", "cleanup", "insight", "weekly", "monthly")
 
 # 하트비트 정지 판정 임계값(초). 별도 감시 프로세스 없이, 화면을 읽는 요청마다
 # mark_stale_running_as_stopped()가 이 값으로 "진행중인데 멈춘 것"을 가려낸다
@@ -368,6 +373,101 @@ def _run_insight(run_job_id: int) -> None:
     )
 
 
+def _run_report(run_job_id: int, period_type: str) -> None:
+    """SET-010 조사 축 4단계(주간 보고서)·5단계(월간 보고서) — docs/planning.md
+    "3~5단계를 LLM으로 옮기는 설계"가 정본. _run_insight()와 같은 구조다(배치 전체
+    1호출, 이어하기 없음, 부분 저장 없음) — 대상이 News가 아니라 대상 기간의 Insight일
+    뿐이다.
+
+    🔴 대상 기간은 services/report_periods.py의 target_week()/target_month() 단
+    하나로 계산한다 — apps/setting/views.py의 버튼 잠금(_weekly_job_context(),
+    _monthly_job_context())이 같은 함수를 쓴다(설계 2-1-(d) "뷰가 날짜를 따로 계산하지
+    않는다"). 대상 0건 판정도 같은 문서의 insights_in_period()를 그대로 쓴다 — 잠금이
+    세는 이슈와 LLM이 보는 이슈가 어긋나면 "이슈가 있다는데 빈 보고서가 나온다"가 된다.
+
+    🔴 제목은 코드가 서식으로 만든다(weekly_title()/monthly_title()) — LLM 응답에는
+    제목이 없다(설계 8-(C)).
+
+    🔴 근거 기사(RunDraft.news)는 응답 content에 실제로 박힌 `참고: <uid>` 규약 줄의
+    합집합으로 정한다 — apps/reports/templatetags/report_extras.py의 report_issues()를
+    그대로 재사용한다(REPORT-002 렌더링과 같은 파서). 두 벌을 만들지 않는 이유는
+    "모든 이슈 블록 참고: 줄에 적힌 uid의 합집합 = Report.news 집합"이 이미 확정된
+    무결성 규약이기 때문이다 — 파서를 따로 만들면 그 규약이 파서 두 개 사이에서
+    어긋날 수 있다."""
+    from apps.news.models import News
+    from apps.setting.models import RunDraft
+    from services.llm import (
+        PROMPT_VERSION_MONTHLY, PROMPT_VERSION_WEEKLY,
+        generate_monthly_report, generate_weekly_report,
+    )
+    from services.report_periods import (
+        insights_in_period, monthly_title, target_month, target_week, weekly_title,
+    )
+
+    today = timezone.localtime(timezone.now()).date()
+    if period_type == "weekly":
+        date_from, date_to = target_week(today)
+        generate, title_fn, prompt_version = generate_weekly_report, weekly_title, PROMPT_VERSION_WEEKLY
+        draft_type = RunDraft.TYPE_WEEKLY
+    else:
+        date_from, date_to = target_month(today)
+        generate, title_fn, prompt_version = generate_monthly_report, monthly_title, PROMPT_VERSION_MONTHLY
+        draft_type = RunDraft.TYPE_MONTHLY
+
+    targets = list(
+        insights_in_period(date_from, date_to).prefetch_related("news").order_by("pk")
+    )
+    RunJob.objects.filter(pk=run_job_id).update(
+        target_count=len(targets), prompt_version=prompt_version,
+    )
+    if not targets:
+        # 대상 0건 — 화면 잠금(views.py _weekly_job_context()/_monthly_job_context())이
+        # 이 상태를 막는 정상 경로이지만, 관리 명령 등으로 직접 불렸을 때를 대비해
+        # 방어적으로 그대로 완료 처리한다(_run_insight()와 같은 판단).
+        return
+
+    result = generate(targets)
+
+    from apps.reports.templatetags.report_extras import report_issues
+
+    with transaction.atomic():
+        draft = RunDraft.objects.create(
+            run_job_id=run_job_id,
+            draft_type=draft_type,
+            title=title_fn(date_from, date_to),
+            content=result["content"],
+            overview=result["overview"],
+            date_from=date_from,
+            date_to=date_to,
+        )
+        news_uids = set()
+        for issue in report_issues(result["content"])["issues"]:
+            news_uids.update(n.uid for n in issue["news_list"])
+        matched = News.objects.filter(uid__in=news_uids) if news_uids else News.objects.none()
+        draft.news.set(matched)
+
+    usage = result.get("_usage", {})
+    RunJob.objects.filter(pk=run_job_id).update(
+        processed_count=len(targets), heartbeat_at=timezone.now(),
+        input_tokens=F("input_tokens") + usage.get("input_tokens", 0),
+        output_tokens=F("output_tokens") + usage.get("output_tokens", 0),
+        cache_creation_input_tokens=(
+            F("cache_creation_input_tokens") + usage.get("cache_creation_input_tokens", 0)
+        ),
+        cache_read_input_tokens=(
+            F("cache_read_input_tokens") + usage.get("cache_read_input_tokens", 0)
+        ),
+    )
+
+
+def _run_weekly(run_job_id: int) -> None:
+    _run_report(run_job_id, "weekly")
+
+
+def _run_monthly(run_job_id: int) -> None:
+    _run_report(run_job_id, "monthly")
+
+
 def _run_newsroom_collect(run_job_id: int, newsroom_id: int) -> None:
     from apps.newsroom.models import Newsroom
     from apps.newsroom.services import collect_newsroom
@@ -418,6 +518,13 @@ def _execute(run_job_id: int, kwargs: dict) -> None:
                 # 잠금(_insight_block_reason())을 얻어, 이제 화면 버튼이 이 분기로 닿는
                 # 정상 경로다.
                 _run_insight(run_job_id)
+            elif run_job.job_key == "weekly":
+                # 🔴 같은 날 뒤이은 라운드 — apps/setting/views.py의 setting_run_start()가
+                # "weekly" 분기와 선행 잠금(_weekly_job_context())을 얻어, 화면 버튼이
+                # 이 분기로 닿는 정상 경로다.
+                _run_weekly(run_job_id)
+            elif run_job.job_key == "monthly":
+                _run_monthly(run_job_id)
             else:
                 # 위 분기 밖의 job_key는 아직 실행 로직이 없다. 정상 경로로는 닿지
                 # 않는다(관리 명령 choices, 화면은 collect/newsroom_collect/cleanup만

@@ -2,7 +2,7 @@ import logging
 
 from django.conf import settings
 from django.contrib import messages
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Count, Min, Max, Exists, OuterRef
 from django.http import Http404, HttpResponse
 from django.shortcuts import render, get_object_or_404, redirect
@@ -11,6 +11,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 from apps.news.models import DeletedNewsRecord, Insight, News, TagCorrectionRecord
 from apps.news.services import correct_news_tag, delete_news_with_record
+from apps.reports.models import Report
 from .models import (
     DataSource, Keyword, CollectionLog, LLMLog, SlackConfig,
     Organization, TechTopic, OrgRelation, RunJob, RunProposal, RunDraft,
@@ -108,7 +109,10 @@ RUN_JOB_LABELS = {
 # 🔴 2026-09-15 2라운드 — 메인 그래프(_research_jobs_context)도 이번에 insight 버튼을
 # 열었다(선행 잠금 _insight_block_reason()과 함께). 위 문단이 말하는 "검토 대기" 전환은
 # 그 버튼이 열렸든 닫혔든 GATED_JOB_KEYS만 보고 동작하므로 이 상수 자체는 그대로다.
-GATED_JOB_KEYS = ("cleanup", "insight")
+#
+# 🔴 같은 날 뒤이은 라운드 — "weekly"·"monthly"를 더한다(4, 5단계). 둘 다 확정하면
+# Report가 실제로 생기는 승인 게이트가 있으므로 완료 즉시가 아니라 검토 대기를 거친다.
+GATED_JOB_KEYS = ("cleanup", "insight", "weekly", "monthly")
 
 # SET-010 검토 화면(run_review.html) 판정 기준 코드 범례. services/llm.py의
 # _build_system_prompt()가 내는 criterion_code enum(1-a/1-b/3/4/5/6/S-KLS/기타)과 값·순서를
@@ -155,8 +159,15 @@ RESUME_FROM_SCRATCH_JOB_KEYS = ("insight", "weekly", "monthly")
 # 그 칸을 채우지 않고 조용히 기존 빈 상태 문구로 떨어진다(템플릿이 이미 그렇게 짜여 있다).
 # 🔴 2026-09-15 PE 신설 — "insight" 항목을 더했다(3단계 판정 데이터 층). summary 문구는
 # run_review.html 상단 계약이 든 예시 그대로다.
-REVIEW_INPUT_LABEL_BY_JOB = {"cleanup": "미검증 뉴스", "insight": "검증된 뉴스"}
-REVIEW_STEP_SUMMARY_BY_JOB = {"cleanup": "기사마다 관련성을 판정했어요", "insight": "같은 사건을 이슈로 묶었어요"}
+# 🔴 같은 날 뒤이은 라운드 — "weekly"·"monthly"를 더한다(4, 5단계).
+REVIEW_INPUT_LABEL_BY_JOB = {
+    "cleanup": "미검증 뉴스", "insight": "검증된 뉴스",
+    "weekly": "이번 주 이슈", "monthly": "지난달 이슈",
+}
+REVIEW_STEP_SUMMARY_BY_JOB = {
+    "cleanup": "기사마다 관련성을 판정했어요", "insight": "같은 사건을 이슈로 묶었어요",
+    "weekly": "이슈를 모아 주간 보고서를 썼어요", "monthly": "이슈를 모아 월간 결산을 썼어요",
+}
 
 # 🔴 2026-09-15 2라운드 PE 신설 — _run_job_display()의 "대상 0건" 교착 방지 분기(아래)가
 # 쓰는 job_key별 요약 문구. GATED_JOB_KEYS 두 job의 "대상"이 서로 다른 말이라(cleanup은
@@ -167,6 +178,10 @@ REVIEW_STEP_SUMMARY_BY_JOB = {"cleanup": "기사마다 관련성을 판정했어
 ZERO_TARGET_SUMMARY_BY_JOB = {
     "cleanup": "정리할 미검증 뉴스가 없었어요",
     "insight": "이슈로 묶을 뉴스가 없었어요",
+    # 🔴 같은 날 뒤이은 라운드 — 없으면 cleanup 전용 문구("정리할 미검증 뉴스가
+    # 없었어요")가 그대로 찍혀 4, 5단계와 무관한 문장이 뜬다.
+    "weekly": "이번 주에 만들어진 이슈가 없었어요",
+    "monthly": "지난달에 만들어진 이슈가 없었어요",
 }
 
 # 🔴 2026-09-15 PE 신설 — review.step.model이 종전에는 settings.ANTHROPIC_MODEL_FAST로
@@ -327,6 +342,97 @@ def _insight_block_reason() -> str:
     return ""
 
 
+def _weekly_job_context():
+    """run.html/_run_graph.html의 research_jobs["weekly"](4단계 주간 보고서).
+
+    🔴 대상 주는 services/report_periods.target_week() 단 하나로 계산한다 — 확정
+    시점의 Report.date_from/date_to 저장도 services/runner.py가 같은 함수를 쓴다
+    (docs/planning.md "3~5단계를 LLM으로 옮기는 설계" 2-1-(d) "뷰가 날짜를 따로
+    계산하지 않는다"). "대상 기간에 Insight가 0건이다" 판정도 같은 문서의
+    insights_in_period()를 그대로 쓴다.
+
+    🔴 잠금 사유가 둘로 갈린다(설계 2-1) — 같은 조건("대상 주 Report가 이미 있다")이
+    "아직 만들 때가 아니다"(오늘이 그 주 밖)와 "이미 만들었다"(오늘이 그 주 안)를
+    함께 가리킬 수 있어서다. 순서는 0건 판정이 먼저다(설계 2번 표 "이슈 0건이면 두
+    경우 모두 이번 주에 만들어진 이슈가 없어요가 앞선다").
+
+    🔴 summary도 함께 바꾼다(templates/setting/run.html 상단 계약 "summary와
+    block_reason을 짝으로 쓰는 단계들") — block_reason은 마우스를 올려야 보이고
+    항상 보이는 줄은 summary 하나다. 이미 쓴 보고서가 있어 잠긴 경우, summary가
+    "9월 2주차를 9/12에 썼어요"처럼 주차 표기를 남겨야 block_reason의 "금요일부터"가
+    어느 주를 가리키는지 사람이 알 수 있다."""
+    from services.report_periods import insights_in_period, target_week
+
+    today = timezone.localtime(timezone.now()).date()
+    date_from, date_to = target_week(today)
+
+    display = _run_job_display("weekly")
+    job = display or {"state": "idle", "state_label": "대기", "summary": ""}
+
+    can_run, block_reason = True, ""
+    if not insights_in_period(date_from, date_to).exists():
+        can_run, block_reason = False, "이번 주에 만들어진 이슈가 없어요"
+    else:
+        existing = Report.objects.filter(period_type="weekly", date_from=date_from).first()
+        if existing:
+            can_run = False
+            block_reason = (
+                "이번 주 보고서가 이미 있어요" if date_from <= today <= date_to
+                else "주간 보고서는 금요일부터 만들 수 있어요"
+            )
+            week_no = (existing.date_to.day - 1) // 7 + 1
+            written = timezone.localtime(existing.created_at)
+            job["summary"] = (
+                f"{existing.date_to.month}월 {week_no}주차를 {written.month}/{written.day}에 썼어요"
+            )
+
+    job.update({
+        "can_run": can_run,
+        "block_reason": block_reason,
+        "warning": "",
+        "confirm_text": "",
+        "run_url": reverse("setting_run_start", args=["weekly"]),
+        "review_url": reverse("setting_run_review", args=["weekly"]),
+    })
+    return job
+
+
+def _monthly_job_context():
+    """run.html/_run_graph.html의 research_jobs["monthly"](5단계 월간 보고서).
+    _weekly_job_context()와 같은 계약이되 갈래가 하나뿐이다 — 대상 월을 직전 달로
+    정의하는 순간 "대상 월이 끝났는가"는 정의상 항상 참이라 "아직 열릴 때가 아니에요"에
+    해당하는 조건이 없다(설계 2-1-(b) 2번)."""
+    from services.report_periods import insights_in_period, target_month
+
+    today = timezone.localtime(timezone.now()).date()
+    date_from, date_to = target_month(today)
+
+    display = _run_job_display("monthly")
+    job = display or {"state": "idle", "state_label": "대기", "summary": ""}
+
+    can_run, block_reason = True, ""
+    if not insights_in_period(date_from, date_to).exists():
+        can_run, block_reason = False, "지난달에 만들어진 이슈가 없어요"
+    else:
+        existing = Report.objects.filter(period_type="monthly", date_from=date_from).first()
+        if existing:
+            can_run, block_reason = False, "지난달 결산이 이미 있어요"
+            written = timezone.localtime(existing.created_at)
+            job["summary"] = (
+                f"{existing.date_from.month}월분을 {written.month}/{written.day}에 썼어요"
+            )
+
+    job.update({
+        "can_run": can_run,
+        "block_reason": block_reason,
+        "warning": "",
+        "confirm_text": "",
+        "run_url": reverse("setting_run_start", args=["monthly"]),
+        "review_url": reverse("setting_run_review", args=["monthly"]),
+    })
+    return job
+
+
 def _research_jobs_context():
     """run.html/_run_graph.html의 research_jobs(AI 시장 조사 축, 5개 키 고정)."""
     run_display = _run_job_display("collect")
@@ -391,18 +497,11 @@ def _research_jobs_context():
     })
     jobs["insight"] = insight_job
 
-    for key in RESEARCH_JOB_KEYS[3:]:
-        jobs[key] = {
-            "state": "idle",
-            "state_label": "대기",
-            "summary": NOT_IMPLEMENTED_REASON,
-            "can_run": False,
-            "block_reason": NOT_IMPLEMENTED_REASON,
-            "warning": "",
-            "confirm_text": "",
-            "run_url": "",
-            "review_url": reverse("setting_run_review", args=[key]),
-        }
+    # 4, 5단계 주간·월간 보고서 — 같은 날 뒤이은 라운드에서 실행 버튼을 연다
+    # (services/runner.py IMPLEMENTED_JOB_KEYS에 "weekly"·"monthly" 추가와 짝을
+    # 이룬다). can_run/block_reason/summary는 각 컨텍스트 함수가 전부 결정한다.
+    jobs["weekly"] = _weekly_job_context()
+    jobs["monthly"] = _monthly_job_context()
     return jobs
 
 
@@ -523,9 +622,17 @@ def setting_run_start(request, job):
         # 완료 처리하도록 이미 짜여 있다(services/runner.py _run_insight() "대상 0건").
         from services.runner import start_run
         start_run("insight", actor=RunJob.ACTOR_SCREEN)
-    # 나머지 다섯 단계(weekly/monthly, 뉴스룸 2~4단계) — services/llm.py의 판정 로직이
-    # 아직 없다. 노드 자체가 run_url 없이 비활성이라 UI에서는 여기로 POST가 오지
-    # 않지만, 직접 호출되더라도 그래프를 안전하게 다시 그려 준다.
+    elif job == "weekly":
+        # 🔴 같은 날 뒤이은 라운드 — 선행 잠금(_weekly_job_context())을 통과했을 때만
+        # 노드가 run_url을 채운다. insight와 같은 이유로 여기서 다시 검사하지 않는다.
+        from services.runner import start_run
+        start_run("weekly", actor=RunJob.ACTOR_SCREEN)
+    elif job == "monthly":
+        from services.runner import start_run
+        start_run("monthly", actor=RunJob.ACTOR_SCREEN)
+    # 나머지 세 단계(뉴스룸 2~4단계) — services/llm.py의 판정 로직이 아직 없다.
+    # 노드 자체가 run_url 없이 비활성이라 UI에서는 여기로 POST가 오지 않지만,
+    # 직접 호출되더라도 그래프를 안전하게 다시 그려 준다.
     #
     # start_run()은 RunJob을 만들고 워커 스레드를 띄운 뒤 즉시 반환한다 — 여기서
     # 수집이 끝나기를 기다리지 않는다(gunicorn 요청 타임아웃에 걸리지 않는 이유,
@@ -610,6 +717,48 @@ def _insight_items_context(run_job):
             "grade_reason": draft.grade_reason,
             "news_count": len(news_list),
             "news_range": news_range,
+            "news_items": [
+                {
+                    "title": n.title, "published_at": n.published_at, "source": n.source_domain,
+                    "url": reverse("news_detail", args=[n.uid]),
+                }
+                for n in news_list
+            ],
+        })
+    return items
+
+
+def _report_items_context(run_job):
+    """SET-010 4, 5단계(주간·월간 보고서) 검토 화면의 report_items 목록. 계약은
+    templates/setting/run_review.html 상단 주석 "report_items" 절이 정본이다.
+
+    🔴 주간과 월간이 이 한 함수를 같이 쓴다 — 갈리는 것은 draft_type 필터뿐이고
+    그 값은 services/runner.py._run_report()가 이미 job_key별로 다르게 저장해
+    뒀다. body_label만 job_key로 갈라 내린다(월간은 "주요 이슈 요약", REPORT-002가
+    그렇게 부른다).
+
+    🔴 id는 RunDraft.pk다 — 확정 POST의 draft_ids가 이 값을 그대로 되돌려 보낸다.
+    🔴 grade/implication은 내리지 않는다 — 보고서 초안에는 그 두 칸이 없다(RunDraft
+    docstring, "이슈 전용" 필드)."""
+    drafts = list(
+        RunDraft.objects.filter(
+            run_job=run_job, draft_type__in=(RunDraft.TYPE_WEEKLY, RunDraft.TYPE_MONTHLY),
+            status=RunProposal.STATUS_PENDING,
+        ).prefetch_related("news").order_by("pk")
+    )
+    body_label = "주요 이슈 요약" if run_job.job_key == "monthly" else "주요 이슈"
+    items = []
+    for draft in drafts:
+        news_list = list(draft.news.order_by("published_at"))
+        items.append({
+            "id": draft.pk,
+            "title": draft.title,
+            "overview": draft.overview,
+            "content": draft.content,
+            "body_label": body_label,
+            "date_from": draft.date_from,
+            "date_to": draft.date_to,
+            "news_count": len(news_list),
             "news_items": [
                 {
                     "title": n.title, "published_at": n.published_at, "source": n.source_domain,
@@ -810,6 +959,18 @@ def _run_review_context(job_key):
         # 영영 잠긴다 — 이슈에 안 묶인 기사가 남는 것은 정상이다("입력 기사 전부를
         # 어딘가에 묶을 필요가 없다", services/llm.py _build_insight_system_prompt()).
         output["uncovered_count"] = 0
+    elif job_key in ("weekly", "monthly"):
+        # 🔴 같은 날 뒤이은 라운드 — 4, 5단계 보고서 초안. insight와 같은 이유로
+        # RunProposal이 아니라 RunDraft에서 온다. insight_count 키를 그대로 쓰는 이유는
+        # run_review.html 상단 계약 "output.insight_count" 주석 참고 — "세는 것이
+        # '채택 대상 RunDraft 수'로 같아서 키를 늘리지 않았다."
+        report_items = _report_items_context(run_job)
+        review["report_items"] = report_items
+        output["insight_count"] = len(report_items)
+        output["draft_noun"] = RunDraft.TYPE_WEEKLY if job_key == "weekly" else RunDraft.TYPE_MONTHLY
+        # 🔴 uncovered_count는 3단계와 같은 이유로 항상 0이다 — 대상 전량(그 기간의
+        # Insight 전부)이 한 편의 보고서에 다 실릴 필요가 없다(상한 5건, 하한 없음).
+        output["uncovered_count"] = 0
     review["output"] = output
     return review
 
@@ -881,6 +1042,67 @@ def _confirm_insight_drafts(request, run_job) -> None:
             draft.save(update_fields=["created_insight", "status"])
 
 
+def _confirm_report_drafts(request, run_job) -> None:
+    """SET-010 4, 5단계(주간·월간 보고서) 확정. 채택된 RunDraft마다 Report를 만들어
+    근거 News를 M2M으로 옮긴다(설계 6번 표). 거절된 초안은 지우지 않고 상태만 남긴다
+    — _confirm_insight_drafts()와 같은 원칙이다.
+
+    🔴 확정 POST가 받는 체크박스 이름은 "draft_ids"다. "insight_ids"와 다르다
+    (run_review.html 상단 계약 "확정 POST가 받는 값") — 같은 RunDraft 테이블을
+    가리키지만 섞이면 확정 뷰가 이슈로 만들 것과 보고서로 만들 것을 구분하지 못한다.
+
+    🔴 확정으로 만들어지는 Report는 status="generating"이다 — "아직 사람이 손봐야
+    한다"는 뜻이고, done으로 바꾸는 주체는 RA이며 그 동작은 화면 밖(ORM)에서
+    일어난다(설계 4번).
+
+    🔴 Report.unique_together(period_type, date_from) 충돌은 사람이 읽을 수 있는
+    메시지로 바꾼다(설계 2-1-(c) "확정 뷰에서 한 번 더 막는다") — 그대로 터지면
+    500이다. 한 실행에 초안이 두 편 쌓인 날(재실행 등)에 실제로 걸릴 수 있다."""
+    accepted_ids = set(request.POST.getlist("draft_ids"))
+    pending = list(
+        RunDraft.objects.filter(
+            run_job=run_job, draft_type__in=(RunDraft.TYPE_WEEKLY, RunDraft.TYPE_MONTHLY),
+            status=RunProposal.STATUS_PENDING,
+        ).prefetch_related("news")
+    )
+    period_type = "weekly" if run_job.job_key == "weekly" else "monthly"
+
+    created_count = 0
+    for draft in pending:
+        if str(draft.pk) not in accepted_ids:
+            draft.status = RunProposal.STATUS_REJECTED
+            draft.save(update_fields=["status"])
+            continue
+
+        try:
+            with transaction.atomic():
+                report = Report.objects.create(
+                    period_type=period_type, date_from=draft.date_from, date_to=draft.date_to,
+                    title=draft.title, overview=draft.overview, content=draft.content,
+                    status="generating",
+                )
+                report.news.set(draft.news.all())
+                draft.created_report = report
+                draft.status = RunProposal.STATUS_ACCEPTED
+                draft.save(update_fields=["created_report", "status"])
+        except IntegrityError:
+            logger.warning(
+                "RunDraft %s(%s) 확정 중 같은 기간 보고서가 이미 있어 건너뛰었어요.",
+                draft.pk, run_job.job_key,
+            )
+            messages.warning(
+                request,
+                "같은 기간 보고서가 이미 있어서 만들지 못했어요. "
+                "실행 화면에서 검토 대기 목록을 확인해 주세요.",
+            )
+            continue
+        else:
+            created_count += 1
+
+    if created_count:
+        messages.success(request, "보고서를 만들었어요. 다듬고 나서 완료로 바꿔 주세요.")
+
+
 @require_POST
 def setting_run_review_confirm(request, job):
     """검토 화면의 확정 버튼. 체크된 제안은 채택해 실제로 반영하고, 대기 중이던 나머지
@@ -915,6 +1137,16 @@ def setting_run_review_confirm(request, job):
         # 🔴 3단계(주요 이슈)는 산출물의 모양이 달라(설계 3번) RunProposal이 아니라
         # RunDraft를 다룬다 — 아래 삭제/태그 교정 경로와 완전히 갈라진 별도 확정 경로다.
         _confirm_insight_drafts(request, run_job)
+        run_job.status = RunJob.STATUS_CONFIRMED
+        run_job.save(update_fields=["status"])
+        response = HttpResponse()
+        response["HX-Redirect"] = reverse("setting_run")
+        return response
+
+    if job in ("weekly", "monthly"):
+        # 🔴 4, 5단계(주간·월간 보고서)도 insight와 같은 이유로 RunDraft를 다루는
+        # 별도 확정 경로다.
+        _confirm_report_drafts(request, run_job)
         run_job.status = RunJob.STATUS_CONFIRMED
         run_job.save(update_fields=["status"])
         response = HttpResponse()
