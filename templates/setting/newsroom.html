@@ -21,8 +21,8 @@
   <div class="w-52 flex-shrink-0 bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-2">
     {% for room in rooms %}
     <button @click="selected = {{ room.id }}"
-            class="w-full text-left flex items-center gap-2 px-3 py-2.5 rounded-[10px] text-sm transition-colors"
-            :class="selected === {{ room.id }} ? 'bg-[#F3EAFB] border-l-2 border-primary text-primary font-semibold' : 'text-gray-600 hover:bg-gray-50'">
+            class="w-full text-left flex items-center gap-2 px-3 py-3 rounded-[10px] text-sm transition-colors"
+            :class="selected === {{ room.id }} ? 'bg-[#F3EAFB] text-primary font-semibold' : 'text-gray-600 hover:bg-gray-50'">
       <i data-lucide="radio-tower" class="w-4 h-4 flex-shrink-0"></i>
       <span class="truncate">{{ room.name }}</span>
     </button>
@@ -65,11 +65,11 @@
   </div>
 
   <!-- 편집 패널 (우) -->
-  <div class="flex-1 min-w-0 bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-5">
+  <div class="flex-1 min-w-0 bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-6">
     {% for room in rooms %}
     <div x-show="selected === {{ room.id }}" x-cloak>
 
-      <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center justify-between mb-6">
         <h2 class="text-sm font-semibold text-gray-900">{{ room.name }}</h2>
         {% if room.is_active %}
         <span class="text-[10px] px-2 py-0.5 rounded-full bg-[#E6F7F5] text-[#00AF9A]">활성</span>
@@ -82,17 +82,17 @@
       <form id="room-form-{{ room.id }}" method="post" action="{% url 'setting_newsroom_save' %}">
         {% csrf_token %}
         <input type="hidden" name="room_id" value="{{ room.id }}">
-        <p class="text-xs font-semibold text-gray-500 mb-2">기본</p>
-        <div class="space-y-3 mb-5">
+        <p class="text-xs font-semibold text-gray-500 mb-3">기본</p>
+        <div class="space-y-4 mb-8">
           <div>
             <label class="text-xs text-gray-500 mb-1 block">이름</label>
             <input type="text" name="name" value="{{ room.name }}" required
-                   class="w-full text-xs border border-[#E5E5E5] rounded-[10px] px-3 py-2 focus:outline-none focus:border-primary focus:ring-2 focus:ring-[rgba(96,38,158,0.14)]">
+                   class="w-full text-xs border border-[#E5E5E5] rounded-[10px] px-3 py-3 focus:outline-none focus:border-primary focus:ring-2 focus:ring-[rgba(96,38,158,0.14)]">
           </div>
           <div>
             <label class="text-xs text-gray-500 mb-1 block">설명</label>
             <input type="text" name="description" value="{{ room.description }}"
-                   class="w-full text-xs border border-[#E5E5E5] rounded-[10px] px-3 py-2 focus:outline-none focus:border-primary focus:ring-2 focus:ring-[rgba(96,38,158,0.14)]">
+                   class="w-full text-xs border border-[#E5E5E5] rounded-[10px] px-3 py-3 focus:outline-none focus:border-primary focus:ring-2 focus:ring-[rgba(96,38,158,0.14)]">
           </div>
           <label class="flex items-center gap-2 text-xs text-gray-600">
             <input type="checkbox" name="is_active" {% if room.is_active %}checked{% endif %}>
@@ -103,8 +103,8 @@
       <!-- 기본: 폼 끝. 아래 수집 섹션은 이 폼 밖(HTMX 별도 엔드포인트)이다. -->
 
       <!-- 수집 -->
-      <div class="mb-5">
-        <p class="text-xs font-semibold text-gray-500 mb-2">수집</p>
+      <div class="mb-8">
+        <p class="text-xs font-semibold text-gray-500 mb-3">수집</p>
         <div id="room-keyword-panel-{{ room.id }}">
           {% include "setting/_newsroom_keywords.html" with room=room keywords=room.keywords.all %}
         </div>
@@ -130,8 +130,8 @@
       </div>
 
       <!-- 선별·작성: 필드는 위 room-form에 form= 속성으로 연결 -->
-      <div class="mb-5">
-        <p class="text-xs font-semibold text-gray-500 mb-2">선별·작성 <span class="text-gray-400 font-normal">준비 중이에요</span></p>
+      <div class="mb-8">
+        <p class="text-xs font-semibold text-gray-500 mb-3">선별·작성 <span class="text-gray-400 font-normal">준비 중이에요</span></p>
         {% comment %}
           🔴 2026-09-11 — 두 프롬프트 textarea를 내용 높이에 맞춰 자동으로 늘린다
           (사용자 지시 — "전체 내용이 보이게 텍스트뷰 높이를 조정해줘, 너무 칸의 높이가
@@ -154,7 +154,7 @@
 
           ⚠️ rows="4"는 지우지 않았다. 자바스크립트가 죽었을 때의 바닥값이다.
         {% endcomment %}
-        <div class="space-y-3">
+        <div class="space-y-4">
           <div>
             <label class="text-xs text-gray-500 mb-1 block">필터 프롬프트</label>
             <textarea form="room-form-{{ room.id }}" name="filter_prompt" rows="4"
@@ -181,20 +181,20 @@
       </div>
 
       <!-- 발송: 필드는 위 room-form에 form= 속성으로 연결 -->
-      <div class="mb-5"
+      <div class="mb-8"
            x-data="{ revealed: false, hour: '{{ room.send_hour|stringformat:'02d' }}', minute: '{{ room.send_minute|stringformat:'02d' }}', freq: '{{ room.send_frequency }}' }">
-        <p class="text-xs font-semibold text-gray-500 mb-2">발송 <span class="text-gray-400 font-normal">준비 중이에요</span></p>
-        <div class="space-y-3">
+        <p class="text-xs font-semibold text-gray-500 mb-3">발송 <span class="text-gray-400 font-normal">준비 중이에요</span></p>
+        <div class="space-y-4">
           <div>
             <label class="text-xs text-gray-500 mb-1 block">채널명</label>
             <input form="room-form-{{ room.id }}" type="text" name="slack_channel_name" value="{{ room.slack_channel_name }}" placeholder="#kyobo-brief"
-                   class="w-full text-xs border border-[#E5E5E5] rounded-[10px] px-3 py-2 focus:outline-none focus:border-primary focus:ring-2 focus:ring-[rgba(96,38,158,0.14)]">
+                   class="w-full text-xs border border-[#E5E5E5] rounded-[10px] px-3 py-3 focus:outline-none focus:border-primary focus:ring-2 focus:ring-[rgba(96,38,158,0.14)]">
           </div>
           <div>
             <label class="text-xs text-gray-500 mb-1 block">Webhook</label>
             <div class="flex gap-2">
               <input form="room-form-{{ room.id }}" :type="revealed ? 'text' : 'password'" name="slack_webhook_url" value="{{ room.slack_webhook_url }}"
-                     class="flex-1 text-xs border border-[#E5E5E5] rounded-[10px] px-3 py-2 focus:outline-none focus:border-primary focus:ring-2 focus:ring-[rgba(96,38,158,0.14)]">
+                     class="flex-1 text-xs border border-[#E5E5E5] rounded-[10px] px-3 py-3 focus:outline-none focus:border-primary focus:ring-2 focus:ring-[rgba(96,38,158,0.14)]">
               <button type="button" @click="revealed = !revealed" class="px-2 text-gray-400 hover:text-primary transition-colors">
                 <i data-lucide="eye" class="w-4 h-4"></i>
               </button>
@@ -204,15 +204,15 @@
             <label class="text-xs text-gray-500 mb-1 block">발송 시각</label>
             <div class="flex gap-2">
               <select form="room-form-{{ room.id }}" name="send_hour" x-model="hour"
-                      class="text-xs border border-[#E5E5E5] rounded-[10px] px-2 py-2 focus:outline-none focus:border-primary bg-white text-gray-700">
+                      class="text-xs border border-[#E5E5E5] rounded-[10px] px-2 py-3 focus:outline-none focus:border-primary bg-white text-gray-700">
                 {% for h in hour_choices %}<option value="{{ h }}">{{ h }}</option>{% endfor %}
               </select>
               <select form="room-form-{{ room.id }}" name="send_minute" x-model="minute"
-                      class="text-xs border border-[#E5E5E5] rounded-[10px] px-2 py-2 focus:outline-none focus:border-primary bg-white text-gray-700">
+                      class="text-xs border border-[#E5E5E5] rounded-[10px] px-2 py-3 focus:outline-none focus:border-primary bg-white text-gray-700">
                 {% for m in minute_choices %}<option value="{{ m }}">{{ m }}</option>{% endfor %}
               </select>
               <select form="room-form-{{ room.id }}" name="send_frequency" x-model="freq"
-                      class="text-xs border border-[#E5E5E5] rounded-[10px] px-2 py-2 focus:outline-none focus:border-primary bg-white text-gray-700">
+                      class="text-xs border border-[#E5E5E5] rounded-[10px] px-2 py-3 focus:outline-none focus:border-primary bg-white text-gray-700">
                 {% for val, label in freq_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
               </select>
             </div>
@@ -243,10 +243,18 @@
              AFFILIATE_GROUP_KEYWORDS를 모듈 상수에서 채널 단위 데이터로 옮기면
              다중 채널이 실제로 성립하고, 그때 이 {% templatetag openblock %} comment %} 두 줄만 걷으면 된다.
           ⚠️ 되살릴 때 hx-include의 csrfmiddlewaretoken이 살아 있는지 확인할 것.
+          🔴 2026-09-15에 아래 마크업의 확인 문구를 새 규약으로 미리 옮겨 뒀다.
+             지금 렌더되지 않는 자리지만, 되살렸을 때 혼자 브라우저 기본 확인창으로
+             남는 일을 막으려는 것이다. 이 채널 삭제는 모아둔 기사까지 사라지고
+             화면에서 다시 만들 방법이 없으므로 danger다.
+             규약은 templates/components/_confirm_dialog.html 맨 위 주석에 있다.
 
         <button type="button"
                 hx-post="{% url 'setting_newsroom_delete' room.id %}"
-                hx-confirm="&quot;{{ room.name }}&quot; 채널을 삭제하면 모아둔 기사와 발송 기록도 함께 지워져요. 삭제할까요?"
+                hx-confirm="모아둔 기사와 발송 기록도 함께 지워져요. 되돌릴 수 없어요."
+                data-confirm-level="danger"
+                data-confirm-title="&quot;{{ room.name }}&quot; 채널을 삭제해요"
+                data-confirm-action="채널 삭제하기"
                 hx-include="[name=csrfmiddlewaretoken]"
                 class="text-xs text-red-500 hover:underline">
           이 채널 삭제
@@ -285,7 +293,7 @@
         {% csrf_token %}
         <label class="text-xs text-gray-500 mb-1 block">이름</label>
         <input type="text" name="name" required
-               class="w-full text-xs border border-[#E5E5E5] rounded-[10px] px-3 py-2 focus:outline-none focus:border-primary focus:ring-2 focus:ring-[rgba(96,38,158,0.14)]">
+               class="w-full text-xs border border-[#E5E5E5] rounded-[10px] px-3 py-3 focus:outline-none focus:border-primary focus:ring-2 focus:ring-[rgba(96,38,158,0.14)]">
         <div class="flex gap-2 mt-5">
           <button type="button" @click="newRoomOpen=false"
                   class="flex-1 px-3 py-2 text-xs border border-gray-200 rounded-[10px] text-gray-600 hover:bg-gray-50 transition-colors">취소</button>

@@ -66,13 +66,35 @@
    elapsed       state=='running'일 때만 쓰인다. 예) "1분 12초째"
                  🔴 서버가 계산해 문자열로 내려보낸다. 클라이언트 setInterval을 쓰지 않는다 —
                  탭이 백그라운드로 가면 브라우저가 타이머를 조여서 숫자가 멈춘 것처럼 보인다.
+   progress_current  🔴 2026-09-14 신설. 지금까지 처리한 건수(정수).
+   progress_total    🔴 2026-09-14 신설. 이번 실행이 처리할 전체 건수(정수).
+                 state=='running'일 때 "68건 중 31건"으로 찍힌다. 경과 시간은 그 오른쪽에
+                 작은 글씨로 남는다 — 주는 건수이고 시간은 보조다(사용자 지시
+                 "30초째 이렇게 하지말고 nn/nn 이렇게 표기해서 진행 상태를 알 수 있게 해줘").
+                 ⚠️ 둘 다 없거나 progress_total이 0이면 종전처럼 경과 시간만 나온다.
+                    배치 시작 직후 전체 건수를 아직 모르는 구간이 실제로 있어서
+                    화면이 깨지지 않게 떨어뜨려 뒀다.
+                 ⚠️ "68건 중 31건" 어순은 이 앱의 기존 표기와 같다
+                    (run_review.html의 run.progress, graph/_org_panel.html "전체 N건 중 10건").
+                 🔴 PE 인계 — apps/setting/views.py의 _run_job_display()가 이 두 값을
+                    내려 주면 된다. 템플릿은 이미 받을 준비가 돼 있다.
    can_run       True여야 실행 버튼이 살아난다.
    block_reason  can_run=False일 때 비활성 버튼 title에 들어가는 이유(해요체).
                  예) "정리할 새 뉴스가 없어요"  예) "아직 만들지 않은 기능이에요"
    warning       버튼 위 주황 경고문. 선행 작업 미완처럼 "막지는 않지만 알려야 할" 때만.
                  예) "아직 1번을 확정하지 않았어요"  없으면 빈 문자열.
-   confirm_text  실행 전 hx-confirm 문구. 위 warning과 짝이다. 없으면 confirm이 붙지 않는다.
-                 예) "아직 1번을 확정하지 않았어요. 지운 기사가 시사점에 섞일 수 있어요. 그래도 실행할까요?"
+   confirm_text  실행 전 확인 대화상자의 본문. 위 warning과 짝이다. 없으면 확인창이 붙지 않는다.
+                 예) "지운 기사가 시사점에 섞일 수 있어요."
+                 🔴 2026-09-15부터 이 문구는 브라우저 기본 대화상자가 아니라 앱 모달에 뜬다.
+                    속성 이름은 hx-confirm 그대로이고 htmx:confirm 이벤트를 가로채는 구조다.
+                    정본 설명은 templates/components/_confirm_dialog.html 맨 위 주석에 있다.
+   confirm_title 확인 대화상자 제목. 선택. 무슨 일이 일어나는지 한 줄.
+                 예) "아직 1번을 확정하지 않았어요"
+                 없으면 레벨 기본 제목이 뜬다. 화면은 죽지 않는다.
+   confirm_action 주 버튼 라벨. 선택. 기본값 "실행하기".
+                 🔴 "확인"이라고 쓰지 않는다. 누르면 벌어질 일을 적는다.
+   confirm_level "danger" 또는 "caution". 선택. 기본값 "caution".
+                 🔴 danger는 되돌릴 수 없는 동작에만 쓴다. 빨강 버튼이 뜨고 Enter가 막힌다.
    run_url       실행 POST URL 문자열. 비어 있으면 버튼이 자동으로 비활성이 된다.
    review_url    검토 화면 URL 문자열. state=='review'일 때만 쓰인다.
 
@@ -106,24 +128,33 @@
            캔버스가 아니라 두 캔버스를 감싸는 루트로 올렸습니다. 여전히 한 곳이고,
            한 번 고치면 두 축에 같이 적용돼요.
 
-        A. 카드 진행 바   .run-anim-bar    ← 지금 켜져 있어요 (기본)
-                          실행 중인 노드의 아래 한 변(276 × 3px)에서만 막대가 지나가요.
+        A. 보더 스네이크  .run-anim-snake  ← 지금 켜져 있어요 (기본)
+                          실행 중인 노드의 테두리를 따라 빛나는 구간이 흘러 돌아요.
+                          한 바퀴는 폴링 주기와 같은 3초예요(아래 "A." 블록 참고).
                           실행 주체가 카드라서 이쪽을 기본으로 뒀어요.
 
         B. 연결선 흐름    .run-anim-flow
                           실행 중인 노드로 들어오는 연결선(2px)에 점선이 흘러요.
 
-        바꾸는 법:  #run-graph의 class에서 run-anim-bar 를 run-anim-flow 로 고치세요.
+        바꾸는 법:  #run-graph의 class에서 run-anim-snake 를 run-anim-flow 로 고치세요.
         둘 다 끄는 법: 그 클래스를 지우기만 하면 돼요. 마크업은 하나도 안 건드려도 됩니다.
-        둘 다 켜는 법: "run-anim-bar run-anim-flow" 처럼 나란히 적으면 돼요.
+        둘 다 켜는 법: "run-anim-snake run-anim-flow" 처럼 나란히 적으면 돼요.
 
         ⚠️ 어느 쪽을 고르든 나머지 한쪽은 CSS에서 저절로 꺼져요. 관련 마크업
-           (.run-progress, data-flow)은 클래스가 없으면 아무 일도 하지 않습니다.
+           (.run-snake, data-flow)은 클래스가 없으면 아무 일도 하지 않습니다.
            고른 뒤 안 쓰는 쪽을 지우고 싶으면 아래 "A." 또는 "B." 블록만 통째로
            지우면 되고, 다른 규칙과 얽혀 있지 않아요.
 
-     움직이는 면적은 A가 276 × 3px, B가 2px 폭 선입니다. 배경이나 테두리 둘레처럼
-     큰 면적이 계속 움직이는 표현은 쓰지 않았어요.
+        🔴 2026-09-14에 A의 형태와 이름이 함께 바뀌었어요(사용자 지시 "실행 중일 때는
+           각 카드에 보더 스네이크 애니메이션을 적용해줘 프로그래스 바 말고").
+           종전 이름 .run-anim-bar / .run-progress는 쓰지 않습니다 — 스네이크는
+           진행률을 뜻하지 않는데 progress라는 이름을 남겨 두면 다음 사람이 여기에
+           진행률을 얹으려 합니다. 🔴 진행 상황은 노드 안의 "68건 중 31건"이 맡고
+           스네이크는 "지금 돌고 있다"만 말해요. 두 역할을 섞지 마세요.
+
+     한 번에 움직이는 면적은 A가 3px 굵기 테두리선의 일부, B가 2px 폭 선입니다.
+     A는 테두리 안쪽 3px 띠 위에서만 그려지고, 그중에서도 한 번에 밝은 곳은 둘레의
+     5분의 1 남짓입니다. 배경이나 카드 면처럼 큰 면적이 움직이지는 않아요.
      ──────────────────────────────────────────────────────────────── */
 
   /* 캔버스 점 격자. 면적은 크지만 완전히 정지한 배경이라 움직임 제약과 무관하다. */
@@ -138,15 +169,94 @@
   .run-node .htmx-indicator { display: none; }
   .run-node .htmx-indicator.htmx-request { display: inline-flex; }
 
-  /* ── A. 카드 진행 바 ─────────────────────────────────────────── */
-  .run-progress { display: none; }
-  .run-anim-bar .run-node[data-state="running"] .run-progress { display: block; }
-  .run-anim-bar .run-node[data-state="running"] .run-progress-fill {
-    animation: run-bar 1.6s ease-in-out infinite;
+  /* ── A. 보더 스네이크 ─────────────────────────────────────────────
+     🔴 2026-09-14 개정 — 아래 한 변만 지나가던 진행 바를 걷어내고 테두리를 따라
+        빛이 흐르는 보더 스네이크로 바꿨습니다(사용자 지시 "실행 중일 때는 각 카드에
+        보더 스네이크 애니메이션을 적용해줘 프로그래스 바 말고").
+
+     🔴 스네이크는 진행률을 뜻하지 않습니다. "지금 돌고 있다" 하나만 말해요.
+        진행 상황은 노드 안 "68건 중 31건"이 맡습니다. 여기에 진행률을 얹지 마세요 —
+        길이가 0에서 100으로 차오르는 순간 두 표현이 서로 다른 말을 하게 됩니다.
+
+     ▣ 만드는 법 — 원뿔 그라디언트를 돌리고 테두리 모양으로 오려냅니다
+        ① .run-snake 가 카드 안쪽 면 전체를 덮고, 마스크로 바깥 3px 띠만 남깁니다
+           (linear-gradient 두 장을 content-box와 border-box로 겹쳐 빼내는 방식).
+           마스크 상자에도 border-radius가 먹으므로 띠가 모서리 곡률을 그대로 탑니다.
+        ② 그 안의 span은 카드보다 큰 정사각형이고 conic-gradient(머리는 밝고 꼬리는
+           옅은 노랑)를 깔고 제자리에서 회전만 합니다. 회전하는 사각형은 크지만
+           마스크 때문에 실제로 그려지는 건 3px 띠 위의 호 하나뿐입니다.
+        🔴 그래서 카드에 걸린 overflow-hidden과 부딪히지 않습니다. overflow는
+           테두리 바깥이 아니라 안쪽 면을 기준으로 자르는데, 스네이크는 처음부터
+           안쪽 면 가장자리에 그려지기 때문입니다. 2px 노란 테두리 바로 안쪽에
+           붙어서 테두리가 빛나는 것처럼 보입니다.
+        ⚠️ 반지름은 8px입니다(카드 10px에서 테두리 2px를 뺀 값). 카드의 rounded나
+           border 두께를 바꾸면 이 값도 같이 바꿔야 띠가 모서리에서 어긋나지 않습니다.
+
+     🔴 한 바퀴는 3초입니다. 폴링 주기와 같은 값이어야 하고 늘리면 안 됩니다.
+        이 조각(#run-graph)을 HTMX가 3초마다 통째로 갈아끼우는데, CSS 애니메이션은
+        요소가 새로 생기면 0부터 다시 시작합니다. 한 바퀴가 3초보다 길면 영영
+        한 바퀴를 못 돌고 같은 구간만 반복하게 됩니다.
+        3초로 맞추면 한 바퀴를 마친 직후에 교체가 오므로, 다시 출발하는 자리가
+        방금 도착한 자리 바로 옆이라 도는 것으로 보입니다.
+        ⚠️ setting/_run_graph.html의 hx-trigger="every 3s"를 바꾸면 아래 3s도
+           같은 값으로 함께 바꿔 주세요. 두 값은 한 쌍입니다. 폴링을 6초로 늘리면
+           스네이크는 1.5초나 3초처럼 6을 나누어떨어지게 하세요 — 나누어떨어지면
+           교체 순간에 스네이크가 언제나 출발점에 와 있습니다.
+
+        ⚠️ 다른 방법도 검토했고 왜 접었는지 남겨 둡니다.
+           ① hx-preserve로 이 요소만 교체 대상에서 빼기 — HTMX가 옛 요소를 새
+              조각으로 옮겨 심는 사이 문서에서 한 번 빠지고, 그때 애니메이션이
+              취소될지 이어질지가 브라우저 구현에 달려 있습니다. 확인할 수 없는
+              동작에 기대게 돼서 접었습니다.
+           ② 카드 바깥 요소로 빼서 위에 겹치기 — 노드 위치를 픽셀로 다시 계산해야
+              해서 276px 파생 치수가 하나 더 늘어납니다.
+           ③ @property로 각도를 직접 보간하기 — 코드는 짧아지지만 @property를
+              모르는 브라우저에서 각도가 고정돼 한쪽 모서리만 노랗게 굳습니다.
+              transform: rotate는 그런 구멍이 없습니다.
+           주기를 맞추는 쪽은 값 하나로 끝나고 되돌리기도 쉬워서 이쪽을 골랐습니다.
+
+     ⚠️ 마스크를 모르는 브라우저에서는 스네이크를 아예 띄우지 않습니다(@supports).
+        마스크가 안 먹으면 회전하는 큰 사각형이 카드 면을 그대로 덮어서, 하필
+        가장 피해야 할 "큰 면적이 계속 움직이는 화면"이 되기 때문입니다. 안 뜨더라도
+        노란 테두리와 스피너와 건수가 남아 있어 실행 중인 것은 그대로 읽힙니다.
+     ───────────────────────────────────────────────────────────────── */
+  .run-snake {
+    display: none;
+    position: absolute;
+    inset: 0;
+    border-radius: 8px;
+    padding: 3px;
+    pointer-events: none;
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            mask-composite: exclude;
   }
-  @keyframes run-bar {
-    0%   { transform: translateX(-100%); }
-    100% { transform: translateX(300%); }
+  @supports ((mask-composite: exclude) or (-webkit-mask-composite: xor)) {
+    .run-anim-snake .run-node[data-state="running"] .run-snake { display: block; }
+  }
+
+  /* 머리는 yellow-300(#FDE047), 꼬리는 yellow-400(#FACC15)을 옅게 깐다.
+     실행 중 테두리 색이 yellow-300이라 같은 계열 안에서만 밝기를 움직인다.
+     밝은 구간은 둘레의 5분의 1 남짓이고 나머지는 투명이다. */
+  .run-snake span {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 460px;
+    height: 460px;
+    margin: -230px 0 0 -230px;
+    background: conic-gradient(from 0deg,
+      rgba(250, 204, 21, 0) 0deg,
+      rgba(250, 204, 21, 0) 288deg,
+      rgba(250, 204, 21, .45) 336deg,
+      #FDE047 360deg);
+  }
+  .run-anim-snake .run-node[data-state="running"] .run-snake span {
+    animation: run-snake-lap 3s linear infinite;
+  }
+  @keyframes run-snake-lap {
+    to { transform: rotate(360deg); }
   }
 
   /* ── B. 연결선 흐름 ──────────────────────────────────────────── */
@@ -165,11 +275,11 @@
 
   /* ── 움직임을 줄여 달라고 설정한 분에게는 전부 정지 화면으로 ──── */
   @media (prefers-reduced-motion: reduce) {
-    .run-anim-bar .run-node[data-state="running"] .run-progress-fill {
-      animation: none;
-      width: 100%;
-      opacity: .45;
-    }
+    /* 스네이크는 통째로 끈다. 남는 것은 정지한 노란 테두리(border-yellow-300)와
+       배지와 건수인데, 셋이면 실행 중인 것을 말하는 데 모자라지 않는다.
+       종전 진행 바는 정지 상태로 굳혀 뒀었지만 스네이크를 굳히면 한쪽 모서리만
+       노랗게 남아 무슨 뜻인지 읽히지 않는다. */
+    .run-anim-snake .run-node[data-state="running"] .run-snake { display: none; }
     .run-anim-flow .run-edge[data-flow="running"] .run-edge-line,
     .run-anim-flow .run-edge[data-flow="running"] .run-edge-line-v {
       animation: none;
@@ -208,7 +318,7 @@
     폴링 조각이 두 캔버스를 통째로 갈아끼워야 "한쪽이 도는 동안 다른 쪽도 잠근다"가
     한 번의 응답으로 끝난다. 여기 남기면 조각이 캔버스 안쪽만 바꿔서 축이 갈린 구조를
     담을 수 없다.
-    애니메이션 스위치(run-anim-bar)도 함께 _run_graph.html의 루트로 옮겼다.
+    애니메이션 스위치(run-anim-snake)도 함께 _run_graph.html의 루트로 옮겼다.
   {% endcomment %}
   <div class="p-5">
     {% include "setting/_run_graph.html" %}
