@@ -3,8 +3,18 @@
 
 {% comment %}
 ==============================================================================
- SET-010 · 검토 화면 (승인 게이트)
- 설계: docs/design.md "SET-010 · 실행" → "4차 개정 (2026-09-14) 태그 단위 검토"
+ SET-010 · 검토 화면 (휴먼 인 더 루프)
+ 🔴 2026-09-15에 낱말을 "승인 게이트"에서 "휴먼 인 더 루프"로 바꿨다. docs/planning.md가
+    같은 라운드에 전량 교체했고 여기가 마지막으로 남은 자리였다. 가리키는 것은 조금도
+    바뀌지 않았다 — 사람이 확정을 눌러야 DB에 반영되는 그 구조다.
+ 설계: docs/design.md "SET-010 · 실행" 아래 개정 절들. 현행 사실은 뒤에 온 것이 이긴다.
+       4차(2026-09-14) 제안 단위 검토 / 5차(2026-09-14) 칸 너비와 요약 문구
+       6차(2026-09-15) 태그 후보 축별 분리. 축 관련 서술은 6차가 4차 ③번을 대체한다.
+       7차(2026-09-15) 3단계 이슈 초안 블록 / 8차(2026-09-15) 4, 5단계 보고서 초안 블록.
+       9차(2026-09-15) 4단계 잠금 문구 두 갈래와 교보 소식 2, 3단계.
+       ⚠️ 8차 ②번이 7차 ⑨번의 "같은 카드를 쓴다"는 예고를 실측으로 정정했다.
+       ⚠️ 9차는 이 화면에 아무것도 더하지 않는다. 교보 소식 2, 3단계는 이 화면으로
+          오지 않는다(확정할 것이 없다). 근거는 그 절.
  URL: setting/run/review/<작업>/   노드를 클릭하면 여기로 온다.
 ==============================================================================
 
@@ -13,7 +23,8 @@
 
  🔴 2026-09-14 개정의 핵심 — 행의 단위가 "기사"가 아니라 "제안"이다.
     services/runner.py의 _save_proposals()가 LLM 응답 하나를 여러 RunProposal 행으로
-    펼친다. 유지 또는 삭제 1행, 태그 교정마다 1행, 미등록 기업 후보마다 1행이다.
+    펼친다. 유지 또는 삭제 1행, 태그 교정마다 1행, 미등록 태그 후보마다 1행이다.
+    ⚠️ 마지막 종류는 2026-09-15에 기업 전용에서 기업과 기술 주제 두 축으로 늘었다.
     화면도 그 단위로 체크박스를 준다. "셋을 떼자고 했는데 둘만 맞다"가 실제 경로라
     묶으면 사람이 전부 받거나 전부 버리는 수밖에 없고, 거절이 개별로 남지 않아
     프롬프트 정확도를 기준 코드별로 잴 수 없게 된다(apps/setting/models.py
@@ -33,8 +44,15 @@
    back_url      실행 화면(SET-010)으로 돌아가는 URL 문자열.
    confirm_url   확정 POST URL 문자열. 비어 있으면 확정 버튼이 비활성이 된다.
    cancel_url    "모두 취소"(제안 폐기) POST URL 문자열. 비어 있으면 버튼을 감춘다.
-   org_admin_url SET-007 기업 관리 URL 문자열(reverse("setting_organizations")).
-                 비어 있으면 미등록 기업 후보 카드의 링크만 감춘다.
+   org_admin_url   SET-007 기업 관리 URL 문자열(reverse("setting_organizations")).
+   topic_admin_url SET-008 기술 주제 관리 URL 문자열(reverse("setting_tech_topics")).
+                 🔴 topic_admin_url은 2026-09-15 신설이다. 태그 후보가 기업 전용에서
+                    축 일반화(기업, 기술 주제)로 바뀌면서 기술 주제 후보에도 등록 화면이
+                    필요해졌다.
+                 ⚠️ 지금 이 화면은 두 키를 직접 쓰지 않는다. 아래 tag_candidates의 항목마다
+                    들어 있는 admin_url이 그 항목의 축에 맞는 쪽을 이미 골라 담고 있어서,
+                    템플릿이 축을 보고 분기할 일이 없다. 두 키는 뷰가 그 admin_url을 만드는
+                    재료이고, 화면 계약으로는 남겨 둔다.
                  ⚠️ url 템플릿태그로 역참조하지 않는 이유는 아래 "URL은 문자열로" 참고.
 
    run           🔴 신설. 어느 배치를 보고 있는지를 말하는 값이다. RunJob에서 뽑는다.
@@ -83,13 +101,24 @@
                    delete_count     삭제 제안 행 수
                    retag_count      태그 제거 + 태그 추가 행 수 합계
                    keep_count       유지 행 수
-                   candidate_count  🔴 미등록 기업 후보 행 수
-                   insight_count    3단계 시사점 초안 수
+                   candidate_count  🔴 미등록 태그 후보 행 수. 2026-09-15부터 기업 후보와
+                                    기술 주제 후보를 합산한 값이다.
+                   insight_count    🔴 이 배치가 낸 초안(RunDraft) 수다. 2026-09-15부터
+                                    3단계 전용이 아니라 4, 5단계 보고서 초안도 이 키로 온다.
+                                    세는 것이 "채택 대상 RunDraft 수"로 같아서 키를 늘리지
+                                    않았다. Alpine의 insCount도 같은 이유로 하나다.
                    uncovered_count  입력 기사 중 삭제 제안도 유지 제안도 못 받은 기사 수
+                 draft_noun  🔴 2026-09-15 신설. 초안을 부르는 낱말 하나다.
+                             이슈 | 주간 보고서 | 월간 보고서. RunDraft.draft_type 값 그대로다.
+                             없으면 "이슈"로 떨어져 3단계 화면이 종전과 한 글자도 다르지 않다.
+                             이 낱말이 찍히는 자리는 셋이다. 요약 ③ 칸, 확정 버튼 라벨,
+                             보고서 카드 제목.
+                             ⚠️ 따옴표가 들어간 문자열을 내리지 말 것. Alpine x-data 안에서
+                                JS 문자열 리터럴이 된다. 위 세 값 말고는 오지 않는다.
                  🔴 확정 버튼을 여닫는 것은 uncovered_count와 네 건수의 합이다.
                     상세 근거는 아래 Alpine 루트 주석.
                  🔴 candidate_count는 커버리지에도 잠금 조건에도 넣지 않는다.
-                    기업 후보는 일부 기사에만 생기므로 섞으면 버튼이 영영 안 열린다.
+                    태그 후보는 일부 기사에만 생기므로 섞으면 버튼이 영영 안 열린다.
 
    criterion_legend  🔴 신설. 판정 기준 코드 범례. [{code, tooltip_key, aria_label}, ...]
                  code        화면에 찍히는 코드. 예) "1-b"
@@ -131,26 +160,182 @@
                  ⚠️ 정렬은 기사별로 한 덩어리가 되게 한다. 같은 기사의 행이 떨어져
                     놓이면 "한 기사에 행이 여럿"이라는 사실이 화면에서 안 읽힌다.
 
-   org_candidates  🔴 신설. 미등록 기업 후보. 각 항목은
+   tag_candidates  🔴 2026-09-15 개정. 종전 이름은 org_candidates였고 기업 전용이었다.
+                   미등록 태그 후보. 각 항목은
                      name / reason / title / published_at / source
+                     axis        'organization' | 'tech_topic'
+                     axis_label  '기업' | '기술 주제'
+                                 🔴 위 retag_groups의 axis_label과 같은 낱말을 쓴다.
+                                    같은 뜻을 두 섹션이 다른 말로 부르면 안 된다.
+                     admin_url   그 축의 등록 화면 URL 문자열. 기업은 SET-007,
+                                 기술 주제는 SET-008. 🔴 뷰가 축을 보고 이미 골라 담는다.
+                                 비어 있으면 그 축 그룹의 링크만 사라진다.
                    🔴 이 목록은 확정 대상이 아니다. 체크박스도 hidden input도 없다.
-                      확정을 눌러도 등록이 일어나지 않는다. 사람이 SET-007에서 직접
-                      등록하라는 알림이다(docs/planning.md 4-(b) "미등록 기업은
+                      확정을 눌러도 등록이 일어나지 않는다. 사람이 SET-007이나 SET-008에서
+                      직접 등록하라는 알림이다(docs/planning.md 4-(b) "미등록 태그는
                       제안만 하고 등록하지 않는다").
+                   ⚠️ 정렬은 템플릿이 dictsort로 축에 맞춰 한 번 더 건다. 뷰가 제안 순서
+                      (기사 발행일 역순)로 내려보내 축이 섞여 있어도 그룹 머리가 반복되지
+                      않게 하려는 것이다. 뷰 쪽 정렬을 따로 요구하지 않는다.
 
-   insight_items 3단계 시사점 초안 목록. 각 항목은
-                   id / title / preview / grade / news_items(list: title / published_at)
+   insight_items 🔴 2026-09-15 전면 개정. 3단계 이슈 초안 목록이다.
+                 종전 계약은 id / title / preview / grade / news_items 다섯이었고
+                 preview 한 줄로 초안을 요약했다. 그걸로는 이 화면이 요구하는 동작
+                 ("초안을 읽고 확정", docs/planning.md 3~5단계 설계 5번 표)이 성립하지
+                 않는다. 본문을 고칠 수 없는 화면이므로 사람이 할 수 있는 판단은
+                 "이 초안을 받는다 / 버린다 / 등급만 바꾼다" 셋뿐이고, 그 판단의 재료가
+                 전부 화면에 있어야 한다.
+                 🔴 컨텍스트 키 이름(insight_items / insight_count / insight_ids)은
+                    그대로 둔다. 화면 낱말만 "시사점"에서 "이슈"로 고쳤다 — 아래
+                    "낱말을 왜 바꿨나" 참고.
+                 각 항목은
+                   id            🔴 RunDraft.pk (Insight.pk가 아니다)
+                   title         RunDraft.title. 이슈 제목은 LLM이 짓는다(설계 8-(C)).
+                   implication   RunDraft.implication 전문. 🔴 접지 않고 항상 보인다.
+                                 비면 그 자리에 주황 안내가 뜬다.
+                   content       RunDraft.content 전문. 접어 둔다.
+                   grade         RunDraft.grade 값. select의 초기 선택이 된다.
+                   news_count    근거 기사 수(int). 0이면 주황 경고 배지가 뜬다.
+                   news_range    근거 기사 발행일 범위 한 줄. 예) "09.08 ~ 09.12"
+                                 🔴 접힌 상태에서 "이게 하나의 사건인가"를 훑는 유일한
+                                    단서다("이슈의 구성 단위" 판별). 범위가 몇 달에
+                                    걸치면 묶기가 틀렸다는 뜻이고, 펼치지 않고도 보인다.
+                                 없으면 그 조각만 사라진다.
+                   grade_reason  ⚠️ 선택 사항. LLM이 그 등급을 고른 이유 한 줄.
+                                 🔴 RunDraft에 이 칸이 없다(2026-09-15 실측). 출력
+                                    스키마에 넣을지는 PE 판단이고, 안 넣으면 화면에서
+                                    그 줄만 사라진다. 모델 필드를 새로 요구하는 것이
+                                    아니라 자리를 비워 두는 것이다.
+                                 넣는 쪽이 낫다고 보는 근거는 아래 삭제 제안 주석과
+                                 같다 — "이유 없는 체크박스 목록은 사람이 검토할 수
+                                 없어서 전체 확정만 누르게 된다". 등급 select도 같다.
+                   news_items(list) 근거 기사. 각 원소는
+                     title / published_at / source
+                     url   🔴 NEWS-002 상세 주소. 비면 링크 없이 글자만 남는다.
+                           🔴 2단계 삭제 목록과 정반대다. 거기서는 대상이 미검증
+                              News라 링크하면 404였는데, 3단계 입력은 이미 검증된
+                              News다(설계 2번 선행 잠금이 미검증 0건을 보장한다).
+                              근거 기사를 실제로 열어 보는 것이 이 초안이 맞는지
+                              판단하는 유일한 방법이라 링크를 연다.
+                           🔴 반드시 새 탭이다. 이 화면의 체크 상태와 등급 select 값은
+                              DOM에만 있고 서버에 없다. 같은 탭으로 나갔다 돌아오면
+                              수십 건의 선택이 통째로 초기화된다.
+   report_items  🔴 2026-09-15 신설. 4, 5단계 보고서 초안이다. 주간과 월간이 이 한 목록을
+                 같이 쓴다. 갈리는 것은 아래 세 조각뿐이고 템플릿에는 단계 분기가 없다.
+                 🔴 한 편인데 목록으로 받는 이유가 있다. 설계 9-(a)가 "재실행 전에 그
+                    RunJob의 RunDraft를 전부 지운다, 안 지우면 초안이 두 벌 쌓여 검토
+                    화면에 중복이 뜬다"고 경고한 그 사고를 화면이 보이게 하려는 것이다.
+                    단수로 받으면 두 벌째가 조용히 가려지고, 가려진 쪽은 대기로 남는다.
+                 각 항목은
+                   id          🔴 RunDraft.pk
+                   title       RunDraft.title. 🔴 코드가 서식으로 만든 값이다.
+                               "M월 N주차 금융권 AI 도입 동향 보고서"(월간은 "M월 월간 …").
+                               🔴 LLM 출력 스키마에 보고서 제목이 없다(설계 8-(C)).
+                                  이 화면에 제목 입력 필드를 만들지 말 것. 빈 칸이 아니라
+                                  틀릴 수 없는 값이라 고칠 자리 자체가 없다.
+                               비면 주황 안내가 뜬다. 그건 LLM이 아니라 코드가 못 만든 것이다.
+                   overview    RunDraft.overview 전문. 🔴 접지 않고 항상 보인다.
+                               화면 소제목은 「주요 동향」이다(REPORT-002와 같은 낱말).
+                   content     RunDraft.content 전문. 접어 둔다. 실측 5,826자다.
+                   body_label  ⚠️ 선택. content의 화면 이름. 없으면 "주요 이슈"로 떨어진다.
+                               월간은 "주요 이슈 요약"이다(REPORT-002가 그렇게 부른다).
+                   date_from / date_to  date 객체 그대로 내린다. 🔴 서식은 템플릿이 건다.
+                               하나라도 비면 주황 안내가 뜬다. Report.date_from이 not null이라
+                               그 상태로 확정하면 만들지 못한다.
+                   news_count  근거 기사 수(int). 0이면 주황 배지가 뜬다.
+                   news_items(list)  insight_items의 것과 같은 모양이다(title / published_at /
+                               source / url). 🔴 같은 max-h-64 스크롤 상자를 쓴다. 여기가
+                               수십 건이 오는 자리다.
+                 ⚠️ grade와 implication은 내리지 않는다. 보고서 초안에는 그 두 칸이 빈다
+                    (RunDraft docstring). grade_choices도 4, 5단계에서는 비워 내린다.
+
    grade_choices 등급 select의 선택지 [(value, label), ...]. 없으면 select를 감춘다.
+                 🔴 4, 5단계에서는 비워 내린다. 보고서에는 등급이 없다.
+                 🔴 2026-09-15 규칙 신설 — "미지정"을 빼고 1급, 2급, 3급 셋만 내린다.
+                    Insight.GRADE_CHOICES를 통째로 내리면 "미지정"이 선택지로 보이고,
+                    사람이 그걸 고를 수 있게 되는 순간 "등급은 필수, 미지정으로 넘기지
+                    않는다"(승격 위계 등급 정책 3번)가 화면에서 깨진다.
+                    첫 option이 미지정인 것도 위험하다 — item.grade가 비면 어느 option도
+                    selected가 아니라 브라우저가 첫 항목을 고르므로, 미지정 Insight가
+                    아무도 누르지 않은 채 만들어진다.
+                 ⚠️ item.grade가 비어 있으면 템플릿이 맨 앞에 고를 수 없는 안내 option을
+                    넣고 주황 한 줄을 띄운다. 그 상태로 확정하면 grade_<id>가 빈 문자열로
+                    오므로 확정 뷰는 Insight.GRADE_UNSPECIFIED로 저장하고 messages.warning을
+                    남긴다(태그 교정 건너뜀과 같은 처리, base.html이 이미 그리고 있다).
+
+ ▣ 🔴 낱말을 왜 바꿨나 — "시사점 초안"에서 "이슈 초안"으로 (2026-09-15)
+   "시사점"은 Insight.implication 한 필드의 이름이다. 초안 한 건은 제목과 분석과 시사점과
+   근거 기사를 전부 담고 있으므로 부분이 전체를 가리키는 이름이었다. RunDraft.TYPE_INSIGHT
+   값도 "이슈"이고, SET-010 노드 이름도 "3단계 주요 이슈"이고, 사용자가 보는 화면도
+   ALL-001 "주요 이슈"다. 화면 낱말을 그쪽에 맞췄다.
+   ⚠️ 카드 안의 소제목 "분석"과 "시사점"은 이 프로젝트가 이슈 한 건을 적을 때 쓰는 낱말
+      그대로다. docs/planning.md "보고서 작성 표준"이 이슈 블록을 제목 → 분석 → 시사점
+      3단으로 못박았고 REPORT-002가 그 구조를 그린다. 같은 값을 화면마다 다른 말로
+      부르지 않는다.
+
+ ▣ 🔴 3단계에서 cancel_url을 반드시 채운다
+   초안이 0건으로 끝나는 실행이 실제로 있고(묶을 만한 이슈가 없는 날), 그때 확정 버튼은
+   채택할 것이 없어 잠긴다. cancel_url까지 비어 있으면 그 RunJob이 "검토 대기"에서 나올
+   길이 화면에 하나도 없어서, SET-010 노드가 "결과 검토하기"를 영영 띄운다.
+   ⚠️ 2단계에서 이미 그 교착이 났다. 그래서 아래 빈 상태 카드를 두 갈래로 갈랐다.
+   ⚠️ "모두 취소"는 RunJob을 검토 대기에서 빼야 한다. 상태 전이의 형태는 PE 판단이다.
+
+ ▣ 🔴 4, 5단계(보고서) 블록 — 2026-09-15에 실제로 붙였다
+   종전에 이 자리에 "3단계 블록을 그대로 쓴다"고 적혀 있었다. 실제로 붙여 보니 카드는
+   따로 두고 조각을 같은 규칙으로 맞추는 쪽이 맞았다. 판단 근거는 docs/design.md
+   8차 개정 ②번에 있고, 요지는 셋이다.
+     ① 제목의 성질이 반대다. 이슈 제목은 LLM이 짓고 보고서 제목은 코드가 서식으로 만든다.
+        같은 마크업에 담으면 "고칠 수 없는 값"이라는 성질이 화면에서 읽히지 않는다.
+     ② 소제목이 셋 다 다르다. 시사점 대 주요 동향, 분석 대 주요 이슈, 등급 있음 대 없음.
+        한 카드에 넣으면 조건문이 셋 생기고 3단계 마크업에 쓰지 않는 분기가 남는다.
+     ③ 두 카드가 같은 화면에 함께 뜨는 일이 없다. 한 배치는 한 단계다.
+   ⚠️ 그래도 조각의 규칙은 전부 같다. 접는 것과 펴는 것, max-h-64 스크롤 상자,
+      새 탭 링크, 마크다운 렌더 안 함, 확인창 없음까지 3단계와 한 글자도 다르지 않다.
+
+ ▣ 🔴 주간과 월간은 한 블록이다. 가르지 않았다
+   둘의 차이는 기간의 길이뿐이고 화면에서 갈리는 것은 데이터 세 조각이다.
+     draft_noun  카드 제목과 버튼 라벨에 들어가는 낱말
+     body_label  content의 화면 이름(주요 이슈 / 주요 이슈 요약)
+     date_from, date_to
+   셋 다 뷰가 담아 내리므로 템플릿에는 job_key 분기가 하나도 없다. 축이 늘어도 같다.
+
+ ▣ 🔴 기간 서식은 한 벌이다. YYYY.MM.DD ~ YYYY.MM.DD
+   월간을 "2026년 9월"로 줄이는 안은 기각했다. 이유 둘이다.
+     ① REPORT-002 헤더가 이미 주간과 월간을 가르지 않고 Y.m.d ~ Y.m.d로 찍는다.
+        검토 화면이 다른 서식을 쓰면 확정 전후로 같은 값이 다르게 보인다.
+     ② 🔴 월 표기로 줄이면 말일이 화면에서 사라진다. 대상 기간은 코드가 정하고
+        화면에서 고를 수 없으므로(설계 2번), 사람이 검토 화면에서 확인할 수 있는
+        것은 "코드가 자른 구간이 맞는가" 하나다. 9.01~9.29처럼 하루 모자란 잘림은
+        말일이 찍혀야 보인다.
 
  ▣ 확정 POST가 받는 값
    delete_ids    채택한 삭제 제안의 RunProposal.pk 목록
    retag_ids     채택한 태그 제안의 RunProposal.pk 목록
-   insight_ids   채택한 시사점 초안 목록
-   grade_<id>    시사점 등급 select
+   insight_ids   채택한 이슈 초안의 RunDraft.pk 목록
+   draft_ids     🔴 2026-09-15 신설. 채택한 보고서 초안의 RunDraft.pk 목록.
+                 insight_ids와 같은 테이블을 가리키지만 이름을 따로 뒀다. 두 목록이
+                 한 화면에 함께 오는 일은 없지만, 어떤 경로로든 섞여 오면 확정 뷰가
+                 이슈로 만들 것과 보고서로 만들 것을 구분하지 못한 채 같은 pk 뭉치를
+                 받게 된다. 그 사고는 조용히 엉뚱한 객체를 만든다.
+                 ⚠️ 확정 뷰가 이 이름을 안 읽으면 채택이 0건이 되어 아무것도 만들어지지
+                    않는다. 버튼을 눌렀는데 보고서가 없는 것으로 바로 드러난다.
+   grade_<id>    이슈 등급 select. 🔴 id는 RunDraft.pk다. 보고서에는 오지 않는다
    🔴 체크가 풀린 제안은 POST에 오지 않는다. 확정 뷰는 오지 않은 대기 제안을
       RunProposal.STATUS_REJECTED로 남긴다. 그 거절 분포가 프롬프트 정확도를 재는
       유일한 정답지다.
-   🔴 기업 후보는 아무것도 보내지 않는다. 확정 뷰도 그 종류를 건드리지 않는다.
+   🔴 태그 후보는 아무것도 보내지 않는다. 확정 뷰도 그 종류를 건드리지 않는다.
+      축이 기업이든 기술 주제든 같다.
+
+ ▣ 🔴 확정이 만드는 Report는 status="generating"이다 (4, 5단계)
+   그 값의 뜻이 "아직 사람이 손봐야 한다"이고, done으로 바꾸는 주체가 RA이며 그 동작이
+   화면 밖(ORM)에서 일어난다(docs/planning.md 3~5단계 설계 4번).
+   🔴 그래서 화면이 확정 전에 미리 말한다. 보고서 카드 머리의 회색 두 줄이 그 자리다.
+      확정을 누른 뒤에 알리면 이미 만들어진 뒤라 알림이 아니라 통보가 된다.
+   ⚠️ "바로 공개되지 않아요" 같은 말을 쓰지 말 것. 사실이 아니다. 확정하면 REPORT-001
+      목록에 곧바로 뜨고, 다만 「생성중」 배지가 붙는다. 화면 문구는 그 사실대로 쓴다.
+   ⚠️ 확정 후 messages 문구도 같은 것을 말해야 한다. 권장 문안은
+      "보고서를 만들었어요. 다듬고 나서 완료로 바꿔 주세요."
+      🔴 messages는 뷰가 남기므로 PE 몫이다.
 
  ▣ 확정 후 처리 (PE)
    확정 뷰는 반드시 SET-010으로 되돌린다(HX-Redirect 또는 서버 리다이렉트).
@@ -158,7 +343,8 @@
    또한 이 확정 경로는 미검증 뉴스를 다뤄야 하므로 News.objects.verified() 게이트 밖이다.
 
  ▣ URL은 문자열로 받는다
-   confirm_url, cancel_url, back_url, org_admin_url 전부 컨텍스트 문자열이다.
+   confirm_url, cancel_url, back_url, org_admin_url, topic_admin_url, 그리고 태그 후보
+   항목마다 들어 있는 admin_url까지 전부 컨텍스트 문자열이다.
    아직 없거나 나중에 사라질 URL 이름을 역참조하면 NoReverseMatch로 이 화면이 통째로
    죽는다. 실제로 SET-003이 사라졌을 때 그 사고가 났다. 확정 버튼이 있는 화면이라
    URL 하나 때문에 전체가 죽는 위험을 질 이유가 없다.
@@ -194,9 +380,32 @@
      쓴다. 잠금은 keepCount(체크박스가 없어 서버 값 그대로 고정)와 uncoveredCount만 본다.
      이 조건식을 되돌리면 "전량 유지인 날 배치가 영영 확정되지 않는" 버그가 그대로 돌아온다.
 
-  🔴 기업 후보(candidate_count)는 이 x-data에 아예 넣지 않는다. 확정해도 아무 동작이 없는
+  🔴 2026-09-15 재확인 — 3~5단계가 붙어도 isDisabled()를 고치지 않는다. 고칠 필요가 없다.
+     3단계에서는 delCount, fixCount, keepCount가 0이고 insCount만 값을 가지며,
+     uncoveredCount는 항상 0이다(docs/planning.md 3~5단계 설계 PD 인계 3번 — 대상 전량에
+     제안이 있어야 한다는 커버리지 개념이 이 단계들에 없다). 그러면 조건식은
+     "체크가 하나라도 남아 있으면 열린다"로 그대로 성립한다.
+     🔴 그리고 3단계에서는 "전부 해제 → 잠금"이 옳은 동작이다. 2단계는 전량 유지인 날에도
+        확정을 눌러야 "남은 뉴스를 검증됨으로 전환"하는 숨은 부수효과가 있었지만, 3단계
+        확정이 하는 일은 채택된 초안으로 Insight를 만드는 것뿐이라 채택이 0이면 정말로
+        아무 일도 하지 않는다. 전량 거절은 확정이 아니라 "모두 취소"가 하는 일이다.
+     ⚠️ 그러므로 4, 5단계를 붙일 때도 건수 변수를 새로 만들지 않는다. 보고서 초안도
+        insCount에 들어간다 — 세는 것이 "채택된 RunDraft 수"로 같기 때문이다.
+        PD 인계 3번의 "보고서 초안 건수를 더한다"는 이 뜻이고, 변수를 늘리라는 말이 아니다.
+
+  🔴 confirmText()와 confirmTitle()은 delCount만 본다. 3~5단계에서는 delCount가 0이라
+     둘 다 null이 되고 Alpine이 속성을 지워 확인창이 뜨지 않는다. 의도한 동작이다
+     (설계 5번 표 — "hx-confirm은 되돌릴 수 없는 동작의 표시인데, 되돌릴 수 있는 곳에까지
+     붙이면 그 창이 아무 뜻도 없어지고 2단계의 진짜 경고까지 같이 죽는다").
+     🔴 이 자리에 초안용 확인창을 새로 만들지 말 것. 코드를 고칠 데가 없는 것이 아니라
+        고치면 안 되는 것이다.
+
+  🔴 태그 후보(candidate_count)는 이 x-data에 아예 넣지 않는다. 확정해도 아무 동작이 없는
      종류라 라벨에도 잠금에도 들어가면 안 되고, 일부 기사에만 생기므로 커버리지에 섞으면
      버튼이 영영 열리지 않는다. 건수는 서버 렌더 값으로만 요약 칸과 알림 카드에 찍는다.
+     🔴 2026-09-15에 이 종류가 기업 전용에서 기업과 기술 주제 두 축으로 늘었는데, 위 판단은
+        축과 무관하다. 축이 몇이든 확정 버튼이 건드리지 않는 종류라는 점이 같다.
+        축을 나눠 세는 변수도 만들지 않는다 — 세어 봐야 버튼이 쓸 곳이 없다.
 
   🔴 2026-09-14 — 이 화면에만 최대 폭 1280px을 건다(max-w-[1280px]).
      설정 화면은 base_setting.html이 flex-1이고 base.html에도 max-w가 없어서 사이드바를
@@ -214,11 +423,20 @@
        insCount: {{ review.output.insight_count|default:0 }},
        keepCount: {{ review.output.keep_count|default:0 }},
        uncoveredCount: {{ review.output.uncovered_count|default:0 }},
+       {% comment %}
+         🔴 2026-09-15 신설. 건수 변수가 아니라 낱말 하나다. 세는 변수는 여전히 insCount
+         하나이고(위 주석), 이 값은 그 숫자에 붙는 명사만 고른다. 4단계에서 버튼이
+         「이슈 1건 확정」이라고 말하면 그 화면이 다른 작업의 결과를 말하는 것이 된다.
+         ⚠️ 서버 값이 비면 JS가 '이슈'로 떨어뜨린다. Django 필터의 default를 쓰지 않은
+            것은 의도다. x-data 속성이 큰따옴표로 묶여 있어서 필터 인자에 큰따옴표를
+            쓰면 그 자리에서 속성이 끊긴다.
+       {% endcomment %}
+       draftNoun: '{{ review.output.draft_noun|escapejs }}' || '이슈',
        labelText() {
          const parts = [];
          if (this.delCount) parts.push('삭제 ' + this.delCount + '건');
          if (this.fixCount) parts.push('교정 ' + this.fixCount + '건');
-         if (this.insCount) parts.push('시사점 ' + this.insCount + '건');
+         if (this.insCount) parts.push(this.draftNoun + ' ' + this.insCount + '건');
          if (this.keepCount) parts.push('유지 ' + this.keepCount + '건');
          return parts.length ? parts.join(', ') + ' 확정' : '확정할 항목이 없어요';
        },
@@ -332,7 +550,18 @@
     {% comment %} ① 무엇을 봤나 {% endcomment %}
     <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-4">
       <p class="text-[10px] font-semibold text-gray-400 tracking-wide">검토 대상</p>
-      {% if review.input.count %}
+      {% comment %}
+        🔴 2026-09-15 수정 — truthy 체크를 None 비교로 바꿨다(PE 제보).
+        종전 조건은 count를 그대로 참 거짓으로 보는 것이었는데, 0은 거짓이라
+        "정말 0건"이 아래 "집계를 받지 못했어요"로 떨어졌다. 뷰는 실값과 미존재를
+        정확히 구분해 내려보내고 있었고, 못 받은 쪽이 이 템플릿이었다.
+        ⚠️ Django 템플릿에서 없는 키는 조건식 안에서 None으로 풀린다. 그래서
+           "미존재 → None → 아래 안내" "0건 → 0 → 위 숫자"로 정확히 갈린다.
+        ⚠️ 같은 유형을 truthy로 두는 자리가 아래에도 있는데 그쪽은 의도한 것이다.
+           keep_count, candidate_count, progress_failed는 0이면 할 말이 없어서
+           블록 자체를 안 그리는 게 맞다. 여기와 insight_count만 0이 뜻을 갖는다.
+      {% endcomment %}
+      {% if review.input.count is not None %}
       <p class="text-sm font-semibold text-gray-900 mt-1.5">
         {{ review.input.label|default:"뉴스" }} <span class="text-primary">{{ review.input.count }}건</span>
       </p>
@@ -360,12 +589,26 @@
         ⚠️ 셋 중 있는 것만 보여준다. 빈 칸에 대시를 채우던 종전 방식은 톤 규칙(줄표를
         쓰지 않는다)에 걸린다. 셋 다 없으면 한 줄로 "기록을 받지 못했어요"라고만 한다 —
         "아직 없어요"는 사용자가 무언가를 더 해야 하는 것처럼 읽혀서 바꿨다.
+
+        🔴 2026-09-15 — 조각마다 whitespace-nowrap을 걸고 구분자를 뒤 조각에 붙여 묶었다.
+        종전에는 셋이 다 차는 일이 없어서(뷰가 prompt_version 하나만 내려 줬다) 한 줄에
+        들어갔는데, 이제 tokens가 실제 값으로 오면서 세 조각이 모두 찬다.
+          claude-haiku-4-5-20251001 | 38초 걸렸어요 | 토큰 1,204,338
+        이 칸은 3분할의 1/3이라 1280px 기준 약 380px이고, 위 문자열은 거기 안 들어가 꺾인다.
+        꺾이는 것 자체는 괜찮다(카드 높이는 ①③이 이미 세 줄이라 무너지지 않는다). 막아야
+        하는 것은 구분자가 줄 끝이나 줄 머리에 혼자 떨어지는 모양이다. 묶어 두면 "| 토큰
+        1,204,338"이 통째로 다음 줄로 내려간다.
+        ⚠️ truncate로 한 줄에 가두지 않았다. 이 세 값은 나중에 판정 결과를 되짚을 때 쓰는
+           기록이라 잘려서 안 보이면 자리를 차지하는 뜻이 없어진다. 두 줄이 되는 편이 낫다.
+        ⚠️ 모델 문자열이 긴 것(claude-haiku-4-5-20251001)은 화면이 아니라 값의 문제다.
+           PE 판단 사항으로 아래 인계에 적어 뒀다. 템플릿에서 잘라 내지 않는다 — 여기서
+           문자열을 가공하면 같은 값이 화면마다 다르게 보인다.
       {% endcomment %}
       {% if review.step.model or review.step.tokens or review.step.duration %}
       <p class="text-xs text-gray-400 mt-1">
-        {% if review.step.model %}{{ review.step.model }}{% endif %}
-        {% if review.step.duration %}{% if review.step.model %}<span class="mx-1 text-gray-300">|</span>{% endif %}{{ review.step.duration }} 걸렸어요{% endif %}
-        {% if review.step.tokens %}{% if review.step.model or review.step.duration %}<span class="mx-1 text-gray-300">|</span>{% endif %}토큰 {{ review.step.tokens }}{% endif %}
+        {% if review.step.model %}<span class="whitespace-nowrap">{{ review.step.model }}</span>{% endif %}
+        {% if review.step.duration %}<span class="whitespace-nowrap">{% if review.step.model %}<span class="mx-1 text-gray-300">|</span>{% endif %}{{ review.step.duration }} 걸렸어요</span>{% endif %}
+        {% if review.step.tokens %}<span class="whitespace-nowrap">{% if review.step.model or review.step.duration %}<span class="mx-1 text-gray-300">|</span>{% endif %}토큰 {{ review.step.tokens }}</span>{% endif %}
       </p>
       {% else %}
       <p class="text-xs text-gray-400 mt-1">실행 기록을 받지 못했어요</p>
@@ -376,20 +619,38 @@
     <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-4">
       <p class="text-[10px] font-semibold text-gray-400 tracking-wide">AI가 낸 제안</p>
       <div class="mt-1.5 space-y-0.5 text-xs">
-        {% if review.output.insight_count %}
-        <p class="text-gray-700">새로 쓴 시사점 초안 <strong class="text-primary">{{ review.output.insight_count }}</strong>건</p>
+        {% comment %}
+          🔴 2026-09-15 수정 — 여기도 None 비교로 바꿨다(위 "검토 대상" 칸과 같은 유형).
+          이 조건은 건수를 보여줄지 말지가 아니라 "어느 작업의 검토 화면인가"를 가른다.
+          시사점 작업이 초안을 0건 냈을 때 종전 조건은 거짓이 되어 아래 정리 작업용
+          문구(삭제 제안, 태그 교정, 유지)로 떨어졌다. 그 날의 화면이 다른 작업의
+          결과를 말하게 되는 것이라 숫자가 틀리는 것보다 나쁘다.
+        {% endcomment %}
+        {% if review.output.insight_count is not None %}
+        {% comment %}
+          🔴 2026-09-15 — 낱말을 draft_noun으로 갈아 끼웠다. 이 한 줄이 3단계에서는
+          「새로 쓴 이슈 초안 6건」, 4단계에서는 「새로 쓴 주간 보고서 초안 1건」이 된다.
+          값이 없으면 이슈로 떨어져 종전 화면과 한 글자도 다르지 않다.
+        {% endcomment %}
+        <p class="text-gray-700">새로 쓴 {{ review.output.draft_noun|default:"이슈" }} 초안 <strong class="text-primary">{{ review.output.insight_count }}</strong>건</p>
         {% else %}
         <p class="text-gray-700">삭제를 제안한 기사 <strong class="text-primary">{{ review.output.delete_count|default:0 }}</strong>건</p>
         <p class="text-gray-700">태그 교정을 제안한 곳 <strong class="text-primary">{{ review.output.retag_count|default:0 }}</strong>건</p>
         <p class="text-gray-700">손댈 곳이 없는 기사 <strong class="text-gray-400">{{ review.output.keep_count|default:0 }}</strong>건</p>
         {% comment %}
-          🔴 기업 후보는 확정 대상이 아니라 알림이다. 위 세 줄과 같은 무게로 쓰면 확정
+          🔴 태그 후보는 확정 대상이 아니라 알림이다. 위 세 줄과 같은 무게로 쓰면 확정
           목록처럼 읽히므로 한 칸 띄우고 회색으로 낮춘다.
           🔴 종전 "기업 후보 16곳 알림"은 명사 나열이라 읽히지 않았다. 문장으로 바꿨고,
              무슨 일이 일어나는지(등록은 사람이 한다)는 아래 알림 카드가 이어 말한다.
+          🔴 2026-09-15 — 세는 말을 "곳"에서 "건"으로 바꿨다. 이제 이 숫자에 기업과
+             기술 주제가 함께 들어 있는데 "곳"은 기업만 세는 말이라 기술 주제가 섞이면
+             틀린 문장이 된다. 낱말도 "기업"에서 "태그"로 올렸다.
+          ⚠️ 여기서 축별로 나눠 두 줄로 쓰지 않는다. 뷰가 합산 하나만 내려 주기도 하고,
+             이 칸은 "무엇이 나왔나"를 한눈에 훑는 자리라 줄이 늘면 위 세 줄의 무게가
+             흐려진다. 축을 가르는 일은 아래 알림 카드가 한다.
         {% endcomment %}
         {% if review.output.candidate_count %}
-        <p class="text-gray-400 pt-1">등록되지 않은 기업 {{ review.output.candidate_count }}곳을 찾았어요</p>
+        <p class="text-gray-400 pt-1">등록되지 않은 태그 {{ review.output.candidate_count }}건을 찾았어요</p>
         {% endif %}
         {% endif %}
       </div>
@@ -412,11 +673,11 @@
        ⚠️ 문서 맨 아래에 같은 바를 하나 더 두는 안은 접었다. sticky가 이미 항상 닿게
           하고 있어서 두 벌을 두면 되돌릴 수 없는 버튼이 한 화면에 두 개가 된다.
 
-    🔴 아래 카드 순서도 같은 지시로 바뀌었다. 유지, 기업 후보, 태그 교정, 삭제 제안이다.
+    🔴 아래 카드 순서도 같은 지시로 바뀌었다. 유지, 태그 후보, 태그 교정, 삭제 제안이다.
        🔴 가장 되돌릴 수 없는 삭제 제안이 맨 아래다. 의도된 배치이므로 바꾸지 말 것.
        ⚠️ 시사점 초안은 지시의 번호에 없다. 3단계 검토에서만 뜨고 삭제나 태그 교정과
           같이 뜨는 일이 없어서 맨 위에 뒀다. 2단계 검토에서는 이 카드가 아예 없으므로
-          실제로 보이는 순서는 지시한 그대로 유지, 기업 후보, 태그 교정, 삭제 제안이다.
+          실제로 보이는 순서는 지시한 그대로 유지, 태그 후보, 태그 교정, 삭제 제안이다.
   {% endcomment %}
   <div class="sticky top-0 z-20 mb-5 bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm px-5 py-3 flex items-center justify-between gap-4">
 
@@ -472,7 +733,7 @@
             :disabled="isDisabled()"
             :title="disabledReason()"
             class="px-4 py-2 bg-primary text-white text-xs font-medium rounded-[10px] hover:bg-primary-hover transition-colors disabled:opacity-50">
-      <span x-text="labelText()">{% if review.output.delete_count and review.output.retag_count %}삭제 {{ review.output.delete_count }}건, 교정 {{ review.output.retag_count }}건 확정{% elif review.output.delete_count %}삭제 {{ review.output.delete_count }}건 확정{% elif review.output.retag_count %}교정 {{ review.output.retag_count }}건 확정{% elif review.output.insight_count %}시사점 {{ review.output.insight_count }}건 확정{% elif review.output.keep_count %}유지 {{ review.output.keep_count }}건 확정{% else %}확정할 항목이 없어요{% endif %}</span>
+      <span x-text="labelText()">{% if review.output.delete_count and review.output.retag_count %}삭제 {{ review.output.delete_count }}건, 교정 {{ review.output.retag_count }}건 확정{% elif review.output.delete_count %}삭제 {{ review.output.delete_count }}건 확정{% elif review.output.retag_count %}교정 {{ review.output.retag_count }}건 확정{% elif review.output.insight_count %}{{ review.output.draft_noun|default:"이슈" }} {{ review.output.insight_count }}건 확정{% elif review.output.keep_count %}유지 {{ review.output.keep_count }}건 확정{% else %}확정할 항목이 없어요{% endif %}</span>
     </button>
     {% else %}
     <button type="button" disabled
@@ -493,69 +754,469 @@
     {% csrf_token %}
 
     {% comment %}
-      🔴 카드 순서는 유지, 기업 후보, 태그 교정, 삭제 제안이다 (2026-09-14 사용자 지시
+      🔴 카드 순서는 유지, 태그 후보, 태그 교정, 삭제 제안이다 (2026-09-14 사용자 지시
          "1, 2, 7, 5, 6, 4, 3 으로 노출되게 해줘"). 시사점 초안만 예외로 맨 위에 있다 —
          3단계 검토에서만 뜨고 삭제나 태그 교정과 같이 뜨는 일이 없어서, 2단계 검토의
          실제 화면 순서는 지시한 그대로다.
       🔴 가장 되돌릴 수 없는 삭제 제안이 맨 아래다. 의도된 배치이므로 되돌리지 말 것.
+      🔴 2026-09-15 — 보고서 초안 카드가 이슈 초안 카드 바로 뒤에 붙었다. 같은 이유로
+         맨 위다. 4, 5단계 검토에서만 뜨고 삭제나 태그 교정과 같이 뜨는 일이 없어서,
+         실제로 보이는 순서는 어느 단계에서든 지시한 그대로다.
       ⚠️ CSS order로 눈에 보이는 순서만 바꾸는 방법은 쓰지 않았다. 읽는 순서와 탭 순서가
          DOM을 따라가므로, 화면과 다른 순서를 DOM에 남기면 화면을 못 보는 사람에게는
          삭제가 여전히 맨 앞이 된다. 순서가 뜻을 지닌 화면이라 마크업을 실제로 옮겼다.
     {% endcomment %}
     {% comment %}
-      ── 시사점 초안 (3단계 검토) ───────────────────────────────────
-      시사점 생성은 되돌릴 수 있다(만들어진 Insight는 지우면 된다).
-      그래서 확정에 confirm을 걸지 않는다. 매일 쓰는 동선에 불필요한 확인 창을 넣지 않는다.
-      등급은 여기서 바로 고칠 수 있게 해서 확정 후 다시 들어가는 왕복을 없앤다.
+      ── 이슈 초안 (3단계 검토) ─────────────────────────────────────
+      🔴 2026-09-15 전면 개정. 종전에는 제목과 한 줄 preview와 등급 select뿐이었다.
+         계약 전문은 이 파일 맨 위 insight_items 항목에 있다.
+
+      ▣ 왜 넓혔나
+        이 화면에서 본문을 고칠 수 없다(설계 4번, 근거 셋). 그러면 사람이 할 수 있는 것은
+        받거나, 버리거나, 등급만 바꾸는 셋뿐이고 그 판단의 재료가 전부 여기 있어야 한다.
+        preview 한 줄만 보고 누르는 확정은 승인 게이트가 아니라 형식이다.
+      ⚠️ 그렇다고 편집 입구를 열지 않는다. 읽기 전용에 등급 select 하나가 이 화면의 전부다.
+         고치는 자리는 확정 뒤의 ORM 하나이고, 입구가 둘이면 어느 쪽이 정본인지
+         알 수 없어진다.
+
+      ▣ 무엇을 펼치고 무엇을 접었나
+        항상 보임   제목 / 등급 / 시사점 전문 / 근거 기사 건수와 날짜 범위
+        접어 둠     분석(content) 전문 / 근거 기사 목록
+        🔴 시사점을 접지 않은 것이 이 카드에서 가장 중요한 판단이다. 사람이 이 화면에서
+           고치는 유일한 값이 등급인데, 등급의 축(경영 효과가 실현됐나 착수했나 해당
+           없나)은 시사점에 가장 짧게 응축돼 있다. 접어 두면 아무도 펼치지 않고, 그러면
+           select가 LLM 값 그대로 통과한다.
+           「판단의 형식」 1번(시사점은 관찰이 아니라 판단으로 끝낸다)의 위반도 이 한
+           덩이를 보면 바로 읽힌다.
+        🔴 분석을 접은 것은 4, 5단계를 위한 판단이기도 하다. 같은 자리에 5,826자 보고서
+           본문이 온다. 3단계에서 펼쳐 두면 그때 규칙이 갈린다.
+        ⚠️ 마크다운으로 렌더하지 않는다. 이유 셋 — ① markdown-spacing CSS가 화면마다
+           style 블록으로 복사돼 있어 여기 또 넣으면 네 번째 사본이 된다, ② 확정하면
+           렌더된 모습을 볼 자리가 따로 있다(content는 ALL-001 주요 이슈 카드,
+           implication은 NEWS-002 시사점 블록이 markdown 필터로 그린다),
+           ③ 🔴 검토 화면에서 봐야 하는 것은
+           확정 시 DB에 그대로 들어갈 문자열이다. 렌더하면 LLM이 낸 서식 오류(어긋난
+           목록, 남은 #)가 화면에서 가려진다. whitespace-pre-line으로 줄바꿈만 살린다.
+
+      ▣ 근거 기사를 새 탭으로 여는 이유
+        🔴 이 화면의 체크 상태와 등급 select 값은 DOM에만 있고 서버에 없다. 같은 탭으로
+           기사에 갔다 돌아오면 수십 건의 선택이 통째로 초기화된다.
+        🔴 링크를 여는 것 자체가 2단계 삭제 목록과 정반대 판단이다. 거기서는 대상이
+           미검증 News라 NEWS-002가 404였다. 3단계 입력은 검증된 News다(선행 잠금이
+           미검증 0건을 보장한다). 근거 기사를 실제로 열어 보는 것이 이 초안이 맞는지
+           판단하는 유일한 방법이라 여기서는 연다.
+
+      ▣ 확정에 confirm을 걸지 않는다
+        만들어진 Insight는 지우면 되돌아온다. 되돌릴 수 있는 곳에 확인창을 붙이면 2단계의
+        진짜 경고까지 같이 죽는다(설계 5번 표). 위 Alpine 루트 주석 참고.
     {% endcomment %}
     {% if review.insight_items %}
     <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm">
       <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
         <h3 class="text-sm font-semibold text-gray-900">
-          시사점 초안 <span class="text-gray-400 font-normal">{{ review.output.insight_count|default:0 }}</span>
+          이슈 초안 <span class="text-gray-400 font-normal">{{ review.output.insight_count|default:0 }}</span>
         </h3>
         <button type="button"
                 @click="clearAll('insightList'); insCount = 0"
                 class="text-xs text-gray-500 hover:text-primary transition-colors">모두 해제</button>
       </div>
 
+      {% comment %}
+        카드마다 x-data 셋이다. open(분석), openNews(근거 기사)는 서로 독립이고,
+        touched는 등급을 사람이 만졌는지를 기억한다.
+        🔴 touched는 x-show가 아니라 x-text라 x-cloak이 필요 없다. 서버가 찍어 둔
+           기본 글자가 Alpine 초기값과 같아서 FOUC가 생길 자리가 아니다.
+           아래 두 펼침 블록에는 x-cloak이 반드시 붙는다.
+      {% endcomment %}
       <div x-ref="insightList" class="divide-y divide-gray-50">
         {% for item in review.insight_items %}
-        <div class="px-5 py-4 hover:bg-gray-50 transition-colors" x-data="{ open: false }">
+        <div class="px-5 py-4" x-data="{ open: false, openNews: false, touched: false }">
           <div class="flex items-start gap-3">
             <input type="checkbox" name="insight_ids" value="{{ item.id }}" checked
                    @change="insCount += $event.target.checked ? 1 : -1"
                    class="mt-0.5 w-4 h-4 flex-shrink-0 accent-[#60269E]">
             <div class="flex-1 min-w-0">
-              <p class="text-sm font-semibold text-gray-900">{{ item.title }}</p>
-              <p class="text-xs text-gray-500 mt-1.5 leading-relaxed">{{ item.preview }}</p>
 
-              <div class="flex items-center gap-3 mt-2.5 flex-wrap">
-                <button type="button" @click="open = !open"
-                        class="text-xs text-primary hover:underline flex items-center gap-1">
-                  근거 기사 {{ item.news_items|length }}건
-                  <i data-lucide="chevron-down" class="w-3 h-3"></i>
-                </button>
+              {% comment %} 제목. 이슈 제목은 LLM이 짓는다(보고서 제목과 달리 고정 서식이 없다). {% endcomment %}
+              <p class="text-sm font-semibold text-gray-900 leading-snug">{{ item.title|default:"제목이 비어 있어요" }}</p>
 
+              {% comment %}
+                메타 줄. 등급 select와 근거 기사 요약이 한 줄에 온다.
+                🔴 등급 select의 초기 선택은 LLM이 낸 값이다(설계 4번 "등급은 분류값이라
+                   고칠 수 있게 둔다"). 비워 두지 않는 근거는 세 가지다.
+                   ① 승격 위계 등급 정책 3번이 "필수, 미지정으로 넘기지 않는다"를 요구한다.
+                      비워 두면 사람이 안 고른 채 확정할 수 있고 그 순간 정책이 깨진다.
+                   ② 🔴 거절 분포와 같은 관측 논리다. LLM 값이 기본이어야 "사람이 등급을
+                      몇 건 고쳤는가"가 곧 LLM 등급 정확도가 된다. 비워 두면 전량이
+                      "사람이 정한 값"이 되어 그 지표가 통째로 죽는다. 설계 4번이 본문
+                      편집을 막은 근거 1번과 정확히 같은 자리다.
+                   ③ 이 화면의 기본값 정책이 이미 "LLM 제안대로 두고 사람이 뺀다"이다
+                      (체크박스 전량 체크). 등급만 반대로 두면 규칙이 둘이 된다.
+                🔴 "사람이 안 보고 넘긴다"의 대책은 기본값을 비우는 것이 아니라 근거를
+                   옆에 보이는 것이다. AI 제안이라는 표식과 아래 grade_reason 줄이 그 일을
+                   한다. 값을 바꾸면 표식이 "직접 고쳤어요"로 바뀌어 훑을 때 눈에 띈다.
+                ⚠️ grade_choices에 미지정이 없어야 한다(맨 위 계약 참고). item.grade가
+                   비면 아래 안내 option이 맨 앞에 붙고 주황 한 줄이 뜬다.
+              {% endcomment %}
+              <div class="flex items-center gap-3 mt-2 flex-wrap">
                 {% if grade_choices %}
                 <label class="flex items-center gap-1.5 text-xs text-gray-500">
                   등급
-                  <select name="grade_{{ item.id }}"
+                  <select name="grade_{{ item.id }}" @change="touched = true"
                           class="text-xs border border-[#E5E5E5] rounded-[10px] px-2 py-1 focus:outline-none focus:border-primary">
+                    {% if not item.grade %}
+                    <option value="" selected>등급을 골라 주세요</option>
+                    {% endif %}
                     {% for value, label in grade_choices %}
                     <option value="{{ value }}" {% if item.grade == value %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}
                   </select>
+                  <span class="text-[10px] text-gray-400 whitespace-nowrap"
+                        x-text="touched ? '직접 고쳤어요' : 'AI 제안'">AI 제안</span>
                 </label>
+                {% endif %}
+
+                {% comment %}
+                  근거 기사 요약. 🔴 접힌 채로도 건수와 날짜 범위가 보여야 한다.
+                  범위가 몇 달에 걸치면 "하나의 이슈는 하나의 사건"이 깨졌다는 뜻이고,
+                  그건 펼치지 않고도 읽히는 신호다.
+                  🔴 0건이면 주황 경고다. 근거 기사가 없는 이슈는 출처 기반 작성 원칙
+                     위반이라 사람이 반드시 거절해야 한다.
+                {% endcomment %}
+                {% if item.news_count %}
+                <span class="text-xs text-gray-400 flex items-center gap-1.5">
+                  근거 기사 {{ item.news_count }}건
+                  {% if item.news_range %}<span class="text-gray-300">|</span>{{ item.news_range }}{% endif %}
+                </span>
+                {% else %}
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-orange-50 text-orange-600 whitespace-nowrap">
+                  근거 기사가 없어요
+                </span>
                 {% endif %}
               </div>
 
-              {% comment %} 여기도 x-cloak 필수. 아래 삭제 목록의 본문 미리보기와 같은 이유다. {% endcomment %}
-              <ul x-show="open" x-cloak class="mt-2 p-3 rounded-[10px] bg-gray-50 space-y-1">
+              {% comment %}
+                등급 안내 두 줄. 둘 다 있으면 둘 다 뜬다(뜻이 다르다).
+                주황은 "AI가 값을 내지 않았다", 회색은 "AI가 이 등급을 고른 이유"다.
+              {% endcomment %}
+              {% if grade_choices and not item.grade %}
+              <p class="text-[11px] text-orange-600 mt-1.5">AI가 등급을 내지 않았어요. 직접 골라 주세요.</p>
+              {% endif %}
+              {% if item.grade_reason %}
+              <p class="text-[11px] text-gray-400 mt-1.5 leading-relaxed">{{ item.grade_reason }}</p>
+              {% endif %}
+
+              {% comment %}
+                시사점. 🔴 접지 않는다. 위 블록 주석의 근거 참고.
+                보라 콜아웃은 NEWS-002의 "이슈 시사점" 블록과 같은 형태다
+                (bg-purple-50 + 왼쪽 Primary 보더). 새 시각 장치를 만들지 않았다.
+                ⚠️ 낱말 "시사점"도 그 블록과 같다.
+              {% endcomment %}
+              <div class="mt-3">
+                <p class="text-[10px] font-semibold text-gray-400 tracking-wide mb-1.5">시사점</p>
+                {% if item.implication %}
+                <div class="bg-purple-50 border-l-4 border-primary rounded-r-[10px] px-3 py-2.5">
+                  <p class="text-xs text-gray-700 leading-relaxed whitespace-pre-line">{{ item.implication }}</p>
+                </div>
+                {% else %}
+                <p class="text-xs text-orange-600">시사점이 비어 있어요. 이대로 확정하면 빈 채로 만들어져요.</p>
+                {% endif %}
+              </div>
+
+              {% comment %}
+                펼침 버튼 둘. 분석과 근거 기사는 서로 독립으로 열린다.
+                ⚠️ 한 버튼으로 둘을 같이 여는 안은 접었다. 분석은 초안이 맞게 쓰였는지를
+                   보는 재료이고 근거 기사는 그 서술이 실제 기사에 있는지를 보는 재료라
+                   보는 목적이 다르다. 둘 중 하나만 필요한 경우가 훨씬 많다.
+              {% endcomment %}
+              <div class="flex items-center gap-4 mt-3 flex-wrap">
+                <button type="button" @click="open = !open"
+                        class="text-xs text-primary hover:underline flex items-center gap-1">
+                  <span x-text="open ? '분석 접기' : '분석 전문 보기'">분석 전문 보기</span>
+                  <i data-lucide="chevron-down" class="w-3 h-3"></i>
+                </button>
+                {% if item.news_items %}
+                <button type="button" @click="openNews = !openNews"
+                        class="text-xs text-primary hover:underline flex items-center gap-1">
+                  <span x-text="openNews ? '근거 기사 접기' : '근거 기사 펼치기'">근거 기사 펼치기</span>
+                  <i data-lucide="chevron-down" class="w-3 h-3"></i>
+                </button>
+                {% endif %}
+              </div>
+
+              {% comment %}
+                분석 전문. 🔴 x-show에는 x-cloak이 반드시 붙는다. 빠뜨리면 Alpine이 뜨기
+                전에 브라우저가 원본 HTML을 그려서 페이지가 열릴 때 본문이 잠깐 통째로
+                보였다 사라진다(FOUC). 이미 네 곳에서 겪은 유형이다.
+                ⚠️ 여기가 4, 5단계에서 5,826자가 들어오는 자리다. max-h로 가두지 않았다 —
+                   보고서는 읽으려고 펼치는 것이고, 가두면 상자 안에서 다시 스크롤하게 된다.
+                   근거 기사 목록과 판단이 갈리는 이유는 그쪽 주석에 적었다.
+              {% endcomment %}
+              <div x-show="open" x-cloak
+                   class="mt-2 p-3 rounded-[10px] bg-gray-50 text-xs text-gray-600 leading-relaxed whitespace-pre-line">
+                {{ item.content|default:"분석 본문이 비어 있어요." }}
+              </div>
+
+              {% comment %}
+                근거 기사 목록. x-cloak은 위와 같은 이유로 필수다.
+                🔴 max-h-64 스크롤 상자를 3단계부터 걸어 둔다. 3단계는 서너 건이라 상자가
+                   내용보다 커서 아무 일도 일어나지 않고, 수십 건이 오는 4, 5단계에서만
+                   스크롤이 생긴다. 그때 가서 클래스를 더하면 두 단계의 모양이 갈린다.
+                🔴 target="_blank"는 선택이 아니다. 같은 탭으로 나가면 이 화면의 체크와
+                   등급이 전부 초기화된다(블록 머리 주석 참고).
+                ⚠️ url이 비면 링크 없이 글자만 남는다. 화면이 죽지 않는다.
+              {% endcomment %}
+              <ul x-show="openNews" x-cloak
+                  class="mt-2 p-3 rounded-[10px] bg-gray-50 space-y-1.5 max-h-64 overflow-y-auto">
                 {% for news in item.news_items %}
                 <li class="text-xs text-gray-600 flex items-start gap-2">
                   <span class="text-gray-400 flex-shrink-0">{{ news.published_at|date:"m.d" }}</span>
+                  {% if news.url %}
+                  <a href="{{ news.url }}" target="_blank" rel="noopener"
+                     class="min-w-0 hover:text-primary transition-colors flex items-start gap-1">
+                    <span class="min-w-0">{{ news.title }}</span>
+                    <i data-lucide="external-link" class="w-3 h-3 flex-shrink-0 mt-0.5 text-gray-400"></i>
+                  </a>
+                  {% else %}
                   <span class="min-w-0">{{ news.title }}</span>
+                  {% endif %}
+                  {% if news.source %}<span class="text-gray-400 flex-shrink-0">{{ news.source }}</span>{% endif %}
+                </li>
+                {% empty %}
+                <li class="text-xs text-gray-400">연결된 근거 기사가 없어요.</li>
+                {% endfor %}
+              </ul>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% comment %}
+      ── 보고서 초안 (4, 5단계 검토) ────────────────────────────────
+      🔴 2026-09-15 신설. 주간과 월간이 이 한 블록을 같이 쓴다.
+         정본 설명은 이 파일 맨 위 report_items 계약과 docs/design.md 8차 개정이다.
+
+      ▣ 왜 이슈 초안 카드에 얹지 않고 따로 뒀나
+        조각의 규칙은 전부 같다. 무엇을 접고 무엇을 펴는지, 스크롤 상자, 새 탭 링크,
+        마크다운을 렌더하지 않는 것, 확인창이 없는 것까지 3단계와 한 글자도 다르지 않다.
+        그런데도 카드를 가른 이유가 셋이다.
+          ① 🔴 제목의 성질이 반대다. 이슈 제목은 LLM이 짓고, 보고서 제목은 코드가 서식으로
+             만든다(설계 8-(C), 「판단의 형식」 8번). 같은 마크업에 담으면 "여기는 고칠 수
+             없는 값"이라는 성질이 화면에서도 코드에서도 읽히지 않는다.
+          ② 소제목이 셋 다 다르다. 시사점 대 주요 동향, 분석 대 주요 이슈, 등급 있음 대
+             없음. 한 카드에 넣으면 3단계 마크업 안에 3단계가 쓰지 않는 분기가 셋 남는다.
+          ③ 두 카드가 한 화면에 함께 뜨는 일이 없다. 한 배치는 한 단계다.
+
+      ▣ 🔴 한 편인데 목록으로 받는다
+        설계 9-(a)가 "재실행 전에 그 RunJob의 RunDraft를 전부 지운다, 안 지우면 초안이
+        두 벌 쌓여 검토 화면에 중복이 뜬다"고 경고한 사고를 화면이 보이게 하려는 것이다.
+        단수로 받으면 두 벌째가 조용히 가려지고 그 행은 대기로 남는다.
+        🔴 그리고 두 편을 다 채택하면 Report의 unique_together(period_type, date_from)에
+           걸려 확정이 통째로 실패한다. 그래서 2건 이상일 때 주황 안내가 뜬다.
+           ⚠️ 화면은 알리기만 하고 막지 않는다. 막는 자리는 확정 뷰다(설계 2번 "확정
+              뷰에서 한 번 더 막는다"). 라디오 버튼으로 바꾸는 안은 기각했다 — insCount
+              증감이 깨지고, 전량 거절이 불가능해져 「모두 취소」 출구와 규칙이 갈린다.
+
+      ▣ 🔴 카드 머리의 건수와 「모두 해제」는 한 편일 때 감춘다
+        한 편짜리에서 「보고서 초안 1」의 1은 아무 말도 하지 않고, 「모두 해제」는 바로
+        옆 체크박스를 끄는 것과 같은 동작이 두 벌이 된다.
+        🔴 감추는 조건을 "보고서면 감춘다"가 아니라 "한 편이면 감춘다"로 뒀다. 그래야
+           초안이 두 벌 쌓인 날 둘이 저절로 돌아온다. 바로 그날이 건수와 일괄 해제가
+           필요한 유일한 날이다.
+
+      ▣ 주요 동향은 접지 않는다. 글자 수를 옆에 적는다
+        접지 않는 근거는 3단계에서 시사점을 접지 않은 것과 같다. 사람이 이 화면에서
+        읽어야 하는 한 덩이이고, 경영진이 가장 먼저 읽는 자리도 여기다.
+        🔴 글자 수는 뷰 계약이 아니라 템플릿이 센다(length 필터). 「주요 동향 쓰는 법」이
+           세 문단 합쳐 500자 미만을 요구하고, 실제로 9월 2주차가 약 670자로 반려됐다.
+           500자 이상이면 숫자가 주황이 되고 한 줄이 붙는다.
+           ⚠️ 그 문구는 "줄이세요"가 아니라 "문단마다 한 문장인지 봐 주세요"다. 같은 절이
+              "줄이는 것은 문장 수이고, 압축하면 한 문장에 두 요지를 담게 된다"고 적었다.
+        ⚠️ 문단 수를 세지 않는다. whitespace-pre-line이 빈 줄을 그대로 살리므로 세 문단인지
+           아닌지는 화면에서 눈으로 읽힌다.
+
+      ▣ 마크다운으로 렌더하지 않는다
+        3단계와 같은 이유 셋이고, 보고서에서는 더 중요하다. 이슈 제목(###)과 참고뉴스
+        인라인 규약이 지켜졌는지는 확정 시 DB에 들어갈 문자열 그대로여야 보인다.
+        렌더하면 어긋난 목록과 남은 #이 화면에서 가려진다.
+
+      ▣ 확인창을 걸지 않는다
+        3단계와 같다. 만들어진 Report는 지우면 되돌아온다. 되돌릴 수 있는 곳에 확인창을
+        붙이면 2단계의 진짜 경고까지 같이 죽는다(설계 5번 표).
+    {% endcomment %}
+    {% if review.report_items %}
+    <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm">
+      <div class="px-5 py-4 border-b border-gray-100">
+        <div class="flex items-center justify-between gap-3">
+          <h3 class="text-sm font-semibold text-gray-900">
+            {{ review.output.draft_noun|default:"보고서" }} 초안
+            {% if review.report_items|length > 1 %}<span class="text-gray-400 font-normal">{{ review.report_items|length }}</span>{% endif %}
+          </h3>
+          {% if review.report_items|length > 1 %}
+          <button type="button"
+                  @click="clearAll('reportList'); insCount = 0"
+                  class="flex-shrink-0 text-xs text-gray-500 hover:text-primary transition-colors">모두 해제</button>
+          {% endif %}
+        </div>
+        {% comment %}
+          🔴 확정이 무엇을 만드는지 미리 말하는 자리다. status="generating"의 뜻이
+          "아직 사람이 손봐야 한다"이고, 완료로 바꾸는 일은 화면 밖에서 일어난다.
+          ⚠️ "바로 공개되지 않아요"라고 쓰지 않는다. 사실이 아니다 — 확정하면 REPORT-001
+             목록에 곧바로 뜨고, 다만 「생성중」 배지가 붙는다.
+        {% endcomment %}
+        <p class="text-xs text-gray-500 mt-1 leading-relaxed">
+          확정하면 보고서가 만들어져서 보고서 목록에 바로 올라가요.
+          아직 다듬기 전이라는 표시가 붙고, 내용을 손본 뒤에 완료로 바꾸면 돼요.
+        </p>
+      </div>
+
+      {% if review.report_items|length > 1 %}
+      <div class="flex items-start gap-2 px-5 py-3 border-b border-gray-100 bg-orange-50">
+        <i data-lucide="alert-triangle" class="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5"></i>
+        <p class="text-xs text-orange-700 leading-relaxed">
+          이번 실행에 초안이 여러 편 쌓였어요. 한 편만 남기고 나머지는 체크를 풀어 주세요.
+          같은 기간의 보고서는 한 편만 만들 수 있어서, 둘 다 확정하면 아무것도 만들어지지 않아요.
+        </p>
+      </div>
+      {% endif %}
+
+      {% comment %}
+        카드마다 x-data 넷이다. open(본문)과 openNews(근거 기사)는 서로 독립이고,
+        bodyLabel은 본문 펼침 버튼의 낱말이다(주요 이슈 / 주요 이슈 요약).
+        🔴 escapejs를 거는 이유는 이 값이 JS 문자열 리터럴 안으로 들어가기 때문이다.
+           서버 값이 비면 JS의 || 가 기본 낱말로 떨어뜨린다.
+      {% endcomment %}
+      <div x-ref="reportList" class="divide-y divide-gray-50">
+        {% for item in review.report_items %}
+        <div class="px-5 py-4"
+             x-data="{ open: false, openNews: false, bodyLabel: '{{ item.body_label|escapejs }}' || '주요 이슈' }">
+          <div class="flex items-start gap-3">
+            {% comment %}
+              🔴 체크박스 이름이 draft_ids다. 이슈 초안의 insight_ids와 테이블은 같지만
+              (둘 다 RunDraft.pk) 확정 뷰가 무엇으로 만들지를 가르는 이름이라 섞지 않는다.
+            {% endcomment %}
+            <input type="checkbox" name="draft_ids" value="{{ item.id }}" checked
+                   @change="insCount += $event.target.checked ? 1 : -1"
+                   class="mt-0.5 w-4 h-4 flex-shrink-0 accent-[#60269E]">
+            <div class="flex-1 min-w-0">
+
+              {% comment %}
+                🔴 제목은 코드가 서식으로 만든 값이라 읽기 전용이다. 이 자리에 입력 필드를
+                만들지 말 것. 「보고서 제목 실패 4유형」을 원천에서 없애는 것이 "생성하지
+                않는다"이고, 화면이 고칠 수 있게 되는 순간 그 원천이 다시 열린다.
+                ⚠️ 비어 있으면 LLM이 아니라 코드가 못 만든 것이다. 그래서 주황이다.
+              {% endcomment %}
+              {% if item.title %}
+              <p class="text-sm font-semibold text-gray-900 leading-snug">{{ item.title }}</p>
+              {% else %}
+              <p class="text-sm font-semibold text-orange-600 leading-snug">제목을 받지 못했어요</p>
+              {% endif %}
+
+              {% comment %}
+                메타 줄. 이슈 초안의 「등급 | 근거 기사 N건 | 날짜 범위」와 같은 자리다.
+                🔴 기간에 「기간」이라는 라벨을 붙였다. 이슈 초안의 같은 자리는 근거 기사의
+                   발행일 범위인데 여기는 보고서가 자른 대상 구간이라 뜻이 다르다.
+                   라벨이 없으면 같은 모양의 날짜 두 개가 다른 것을 가리키게 된다.
+                🔴 서식은 Y.m.d 한 벌이다. 월간을 「2026년 9월」로 줄이지 않는다(맨 위 주석).
+              {% endcomment %}
+              <div class="flex items-center gap-3 mt-2 flex-wrap">
+                {% if item.date_from and item.date_to %}
+                <span class="text-xs text-gray-500 whitespace-nowrap">기간 {{ item.date_from|date:"Y.m.d" }} ~ {{ item.date_to|date:"Y.m.d" }}</span>
+                {% else %}
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-orange-50 text-orange-600 whitespace-nowrap">
+                  대상 기간을 받지 못했어요
+                </span>
+                {% endif %}
+
+                {% if item.news_count %}
+                <span class="text-xs text-gray-400 whitespace-nowrap">근거 기사 {{ item.news_count }}건</span>
+                {% else %}
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-orange-50 text-orange-600 whitespace-nowrap">
+                  근거 기사가 없어요
+                </span>
+                {% endif %}
+              </div>
+
+              {% comment %}
+                🔴 "어디서 고치나"에 답하는 한 줄이다. 제목과 기간은 둘 다 코드가 정하고
+                화면에서 고를 수 없다. 이 줄이 없으면 사람이 고칠 자리를 찾아 헤맨다.
+              {% endcomment %}
+              <p class="text-[11px] text-gray-400 mt-1.5">제목과 기간은 정해진 서식으로 만들어져요. 여기서는 고치지 않아요.</p>
+
+              {% comment %}
+                주요 동향. 🔴 접지 않는다. 낱말은 REPORT-002를, 보라 콜아웃은 NEWS-002의
+                "이슈 시사점" 블록을 그대로 따른다. 새 시각 장치를 만들지 않았다.
+              {% endcomment %}
+              <div class="mt-3">
+                <div class="flex items-center justify-between gap-2 mb-1.5">
+                  <p class="text-[10px] font-semibold text-gray-400 tracking-wide">주요 동향</p>
+                  {% if item.overview %}
+                  <span class="text-[10px] whitespace-nowrap {% if item.overview|length >= 500 %}text-orange-600{% else %}text-gray-400{% endif %}">{{ item.overview|length }}자</span>
+                  {% endif %}
+                </div>
+                {% if item.overview %}
+                <div class="bg-purple-50 border-l-4 border-primary rounded-r-[10px] px-3 py-2.5">
+                  <p class="text-xs text-gray-700 leading-relaxed whitespace-pre-line">{{ item.overview }}</p>
+                </div>
+                {% if item.overview|length >= 500 %}
+                <p class="text-[11px] text-orange-600 mt-1.5">500자를 넘었어요. 문단마다 한 문장인지 봐 주세요.</p>
+                {% endif %}
+                {% else %}
+                <p class="text-xs text-orange-600">주요 동향이 비어 있어요. 이대로 확정하면 빈 채로 만들어져요.</p>
+                {% endif %}
+              </div>
+
+              <div class="flex items-center gap-4 mt-3 flex-wrap">
+                <button type="button" @click="open = !open"
+                        class="text-xs text-primary hover:underline flex items-center gap-1">
+                  <span x-text="open ? bodyLabel + ' 접기' : bodyLabel + ' 전문 보기'">{{ item.body_label|default:"주요 이슈" }} 전문 보기</span>
+                  <i data-lucide="chevron-down" class="w-3 h-3"></i>
+                </button>
+                {% if item.news_items %}
+                <button type="button" @click="openNews = !openNews"
+                        class="text-xs text-primary hover:underline flex items-center gap-1">
+                  <span x-text="openNews ? '근거 기사 접기' : '근거 기사 펼치기'">근거 기사 펼치기</span>
+                  <i data-lucide="chevron-down" class="w-3 h-3"></i>
+                </button>
+                {% endif %}
+              </div>
+
+              {% comment %}
+                본문 전문. 🔴 x-show에는 x-cloak이 반드시 붙는다. 빠뜨리면 Alpine이 뜨기
+                전에 브라우저가 5,826자를 통째로 그렸다 지운다(FOUC).
+                ⚠️ max-h를 걸지 않는다. 보고서는 읽으려고 펼치는 것이고, 가두면 상자 안에서
+                   다시 스크롤하게 된다. 아래 근거 기사 목록과 판단이 갈리는 자리다.
+              {% endcomment %}
+              <div x-show="open" x-cloak
+                   class="mt-2 p-3 rounded-[10px] bg-gray-50 text-xs text-gray-600 leading-relaxed whitespace-pre-line">
+                {{ item.content|default:"본문이 비어 있어요." }}
+              </div>
+
+              {% comment %}
+                근거 기사 목록. 🔴 여기가 max-h-64 상자가 실제로 일하는 자리다.
+                3단계는 서너 건이라 상자가 내용보다 컸고, 수십 건인 보고서에서만 스크롤이 생긴다.
+                🔴 target="_blank"는 선택이 아니다. 같은 탭으로 나가면 이 화면의 체크 상태가
+                   초기화된다. 보고서는 체크가 하나뿐이라 손해가 작아 보이지만, 돌아왔을 때
+                   확정 버튼이 잠겨 있는 것을 사람이 이유 없이 겪는다.
+              {% endcomment %}
+              <ul x-show="openNews" x-cloak
+                  class="mt-2 p-3 rounded-[10px] bg-gray-50 space-y-1.5 max-h-64 overflow-y-auto">
+                {% for news in item.news_items %}
+                <li class="text-xs text-gray-600 flex items-start gap-2">
+                  <span class="text-gray-400 flex-shrink-0">{{ news.published_at|date:"m.d" }}</span>
+                  {% if news.url %}
+                  <a href="{{ news.url }}" target="_blank" rel="noopener"
+                     class="min-w-0 hover:text-primary transition-colors flex items-start gap-1">
+                    <span class="min-w-0">{{ news.title }}</span>
+                    <i data-lucide="external-link" class="w-3 h-3 flex-shrink-0 mt-0.5 text-gray-400"></i>
+                  </a>
+                  {% else %}
+                  <span class="min-w-0">{{ news.title }}</span>
+                  {% endif %}
+                  {% if news.source %}<span class="text-gray-400 flex-shrink-0">{{ news.source }}</span>{% endif %}
                 </li>
                 {% empty %}
                 <li class="text-xs text-gray-400">연결된 근거 기사가 없어요.</li>
@@ -594,42 +1255,112 @@
     {% endif %}
 
     {% comment %}
-      ── 미등록 기업 후보 ───────────────────────────────────────────
-      🔴 2026-09-14 신설. RunProposal의 다섯 번째 종류(기업 후보)다.
-      🔴 확정 대상이 아니다. 확정을 눌러도 등록이 일어나지 않는다.
-         그래서 체크박스도 hidden input도 두지 않았고 "모두 해제"도 없다.
-         확정 목록처럼 보이면 사람이 "확정하면 등록되겠지"로 읽고 등록을 미룬다.
-         제목에 "알림"을 박고 카드 안에 무슨 일이 일어나는지를 한 문장으로 적었다.
+      ── 미등록 태그 후보 ───────────────────────────────────────────
+      🔴 2026-09-14 신설. RunProposal의 다섯 번째 종류다.
+      🔴 2026-09-15 축 일반화. 종전에는 기업 후보 전용이었고 컨텍스트 키도
+         org_candidates였다. 지금은 tag_candidates이고 항목마다 axis가 붙는다.
+
+      ▣ 왜 갈랐나
+        LLM은 미등록 기술 주제를 낼 자리가 없으면 그것을 "태그 추가"로 낸다. 그런데
+        그건 확정하면 실제로 태그가 붙는 종류라, 비슷한 이름이 이미 등록돼 있었다면
+        엉뚱한 태그가 붙는다. 담을 자리를 만드는 쪽이 오히려 기술 주제 축을 지킨다
+        (2026-09-15 PM 판단, docs/planning.md 4-(b)). 실제로 'DL이앤씨'(기업)와
+        'AI 상담 시스템'(기술 주제)이 같은 날 건너뛰어졌다.
+
+      ▣ 🔴 한 섹션 안에서 축별 그룹 머리로 가른다. 섹션을 둘로 나누지 않았다.
+        ① 「확정해도 아무 동작이 없다」는 안내가 카드에 한 벌만 남는다. 섹션이 둘이면
+           같은 두 문장이 두 번 나오고, 반복되는 경고는 읽히지 않게 된다. 이 화면에서
+           그 문장은 장식이 아니라 이 카드가 존재하는 이유다.
+        ② admin_url이 축마다 다른데, 그룹 머리가 그 링크를 정확히 한 번씩 담을 자리다.
+           항목마다 걸면 같은 링크가 열여섯 번 반복되고, 카드 머리 하나에 링크 둘을
+           나란히 두면 어느 항목이 어디로 가는지 사람이 스스로 짝지어야 한다.
+        ③ 위 태그 교정처럼 축을 왼쪽 칸(w-16)으로만 두는 안은 기각했다. 그 표는 묶는
+           단위가 기사여서 한 묶음 안에 축이 섞이므로 칸이 맞지만, 이 목록은 묶는 단위가
+           없어 축이 유일한 구조다. 평평하게 두면 기업 열둘 사이에 낀 기술 주제 둘이
+           눈에 안 띄는데, 오늘 실제로 건너뛰어진 것이 바로 그 기술 주제다.
+        ⚠️ 축을 부르는 낱말은 태그 교정 표와 같다(axis_label, 뷰가 같은 출처에서 뽑는다).
+           구조는 달라도 어휘가 갈리면 같은 것을 다른 것으로 읽는다.
+
+      ▣ 🔴 확정 대상이 아니라는 신호는 축이 둘로 늘어도 그대로다
+        체크박스도 hidden input도 "모두 해제"도 없다. 제목 옆 「알림」 배지와 카드 머리의
+        두 문장이 그 일을 한다. 그룹 머리에도 체크박스를 두지 않고 배지 색도 얹지 않았다
+        (회색 톤 그대로) — 색이 붙으면 확정 목록의 축 배지처럼 읽힌다. 그룹 머리의 링크는
+        "가기"라 이 화면 밖으로 나가는 동작임이 분명하고, 여기서 무언가 일어난다고 읽히지
+        않는다.
       🔴 확정 버튼을 여는 커버리지 계산에도 이 종류를 세지 않는다. 일부 기사에만
          생기므로 섞으면 버튼이 영영 열리지 않는다(위 Alpine 루트 주석 참고).
-      ⚠️ SET-007로 가는 링크는 컨텍스트 문자열로 받는다. 비면 링크만 사라진다.
+
+      ▣ dictsort를 한 번 거는 이유
+        뷰는 제안 순서(기사 발행일 역순)로 내려보내므로 축이 섞여 있다. regroup은 이웃한
+        것만 묶어서, 정렬 없이 쓰면 「기업」 머리가 서너 번 반복된다. 축으로 정렬해 두면
+        머리가 축마다 한 번씩만 뜬다. 오름차순이라 organization이 tech_topic보다 앞에
+        오는데, 기업이 먼저 나오는 것이 이 앱의 기존 축 순서(설정 메뉴, 태그 교정)와 같다.
+      ⚠️ 그룹 머리의 라벨과 링크는 그 그룹 첫 항목에서 꺼낸다(group.list.0). 축 이름을
+         템플릿에 하드코딩하지 않으므로 축이 셋으로 늘어도 이 마크업은 그대로 쓴다.
+      ⚠️ 등록 화면 링크는 컨텍스트 문자열이다. 비면 그 축 그룹의 링크만 사라진다.
     {% endcomment %}
-    {% if review.org_candidates %}
+    {% if review.tag_candidates %}
     <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm">
-      <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-100">
-        <div class="min-w-0">
-          <h3 class="text-sm font-semibold text-gray-900 flex items-center gap-2">
-            아직 등록되지 않은 기업
-            <span class="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-normal">알림</span>
-          </h3>
-          <p class="text-xs text-gray-500 mt-1 leading-relaxed">
-            기사에서 핵심 주체로 보였는데 기업 목록에 없는 이름이에요.
-            확정을 눌러도 자동으로 등록되지 않아요. 필요하면 직접 추가해 주세요.
-          </p>
-        </div>
-        {% if review.org_admin_url %}
-        <a href="{{ review.org_admin_url }}"
+      <div class="px-5 py-4 border-b border-gray-100">
+        <h3 class="text-sm font-semibold text-gray-900 flex items-center gap-2">
+          아직 등록되지 않은 태그
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-normal">알림</span>
+        </h3>
+        {% comment %}
+          🔴 이 두 문장이 「확정해도 아무 동작이 없다」를 말하는 자리다. 축이 늘었다고
+             줄이거나 그룹 머리로 흩지 말 것. 첫 문장이 무엇인지를, 둘째 문장이 무엇이
+             일어나지 않는지를 말한다.
+          🔴 "기업 목록에 없는"을 "기업이나 기술 주제 목록에 없는"으로 고쳤다. 축이 둘인데
+             한쪽만 말하면 기술 주제 후보를 본 사람이 어디에 등록해야 하는지 알 수 없다.
+        {% endcomment %}
+        <p class="text-xs text-gray-500 mt-1 leading-relaxed">
+          기사에서 핵심 주체로 보였는데 기업이나 기술 주제 목록에 없는 이름이에요.
+          확정을 눌러도 자동으로 등록되지 않아요. 필요하면 직접 추가해 주세요.
+        </p>
+      </div>
+
+      {% regroup review.tag_candidates|dictsort:"axis" by axis as candidate_axes %}
+      {% for axis_group in candidate_axes %}
+
+      {% comment %}
+        축 그룹 머리. 회색 띠 한 줄이다. 위 두 표의 칸 제목 줄(bg-gray-50)과 같은 높이,
+        같은 바탕을 쓴다 — 같은 화면 안에서 "이 아래가 한 덩이"라고 말하는 장치가
+        이미 그 모양이라 새로 만들지 않았다.
+        ⚠️ 이 줄은 칸 제목이 아니라 묶음 이름이라 글자를 한 단계 진하게(text-gray-700) 두고
+           아이콘을 하나 붙였다. 아이콘은 설정 메뉴가 그 축에 이미 쓰는 것이다
+           (기업 building-2, 기술 주제 cpu, apps/setting/views.py _setting_menu).
+           뜻이 이어지므로 새 도상을 고르지 않았다.
+
+        🔴 axis가 빈 문자열인 행에 대한 방어가 두 군데 있다. RunProposal.axis는
+           blank=True라 후보 행에 축이 안 담긴 채 저장될 수 있다.
+           ① 축 이름은 |default로 받아 "분류를 알 수 없어요"로 떨어진다. 아이콘도
+              그때는 help-circle이다. 기업 아이콘으로 떨어뜨리면 축을 모르는 행이
+              기업으로 보인다.
+           ② 🔴 링크 조건에 axis_label을 함께 건 것이 핵심이다. 뷰의 admin_url은
+              "기업이면 SET-007, 아니면 SET-008" 형태라 축이 비면 기술 주제 관리로
+              간다. 그 상태로 링크를 띄우면 사람을 틀린 화면으로 보낸다. 축을 모르는
+              그룹은 링크를 아예 감추는 쪽이 옳다. 이 조건을 떼지 말 것.
+      {% endcomment %}
+      <div class="flex items-center justify-between gap-3 px-5 py-2 border-b border-gray-100 bg-gray-50">
+        <p class="text-[11px] font-semibold text-gray-700 flex items-center gap-1.5 min-w-0">
+          <i data-lucide="{% if axis_group.grouper == 'tech_topic' %}cpu{% elif axis_group.grouper == 'organization' %}building-2{% else %}help-circle{% endif %}"
+             class="w-3 h-3 text-gray-400 flex-shrink-0"></i>
+          {{ axis_group.list.0.axis_label|default:"분류를 알 수 없어요" }}
+          <span class="text-gray-400 font-normal">{{ axis_group.list|length }}</span>
+        </p>
+        {% if axis_group.list.0.admin_url and axis_group.list.0.axis_label %}
+        <a href="{{ axis_group.list.0.admin_url }}"
            class="flex-shrink-0 text-xs text-primary hover:underline flex items-center gap-1">
-          기업 관리로 가기
+          {{ axis_group.list.0.axis_label }} 관리로 가기
           <i data-lucide="arrow-right" class="w-3 h-3"></i>
         </a>
         {% endif %}
       </div>
 
       <div class="divide-y divide-gray-50">
-        {% for cand in review.org_candidates %}
+        {% for cand in axis_group.list %}
         <div class="px-5 py-3 flex items-start gap-3">
-          <span class="w-32 flex-shrink-0 text-xs font-semibold text-gray-900">{{ cand.name }}</span>
+          <span class="w-32 flex-shrink-0 text-xs font-semibold text-gray-900">{{ cand.name|default:"이름이 비어 있어요" }}</span>
           <div class="flex-1 min-w-0">
             <p class="text-xs text-gray-500 leading-relaxed">{{ cand.reason|default:"이유가 비어 있어요" }}</p>
             <p class="text-[11px] text-gray-400 mt-1 flex items-center gap-2">
@@ -641,6 +1372,7 @@
         </div>
         {% endfor %}
       </div>
+      {% endfor %}
     </div>
     {% endif %}
 
@@ -860,12 +1592,46 @@
       진짜로 아무것도 없을 때. 유지 건수까지 0이어야 여기로 온다.
       (전량 유지인 날은 위 "그대로 두는 기사 요약"이 대신 뜬다.)
       빈 컨텍스트로 열어도 화면이 깨지지 않게 한다.
+
+      🔴 2026-09-15 개정 — 한 문구를 두 갈래로 갈랐다. 사용자가 실제로 여기 갇혔다.
+         종전 문구는 "실행 화면에서 작업을 한 번 돌리면 여기에 결과가 모여요."였는데,
+         이건 아직 한 번도 안 돌린 상태의 말이다. 돌렸는데 결과가 0건인 사람에게
+         "한 번 돌리면"이라고 말하면 이미 한 일을 또 하라는 뜻이 되고, 실제로는 노드가
+         「검토 대기」라 다시 돌릴 수도 없다. 나가는 길이 화면에 없는 상태가 교착이다.
+
+      ▣ 가르는 기준은 review.run의 존재다
+        review.run은 RunJob이 한 번이라도 있을 때만 채워진다(뷰가 없으면 조기 반환한다).
+        있다  → 돌았는데 결과가 0건이다. 출구를 말한다
+        없다  → 한 번도 안 돌렸다. 종전 문구 그대로다
+      ⚠️ 3단계만의 문제가 아니라 이 화면 전체의 문제라 작업별로 가르지 않았다. 2단계도
+         대상이 0건이면 같은 자리로 떨어진다.
+
+      ▣ 🔴 출구는 "모두 취소"다
+        확정 버튼은 채택할 것이 없어 잠겨 있고(위 Alpine 루트 주석 — 3단계에서는 그것이
+        옳은 동작이다), 노드는 검토 대기라 다시 실행할 수 없다. 남은 것은 이 배치를
+        닫는 일 하나다.
+        ⚠️ cancel_url이 비어 있으면 그 버튼 자체가 감춰지므로 문장도 함께 바꾼다.
+           없는 버튼을 가리키는 안내가 교착보다 나쁘다.
+        🔴 그래서 3단계에는 cancel_url을 반드시 채운다(맨 위 계약 참고).
     {% endcomment %}
-    {% if not review.delete_items and not review.retag_groups and not review.insight_items and not review.output.keep_count and not review.org_candidates %}
+    {% comment %}
+      🔴 2026-09-15 — 조건에 report_items를 더했다. 안 더하면 보고서 초안이 있는 날에도
+      이 빈 상태 카드가 함께 떠서 "제안이 없어요"와 초안이 한 화면에 같이 놓인다.
+    {% endcomment %}
+    {% if not review.delete_items and not review.retag_groups and not review.insight_items and not review.report_items and not review.output.keep_count and not review.tag_candidates %}
     <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm px-5 py-16 text-center">
+      {% if review.run %}
+      <i data-lucide="inbox" class="w-8 h-8 text-gray-300 mx-auto"></i>
+      <p class="text-sm text-gray-500 mt-3">이번 실행에서 나온 제안이 없어요.</p>
+      <p class="text-xs text-gray-400 mt-1 leading-relaxed">
+        실행은 정상으로 끝났어요. 판정할 대상이 없었거나, 대상을 다 보고도 손댈 곳을 찾지 못한 거예요.<br>
+        {% if review.cancel_url %}위쪽 모두 취소를 누르면 이 배치를 닫고 실행 화면으로 돌아가요.{% else %}실행 화면으로 돌아가서 다음 단계를 이어가면 돼요.{% endif %}
+      </p>
+      {% else %}
       <i data-lucide="check-circle-2" class="w-8 h-8 text-gray-300 mx-auto"></i>
       <p class="text-sm text-gray-500 mt-3">검토할 제안이 없어요.</p>
       <p class="text-xs text-gray-400 mt-1">실행 화면에서 작업을 한 번 돌리면 여기에 결과가 모여요.</p>
+      {% endif %}
     </div>
     {% endif %}
   </form>

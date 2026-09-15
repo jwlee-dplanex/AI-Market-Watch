@@ -1,6 +1,11 @@
 {% extends "base.html" %}
 
-{% block page_title %}지식그래프{% endblock %}
+{% comment %}
+  화면 문구는 "지식 그래프"다(2026-09-15 사용자 지시). 사이드바 라벨과 이 페이지
+  제목이 어긋나면 같은 화면이 두 이름을 갖는다. 코드 식별자(GRAPH-001, url 이름
+  graph)는 바꾸지 않는다.
+{% endcomment %}
+{% block page_title %}지식 그래프{% endblock %}
 
 {% block content %}
 <style>

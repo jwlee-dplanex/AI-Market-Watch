@@ -288,11 +288,24 @@ header_actions는 base.html에서 flex-shrink-0 헤더 안이라 본문을 스�
 <p class="text-xs text-gray-400 mb-4">{{ report.note }}</p>
 {% endif %}
 
-<!-- 상태 안내: 생성 중 / 생성 실패 -->
+{% comment %}
+  상태 안내: 검토 중(generating) / 생성 실패(failed)
+
+  🔴 2026-09-15 문구 교체 (PD). 종전 문구는 "보고서를 생성하는 중이에요. 잠시 후
+     새로고침해서 확인해주세요."였는데, 이제 사실이 아니다.
+     SET-010 4, 5단계 확정이 만드는 Report가 이 상태이고 그 뜻이 「아직 사람이 손봐야
+     한다」이다(docs/planning.md 3~5단계 설계 4번). done으로 바꾸는 주체는 RA이고 그
+     동작은 화면 밖(ORM)에서 일어나므로, 새로고침을 아무리 해도 저절로 바뀌지 않는다.
+     기다리라고 말하는 문구는 영영 오지 않는 것을 기다리게 한다.
+  ⚠️ 아이콘도 loader-circle에서 pencil로 바꿨다. 도는 아이콘은 사람이 아니라 기계가
+     일하는 중이라는 신호라 같은 거짓말을 한다.
+  ⚠️ 목록(REPORT-001)의 배지는 여전히 「생성중」이다. 그 낱말은 Report.STATUS_CHOICES에
+     있어서 화면에서 고칠 수 없다. 라벨 교체는 PE 판단으로 남긴다.
+{% endcomment %}
 {% if report.status == 'generating' %}
 <div class="bg-yellow-50 border border-yellow-200 rounded-[10px] p-4 mb-4 flex items-center gap-3">
-  <i data-lucide="loader-circle" class="w-5 h-5 text-yellow-600"></i>
-  <p class="text-sm text-yellow-700">보고서를 생성하는 중이에요. 잠시 후 새로고침해서 확인해주세요.</p>
+  <i data-lucide="pencil" class="w-5 h-5 text-yellow-600"></i>
+  <p class="text-sm text-yellow-700">아직 다듬는 중인 보고서예요. 검토를 마치면 완료로 바뀌어요.</p>
 </div>
 {% elif report.status == 'failed' %}
 <div class="bg-red-50 border border-red-200 rounded-[10px] p-4 mb-4 flex items-center gap-3">

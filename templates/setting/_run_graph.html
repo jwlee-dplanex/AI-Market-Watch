@@ -304,8 +304,36 @@
 
     단계는 planning.md 뉴스룸 정책의 단계표를 그대로 따른다.
       1단계 수집 → 2단계 LLM 필터 → 3단계 발송문 → 4단계 발송
-    🔴 1단계 수집만 실제로 동작한다. 2~4단계는 미구현이라 비활성이다.
     ⚠️ 5단계(스케줄 자동 발송)는 버튼이 아니라서 노드로 그리지 않는다.
+
+    🔴 2026-09-15 개정 — 4단계는 "아직 안 만든 것"이 아니라 "안 만들기로 한 것"이다
+       (사용자 확정 "Slack 메시지는 구현하지마", planning.md 뉴스룸 12-0).
+       종전에는 2·3·4단계가 전부 배지 "대기" + "아직 만들지 않은 기능이에요"로
+       똑같이 보였는데, 2·3단계는 만들어지는 중이고 4단계는 영영 안 온다.
+       🔴 가장 크게 거짓말하던 건 문구가 아니라 배지 "대기"였다 — 순서를 기다리는
+          중이라는 뜻인데 이 노드에는 순서가 오지 않는다. 문구만 고치고 배지를 두면
+          배지가 문구를 덮는다(배지는 항상 보이고 툴팁은 올려야 보인다).
+       🔴 그래서 뷰가 이 셋을 내려 준다. 템플릿은 고칠 것이 없다.
+            state_label  "만들지 않음"          ← 배지. 상태 값은 idle 그대로다
+            summary      "만들지 않기로 한 단계예요"
+            block_reason "Slack 발송은 만들지 않기로 했어요.
+                          3단계 발송문을 복사해서 직접 보내 주세요"
+       🔴 노드를 지우지 않는다. 지우면 이 축이 3단계에서 끝나는 것처럼 보여
+          "왜 안 보내지"라는 물음이 화면 밖으로 밀려난다. 자리에 남아서 "여기서
+          끝난다"고 말하는 것이 그 물음에 답하는 유일한 자리다.
+       🔴 한 줄 설명(description="Slack으로 발송해요")은 그대로 둔다. 그건 상태가
+          아니라 단계의 이름이고, 아홉이 한 벌이라 하나만 고치면 격이 갈린다.
+       설계 근거는 docs/design.md "SET-010 · 실행" 9차 개정 ②번.
+
+    🔴 2단계와 3단계에는 검토 화면이 없다 (9차 개정 ③번)
+       확정할 것이 없기 때문이다 — 2단계는 filter_status 값 하나를 바꿀 뿐 행을
+       지우지 않고(되돌릴 수 있다), 3단계는 사람이 복사해 옮기는 행위 자체가
+       휴먼 인 더 루프다. 그래서 두 job을 GATED_JOB_KEYS에 넣지 않고 review_url도
+       빈 문자열로 내린다. 🔴 넣으면 _job_run_state()가 완료를 review로 떨어뜨려
+       "결과 검토하기"가 뜨는데 그 화면에 확정 버튼이 없어 빠져나갈 길이 없다
+       (2026-09-15에 실제로 같은 교착이 한 번 났다).
+       ⚠️ 2단계 결과는 ROOM-002 「교보 소식」이 그리는 목록 그 자체이고,
+          3단계 초안은 SET-009 「발송」 섹션에서 읽고 복사한다.
 
     ▣ 배치는 2 + 2다 (2026-09-04 사용자 지시 "첫째줄에 1단계 2단계 /
       둘째줄에 3단계 4단계 해줘"). 3 + 1에서 바뀌었다.
@@ -453,12 +481,31 @@
           <div class="w-[588px] flex items-center">
             {% include "setting/_run_node.html" with job=newsroom_jobs.newsroom_compose key="newsroom_compose" label="3단계 발송문" description="브리핑 문구를 작성해요" icon="sparkles" outline=False dimmed=running_job %}
 
-            <div class="run-edge flex-1 min-w-[36px] flex items-center px-1"
-                 data-flow="{% if newsroom_jobs.newsroom_send.state == 'running' %}running{% endif %}">
-              <div class="run-edge-line flex-1 h-0.5 {% if newsroom_jobs.newsroom_compose.state == 'done' %}bg-primary{% else %}bg-gray-200{% endif %}"></div>
-              <i data-lucide="chevron-right" class="w-4 h-4 -ml-1.5 flex-shrink-0 {% if newsroom_jobs.newsroom_compose.state == 'done' %}text-primary{% else %}text-gray-300{% endif %}"></i>
+            {% comment %}
+              🔴 3단계 → 4단계 연결선은 회색 고정이다 (2026-09-15).
+              종전에는 newsroom_compose.state == 'done'이면 선과 화살촉이 보라로
+              물들었는데, 4단계를 만들지 않기로 한 뒤로는 **영영 실행되지 않는
+              노드로 흐름이 들어가는 그림**이 된다. 연결선 색의 뜻이 "이미 지난
+              구간은 보라"라서, 지나갈 수 없는 구간을 보라로 칠하면 화살표가
+              사실과 반대를 말한다.
+              🔴 조건을 지우고 bg-gray-200 / text-gray-300으로 못박았다. 선이
+                 함께 "여기서 끝난다"를 말하게 된다.
+              ⚠️ data-flow도 뗐다. 그 속성은 애니메이션 B(연결선 흐름)를 켰을 때
+                 실행 중인 노드로 들어오는 선을 흐르게 하는 값인데, 이 노드는
+                 running이 될 수 없어 조건이 영영 거짓이다. 남겨 두면 다음 사람이
+                 "여긴 왜 안 흐르지"를 확인하는 데 시간을 쓴다.
+              🔴 4단계를 다시 열게 되면 위 1단계 → 2단계 연결선을 그대로 베껴
+                 되돌리면 된다. 모양이 같다.
+            {% endcomment %}
+            <div class="run-edge flex-1 min-w-[36px] flex items-center px-1">
+              <div class="run-edge-line flex-1 h-0.5 bg-gray-200"></div>
+              <i data-lucide="chevron-right" class="w-4 h-4 -ml-1.5 flex-shrink-0 text-gray-300"></i>
             </div>
 
+            {% comment %}
+              🔴 4단계는 "안 만들기로 한" 노드다. 위 축 주석의 2026-09-15 개정 참고.
+              배지와 두 문구는 전부 뷰가 내려 주므로 여기 include 인자는 그대로다.
+            {% endcomment %}
             {% include "setting/_run_node.html" with job=newsroom_jobs.newsroom_send key="newsroom_send" label="4단계 발송" description="Slack으로 발송해요" icon="send" outline=False dimmed=running_job %}
           </div>
         </div>

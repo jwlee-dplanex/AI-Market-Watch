@@ -190,8 +190,15 @@
       <a href="{% url 'graph' %}"
          class="flex items-center gap-3 px-3 py-2 rounded-[10px] text-sm font-medium transition-colors
                 {% if 'graph' in request.resolver_match.url_name %}bg-white/20 text-white{% else %}text-white/70 hover:bg-white/10 hover:text-white{% endif %}">
+        {% comment %}
+          🔴 화면 문구는 "지식 그래프"다(2026-09-15 사용자 지시 "지식그래프 지식 그래프로
+          수정해줘"). 붙여 쓰지 말 것.
+          ⚠️ 코드 식별자와 화면 ID는 그대로다 — url 이름 graph, GRAPH-001, apps/graph.
+             주석과 문서 본문에 남은 "지식그래프"는 전부 그 식별자를 가리키는 말이라
+             이번에 손대지 않았다. 화면에 찍히는 문구만 띄어 쓴다.
+        {% endcomment %}
         <i data-lucide="network" class="w-4 h-4"></i>
-        지식그래프
+        지식 그래프
       </a>
 
       {% comment %}
