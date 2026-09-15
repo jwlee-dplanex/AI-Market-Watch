@@ -62,6 +62,36 @@ INFO_TOOLTIPS = {
         "리서치 애널리스트 에이전트가 이번 주 이슈 중 가장 눈여겨봐야 할 이슈를 최대 3건 골라 보여드려요. "
         "1급 이슈 중에서, 영향 범위가 넓고 이미 실행에 들어간 이슈를 우선해요."
     ),
+    # SET-010 검토 화면(run_review.html) 판정 기준 코드 범례 — services/llm.py의
+    # CRITERIA_TEXT를 그대로 옮기지 않고 팝오버 분량으로 줄였다(PE 작업 원칙: 원문
+    # 통째로 넣지 않기). 뜻은 CRITERIA_TEXT와 어긋나지 않게 쓴다. "2"(동일 사건 중복
+    # 보도)는 RA 몫이라 여기 없다(services/llm.py FORBIDDEN_CRITERION_CODE). "기타"는
+    # 뜻이 정의돼 있지 않아 키 자체를 두지 않는다 — apps/setting/views.py의
+    # CRITERION_LEGEND가 그 항목의 tooltip_key를 비워 템플릿이 통째로 건너뛴다.
+    "setting.run_review.criterion.1-a": (
+        "AI, AX가 다른 주제를 설명하는 배경으로 한 문장 스치듯 언급된 기사예요."
+    ),
+    "setting.run_review.criterion.1-b": (
+        "금융사나 보험사가 주체이고 AI가 언급되더라도, AI가 지배적 주제가 아니라 다른 금융 주제"
+        "(앱 개편, 행사, 정책 등)에 곁들여진 요소일 때 적용해요. AI를 빼도 기사가 성립하면 이 기준으로 삭제해요."
+    ),
+    "setting.run_review.criterion.3": (
+        "수집 키워드가 회사명만으로 매칭되고, 실제 기사에는 AI, AX 관련 내용이 없을 때 적용해요."
+    ),
+    "setting.run_review.criterion.4": (
+        "코스피, 코스닥 마감 시황이나 환율, 금리 브리핑처럼 매일 반복 발행되는 정형 시황 기사예요. "
+        "AI 언급이 있어도 여러 지표 중 하나로 스치듯 나열될 뿐이에요."
+    ),
+    "setting.run_review.criterion.5": (
+        "AI 기업이 주체인 기사라도, 금융사나 보험사와의 연결이 기사의 핵심 주제가 아닐 때 적용해요."
+    ),
+    "setting.run_review.criterion.6": (
+        "여러 단신을 한 기사에 묶어 발행하는 브리핑 유형이에요. 예외 없이 삭제 대상이에요."
+    ),
+    "setting.run_review.criterion.S-KLS": (
+        "KT, LG, SK가 자신의 AI 사업으로 핵심 주체인 기사는 지금은 스코프에서 임시로 제외해요. "
+        "다만 핵심 주제가 금융 데이터에 AI를 적용하는 협업이면 유지해요."
+    ),
 }
 
 # 단계별 설명 (2026-08-06 신설). 사용자 요청 — "관련성을 확인해 검증을 어떻게 하는지

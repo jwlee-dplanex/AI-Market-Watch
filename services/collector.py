@@ -183,6 +183,26 @@ def _find_matching_entities(text: str, entities: list) -> list:
     return matched
 
 
+def resolve_entity_by_name(name: str, entities: list):
+    """name이 entity.name이거나 entity.aliases 중 하나와 정확히 같은 엔티티를 찾는다.
+
+    _find_matching_entities()가 본문 안에서 별칭을 부분 문자열로 찾는 것과 달리, 여기는
+    name 문자열 전체가 이름/별칭 하나와 정확히 일치하는지만 본다 — RunProposal 확정
+    시점에 LLM이 낸 target_name(예: "KB금융")이 실제 등록명이 아니라 별칭으로만 등록된
+    경우를 잡기 위해서다(2026-09-15, setting_run_review_confirm이 name만 보고 있어
+    태그 추가 제안 8건 중 6건이 조용히 실패한 사고). 대소문자 비교는 _find_alias_positions와
+    같은 규칙(`.lower()`만, 앞뒤 공백은 건드리지 않는다)을 그대로 따른다 — 두 경로가
+    갈리지 않게 하기 위함이다.
+    """
+    lower_name = name.lower()
+    for entity in entities:
+        if entity.name.lower() == lower_name:
+            return entity
+        if any(alias.lower() == lower_name for alias in entity.aliases or []):
+            return entity
+    return None
+
+
 def _link_organizations(news: News, text: str, orgs: list[Organization]) -> None:
     # .set()을 써야 재매핑 시 더 이상 매칭되지 않는(별칭을 좁혀서 오탐이 고쳐진) 기존 태그가
     # 함께 제거된다. 최초 수집 시점엔 M2M이 빈 상태라 .add()와 동작이 동일하다.

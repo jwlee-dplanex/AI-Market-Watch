@@ -1,14 +1,20 @@
+import logging
+
+from django.contrib import messages
 from django.db.models import Count, Min, Max, Exists, OuterRef
 from django.http import Http404, HttpResponse
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
-from apps.news.models import News
+from apps.news.models import DeletedNewsRecord, News, TagCorrectionRecord
+from apps.news.services import correct_news_tag, delete_news_with_record
 from .models import (
     DataSource, Keyword, CollectionLog, LLMLog, SlackConfig,
-    Organization, TechTopic, OrgRelation, RunJob,
+    Organization, TechTopic, OrgRelation, RunJob, RunProposal,
 )
+
+logger = logging.getLogger(__name__)
 
 # SET-006 검증 파이프라인 현황 "stale" 임계값(일). PD 판단값이며 고정 정책이 아니다
 # (docs/design.md SET-006 절 — 임계값 조정 시 이 상수만 바꾸면 된다).
@@ -90,41 +96,97 @@ RUN_JOB_LABELS = {
     "newsroom_send": "4단계 발송",
 }
 
+# 완료(STATUS_DONE)여도 승인 게이트가 있는 job은 사람이 확정을 누르기 전까지 "검토
+# 대기"로 보여야 한다(apps/setting/models.py RunJob docstring "완료와 확정됨을 반드시
+# 구분한다" 원칙). 승인 게이트가 없는 collect/newsroom_collect는 이 목록에 넣지 않는다
+# — 그 둘은 STATUS_DONE이 곧 "더 할 일 없음"이다. 2라운드는 cleanup만 구현됐다.
+GATED_JOB_KEYS = ("cleanup",)
+
+# SET-010 검토 화면(run_review.html) 판정 기준 코드 범례. services/llm.py의
+# SYSTEM_PROMPT가 내는 criterion_code enum(1-a/1-b/3/4/5/6/S-KLS/기타)과 값·순서를
+# 그대로 맞춘다(드리프트 방지). CRITERION_LABELS는 삭제 제안 행 pill의 native title
+# 한 줄(criterion_label)에도 같이 쓴다 — 팝오버(긴 설명, apps/dashboard/tooltips.py)와
+# pill 툴팁(짧은 한 줄)은 분량만 다르고 뜻은 같아야 한다.
+CRITERION_LABELS = {
+    "1-a": "배경으로 스치듯 언급됨",
+    "1-b": "AI가 부차 요소로만 곁들여짐",
+    "3": "키워드 오탐",
+    "4": "증시, 경제 브리핑 기사",
+    "5": "AI 기업 단독 동향, 금융 연결 없음",
+    "6": "묶음, 단신 브리핑 기사",
+    "S-KLS": "KT, LG, SK 임시 스코프 제외",
+}
+# "기타"는 llm.py에 뜻이 정의돼 있지 않아 tooltip_key를 비워 둔다 — run_review.html이
+# 그 항목을 통째로 건너뛴다(빈 팝오버 방지, 템플릿 상단 계약 "criterion_legend" 절).
+CRITERION_LEGEND = [
+    {"code": code, "tooltip_key": f"setting.run_review.criterion.{code}", "aria_label": f"판정 기준 {code}"}
+    for code in CRITERION_LABELS
+] + [{"code": "기타", "tooltip_key": "", "aria_label": "판정 기준 기타"}]
+
+
+def _job_run_state(run_job, job_key):
+    """RunJob.status를 화면 어휘(idle/running/review/done/failed/stopped)로 바꾼다.
+    _run_job_display()(노드 그래프)와 검토 화면 머리글이 이 함수를 함께 써서, 같은
+    상태를 두 화면이 다른 말로 부르는 것을 막는다(_run_node.html "상태 배지" 주석의
+    원칙 — "한국어 텍스트가 정본이고 테두리 색은 훑기용 보조")."""
+    if run_job.status == RunJob.STATUS_RUNNING:
+        return "running", "실행 중"
+    if run_job.status == RunJob.STATUS_STOPPED:
+        return "stopped", "중단됨"
+    if run_job.status == RunJob.STATUS_FAILED:
+        return "failed", "실패"
+    if run_job.status == RunJob.STATUS_DONE:
+        if job_key in GATED_JOB_KEYS:
+            return "review", "검토 대기"
+        return "done", "완료"
+    if run_job.status == RunJob.STATUS_CONFIRMED:
+        return "done", "확정됨"
+    if run_job.status == RunJob.STATUS_CANCELED:
+        return "done", "취소됨"
+    return "idle", "대기"
+
 
 def _run_job_display(job_key):
     """job_key의 최신 RunJob으로 노드 표시값(state/state_label/summary/elapsed)을
     만든다. 그 job_key로 RunJob이 한 번도 없었으면 None을 반환한다 — 호출부가 기존
     방식(CollectionLog, NewsroomArticle.collected_at)으로 idle/done을 채운다.
 
-    ⚠️ 'state'는 templates/setting/_run_node.html이 아는 값(idle/running/review/
-    done/failed)만 써야 한다 — 그 템플릿은 PD 소관이라 이번 라운드에서 고치지
-    않는다. RunJob.STATUS_STOPPED(중단됨)에 대응하는 전용 색이 아직 없어(PD 인계
-    3번, docs/planning.md 10번 "PD 인계"), 잠정적으로 'failed'와 같은 배지 색을
-    쓰되 state_label 텍스트로 실제 상태를 구분한다 — "색이 아니라 텍스트가
-    정본"이라는 그 템플릿 자체의 원칙(43행 주석)을 그대로 따른 것이다."""
+    상태 어휘는 _job_run_state()가 정한다 — templates/setting/_run_node.html이 아는
+    값(idle/running/review/done/failed/stopped)만 나온다. STATUS_STOPPED(중단됨)는
+    2026-09-14에 전용 주황 배지가 생겨(_run_node.html) 이제 'stopped'를 그대로
+    내린다 — 종전에는 전용 색이 없어 'failed'로 눌러 담았었다."""
     run_job = RunJob.objects.filter(job_key=job_key).order_by("-started_at", "-pk").first()
     if not run_job:
         return None
-    if run_job.status == RunJob.STATUS_RUNNING:
+    state, state_label = _job_run_state(run_job, job_key)
+    if state == "running":
         seconds = int((timezone.now() - run_job.started_at).total_seconds())
         elapsed = f"{seconds // 60}분 {seconds % 60}초째" if seconds >= 60 else f"{seconds}초째"
-        return {"state": "running", "state_label": "실행 중", "summary": "", "elapsed": elapsed}
-    if run_job.status == RunJob.STATUS_STOPPED:
+        return {"state": state, "state_label": state_label, "summary": "", "elapsed": elapsed}
+    if state == "stopped":
         return {
-            "state": "failed",
-            "state_label": "중단됨",
+            "state": state, "state_label": state_label,
             "summary": f"{run_job.processed_count}/{run_job.target_count}건까지 처리하다 끊겼어요",
         }
-    if run_job.status == RunJob.STATUS_FAILED:
-        return {"state": "failed", "state_label": "실패", "summary": "실행이 실패했어요"}
+    if state == "failed":
+        return {"state": state, "state_label": state_label, "summary": "실행이 실패했어요"}
+    if state == "review":
+        return {
+            "state": state, "state_label": state_label,
+            "summary": f"{run_job.processed_count}건 판정을 마쳤어요, 검토를 기다리고 있어요",
+        }
     if run_job.status == RunJob.STATUS_DONE:
         return {
-            "state": "done",
-            "state_label": "완료",
-            "summary": f"마지막 실행 {timezone.localtime(run_job.finished_at):%m/%d %H:%M} · {run_job.processed_count}건",
+            "state": state, "state_label": state_label,
+            "summary": f"마지막 실행 {timezone.localtime(run_job.finished_at):%m/%d %H:%M}, {run_job.processed_count}건",
         }
-    # 대기/확정됨/취소됨 — 이번 라운드의 collect/newsroom_collect는 여기 닿지 않는다
-    # (승인 게이트가 없는 작업이라 확정·취소 상태로 가는 경로가 없다).
+    if run_job.status == RunJob.STATUS_CONFIRMED:
+        return {
+            "state": state, "state_label": state_label,
+            "summary": f"마지막 확정 {timezone.localtime(run_job.finished_at):%m/%d %H:%M}, {run_job.processed_count}건",
+        }
+    # 대기/취소됨 — 이번 라운드는 여기 닿지 않는다(collect/newsroom_collect는 확정·취소
+    # 상태로 가는 경로가 없고, cleanup도 확정 전까지는 대기를 거치지 않는다).
     return None
 
 
@@ -167,7 +229,24 @@ def _research_jobs_context():
             "review_url": "",
         },
     }
-    for key in RESEARCH_JOB_KEYS[1:]:
+
+    # 2단계 뉴스 정리 — 2026-09-14 2라운드에서 실행 버튼을 연다(services/runner.py
+    # IMPLEMENTED_JOB_KEYS에 "cleanup" 추가와 짝을 이룬다). 완료(STATUS_DONE)면
+    # _run_job_display()가 GATED_JOB_KEYS 분기로 state="review"를 내려, 노드가 자동으로
+    # "결과 검토하기" 버튼으로 바뀐다(_run_node.html) — 여기서 따로 분기하지 않는다.
+    cleanup_display = _run_job_display("cleanup")
+    cleanup_job = cleanup_display or {"state": "idle", "state_label": "대기", "summary": ""}
+    cleanup_job.update({
+        "can_run": True,
+        "block_reason": "",
+        "warning": "",
+        "confirm_text": "",
+        "run_url": reverse("setting_run_start", args=["cleanup"]),
+        "review_url": reverse("setting_run_review", args=["cleanup"]),
+    })
+    jobs["cleanup"] = cleanup_job
+
+    for key in RESEARCH_JOB_KEYS[2:]:
         jobs[key] = {
             "state": "idle",
             "state_label": "대기",
@@ -289,9 +368,13 @@ def setting_run_start(request, job):
             start_run("newsroom_collect", actor=RunJob.ACTOR_SCREEN, newsroom_id=room.pk)
         # 대상 채널을 못 고르면(0개 또는 2개 이상) 조용히 아무 일도 하지 않는다 —
         # 노드 자체가 그 경우 can_run=False라 UI에서는 여기로 POST가 오지 않는다.
-    # 나머지 여섯 단계 — services/llm.py가 비어 있어 아직 아무 일도 하지 않는다
-    # (범위 밖). 노드 자체가 run_url 없이 비활성이라 UI에서는 여기로 POST가 오지
-    # 않지만, 직접 호출되더라도 그래프를 안전하게 다시 그려 준다.
+    elif job == "cleanup":
+        from services.runner import start_run
+        start_run("cleanup", actor=RunJob.ACTOR_SCREEN)
+    # 나머지 여섯 단계(insight/weekly/monthly, 뉴스룸 2~4단계) — services/llm.py의
+    # 판정 로직은 지금 cleanup 하나만 쓴다. 노드 자체가 run_url 없이 비활성이라
+    # UI에서는 여기로 POST가 오지 않지만, 직접 호출되더라도 그래프를 안전하게 다시
+    # 그려 준다.
     #
     # start_run()은 RunJob을 만들고 워커 스레드를 띄운 뒤 즉시 반환한다 — 여기서
     # 수집이 끝나기를 기다리지 않는다(gunicorn 요청 타임아웃에 걸리지 않는 이유,
@@ -306,35 +389,322 @@ def setting_run_start(request, job):
     })
 
 
-def setting_run_review(request, job):
-    """SET-010 검토 화면(승인 게이트). 확정 대기 목록(RunProposal 가칭)이 아직 없으므로
-    review 컨텍스트는 job_label/back_url만 채우고 나머지는 빈 상태로 정상 렌더된다
-    (run_review.html 상단 계약 — "전부 없어도 화면은 빈 상태로 정상 렌더된다").
+BODY_PREVIEW_CHARS = 300
 
-    🔴 이 화면이 검증 게이트의 네 번째 예외(docs/planning.md "검증 게이트" 2-(D),
-    apps/news/models.py NewsQuerySet.verified() docstring)가 적용되는 자리다. 지금은
-    보여줄 확정 대기 목록 자체가 없어 미검증 News를 실제로 조회하지 않지만, 1~4번
-    구현 시에도 여기서는 News.objects.verified()가 아니라 미검증만 뽑는 별도 조회를
-    써야 한다(verified()에 게이트를 끄는 옵션 인자를 뚫지 않는다)."""
+
+def _body_preview(body: str) -> str:
+    """삭제 제안 행의 본문 미리보기. 전체 본문을 그대로 내려보내지 않는다 —
+    run_review.html의 x-show 펼침 칸 하나에 쓰일 짧은 분량이면 충분하다."""
+    if len(body) <= BODY_PREVIEW_CHARS:
+        return body
+    return body[:BODY_PREVIEW_CHARS] + "..."
+
+
+def _run_review_context(job_key):
+    """SET-010 검토 화면(run_review.html)의 review dict를 만든다. 계약은
+    templates/setting/run_review.html 상단 주석과 docs/design.md "4차 개정" ⑩번 표가
+    정본이다.
+
+    🔴 검증 게이트 네 번째 예외(apps/news/models.py NewsQuerySet.verified() docstring
+    (D))가 적용되는 자리다 — RunProposal이 참조하는 News는 아직 미검증이라
+    News.objects.verified()를 거치지 않고, RunProposal을 통해서만(select_related)
+    조회한다. NEWS-001/002, ALL-001, GRAPH-001의 어떤 집계에도 여기서 조회한 News가
+    섞이지 않는다(그 화면들은 이 함수를 전혀 호출하지 않는다)."""
+    review = {
+        "job_label": RUN_JOB_LABELS[job_key],
+        "back_url": reverse("setting_run"),
+        "confirm_url": reverse("setting_run_review_confirm", args=[job_key]),
+        # "모두 취소"(제안 폐기)는 이번 라운드 범위 밖이다 — setting_run_review_cancel이
+        # 아직 실제로 아무 것도 취소하지 않는 스텁이라, URL을 비워 템플릿이 버튼 자체를
+        # 감추게 한다(run_review.html 상단 계약 "cancel_url 비어 있으면 버튼을 감춘다").
+        "cancel_url": "",
+        "org_admin_url": reverse("setting_organizations"),
+        "criterion_legend": CRITERION_LEGEND,
+    }
+
+    run_job = RunJob.objects.filter(job_key=job_key).order_by("-started_at", "-pk").first()
+    if run_job is None:
+        return review
+
+    state, state_label = _job_run_state(run_job, job_key)
+    review["run"] = {
+        "label": f"{timezone.localtime(run_job.started_at):%m/%d %H:%M} 실행" if run_job.started_at else "",
+        "state": state,
+        "state_label": state_label,
+        "progress": (
+            f"{run_job.target_count}건 중 {run_job.processed_count}건 처리" if run_job.target_count else ""
+        ),
+        "failed_str": f"실패 {run_job.failed_count}건" if run_job.failed_count else "",
+        "resumable": state == "stopped",
+    }
+    review["step"] = {"prompt_version": run_job.prompt_version}
+
+    proposals = list(
+        RunProposal.objects.filter(run_job=run_job, status=RunProposal.STATUS_PENDING)
+        .select_related("news")
+        .order_by("-news__published_at", "news_id", "pk")
+    )
+    # 태그 제안의 target_type(기업 배지 색) 조회 — 제안마다 쿼리하지 않게 한 번에 모은다.
+    org_type_by_name = dict(Organization.objects.values_list("name", "org_type"))
+
+    delete_items = []
+    retag_by_news = {}  # news_id 순서 보존(dict, 3.7+) — "같은 기사 행이 흩어지지 않게"
+    org_candidates = []
+    keep_count = 0
+    delete_news_ids = set()
+
+    for p in proposals:
+        if p.proposal_type == RunProposal.TYPE_DELETE:
+            delete_news_ids.add(p.news_id)
+            delete_items.append({
+                "id": p.pk,
+                "title": p.news.title,
+                "published_at": p.news.published_at,
+                "source": p.news.source_domain,
+                "body_preview": _body_preview(p.news.body),
+                "criterion_code": p.criterion_code,
+                "criterion_label": CRITERION_LABELS.get(p.criterion_code, ""),
+                "reason": p.reason,
+            })
+        elif p.proposal_type == RunProposal.TYPE_KEEP:
+            keep_count += 1
+        elif p.proposal_type in (RunProposal.TYPE_TAG_ADD, RunProposal.TYPE_TAG_REMOVE):
+            group = retag_by_news.get(p.news_id)
+            if group is None:
+                group = {
+                    "title": p.news.title,
+                    "published_at": p.news.published_at,
+                    "source": p.news.source_domain,
+                    "has_delete_proposal": False,
+                    "items": [],
+                }
+                retag_by_news[p.news_id] = group
+            group["items"].append({
+                "id": p.pk,
+                "action": "add" if p.proposal_type == RunProposal.TYPE_TAG_ADD else "remove",
+                "action_label": "태그 추가" if p.proposal_type == RunProposal.TYPE_TAG_ADD else "태그 제거",
+                "axis": p.axis,
+                "axis_label": dict(TagCorrectionRecord.AXIS_CHOICES).get(p.axis, p.axis),
+                "target_name": p.target_name,
+                "target_type": org_type_by_name.get(p.target_name, "") if p.axis == TagCorrectionRecord.AXIS_ORGANIZATION else "",
+                "reason": p.reason,
+            })
+        elif p.proposal_type == RunProposal.TYPE_ORG_CANDIDATE:
+            org_candidates.append({
+                "name": p.target_name,
+                "reason": p.reason,
+                "title": p.news.title,
+                "published_at": p.news.published_at,
+                "source": p.news.source_domain,
+            })
+
+    for news_id, group in retag_by_news.items():
+        group["has_delete_proposal"] = news_id in delete_news_ids
+
+    retag_groups = list(retag_by_news.values())
+
+    review["delete_items"] = delete_items
+    review["retag_groups"] = retag_groups
+    review["org_candidates"] = org_candidates
+    review["output"] = {
+        "delete_count": len(delete_items),
+        "retag_count": sum(len(g["items"]) for g in retag_groups),
+        "keep_count": keep_count,
+        # 🔴 커버리지·잠금 조건에 세지 않는다(run_review.html 상단 계약, design.md 4차
+        # 개정 ⑩번) — OUTPUT 칸에만 별도로 찍는다.
+        "candidate_count": len(org_candidates),
+        "insight_count": 0,  # 3단계(주요 이슈)는 이번 라운드 범위 밖 — RunProposal에 해당 종류가 없다.
+        "uncovered_count": max(run_job.target_count - run_job.processed_count, 0),
+    }
+    return review
+
+
+def setting_run_review(request, job):
+    """SET-010 검토 화면(승인 게이트). 계약은 templates/setting/run_review.html 상단
+    주석이 정본이다. 실제 컨텍스트는 _run_review_context()가 만든다 — 대상 job_key로
+    RunJob이 한 번도 없었으면 job_label/back_url 등 URL류만 채우고 나머지는 빈 상태로
+    정상 렌더된다(그 함수 안에서 처리)."""
     if job not in RUN_JOB_KEYS:
         raise Http404
     return render(request, "setting/run_review.html", {
         "setting_menu": _setting_menu("run"),
-        "review": {
-            "job_label": RUN_JOB_LABELS[job],
-            "back_url": reverse("setting_run"),
-            "confirm_url": "",
-            "cancel_url": "",
-        },
+        "review": _run_review_context(job),
         "grade_choices": [],
     })
 
 
 @require_POST
 def setting_run_review_confirm(request, job):
+    """검토 화면의 확정 버튼. 체크된 제안은 채택해 실제로 반영하고, 대기 중이던 나머지
+    제안은 거절로 남긴다 — 그 거절 분포가 프롬프트 정확도를 잴 유일한 정답지다
+    (docs/planning.md 4-(b), run_review.html 상단 계약).
+
+    처리 순서가 중요하다 — 삭제를 먼저 반영한 뒤 태그 교정을 처리한다. 같은 기사에
+    삭제 제안과 태그 제안이 함께 있고 삭제가 채택되면, News 자체가 사라져 태그 교정의
+    대상이 없어진다(run_review.html 상단 계약 "삭제가 채택되면 그 기사의 태그 교정은
+    저절로 대상이 사라진다") — 그 경우 거절이 아니라 취소로 남긴다. 전제가 사라진
+    것이지 사람이 틀렸다고 판단한 게 아니라서, 거절 분포(프롬프트 정확도 지표)를
+    오염시키면 안 되기 때문이다.
+
+    🔴 개별 삭제(delete_news_with_record), 태그 교정(correct_news_tag)은 각자 내부에서
+    이미 트랜잭션으로 묶여 있다 — 이 뷰를 통째로 하나의 트랜잭션으로 다시 감싸지
+    않는다. 감싸면 한 건이 실패했을 때 그 실패를 잡아도 같은 트랜잭션 안의 나머지
+    쓰기까지 함께 위험해진다(Django가 트랜잭션을 "깨짐"으로 표시). 건별로 이미 원자적인
+    헬퍼를 그대로 믿고, 건별 실패는 개별 try/except로만 잡아 건수를 센다."""
     if job not in RUN_JOB_KEYS:
         raise Http404
-    # 확정할 RunProposal이 아직 없다 — 화면 계약대로 실행 화면으로 돌려보낸다.
+
+    run_job = RunJob.objects.filter(job_key=job).order_by("-started_at", "-pk").first()
+    # 확정할 배치가 없거나, 이미 확정했거나, 아직 진행 중이거나 실패한 배치면 조용히
+    # 실행 화면으로 돌려보낸다. 🔴 이 게이트가 "같은 배치를 두 번 확정할 수 없게" 만든다
+    # — 이미 확정됨(STATUS_CONFIRMED)이면 여기서 걸려 재처리하지 않는다.
+    if run_job is None or run_job.status not in (RunJob.STATUS_DONE, RunJob.STATUS_STOPPED):
+        response = HttpResponse()
+        response["HX-Redirect"] = reverse("setting_run")
+        return response
+
+    accepted_delete_ids = set(request.POST.getlist("delete_ids"))
+    accepted_retag_ids = set(request.POST.getlist("retag_ids"))
+
+    pending = list(
+        RunProposal.objects.filter(run_job=run_job, status=RunProposal.STATUS_PENDING)
+        .select_related("news")
+    )
+    relevance_proposals = [p for p in pending if p.proposal_type in (RunProposal.TYPE_DELETE, RunProposal.TYPE_KEEP)]
+    tag_proposals = [p for p in pending if p.proposal_type in (RunProposal.TYPE_TAG_ADD, RunProposal.TYPE_TAG_REMOVE)]
+    candidate_proposals = [p for p in pending if p.proposal_type == RunProposal.TYPE_ORG_CANDIDATE]
+
+    delete_failed = 0
+    tag_not_found = 0  # 대상 이름을 이름/별칭 어느 쪽으로도 찾지 못한 경우
+    tag_error = 0       # 대상은 찾았지만 correct_news_tag() 실행 자체가 실패한 경우
+    deleted_news_ids = set()
+
+    # ① 삭제/유지 — 태그 교정보다 먼저 처리한다(위 docstring 근거).
+    for p in relevance_proposals:
+        if p.proposal_type == RunProposal.TYPE_KEEP:
+            # 유지는 체크박스가 없다 — 대기로 남아 있었다는 것 자체가 채택이다.
+            p.news.status = News.STATUS_VERIFIED
+            p.news.verified_at = timezone.now()
+            p.news.save(update_fields=["status", "verified_at"])
+            p.status = RunProposal.STATUS_ACCEPTED
+            p.save(update_fields=["status"])
+            continue
+
+        if str(p.pk) not in accepted_delete_ids:
+            p.status = RunProposal.STATUS_REJECTED
+            p.save(update_fields=["status"])
+            continue
+
+        try:
+            delete_news_with_record(
+                p.news,
+                criterion_code=p.criterion_code,
+                reason=p.reason,
+                judged_by=DeletedNewsRecord.JUDGED_BY_AUTO,
+            )
+        except Exception:
+            logger.exception("RunProposal %s(삭제) 확정 중 실패했어요.", p.pk)
+            delete_failed += 1
+            continue
+        else:
+            deleted_news_ids.add(p.news_id)
+            # 🔴 p.save()가 아니라 pk로 좁힌 단건 update()를 쓴다. delete_news_with_record()가
+            # 이 자리에서 News 인스턴스(p.news, 위에서 그대로 넘긴 그 객체)를 지우면서
+            # Django가 그 인스턴스의 pk를 None으로 바꾸는데, p는 그 News를 캐시된 FK로 여전히
+            # 물고 있어 p.save()를 부르면 "저장 안 된 관련 객체" 방어 검증에 걸려 죽는다
+            # (ValueError: save() prohibited to prevent data loss due to unsaved related object
+            # 'news'). update_fields=["status"]로 news 컬럼을 건드리지 않아도 이 검증은 인스턴스
+            # 전체의 관계 캐시를 보고 판단해 막는다. filter(pk=...).update()는 이 인스턴스
+            # 객체 그래프를 보지 않고 status 컬럼만 SQL로 직접 바꾸므로 걸리지 않는다 — 여러
+            # 행을 건드리는 일괄 update가 아니라 이 한 행만 pk로 특정한 단건 갱신이다.
+            RunProposal.objects.filter(pk=p.pk).update(status=RunProposal.STATUS_ACCEPTED)
+
+    # ② 태그 교정. 대상 조회는 collector의 별칭 매칭과 이름/별칭 비교 규칙을 그대로
+    # 공유한다(services/collector.resolve_entity_by_name) — 수집 쪽 태깅은 이미 별칭을
+    # 보는데 이 확정 경로만 name만 보고 있어서 같은 판정 규칙이 두 곳에서 갈리는 게
+    # 근본 원인이었다(2026-09-15 실측: "KB금융" 등 3건이 별칭 미조회로 조용히 실패).
+    from services.collector import resolve_entity_by_name
+    all_orgs = list(Organization.objects.all())
+    all_topics = list(TechTopic.objects.all())
+
+    for p in tag_proposals:
+        if p.news_id in deleted_news_ids:
+            p.status = RunProposal.STATUS_CANCELED
+            p.save(update_fields=["status"])
+            continue
+
+        if str(p.pk) not in accepted_retag_ids:
+            p.status = RunProposal.STATUS_REJECTED
+            p.save(update_fields=["status"])
+            continue
+
+        axis_label = dict(TagCorrectionRecord.AXIS_CHOICES).get(p.axis, p.axis)
+        action_label = "추가" if p.proposal_type == RunProposal.TYPE_TAG_ADD else "제거"
+        entities = all_orgs if p.axis == TagCorrectionRecord.AXIS_ORGANIZATION else all_topics
+        target = resolve_entity_by_name(p.target_name, entities)
+
+        if target is None:
+            # 대상을 못 찾은 경우 — 사람이 이 제안을 틀렸다고 거절한 게 아니라 실행할
+            # 대상 자체가 없는 것이라 거절(프롬프트 정확도 지표)이 아니라 취소로 남긴다.
+            # 삭제된 기사의 태그 제안을 취소로 남기는 것과 같은 논리다.
+            logger.warning(
+                "RunProposal %s(태그 교정) 확정을 건너뛰었어요 — %s '%s'을(를) 찾지 못했어요.",
+                p.pk, p.axis, p.target_name,
+            )
+            messages.warning(
+                request,
+                f"'{p.target_name}'이(가) {axis_label} 목록에 없어서 태그 {action_label}를 "
+                f"건너뛰었어요. 필요하면 먼저 등록해 주세요.",
+            )
+            tag_not_found += 1
+            p.status = RunProposal.STATUS_CANCELED
+            p.save(update_fields=["status"])
+            continue
+
+        try:
+            correct_news_tag(
+                p.news, target,
+                action=(
+                    TagCorrectionRecord.ACTION_ADD if p.proposal_type == RunProposal.TYPE_TAG_ADD
+                    else TagCorrectionRecord.ACTION_REMOVE
+                ),
+                reason=p.reason,
+                judged_by=TagCorrectionRecord.JUDGED_BY_AUTO,
+            )
+        except Exception:
+            # 대상은 찾았지만 실행 자체가 실패한 경우 — 이것도 사람의 거절 판단이
+            # 아니므로 같은 이유로 취소로 남긴다. 원인이 다르므로(대상 없음 대 실행
+            # 예외) 카운터는 tag_not_found와 tag_error로 나눠 센다.
+            logger.exception("RunProposal %s(태그 교정) 확정 중 실패했어요.", p.pk)
+            messages.warning(
+                request,
+                f"'{p.target_name}' 태그 {action_label} 처리 중 오류가 나서 건너뛰었어요.",
+            )
+            tag_error += 1
+            p.status = RunProposal.STATUS_CANCELED
+            p.save(update_fields=["status"])
+            continue
+        else:
+            p.status = RunProposal.STATUS_ACCEPTED
+            p.save(update_fields=["status"])
+
+    # ③ 기업 후보 — 아무 것도 실행하지 않는다(Organization을 만들지 않는다). 채택도
+    # 거절도 아니라서 취소로 남긴다(design.md 4차 개정 ⑩번 "기업 후보 종류는 아무 것도
+    # 하지 않는다").
+    for p in candidate_proposals:
+        p.status = RunProposal.STATUS_CANCELED
+        p.save(update_fields=["status"])
+
+    run_job.status = RunJob.STATUS_CONFIRMED
+    run_job.save(update_fields=["status"])
+
+    if delete_failed or tag_not_found or tag_error:
+        logger.warning(
+            "RunJob %s(%s) 확정 중 삭제 실패 %d건, 태그 교정 대상 못 찾음 %d건, "
+            "태그 교정 실행 실패 %d건이었어요.",
+            run_job.pk, job, delete_failed, tag_not_found, tag_error,
+        )
+
     response = HttpResponse()
     response["HX-Redirect"] = reverse("setting_run")
     return response

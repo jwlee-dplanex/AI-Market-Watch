@@ -27,14 +27,12 @@ logger = logging.getLogger(__name__)
 # 화면·manage.py run_job 명령이 실제로 열어 두는 job_key만 여기 나열한다. 관리 명령의
 # choices가 이 목록 하나를 본다.
 #
-# 🔴 "cleanup"은 이번 라운드(2라운드, docs/planning.md "1번을 LLM으로 옮기는 설계")에서
-# _run_cleanup()이 실제로 구현됐지만 일부러 여기 넣지 않는다 — 버튼 활성화는 3~4단계
-# 몫이다(오케스트레이터 지시). 화면(apps/setting/views.py setting_run_start())은 애초에
-# "collect"/"newsroom_collect"만 분기하므로 화면에서는 이미 누를 수 없고, manage.py run_job
-# 명령도 choices=IMPLEMENTED_JOB_KEYS라 이 목록에 없으면 거부한다. 검증은 manage.py shell
-# -c로 run_now("cleanup", ...)을 직접 호출해서 한다(PE 작업 원칙 5번 — 부작용 있는 검증은
-# manage.py shell을 거쳐야 AppConfig.ready()가 원치 않게 함께 돌지 않는다).
-IMPLEMENTED_JOB_KEYS = ("collect", "newsroom_collect")
+# 🔴 "cleanup"은 2026-09-14 2라운드에서 _run_cleanup()이 구현됐고, 이번(검토 화면 +
+# 확정 뷰) 라운드에서 apps/setting/views.py의 setting_run_start()가 "cleanup" 분기를
+# 얻어 버튼이 실제로 열렸다 — 그래서 여기 함께 넣는다. 확정 경로(승인 게이트) 없이
+# 버튼만 열면 사람이 판정을 쌓아 놓고 확정할 자리가 없어지므로, 검토 화면과 확정 뷰가
+# 먼저 갖춰진 뒤에 이 목록에 추가한 것이다.
+IMPLEMENTED_JOB_KEYS = ("collect", "newsroom_collect", "cleanup")
 
 # 하트비트 정지 판정 임계값(초). 별도 감시 프로세스 없이, 화면을 읽는 요청마다
 # mark_stale_running_as_stopped()가 이 값으로 "진행중인데 멈춘 것"을 가려낸다
@@ -186,9 +184,17 @@ def _run_cleanup(run_job_id: int) -> None:
 
     # 이어하기(설계 8-(b)) — 이미 RunProposal이 있는 News는(어느 RunJob에서 만들어졌든)
     # 대상에서 뺀다. "같은 입력에 같은 결과가 나온다는 보장이 없어 재판정하지 않는다."
+    #
+    # 🔴 PE 수정(2026-09-15 실측 버그) — RunProposal.news는 SET_NULL이라, 그 제안이
+    # 가리키던 News가 삭제되면 news_id가 NULL로 남는다. exclude(pk__in=...)의 서브쿼리
+    # 결과에 NULL이 하나라도 섞이면 SQL의 NOT IN이 모든 행을 탈락시켜(NULL과의 비교는
+    # 항상 UNKNOWN) targets가 통째로 0건이 된다 — 실제로 확정 때 삭제된 기사가 생기자마자
+    # 이 쿼리가 영구히 0건으로 굳었다. news__isnull=False로 서브쿼리에서 NULL을 먼저
+    # 걷어낸다 — "이미 제안이 있는 News는 재판정하지 않는다"는 애초에 News가 남아 있는
+    # 제안에만 의미가 있다. News가 이미 사라진 제안은 배제 대상 자체가 될 수 없다.
     targets = list(
         News.objects.filter(status=News.STATUS_UNVERIFIED)
-        .exclude(pk__in=RunProposal.objects.values("news_id"))
+        .exclude(pk__in=RunProposal.objects.filter(news__isnull=False).values("news_id"))
         .order_by("pk")
     )
     RunJob.objects.filter(pk=run_job_id).update(
@@ -263,14 +269,13 @@ def _execute(run_job_id: int, kwargs: dict) -> None:
             elif run_job.job_key == "newsroom_collect":
                 _run_newsroom_collect(run_job_id, kwargs["newsroom_id"])
             elif run_job.job_key == "cleanup":
-                # 화면과 manage.py run_job 명령 둘 다 "cleanup"을 IMPLEMENTED_JOB_KEYS에서
-                # 뺐으므로 이 분기로는 그 경로로 닿지 않는다 — start_run()/run_now()를
-                # 직접 호출(manage.py shell)할 때만 여기 온다(위 IMPLEMENTED_JOB_KEYS 주석).
+                # 2026-09-14 검토 화면 + 확정 뷰 라운드에서 화면(SET-010 "실행" 버튼)이
+                # 이 분기에 닿는 정상 경로가 됐다(apps/setting/views.py setting_run_start()).
                 _run_cleanup(run_job_id)
             else:
                 # 위 세 분기 밖의 job_key는 아직 실행 로직이 없다. 정상 경로로는 닿지
-                # 않는다(관리 명령 choices, 화면은 collect/newsroom_collect만 start_run을
-                # 부름). 방어적으로만 남겨 둔다.
+                # 않는다(관리 명령 choices, 화면은 collect/newsroom_collect/cleanup만
+                # start_run을 부름). 방어적으로만 남겨 둔다.
                 raise ValueError(f"실행 로직이 아직 없는 job_key입니다: {run_job.job_key}")
         except Exception:
             logger.exception(
