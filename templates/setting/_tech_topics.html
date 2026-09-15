@@ -44,11 +44,20 @@
                     class="text-gray-300 hover:text-primary transition-colors">
               <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
             </button>
+            {% comment %}
+              확인 대화상자는 caution이다(2026-09-15). SET-007 기업 삭제와 같은
+              문장 구조를 쓴다. "기업"을 "기술 주제"로 바꾼 것뿐이고, 해제된 연결이
+              돌아오지 않는다는 사실도 똑같이 적는다.
+              🔴 hx-confirm은 남아 있지만 브라우저 기본 확인창이 아니다.
+                 규약과 근거는 templates/components/_confirm_dialog.html 맨 위 주석.
+            {% endcomment %}
             <button type="button"
                     hx-post="{% url 'setting_tech_topic_delete' topic.pk %}"
                     hx-target="#tech-topic-table" hx-swap="innerHTML"
                     hx-include="[name=csrfmiddlewaretoken]"
-                    hx-confirm="'{{ topic.name }}' 기술 주제를 삭제하시겠어요? 뉴스와의 연결도 함께 해제돼요."
+                    hx-confirm="뉴스와의 연결도 함께 해제돼요. 기술 주제는 다시 등록할 수 있지만 해제된 연결은 되살아나지 않아요."
+                    data-confirm-title="'{{ topic.name }}' 기술 주제를 삭제해요"
+                    data-confirm-action="삭제하기"
                     class="text-gray-300 hover:text-red-500 transition-colors">
               <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
             </button>

@@ -52,11 +52,19 @@
                       class="text-gray-300 hover:text-primary transition-colors">
                 <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
               </button>
+              {% comment %}
+                확인 대화상자는 caution이다(2026-09-15). 다시 추가할 수 있는 삭제라서
+                되돌릴 수 없는 기사 삭제와 같은 모양으로 뜨면 경고가 무뎌진다.
+                🔴 hx-confirm은 남아 있지만 브라우저 기본 확인창이 아니다.
+                   규약과 근거는 templates/components/_confirm_dialog.html 맨 위 주석.
+              {% endcomment %}
               <button type="button"
                       hx-post="{% url 'setting_keyword_delete' kw.pk %}"
                       hx-target="#keyword-panel" hx-swap="innerHTML"
                       hx-include="[name=csrfmiddlewaretoken]"
-                      hx-confirm="'{{ kw.keyword }}' 키워드를 삭제하시겠어요?"
+                      hx-confirm="이 키워드로는 더 이상 뉴스를 수집하지 않아요. 필요하면 다시 추가할 수 있어요."
+                      data-confirm-title="'{{ kw.keyword }}' 키워드를 삭제해요"
+                      data-confirm-action="삭제하기"
                       class="text-gray-300 hover:text-red-500 transition-colors">
                 <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
               </button>
@@ -157,11 +165,18 @@
                       class="text-gray-300 hover:text-[#FF6C0E] transition-colors">
                 <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
               </button>
+              {% comment %}
+                위 수집 키워드와 같은 caution이되 본문이 다르다. 제외 키워드를 지우면
+                수집이 줄지 않고 반대로 걸러지던 기사가 다시 들어온다. 같은 문장을
+                두 곳에 쓰면 그 차이가 사라진다.
+              {% endcomment %}
               <button type="button"
                       hx-post="{% url 'setting_keyword_delete' kw.pk %}"
                       hx-target="#keyword-panel" hx-swap="innerHTML"
                       hx-include="[name=csrfmiddlewaretoken]"
-                      hx-confirm="'{{ kw.keyword }}' 키워드를 삭제하시겠어요?"
+                      hx-confirm="이 낱말이 들어간 기사도 이제 걸러지지 않고 저장돼요. 필요하면 다시 추가할 수 있어요."
+                      data-confirm-title="'{{ kw.keyword }}' 제외 키워드를 삭제해요"
+                      data-confirm-action="삭제하기"
                       class="text-gray-300 hover:text-red-500 transition-colors">
                 <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
               </button>

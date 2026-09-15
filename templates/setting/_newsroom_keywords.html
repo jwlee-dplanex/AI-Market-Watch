@@ -18,11 +18,20 @@
           <button type="button" @click="editOpen=true" class="text-gray-300 hover:text-primary transition-colors">
             <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
           </button>
+          {% comment %}
+            확인 대화상자는 caution이다(2026-09-15). 다시 추가할 수 있는 삭제다.
+            🔴 hx-confirm은 남아 있지만 브라우저 기본 확인창이 아니다.
+               규약과 근거는 templates/components/_confirm_dialog.html 맨 위 주석.
+            ⚠️ 본문에 "이 채널"을 명시한다. 본 파이프라인 키워드와 완전히 다른
+               테이블이라 여기서 지워도 뉴스 수집에는 아무 영향이 없다.
+          {% endcomment %}
           <button type="button"
                   hx-post="{% url 'setting_newsroom_keyword_delete' room.id kw.pk %}"
                   hx-target="#room-keyword-panel-{{ room.id }}" hx-swap="innerHTML"
                   hx-include="[name=csrfmiddlewaretoken]"
-                  hx-confirm="'{{ kw.keyword }}' 키워드를 삭제하시겠어요?"
+                  hx-confirm="이 채널에서는 더 이상 이 키워드로 기사를 모으지 않아요. 필요하면 다시 추가할 수 있어요."
+                  data-confirm-title="'{{ kw.keyword }}' 키워드를 삭제해요"
+                  data-confirm-action="삭제하기"
                   class="text-gray-300 hover:text-red-500 transition-colors">
             <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
           </button>

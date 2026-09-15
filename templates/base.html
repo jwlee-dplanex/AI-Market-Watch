@@ -369,11 +369,127 @@
 
     <!-- 콘텐츠 -->
     <main class="flex-1 overflow-y-auto p-6">
+      {% comment %}
+        [Django messages 전역 표시] 2026-09-15, PD 신설.
+
+        이 저장소의 첫 messages 사용이다. INSTALLED_APPS, 미들웨어, 컨텍스트 프로세서는
+        전부터 등록돼 있었지만 받아 그리는 자리가 없어서, SET-010 확정 뷰가 보내는
+        경고가 서버에만 쌓이고 화면에는 한 건도 안 보이는 상태였다.
+        여기 한 곳이 사이트 전역의 표시 자리이므로, 앞으로 messages를 쓰는 뷰는
+        템플릿을 따로 건드릴 필요가 없다.
+
+        1) 왜 이 자리인가
+           헤더 아래, 본문 맨 위. main 안쪽이다.
+           헤더와 main 사이(고정 띠)도 후보였지만, 그 자리는 닫기 전까지 본문 높이를
+           계속 깎는다. messages는 방금 누른 동작의 결과라 본문과 같은 흐름에서
+           읽히는 편이 맞고, 읽는 순서도 헤더 다음 알림 다음 본문이 자연스럽다.
+           확정 뷰는 HX-Redirect로 전체 이동을 시키므로 사용자는 항상 스크롤 맨 위에
+           도착한다. 즉 이 자리면 반드시 눈에 들어온다.
+
+        2) 저절로 사라지지 않는다. 닫기 버튼이 유일한 제거 수단이다.
+           실제로 나오는 문구가 "무엇을 등록해야 하는지"를 알려 주는 할 일 목록이다.
+           예: 기업 목록에 없어서 태그 추가를 건너뛰었다는 안내.
+           몇 초 뒤 사라지게 하면 자리를 비운 사이 할 일이 통째로 없어진다.
+           반대로 처리한 것부터 하나씩 닫아 나가면 남은 줄이 곧 남은 할 일이 된다.
+           같은 이유로 "모두 닫기" 버튼은 일부러 두지 않았다. 한 번에 지우는 길을
+           열어 두면 읽지 않고 지우게 된다.
+
+        3) 여러 건이 한꺼번에 와도 화면을 잡아먹지 않는다.
+           2026-09-15에 실제로 6건이 한 번에 났다. 그대로 쌓으면 첫 화면이 전부
+           알림으로 덮인다. 그래서 목록 전체에 max-h-52(208px)를 걸고 넘치면
+           목록 안에서만 스크롤하게 했다. 네 줄쯤 보이고 나머지는 스크롤로 닿는다.
+           건수가 적을 때는 높이가 max-h에 못 미쳐서 아무 차이가 없다.
+           ⚠️ 전부 닫아도 바깥 div의 mb-4(16px)는 남는다. 높이가 0이 되면서 생기는
+              빈 여백이고, 없애려면 남은 건수를 세는 Alpine 상태가 하나 더 필요해서
+              16px 쪽을 택했다.
+
+        4) 레벨별 색은 이 앱의 기존 배정을 그대로 따른다.
+           warning 주황: 이미 크롤 실패, 기간 불일치, 유료 매체, 중단됨에 배정된
+             이상 신호 색이다. 실제로 지금 나오는 문구가 전부 "건너뛰었어요"라
+             정확히 이 칸에 들어간다. 테두리와 배경은 SET-010 검토 화면의
+             중단됨 안내(templates/setting/run_review.html)와 같은 값을 쓴다.
+           error 빨강: 보고서 생성 실패 안내(templates/reports/detail.html)와 같은 값.
+           success 초록, info 보라: docs/design.md 1.5 Callout 표의 Success, Info.
+           ⚠️ 아이콘 모양도 레벨마다 다르다. 색만으로 나누면 색을 구분하기 어려운
+              사람에게는 네 레벨이 같은 알림이 된다.
+              error는 팔각형, warning은 삼각형, success는 동그라미 체크, info는 i.
+
+        5) 색을 요소마다 지정하지 않고 줄 전체에 걸었다.
+           바깥 div의 text 색을 아이콘과 문구가 currentColor로 물려받는다.
+           덕분에 레벨 분기가 두 개(줄 색, 아이콘 이름)로 끝난다. 닫기 버튼만
+           회색을 따로 지정해 문구보다 뒤로 물러나게 했다.
+
+        6) ⚠️ x-cloak을 붙이지 않았다. 이 프로젝트에서 드문 예외이고 의도한 것이다.
+           x-cloak은 "처음에 감춰져 있어야 하는데 Alpine이 뜨기 전이라 잠깐 보이는"
+           경우를 막는 장치다. 뉴스 상세 기업 추가 드롭다운에서 겪은 그 버그다.
+           여기는 정반대로 shown이 처음부터 true다. 처음부터 보이는 것이 맞으므로
+           감출 이유가 없고, 오히려 x-cloak을 붙이면 Alpine이 로드에 실패했을 때
+           알림이 영영 안 보인다. 놓치면 할 일을 잃는 내용이라 그 위험이 더 크다.
+           🔴 다른 곳에서 이걸 근거로 x-cloak을 빼지 말 것. 기본값이 숨김인 토글과
+              모달에는 예외 없이 x-cloak을 붙인다.
+
+        7) 🔴 HTMX 부분 교체와는 맞물리지 않는다. 다음 사람을 위한 경고다.
+           messages는 요청 한 번당 한 번 소비되고, 소비하는 자리가 base.html인
+           이 블록뿐이다. 그래서 base.html을 통째로 다시 그리는 요청에서만 보인다.
+           지금은 문제가 없다. 확정 뷰가 HX-Redirect로 전체 이동을 시키기 때문이다.
+           ⚠️ 문제가 되는 경우: hx-target으로 조각만 갈아끼우는 뷰가 messages.add를
+              부르면, 그 응답에는 이 블록이 없어서 화면에 아무것도 안 나타난다.
+              메시지는 사라지지 않고 다음 전체 요청까지 남아 있다가, 사용자가 한참
+              뒤 엉뚱한 화면으로 이동할 때 거기서 튀어나온다.
+           그런 뷰를 새로 만든다면 선택지는 둘이다.
+              a. 응답 헤더에 HX-Redirect나 HX-Refresh를 실어 전체 이동을 시킨다.
+                 지금 확정 뷰가 쓰는 방법이고, 결과를 처음부터 다시 그려야 하는
+                 동작이면 이쪽이 맞다.
+              b. messages를 쓰지 않고, 교체되는 조각 안에 알림 자리를 직접 둔다.
+                 조각 하나만 갱신하면 되는 동작이면 이쪽이 맞다.
+           지금 고쳐 두라는 뜻이 아니다. 모르고 당하지 말라는 기록이다.
+
+        8) 새로 쓴 Tailwind 클래스 네 개. npm run build:css를 돌려야 보인다.
+           bg-green-50, border-green-200, bg-[#F9F5FF], border-primary/20
+      {% endcomment %}
+      {% if messages %}
+      <div role="status" aria-label="알림"
+           class="mb-4 space-y-2 max-h-52 overflow-y-auto pr-1">
+        {% for message in messages %}
+        <div x-data="{ shown: true }" x-show="shown"
+             class="flex items-start gap-2 rounded-[10px] border px-4 py-3
+                    {% if message.level_tag == 'error' %}border-red-200 bg-red-50 text-red-600
+                    {% elif message.level_tag == 'warning' %}border-orange-200 bg-orange-50 text-orange-700
+                    {% elif message.level_tag == 'success' %}border-green-200 bg-green-50 text-green-700
+                    {% else %}border-primary/20 bg-[#F9F5FF] text-primary{% endif %}">
+          <i data-lucide="{% if message.level_tag == 'error' %}alert-octagon{% elif message.level_tag == 'warning' %}alert-triangle{% elif message.level_tag == 'success' %}check-circle{% else %}info{% endif %}"
+             class="w-4 h-4 flex-shrink-0 mt-0.5"></i>
+          <p class="flex-1 text-xs leading-relaxed">{{ message }}</p>
+          <button type="button" @click="shown = false"
+                  class="flex-shrink-0 p-1 text-gray-400 hover:text-gray-600 transition-colors">
+            <span class="sr-only">알림 닫기</span>
+            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
       {% block content %}{% endblock %}
     </main>
 
   </div>
 </div>
+
+{% comment %}
+  확인 대화상자 (2026-09-15, PD 신설). 전 화면 공용이라 body 최상위에 둔다.
+  사이드바 안에 있는 서비스 소개 모달과 달리 이 요소는 어느 화면에서 떠도
+  다른 오버레이 위에 와야 해서 z-[60]이고, 감싸는 요소가 없어야 한다.
+
+  🔴 이 한 줄이 hx-confirm 아홉 자리의 동작을 전부 바꾼다. 속성은 그대로 두고
+     htmx:confirm 이벤트를 가로채는 방식이다. 자세한 구조와 근거, 문구를 넘기는
+     data 속성 규약은 components/_confirm_dialog.html 맨 위 주석에 있다.
+  ⚠️ include를 지우면 브라우저 기본 확인창으로 조용히 되돌아간다. 화면은 죽지 않아서
+     눈치채기 어렵다.
+
+  lucide.createIcons() 앞에 둔다. 모달 안 아이콘 둘이 그때 함께 svg로 바뀌어야 한다.
+{% endcomment %}
+{% include "components/_confirm_dialog.html" %}
 
 <script>
   lucide.createIcons();

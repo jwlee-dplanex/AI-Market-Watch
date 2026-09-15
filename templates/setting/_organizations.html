@@ -57,11 +57,21 @@
                       class="text-gray-300 hover:text-primary transition-colors">
                 <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
               </button>
+              {% comment %}
+                확인 대화상자는 caution이다(2026-09-15). 기업은 SET-007에서 다시
+                등록할 수 있다. 🔴 다만 해제된 뉴스 연결은 다시 등록해도 돌아오지
+                않으므로 본문에 그 사실을 적었다. 사람이 직접 교정한 태그가 여기
+                섞여 있을 수 있어서, 되살릴 수 있다고만 말하면 사실과 다르다.
+                🔴 hx-confirm은 남아 있지만 브라우저 기본 확인창이 아니다.
+                   규약과 근거는 templates/components/_confirm_dialog.html 맨 위 주석.
+              {% endcomment %}
               <button type="button"
                       hx-post="{% url 'setting_organization_delete' org.pk %}"
                       hx-target="#org-table" hx-swap="innerHTML"
                       hx-include="[name=csrfmiddlewaretoken]"
-                      hx-confirm="'{{ org.name }}' 기업을 삭제하시겠어요? 뉴스와의 연결도 함께 해제돼요."
+                      hx-confirm="뉴스와의 연결도 함께 해제돼요. 기업은 다시 등록할 수 있지만 해제된 연결은 되살아나지 않아요."
+                      data-confirm-title="'{{ org.name }}' 기업을 삭제해요"
+                      data-confirm-action="삭제하기"
                       class="text-gray-300 hover:text-red-500 transition-colors">
                 <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
               </button>
