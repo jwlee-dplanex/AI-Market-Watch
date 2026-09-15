@@ -1620,7 +1620,16 @@ def slack(request):
     if request.method == "POST":
         config = SlackConfig.objects.first() or SlackConfig()
         config.channel_name = request.POST.get("channel_name", "")
-        config.webhook_url = request.POST.get("webhook_url", "")
+        # SET-009와 같은 계약으로 미리 맞춰 둔다(마스킹 인풋으로 PD가 템플릿을
+        # 바꿀 예정 — 그 전까지는 템플릿이 value를 채워 보내므로 ③으로 떨어져
+        # 지금과 동일하게 그대로 저장된다). 순서가 뜻을 가진다:
+        # ① clear=="1" → 빈 문자열로 저장(최우선)
+        # ② 키가 없거나("disabled" 인풋) 빈 값 → 아무것도 하지 않는다(기존 값 유지)
+        # ③ 값이 있으면 strip 후 저장
+        if request.POST.get("webhook_url_clear") == "1":
+            config.webhook_url = ""
+        elif request.POST.get("webhook_url"):
+            config.webhook_url = request.POST.get("webhook_url").strip()
         config.is_active = "is_active" in request.POST
         config.save()
         return redirect("setting_slack")
@@ -1872,7 +1881,16 @@ def setting_newsroom_save(request):
     room.filter_prompt = request.POST.get("filter_prompt", "")
     room.compose_prompt = request.POST.get("compose_prompt", "")
     room.slack_channel_name = request.POST.get("slack_channel_name", "").strip()
-    room.slack_webhook_url = request.POST.get("slack_webhook_url", "").strip()
+    # Webhook 주소는 마스킹 인풋이라 평문 재노출을 하지 않는다(SET-009 설계).
+    # value가 내려가지 않으므로 "빈 값 = 건드리지 않음"이 기본이고, 명시적으로
+    # 지울 때만 slack_webhook_clear="1"을 함께 보낸다. 순서가 뜻을 가진다:
+    # ① clear=="1" → 빈 문자열로 저장(최우선)
+    # ② 키가 없거나("disabled" 인풋) 빈 값 → 아무것도 하지 않는다(기존 값 유지)
+    # ③ 값이 있으면 strip 후 저장
+    if request.POST.get("slack_webhook_clear") == "1":
+        room.slack_webhook_url = ""
+    elif request.POST.get("slack_webhook_url"):
+        room.slack_webhook_url = request.POST.get("slack_webhook_url").strip()
 
     send_hour = request.POST.get("send_hour", "").strip()
     if send_hour.isdigit():

@@ -166,19 +166,39 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <script>
+{% comment %}
+  ══ 🔴 이 <script> 안에서는 // 주석을 쓰지 않는다 (2026-09-15) ═══════════════
+  JS 주석은 브라우저까지 그대로 실려 간다. 이 화면은 주석이 111줄이라 설계 근거와
+  내부 판단이 통째로 페이지 소스에 노출돼 있었다. Django 주석 태그로 감싸면
+  서버에서 지워진 채 나가고, 개발자가 읽는 것은 하나도 달라지지 않는다.
+
+  ⚠️ 줄 끝 주석도 두지 않는다. Django 주석 태그는 렌더되면 그 자리가 빈 줄이
+     되므로 문장 중간에 끼울 수 없다. 설명할 줄의 바로 위에 올린다.
+     2026-09-15에 일곱 개를 그렇게 위로 올렸고, 자리가 바뀌면서 가리키는 대상이
+     흐려지는 곳에는 괄호로 대상만 덧붙였다(문구 자체는 그대로다).
+  ⚠️ 한 줄짜리도 마찬가지다. Django의 한 줄 주석 형태는 이 저장소에서 금지다
+     (CLAUDE.md, docs/design.md 0.3). 주석은 자라고, 두 줄이 되는 순간 화면에 찍힌다.
+
+  ▣ 렌더된 HTML에 남는 // 는 위 d3 CDN 주소 한 줄뿐이다. 그 밖에 // 가 보이면
+    새로 들어온 JS 주석이다.
+{% endcomment %}
 const CAT_COLORS = ['#3B82F6', '#00AF9A', '#60269E'];
 
-// 현재 선택된 기간 — 노드/엣지 패널을 HTMX로 불러올 때 그대로 붙여서, 캔버스(기간 필터 적용된 노드·엣지)와
-// 패널(노드/쌍 근거뉴스) 건수가 항상 같은 기간을 반영하도록 한다(기간 정합성 계약).
+{% comment %}
+  현재 선택된 기간 — 노드/엣지 패널을 HTMX로 불러올 때 그대로 붙여서, 캔버스(기간 필터 적용된 노드·엣지)와
+  패널(노드/쌍 근거뉴스) 건수가 항상 같은 기간을 반영하도록 한다(기간 정합성 계약).
+{% endcomment %}
 const CURRENT_PERIOD = "{{ selected_period }}";
 
 const rawNodes = JSON.parse(document.getElementById('graph-nodes').textContent);
 const rawEdges = JSON.parse(document.getElementById('graph-edges').textContent);
-// 옵션 a(docs/design.md GRAPH-001 "라벨 엣지 상시 노출 + 실선 통일", 2026-07-31) — edges 배열은
-// 뷰 단계에서 이미 라벨 엣지만 담고 있다(공동언급만 있고 라벨 없는 쌍은 애초에 포함되지 않음).
-// 각 엣지는 source/target/value/label을 갖는다(has_label 필드는 항상 true가 되어 폐기).
+{% comment %}
+  옵션 a(docs/design.md GRAPH-001 "라벨 엣지 상시 노출 + 실선 통일", 2026-07-31) — edges 배열은
+  뷰 단계에서 이미 라벨 엣지만 담고 있다(공동언급만 있고 라벨 없는 쌍은 애초에 포함되지 않음).
+  각 엣지는 source/target/value/label을 갖는다(has_label 필드는 항상 true가 되어 폐기).
+{% endcomment %}
 
-// 인접 맵 — D3가 edges를 변환하기 전에 string id 기준으로 구성
+{% comment %}인접 맵 — D3가 edges를 변환하기 전에 string id 기준으로 구성{% endcomment %}
 const neigh = {};
 rawNodes.forEach(n => { neigh[n.id] = new Set(); });
 rawEdges.forEach(e => {
@@ -186,7 +206,7 @@ rawEdges.forEach(e => {
   neigh[e.target]?.add(e.source);
 });
 
-// D3가 원본을 변경하므로 복사본 사용
+{% comment %}D3가 원본을 변경하므로 복사본 사용{% endcomment %}
 const nodes = rawNodes.map(n => ({ ...n }));
 const edges = rawEdges.map(e => ({ ...e }));
 
@@ -196,12 +216,14 @@ let W = svgEl.clientWidth, H = svgEl.clientHeight;
 const svg = d3.select('#graph-svg');
 const g   = svg.append('g');
 
-// scaleExtent 하한 0.1(과거 0.2) — 관계 라벨이 계속 늘어나므로 0.2로는 나중에 전체가
-// 화면에 안 들어와 잘린다(2026-09-04).
+{% comment %}
+  scaleExtent 하한 0.1(과거 0.2) — 관계 라벨이 계속 늘어나므로 0.2로는 나중에 전체가
+  화면에 안 들어와 잘린다(2026-09-04).
+{% endcomment %}
 const zoom = d3.zoom().scaleExtent([0.1, 4]).on('zoom', e => g.attr('transform', e.transform));
 svg.call(zoom);
 
-// Force 시뮬레이션 — alpha가 자연 수렴하면 완전히 정지 (깜빡임 없음)
+{% comment %}Force 시뮬레이션 — alpha가 자연 수렴하면 완전히 정지 (깜빡임 없음){% endcomment %}
 const sim = d3.forceSimulation(nodes)
   .force('link',    d3.forceLink(edges).id(d => d.id).distance(160).strength(0.3))
   .force('charge',  d3.forceManyBody().strength(-800))
@@ -209,10 +231,12 @@ const sim = d3.forceSimulation(nodes)
   .force('y',       d3.forceY(H / 2).strength(0.05))
   .force('collide', d3.forceCollide().radius(d => d.symbolSize / 2 + 18));
 
-// 엣지 클릭 히트 영역 — 시각적으로 보이는 선(최대 5px)만으로는 클릭 타겟이 너무 좁아 사용성이 떨어지므로,
-// 같은 좌표에 겹치는 투명한 14px 넓이 선을 별도로 두어 클릭을 전담시킨다. stroke="transparent"는 fill/stroke가
-// 완전 투명해도 SVG 히트테스트 상 "칠해진" 영역으로 간주돼(pointer-events 기본값 visiblePainted 기준)
-// 클릭이 정상적으로 잡힌다. 시각 레이어(아래 link)는 pointer-events: none으로 클릭을 이 레이어에 위임한다.
+{% comment %}
+  엣지 클릭 히트 영역 — 시각적으로 보이는 선(최대 5px)만으로는 클릭 타겟이 너무 좁아 사용성이 떨어지므로,
+  같은 좌표에 겹치는 투명한 14px 넓이 선을 별도로 두어 클릭을 전담시킨다. stroke="transparent"는 fill/stroke가
+  완전 투명해도 SVG 히트테스트 상 "칠해진" 영역으로 간주돼(pointer-events 기본값 visiblePainted 기준)
+  클릭이 정상적으로 잡힌다. 시각 레이어(아래 link)는 pointer-events: none으로 클릭을 이 레이어에 위임한다.
+{% endcomment %}
 const linkHit = g.append('g')
   .selectAll('line').data(edges).join('line')
   .attr('stroke', 'transparent')
@@ -220,26 +244,30 @@ const linkHit = g.append('g')
   .style('cursor', 'pointer')
   .on('click', (e, d) => { e.stopPropagation(); selectEdge(d); });
 
-// 엣지 시각 채널 — 옵션a(docs/planning.md "지식그래프 축 1 확정: 옵션 a", 2026-07-31)에서 화면에
-// 뜨는 엣지가 전부 라벨 엣지가 되면서 점선/실선 이중 채널이 폐기됐다. 4개 헬퍼는 그대로 유지하되(link
-// 초기 렌더/배경 클릭 리셋/selectNode/selectEdge가 모두 재사용하는 구조는 바뀌지 않음) 내부의 라벨
-// 유무 분기를 제거하고 항상 단일 값을 반환한다.
-// idle 색은 중립 Gray(#898A8D) — 모든 엣지가 (금융/보험)-AI 연결이라 항상 AI 노드(#60269E)에 닿는데,
-// 과거 idle 색을 AI 노드와 동일한 Primary Violet으로 통일했더니 선과 노드가 뭉개져 보이는 문제가
-// 실제로 지적됐다(사용자 UX 지적, 2026-07-31). hover/선택 강조 시에는 selectNode/selectEdge가 여전히
-// '#60269E'로 하드코딩 강조하므로(순간 강조라 무방) idle=Gray, active=Primary Violet으로 분리된다.
+{% comment %}
+  엣지 시각 채널 — 옵션a(docs/planning.md "지식그래프 축 1 확정: 옵션 a", 2026-07-31)에서 화면에
+  뜨는 엣지가 전부 라벨 엣지가 되면서 점선/실선 이중 채널이 폐기됐다. 4개 헬퍼는 그대로 유지하되(link
+  초기 렌더/배경 클릭 리셋/selectNode/selectEdge가 모두 재사용하는 구조는 바뀌지 않음) 내부의 라벨
+  유무 분기를 제거하고 항상 단일 값을 반환한다.
+  idle 색은 중립 Gray(#898A8D) — 모든 엣지가 (금융/보험)-AI 연결이라 항상 AI 노드(#60269E)에 닿는데,
+  과거 idle 색을 AI 노드와 동일한 Primary Violet으로 통일했더니 선과 노드가 뭉개져 보이는 문제가
+  실제로 지적됐다(사용자 UX 지적, 2026-07-31). hover/선택 강조 시에는 selectNode/selectEdge가 여전히
+  '#60269E'로 하드코딩 강조하므로(순간 강조라 무방) idle=Gray, active=Primary Violet으로 분리된다.
+{% endcomment %}
 function edgeIdleColor(d)   { return '#898A8D'; }
 function edgeIdleOpacity(d) { return 0.75; }
-// 다른 노드/엣지 강조 중 톤다운될 때도 라벨 엣지는 완전히 죽이지 않는다.
+{% comment %}다른 노드/엣지 강조 중 톤다운될 때도 라벨 엣지는 완전히 죽이지 않는다.{% endcomment %}
 function edgeFadeOpacity(d) { return 0.15; }
-// 굵기 = 선택 기간 공동언급 value 그대로(활동 강도, 거짓 신호 방지). value=0이어도 최소 1.5px는
-// 보장해 "얇게 그리되 안 보이게 하지 않는다"는 정책을 지킨다(옵션a에서 상시 노출 정책상 value=0인
-// 라벨 엣지가 정상적으로 존재하므로 이 바닥이 실제로 자주 발동한다).
+{% comment %}
+  굵기 = 선택 기간 공동언급 value 그대로(활동 강도, 거짓 신호 방지). value=0이어도 최소 1.5px는
+  보장해 "얇게 그리되 안 보이게 하지 않는다"는 정책을 지킨다(옵션a에서 상시 노출 정책상 value=0인
+  라벨 엣지가 정상적으로 존재하므로 이 바닥이 실제로 자주 발동한다).
+{% endcomment %}
 function edgeWidth(d) {
   return Math.max(1.5, Math.min(1 + d.value * 0.5, 5));
 }
 
-// 엣지 — 공통 기사 수에 비례한 굵기 (클릭은 위 linkHit이 전담). 모든 엣지 실선 + primary 색 통일.
+{% comment %}엣지 — 공통 기사 수에 비례한 굵기 (클릭은 위 linkHit이 전담). 모든 엣지 실선 + primary 색 통일.{% endcomment %}
 const link = g.append('g')
   .selectAll('line').data(edges).join('line')
   .attr('stroke', edgeIdleColor)
@@ -247,8 +275,10 @@ const link = g.append('g')
   .attr('stroke-width', edgeWidth)
   .style('pointer-events', 'none');
 
-// 라벨 텍스트 캔버스 상시 렌더 — 옵션a에서는 edges 배열 자체가 이미 라벨 엣지만 담고 있으므로
-// 필터링 없이 edges 전체에 흰 배경 pill + 텍스트를 그린다(과거 has_label 필터는 제거).
+{% comment %}
+  라벨 텍스트 캔버스 상시 렌더 — 옵션a에서는 edges 배열 자체가 이미 라벨 엣지만 담고 있으므로
+  필터링 없이 edges 전체에 흰 배경 pill + 텍스트를 그린다(과거 has_label 필터는 제거).
+{% endcomment %}
 const linkLabel = g.append('g')
   .selectAll('g').data(edges).join('g')
   .attr('class', 'edge-label-g')
@@ -270,14 +300,17 @@ linkLabel.append('text')
   .attr('fill', '#60269E')
   .text(d => d.label);
 
-// pill 너비는 텍스트 실측(getBBox)에 맞춰 최초 렌더 시 1회만 계산한다 — 라벨 텍스트는 정적이라
-// tick마다 재측정할 이유가 없다(성능 낭비 방지).
+{% comment %}
+  pill 너비는 텍스트 실측(getBBox)에 맞춰 최초 렌더 시 1회만 계산한다 — 라벨 텍스트는 정적이라
+  tick마다 재측정할 이유가 없다(성능 낭비 방지).
+{% endcomment %}
 linkLabel.each(function (d) {
-  const w = this.querySelector('text').getBBox().width + 12; // 좌우 패딩 6px씩
+  {% comment %}좌우 패딩 6px씩 (아래 + 12){% endcomment %}
+  const w = this.querySelector('text').getBBox().width + 12;
   d3.select(this).select('rect').attr('width', w).attr('x', -w / 2);
 });
 
-// 노드 그룹
+{% comment %}노드 그룹{% endcomment %}
 const node = g.append('g')
   .selectAll('g').data(nodes).join('g')
   .attr('class', 'node-g')
@@ -316,27 +349,30 @@ sim.on('tick', () => {
   node.attr('transform', d => `translate(${d.x},${d.y})`);
 });
 
-// 🔴 첫 화면부터 완성된 배치로 보여준다 (2026-09-04 사용자 지시 — "처음에는 노드
-// 엣지들이 가까웠다가 움직임이 멈추고 전체로 보여지네, 처음부터 전체가 보여지게 해줘").
-//
-// 종전에는 sim.on('end')에서 맞췄다. 그러면 화면이 뜬 뒤 노드가 뭉쳐 있다가 수백 번
-// 틱을 돌며 퍼지고, 다 멈춘 뒤에야 배율이 맞았다. 화면 전체가 움직이는 구간이
-// 매번 생기는 셈이라 큰 면적 움직임을 피하는 이 프로젝트의 원칙과도 어긋났다.
-//
-// 지금은 화면에 그리기 전에 시뮬레이션을 동기로 끝까지 돌린다. D3의 기본 감쇠값
-// (alphaMin 0.001, alphaDecay 1-0.001^(1/300))에서 수렴에 필요한 틱 수가 300이라
-// 그만큼 미리 돌린 뒤 좌표를 확정하고, 배율까지 맞춘 상태로 한 번만 그린다.
-// 결과적으로 초기 애니메이션이 아예 없다.
-//
-// ⚠️ sim을 stop()만 하고 두면 드래그가 죽는다. 아래에서 tick 핸들러를 직접 부르고
-//    핸들러 자체는 그대로 두므로, 드래그 중에는 기존 sim.on('tick')이 동작한다.
+{% comment %}
+  🔴 첫 화면부터 완성된 배치로 보여준다 (2026-09-04 사용자 지시 — "처음에는 노드
+  엣지들이 가까웠다가 움직임이 멈추고 전체로 보여지네, 처음부터 전체가 보여지게 해줘").
+
+  종전에는 sim.on('end')에서 맞췄다. 그러면 화면이 뜬 뒤 노드가 뭉쳐 있다가 수백 번
+  틱을 돌며 퍼지고, 다 멈춘 뒤에야 배율이 맞았다. 화면 전체가 움직이는 구간이
+  매번 생기는 셈이라 큰 면적 움직임을 피하는 이 프로젝트의 원칙과도 어긋났다.
+
+  지금은 화면에 그리기 전에 시뮬레이션을 동기로 끝까지 돌린다. D3의 기본 감쇠값
+  (alphaMin 0.001, alphaDecay 1-0.001^(1/300))에서 수렴에 필요한 틱 수가 300이라
+  그만큼 미리 돌린 뒤 좌표를 확정하고, 배율까지 맞춘 상태로 한 번만 그린다.
+  결과적으로 초기 애니메이션이 아예 없다.
+
+  ⚠️ sim을 stop()만 하고 두면 드래그가 죽는다. 아래에서 tick 핸들러를 직접 부르고
+     핸들러 자체는 그대로 두므로, 드래그 중에는 기존 sim.on('tick')이 동작한다.
+{% endcomment %}
 sim.stop();
 for (let i = 0; i < 300; i += 1) sim.tick();
 
-// 확정된 좌표를 노드마다 보관한다. 아래 안착 애니메이션이 여기로 되돌아온다.
+{% comment %}확정된 좌표를 노드마다 보관한다. 아래 안착 애니메이션이 여기로 되돌아온다.{% endcomment %}
 nodes.forEach(d => { d.fx0 = d.x; d.fy0 = d.y; });
 
-sim.on('tick').call(sim);   // 확정된 좌표를 DOM에 한 번 반영
+{% comment %}확정된 좌표를 DOM에 한 번 반영 (아래 한 줄){% endcomment %}
+sim.on('tick').call(sim);
 
 if (nodes.length) {
   const pad = 60;
@@ -347,21 +383,25 @@ if (nodes.length) {
   const scale = Math.max(0.1, Math.min(4, 1 / Math.max(boxW / W, boxH / H)));
   const tx = W / 2 - scale * (x0 + x1) / 2;
   const ty = H / 2 - scale * (y0 + y1) / 2;
-  // ⚠️ transition을 쓰지 않는다. 배율은 그리기 전에 확정해야 "처음부터 전체"가 된다.
-  //    아래 안착 애니메이션은 배율이 아니라 노드 좌표만 움직인다.
+  {% comment %}
+    ⚠️ transition을 쓰지 않는다. 배율은 그리기 전에 확정해야 "처음부터 전체"가 된다.
+       아래 안착 애니메이션은 배율이 아니라 노드 좌표만 움직인다.
+  {% endcomment %}
   svg.call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
 }
 
-// 진입 안착 애니메이션 (2026-09-07 사용자 지시 — "너무 정적이라 처음에 좀 움직였으면
-// 좋겠는데 그래야 움직일 수 있다는 것을 알게 되니까").
-//
-// 🔴 2026-09-04에 지운 그 움직임과 다른 것이다. 그때는 노드가 뭉친 상태에서
-//    수백 틱 동안 퍼졌다 — 이동 거리가 화면 폭만큼 크고 1~2초 걸렸다.
-//    여기는 **완성 위치에서 최대 ±JITTER 만큼만** 어긋난 채 출발해 DURATION 안에
-//    제자리로 온다. 어디로 갈지가 이미 정해진 상태에서 정착만 보여준다.
-//    배율은 위에서 이미 확정됐으므로 화면 전체가 확대·축소되지 않는다.
-//
-// 끄는 법: RUN_SETTLE 을 false 로. 세기 조절: JITTER(px), DURATION(ms).
+{% comment %}
+  진입 안착 애니메이션 (2026-09-07 사용자 지시 — "너무 정적이라 처음에 좀 움직였으면
+  좋겠는데 그래야 움직일 수 있다는 것을 알게 되니까").
+
+  🔴 2026-09-04에 지운 그 움직임과 다른 것이다. 그때는 노드가 뭉친 상태에서
+     수백 틱 동안 퍼졌다 — 이동 거리가 화면 폭만큼 크고 1~2초 걸렸다.
+     여기는 **완성 위치에서 최대 ±JITTER 만큼만** 어긋난 채 출발해 DURATION 안에
+     제자리로 온다. 어디로 갈지가 이미 정해진 상태에서 정착만 보여준다.
+     배율은 위에서 이미 확정됐으므로 화면 전체가 확대·축소되지 않는다.
+
+  끄는 법: RUN_SETTLE 을 false 로. 세기 조절: JITTER(px), DURATION(ms).
+{% endcomment %}
 const RUN_SETTLE = true;
 const JITTER = 15;
 const DURATION = 500;
@@ -370,18 +410,23 @@ const prefersReducedMotion =
   window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 if (RUN_SETTLE && !prefersReducedMotion && nodes.length) {
-  // 결정적 의사난수 — 새로고침마다 흔들리는 방향이 달라지면 산만하다.
-  // 노드 인덱스로 각도를 고르게 흩어 매번 같은 모양으로 안착한다.
+  {% comment %}
+    결정적 의사난수 — 새로고침마다 흔들리는 방향이 달라지면 산만하다.
+    노드 인덱스로 각도를 고르게 흩어 매번 같은 모양으로 안착한다.
+  {% endcomment %}
   nodes.forEach((d, i) => {
-    const a = (i * 2.399963);            // 황금각(rad) — 인접 노드끼리 방향이 겹치지 않는다
+    {% comment %}황금각(rad) — 인접 노드끼리 방향이 겹치지 않는다 (아래 a){% endcomment %}
+    const a = (i * 2.399963);
     const r = JITTER * (0.4 + 0.6 * ((i * 7) % 10) / 9);
     d.x = d.fx0 + Math.cos(a) * r;
     d.y = d.fy0 + Math.sin(a) * r;
   });
-  sim.on('tick').call(sim);              // 어긋난 위치로 한 프레임 그린다
+  {% comment %}어긋난 위치로 한 프레임 그린다 (아래 한 줄){% endcomment %}
+  sim.on('tick').call(sim);
 
   const t0 = performance.now();
-  const ease = t => 1 - Math.pow(1 - t, 3);   // easeOutCubic — 빠르게 붙고 부드럽게 멈춘다
+  {% comment %}easeOutCubic — 빠르게 붙고 부드럽게 멈춘다 (아래 ease){% endcomment %}
+  const ease = t => 1 - Math.pow(1 - t, 3);
   const settle = now => {
     const t = Math.min(1, (now - t0) / DURATION);
     const k = ease(t);
@@ -390,13 +435,18 @@ if (RUN_SETTLE && !prefersReducedMotion && nodes.length) {
       d.y = d.y + (d.fy0 - d.y) * k;
     });
     sim.on('tick').call(sim);
+    {% comment %}
+      아래 else 쪽. 오차 없이 정확히 안착.
+      ⚠️ 이 설명만 if 위로 올렸다. if 와 else 사이에 Django 주석 태그를 끼우면
+         렌더된 뒤 한 문장이 빈 줄로 갈라진다.
+    {% endcomment %}
     if (t < 1) requestAnimationFrame(settle);
-    else nodes.forEach(d => { d.x = d.fx0; d.y = d.fy0; });   // 오차 없이 정확히 안착
+    else nodes.forEach(d => { d.x = d.fx0; d.y = d.fy0; });
   };
   requestAnimationFrame(settle);
 }
 
-// 배경 클릭 → 하이라이트 초기화
+{% comment %}배경 클릭 → 하이라이트 초기화{% endcomment %}
 svg.on('click', () => {
   node.style('opacity', 1);
   link.attr('stroke', edgeIdleColor).attr('stroke-opacity', edgeIdleOpacity);
@@ -405,7 +455,7 @@ svg.on('click', () => {
 function selectNode(d) {
   const adj = neigh[d.id] || new Set();
 
-  // 비인접 노드 페이드
+  {% comment %}비인접 노드 페이드{% endcomment %}
   node.style('opacity', n => (n.id === d.id || adj.has(n.id)) ? 1 : 0.08);
   link
     .attr('stroke',         l => (l.source.id === d.id || l.target.id === d.id) ? '#60269E' : edgeIdleColor(l))
@@ -417,20 +467,20 @@ function selectNode(d) {
 function selectEdge(d) {
   const aId = d.source.id, bId = d.target.id;
 
-  // 이 엣지의 두 endpoint 노드만 강조, 나머지는 페이드
+  {% comment %}이 엣지의 두 endpoint 노드만 강조, 나머지는 페이드{% endcomment %}
   node.style('opacity', n => (n.id === aId || n.id === bId) ? 1 : 0.08);
-  // 클릭한 엣지만 강조, 나머지 엣지는 톤다운(노드 클릭 때의 "인접 전체 강조"와 달리 이 엣지 하나만)
+  {% comment %}클릭한 엣지만 강조, 나머지 엣지는 톤다운(노드 클릭 때의 "인접 전체 강조"와 달리 이 엣지 하나만){% endcomment %}
   link
     .attr('stroke',         l => (l === d) ? '#60269E' : edgeIdleColor(l))
     .attr('stroke-opacity', l => (l === d) ? 0.9 : edgeFadeOpacity(l));
 
-  // pk_a < pk_b 정규화 — 2단계 OrgRelation 정규화 순서 규칙과 동일하게 맞춰둔다.
+  {% comment %}pk_a < pk_b 정규화 — 2단계 OrgRelation 정규화 순서 규칙과 동일하게 맞춰둔다.{% endcomment %}
   const pkA = Math.min(+aId, +bId);
   const pkB = Math.max(+aId, +bId);
   htmx.ajax('GET', `/graph/edges/${pkA}/${pkB}/panel/?period=${CURRENT_PERIOD}`, { target: '#org-panel', swap: 'innerHTML' });
 }
 
-// 범례 클릭 → 타입별 노드/엣지 토글
+{% comment %}범례 클릭 → 타입별 노드/엣지 토글{% endcomment %}
 const hiddenCats = new Set();
 function toggleCategory(cat, btn) {
   if (hiddenCats.has(cat)) { hiddenCats.delete(cat); btn.style.opacity = '1'; }
@@ -440,11 +490,11 @@ function toggleCategory(cat, btn) {
   link.style('display', l =>
     (hiddenCats.has(l.source.category) || hiddenCats.has(l.target.category)) ? 'none' : null
   );
-  // linkHit(클릭 히트 영역)도 함께 숨겨야 시각적으로 사라진 엣지가 클릭은 되는 불일치가 없다.
+  {% comment %}linkHit(클릭 히트 영역)도 함께 숨겨야 시각적으로 사라진 엣지가 클릭은 되는 불일치가 없다.{% endcomment %}
   linkHit.style('display', l =>
     (hiddenCats.has(l.source.category) || hiddenCats.has(l.target.category)) ? 'none' : null
   );
-  // 캔버스 라벨 텍스트도 함께 숨긴다 — 카테고리를 숨겼는데 그 라벨 텍스트만 남아있으면 불일치.
+  {% comment %}캔버스 라벨 텍스트도 함께 숨긴다 — 카테고리를 숨겼는데 그 라벨 텍스트만 남아있으면 불일치.{% endcomment %}
   linkLabel.style('display', l =>
     (hiddenCats.has(l.source.category) || hiddenCats.has(l.target.category)) ? 'none' : null
   );
@@ -456,33 +506,36 @@ window.addEventListener('resize', () => {
   sim.force('center', d3.forceCenter(W / 2, H / 2)).alpha(0.3).restart();
 });
 
-// ─────────────────────────────────────────────────────────────────────────
-// 검색 + 포커싱 (2026-09-08)
-//
-// ▣ 세 규칙
-//   1. 🔴 배율을 바꾸지 않는다. 확대와 축소는 화면의 모든 픽셀이 중심에서
-//      바깥으로 흐르는 방사형 움직임이라 같은 거리의 pan보다 훨씬 세다.
-//      사용자가 맞춰 둔 배율을 검색이 빼앗지도 않는다.
-//   2. 이미 화면에 보이면 아예 안 움직인다. 기본 배율이 "전체 맞춤"이라
-//      대부분의 검색이 여기 해당한다.
-//   3. 밖이면 320ms pan. 단 아주 멀면 오히려 즉시 이동한다 — 긴 거리를
-//      부드럽게 옮기려면 시간을 늘리거나 속도를 올려야 하는데 둘 다 나쁘다.
-//
-//   그래서 "애니메이션"의 실체는 노드 강조 링이다. 움직이는 면적이 노드
-//   크기라 제약과 무관하고, 화면이 안 움직여도 "여기 있어요"가 전달된다.
-//
-// ▣ 함정 둘
-//   🔴 지금 화면에 보이는 좌표는 d.x/d.y다. d.fx0/d.fy0가 아니다.
-//      fx0/fy0는 진입 안착 애니메이션이 저장해 둔 "원래 자리"라서, 사용자가
-//      노드를 드래그로 옮기면 d.x만 바뀌고 fx0는 옛 자리에 남는다. fx0를 읽으면
-//      카메라가 화면에 없는 곳으로 간다. 포커싱은 항상 그 시점의 d.x/d.y를 읽는다.
-//   🔴 hiddenCats로 숨긴 카테고리는 검색 대상에서 뺀다. 안 그러면 카메라는
-//      이동했는데 화면엔 아무것도 없는 상태가 된다.
-//
-// ▣ 전체 맞춤 로직(위 초기 배율)을 재사용하지 않는다. 그건 nodes 전체의
-//    bounding box 기준이라 단일 노드 포커싱에 쓸 수 없다.
-// ─────────────────────────────────────────────────────────────────────────
-const SEARCH_PAD      = 80;    // 뷰포트 안쪽 이 정도는 "보인다"로 친다
+{% comment %}
+  ─────────────────────────────────────────────────────────────────────────
+  검색 + 포커싱 (2026-09-08)
+
+  ▣ 세 규칙
+    1. 🔴 배율을 바꾸지 않는다. 확대와 축소는 화면의 모든 픽셀이 중심에서
+       바깥으로 흐르는 방사형 움직임이라 같은 거리의 pan보다 훨씬 세다.
+       사용자가 맞춰 둔 배율을 검색이 빼앗지도 않는다.
+    2. 이미 화면에 보이면 아예 안 움직인다. 기본 배율이 "전체 맞춤"이라
+       대부분의 검색이 여기 해당한다.
+    3. 밖이면 320ms pan. 단 아주 멀면 오히려 즉시 이동한다 — 긴 거리를
+       부드럽게 옮기려면 시간을 늘리거나 속도를 올려야 하는데 둘 다 나쁘다.
+
+    그래서 "애니메이션"의 실체는 노드 강조 링이다. 움직이는 면적이 노드
+    크기라 제약과 무관하고, 화면이 안 움직여도 "여기 있어요"가 전달된다.
+
+  ▣ 함정 둘
+    🔴 지금 화면에 보이는 좌표는 d.x/d.y다. d.fx0/d.fy0가 아니다.
+       fx0/fy0는 진입 안착 애니메이션이 저장해 둔 "원래 자리"라서, 사용자가
+       노드를 드래그로 옮기면 d.x만 바뀌고 fx0는 옛 자리에 남는다. fx0를 읽으면
+       카메라가 화면에 없는 곳으로 간다. 포커싱은 항상 그 시점의 d.x/d.y를 읽는다.
+    🔴 hiddenCats로 숨긴 카테고리는 검색 대상에서 뺀다. 안 그러면 카메라는
+       이동했는데 화면엔 아무것도 없는 상태가 된다.
+
+  ▣ 전체 맞춤 로직(위 초기 배율)을 재사용하지 않는다. 그건 nodes 전체의
+     bounding box 기준이라 단일 노드 포커싱에 쓸 수 없다.
+  ─────────────────────────────────────────────────────────────────────────
+{% endcomment %}
+{% comment %}뷰포트 안쪽 이 정도는 "보인다"로 친다 (아래 SEARCH_PAD){% endcomment %}
+const SEARCH_PAD      = 80;
 const SEARCH_PAN_MS   = 320;
 let   searchMatches   = [];
 let   searchIndex     = 0;
@@ -496,14 +549,14 @@ function graphSearchReset() {
 function focusNode(d) {
   const t  = d3.zoomTransform(svg.node());
   const k  = t.k;
-  // 🔴 d.x/d.y다. fx0가 아니다. 위 함정 주석 참고.
+  {% comment %}🔴 d.x/d.y다. fx0가 아니다. 위 함정 주석 참고.{% endcomment %}
   const sx = t.applyX(d.x), sy = t.applyY(d.y);
 
   const outside = sx < SEARCH_PAD || sx > W - SEARCH_PAD ||
                   sy < SEARCH_PAD || sy > H - SEARCH_PAD;
 
   if (outside) {
-    // 배율(k)은 그대로 두고 translate만 바꾼다.
+    {% comment %}배율(k)은 그대로 두고 translate만 바꾼다.{% endcomment %}
     const tx = W / 2 - k * d.x;
     const ty = H / 2 - k * d.y;
     const next = d3.zoomIdentity.translate(tx, ty).scale(k);
@@ -514,8 +567,10 @@ function focusNode(d) {
 
   if (prefersReducedMotion) return;
 
-  // 강조 링 — 줌 그룹 안에 그리므로 두께와 반지름을 현재 배율로 나눠
-  // 어느 배율에서든 화면에서 같은 크기로 보이게 한다.
+  {% comment %}
+    강조 링 — 줌 그룹 안에 그리므로 두께와 반지름을 현재 배율로 나눠
+    어느 배율에서든 화면에서 같은 크기로 보이게 한다.
+  {% endcomment %}
   g.selectAll('.search-ring').remove();
   g.append('circle')
     .attr('class', 'search-ring')
@@ -535,7 +590,7 @@ function graphSearch(q) {
   const term = (q || '').trim().toLowerCase();
   if (!term) { searchMatches = []; searchIndex = 0; graphSearchReset(); return 0; }
 
-  // 🔴 숨긴 카테고리는 대상에서 뺀다.
+  {% comment %}🔴 숨긴 카테고리는 대상에서 뺀다.{% endcomment %}
   searchMatches = nodes.filter(n =>
     !hiddenCats.has(n.category) && (n.name || '').toLowerCase().includes(term)
   );
@@ -559,9 +614,11 @@ function graphSearchNext() {
 
 function graphSearchClear() { graphSearch(''); }
 
-// Alpine은 상태만 들고 위 세 함수만 부른다.
-// 🔴 Alpine이 d3를 직접 만지지 않게 한다. 이 화면은 d3 초기화가 무거워서
-//    경계가 흐려지면 디버깅이 어려워진다.
+{% comment %}
+  Alpine은 상태만 들고 위 세 함수만 부른다.
+  🔴 Alpine이 d3를 직접 만지지 않게 한다. 이 화면은 d3 초기화가 무거워서
+     경계가 흐려지면 디버깅이 어려워진다.
+{% endcomment %}
 function graphSearchBar() {
   return {
     q: new URLSearchParams(location.search).get('q') || '',

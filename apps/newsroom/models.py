@@ -287,9 +287,14 @@ class NewsroomArticle(models.Model):
     # 판정을 바꾸는 기능을 넣을지는 PM 확인 중이라 이번 라운드에는 넣지 않는다.
     JUDGED_BY_RA = "수동(RA)"
     JUDGED_BY_LLM = "자동(LLM)"
+    # 제목 키워드 검사(2026-09-15 PE 신설, docs/planning.md 뉴스룸 정책 13번) — 2단계
+    # LLM을 부르기 전에 코드가 직접 내리는 판정. 사유가 아니라 주체를 남기는 칸이라
+    # (13-2 ④) 값 하나를 더 두는 것으로 충분하다. 가운뎃점·줄표는 쓰지 않는다(13-6 4번).
+    JUDGED_BY_CODE_TITLE_RULE = "코드(제목 규칙)"
     JUDGED_BY_CHOICES = [
         (JUDGED_BY_RA, "수동(RA)"),
         (JUDGED_BY_LLM, "자동(LLM)"),
+        (JUDGED_BY_CODE_TITLE_RULE, "코드(제목 규칙)"),
     ]
     judged_by = models.CharField(
         max_length=20, choices=JUDGED_BY_CHOICES, null=True, blank=True, default=None,

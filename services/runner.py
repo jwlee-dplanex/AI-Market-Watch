@@ -506,6 +506,19 @@ def _run_newsroom_collect(run_job_id: int, newsroom_id: int) -> None:
     collect_newsroom(room, on_progress=_progress_callback(run_job_id))
 
 
+def _title_matches_newsroom_keywords(title: str, keywords) -> bool:
+    """제목 키워드 검사(docs/planning.md 뉴스룸 정책 13번) — `keywords` 중 하나라도
+    `title`에 부분 문자열로 들어 있으면 True. 정규화는 공백 전부 제거 + 영문 소문자
+    통일까지만 한다(13-2 ③) — 가운뎃점 제거·자모 분해·유사어 확장은 하지 않는다.
+    정확 일치가 아니라 포함 검사를 쓰는 이유는 한국어 조사 때문이다(13-2 ②,
+    "교보생명이"·"교보증권은")."""
+    def _normalize(s: str) -> str:
+        return "".join(s.split()).lower()
+
+    norm_title = _normalize(title)
+    return any(_normalize(k) in norm_title for k in keywords if k)
+
+
 def _run_newsroom_filter(run_job_id: int, newsroom_id: int) -> None:
     """SET-010 교보 소식 축 2단계(필터) — docs/planning.md "뉴스룸" 절 12-2가 정본.
     _run_insight()와 같은 구조(배치 전체 1호출, 이어하기 없음)이지만 두 가지가
@@ -521,6 +534,14 @@ def _run_newsroom_filter(run_job_id: int, newsroom_id: int) -> None:
     그 원문의 해시 앞자리와 글자 수로 채운다(같은 절 "원문이 바뀌면 값도 바뀌기만
     하면 된다") — 코드 상수가 없어 cleanup/insight처럼 버전 문자열을 미리 못 박을
     수 없기 때문이다.
+
+    🔴 2026-09-15 — LLM을 부르기 전에 제목 키워드 검사를 한 번 더 거친다(정책 13번).
+    이 뉴스룸의 활성 수집 키워드(NewsroomKeyword — 계열사 NewsroomAffiliate는 보지
+    않는다, 13-2 ①) 중 하나도 제목에 없는 기사는 LLM을 부르지 않고 코드가 바로
+    rejected로 찍는다. 이 규칙은 LLM 필터를 대체하지 않는다 — 제목 검사를 통과한
+    기사만 그 다음에 LLM이 "브리핑할 소식인가"를 다시 묻는다(13-1 (b)). 수집 코드
+    (apps/newsroom/services.py)에는 넣지 않는다 — 거기 넣으면 기각된 "수집 단계에서
+    버린다" 안이 된다(13-1 (a) 표).
     """
     from apps.newsroom.models import Newsroom, NewsroomArticle
     from services.llm import filter_newsroom_articles
@@ -543,9 +564,34 @@ def _run_newsroom_filter(run_job_id: int, newsroom_id: int) -> None:
         # 방어적으로 그대로 완료 처리한다(_run_insight()와 같은 판단).
         return
 
-    result = filter_newsroom_articles(targets, room.filter_prompt)
+    keywords = list(room.keywords.values_list("keyword", flat=True))
+    title_rejected, llm_targets = [], []
+    for article in targets:
+        if _title_matches_newsroom_keywords(article.title, keywords):
+            llm_targets.append(article)
+        else:
+            title_rejected.append(article)
 
-    articles_by_id = {article.pk: article for article in targets}
+    if title_rejected:
+        with transaction.atomic():
+            for article in title_rejected:
+                article.filter_status = NewsroomArticle.STATUS_REJECTED
+                article.judged_by = NewsroomArticle.JUDGED_BY_CODE_TITLE_RULE
+                article.save(update_fields=["filter_status", "judged_by"])
+        RunJob.objects.filter(pk=run_job_id).update(title_rejected_count=len(title_rejected))
+
+    if not llm_targets:
+        # 전부 제목 규칙에 걸렸다 — LLM을 부르지 않는다(정책 13-1 "약 88% 절감"의
+        # 극단치). processed_count는 이번 배치에서 실제로 처리한 전체(=target_count)로
+        # 채운다 — 뒤 코드처럼 LLM 호출 뒤에만 채우면 이 경로에서 0으로 남는다.
+        RunJob.objects.filter(pk=run_job_id).update(
+            processed_count=len(targets), heartbeat_at=timezone.now(),
+        )
+        return
+
+    result = filter_newsroom_articles(llm_targets, room.filter_prompt)
+
+    articles_by_id = {article.pk: article for article in llm_targets}
     with transaction.atomic():
         for item in result.get("articles", []):
             # 응답에 없는 id나 이번 배치 밖의 id는 건너뛴다 — 응답은 신뢰하되
@@ -569,6 +615,9 @@ def _run_newsroom_filter(run_job_id: int, newsroom_id: int) -> None:
 
     usage = result.get("_usage", {})
     RunJob.objects.filter(pk=run_job_id).update(
+        # 🔴 len(targets) 그대로 — 제목 규칙으로 걸러진 건도 이번 배치에서 "처리"한
+        # 것이다(LLM을 부르지 않았을 뿐 판정은 끝났다). len(llm_targets)로 좁히면
+        # 진행률(processed_count)이 target_count에 못 미친 채로 "완료"가 된다.
         processed_count=len(targets), heartbeat_at=timezone.now(),
         input_tokens=F("input_tokens") + usage.get("input_tokens", 0),
         output_tokens=F("output_tokens") + usage.get("output_tokens", 0),

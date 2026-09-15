@@ -103,6 +103,16 @@
   🔴 붙였다. 기본값이 숨김인 모달이라 예외가 아니다. base.html 알림 배너가
      x-cloak을 뺀 것은 처음부터 보이는 것이 맞는 요소여서이고, 여기는 정반대다.
      빼면 페이지가 뜰 때마다 빈 확인창이 번쩍인다.
+
+  ══ 🔴 주석을 쓰는 법 (2026-09-15 추가) ══════════════════════════════════════
+  아래 <script> 안에서도 // 를 쓰지 않는다. JS 주석은 브라우저까지 그대로 실려
+  가는데, 이 파일은 base.html이 include해서 모든 화면에 붙으므로 설계 근거와
+  내부 판단이 앱 전체의 페이지 소스에 노출된다. Django 주석 태그로 감싸면
+  서버에서 지워진 채 나가고 개발자가 읽는 것은 그대로다.
+  ⚠️ 줄 끝 주석도 두지 않는다. Django 주석 태그는 렌더되면 그 자리가 빈 줄이
+     되므로 문장 중간에 끼울 수 없다. 설명할 줄의 바로 위에 올린다.
+  ⚠️ 한 줄짜리도 마찬가지다. Django의 한 줄 주석 형태는 이 저장소에서 금지다
+     (CLAUDE.md, docs/design.md 0.3). 주석은 자라고, 두 줄이 되는 순간 화면에 찍힌다.
 {% endcomment %}
 <div x-data
      x-show="$store.confirm.open"
@@ -175,7 +185,7 @@
         title: '',
         body: '',
         actionLabel: '',
-        // 승인했을 때 이어서 보낼 htmx 이벤트와, 닫은 뒤 포커스를 돌려줄 버튼
+        {% comment %}승인했을 때 이어서 보낼 htmx 이벤트와, 닫은 뒤 포커스를 돌려줄 버튼{% endcomment %}
         _event: null,
         _trigger: null,
 
@@ -194,7 +204,7 @@
         proceed: function () {
           var evt = this._event;
           this._reset();
-          // 🔴 true는 "사람이 이미 승인했다"는 뜻이다. htmx가 window.confirm을 건너뛴다.
+          {% comment %}🔴 true는 "사람이 이미 승인했다"는 뜻이다. htmx가 window.confirm을 건너뛴다.{% endcomment %}
           if (evt) { evt.detail.issueRequest(true); }
         },
 
@@ -202,12 +212,14 @@
           if (!this.open) { return; }
           var trigger = this._trigger;
           this._reset();
-          // 눌렀던 자리로 포커스를 돌려준다. 승인했을 때는 하지 않는다.
-          // 그 버튼은 곧 HTMX 응답으로 교체되거나 화면 자체가 바뀐다.
+          {% comment %}
+            눌렀던 자리로 포커스를 돌려준다. 승인했을 때는 하지 않는다.
+            그 버튼은 곧 HTMX 응답으로 교체되거나 화면 자체가 바뀐다.
+          {% endcomment %}
           if (trigger && typeof trigger.focus === 'function') { trigger.focus(); }
         },
 
-        // 배경 클릭. danger는 닫지 않는다. 되돌릴 수 없는 물음은 둘 중 하나를 고르게 한다.
+        {% comment %}배경 클릭. danger는 닫지 않는다. 되돌릴 수 없는 물음은 둘 중 하나를 고르게 한다.{% endcomment %}
         backdrop: function () {
           if (this.level !== 'danger') { this.cancel(); }
         },
@@ -223,11 +235,13 @@
     document.body.addEventListener('htmx:confirm', function (evt) {
       var detail = evt.detail || {};
 
-      // hx-confirm이 없는 요청에서도 이 이벤트는 매번 온다. 그대로 통과시킨다.
+      {% comment %}hx-confirm이 없는 요청에서도 이 이벤트는 매번 온다. 그대로 통과시킨다.{% endcomment %}
       if (!detail.question) { return; }
 
-      // Alpine이 아직이거나 죽었으면 가로채지 않는다.
-      // htmx가 원래대로 window.confirm을 띄운다. 확인창이 사라지는 경우는 없다.
+      {% comment %}
+        Alpine이 아직이거나 죽었으면 가로채지 않는다.
+        htmx가 원래대로 window.confirm을 띄운다. 확인창이 사라지는 경우는 없다.
+      {% endcomment %}
       var store = (window.Alpine && typeof Alpine.store === 'function')
         ? Alpine.store('confirm') : null;
       if (!store) { return; }

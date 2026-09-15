@@ -325,6 +325,12 @@ class RunJob(models.Model):
     output_tokens = models.IntegerField(default=0)
     cache_creation_input_tokens = models.IntegerField(default=0)
     cache_read_input_tokens = models.IntegerField(default=0)
+    # 🔴 2026-09-15 PE 신설 — "newsroom_filter" 전용(다른 job_key는 항상 0).
+    # docs/planning.md 뉴스룸 정책 13-6 PE 인계 5번 "걸린 건수를 실행 산출물에
+    # 남긴다" — 13-4 재개봉 조건("서로 다른 3배치 연속으로…")을 체감이 아니라
+    # 이 값을 보고 판단하기 위한 자리다. processed_count(전체 처리 건)와는 다른
+    # 질문에 답한다 — "그중 제목 규칙에 걸린 건이 몇이었는가."
+    title_rejected_count = models.IntegerField(default=0)
 
     class Meta:
         ordering = ["-started_at", "-pk"]
