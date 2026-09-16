@@ -261,10 +261,12 @@ STATE_LABELS = {
 CLEANUP_CLEAR_BLOCK_REASON = (
     "정리할 미검증 뉴스가 없어요. 1단계 수집으로 새 기사가 들어오면 열려요"
 )
-INSIGHT_CLEAR_BLOCK_REASON = (
-    "미배정 뉴스가 남아 있어도 지난 확정 이후 새로 검증된 뉴스가 있어야 열려요. "
-    "1단계 수집과 2단계 정리를 먼저 해 주세요"
-)
+# 🔴 2026-09-16 "SET-010 검토 단위" 절 확정 — INSIGHT_CLEAR_BLOCK_REASON을
+# 없앴다. 3단계 대상이 "직전 확정 이후 새로 검증된 것"(증분형)에서 "탈락 표식
+# 없는 미배정 전체"로 바뀌면서 _insight_block_reason()이 이제 clear일 때 항상
+# 스스로 구체적인 사유("아직 정리되지 않은 뉴스가 있어요"/"이슈로 묶을 뉴스가
+# 없어요")를 채운다 — 이 상수가 채우던 "잔여는 있지만 새 재료가 없는" 중간
+# 상태 자체가 새 설계에는 없다.
 NEWSROOM_COMPOSE_CLEAR_BLOCK_REASON = (
     "마지막 발송문과 재료가 같아서 지금 만들면 같은 글이 또 나와요. "
     "1단계 수집과 2단계 필터로 새 기사가 통과하면 열려요"
@@ -320,6 +322,18 @@ def _job_run_state(run_job, job_key, has_work):
          자리를 갖지 않는다. 4번으로 떨어진다")."""
     if run_job.status == RunJob.STATUS_RUNNING:
         return "running", STATE_LABELS["running"]
+    if job_key == "cleanup":
+        # 🔴 2026-09-16 "SET-010 검토 단위" 절 확정(PD 19차 개정) — cleanup은
+        # RunJob.status를 더 이상 보지 않는다. A/B 두 수만 본다 — 성공도 실패도
+        # 중단도 전부 A 또는 B로 흡수되므로 이 job_key에는 failed/stopped 배지가
+        # 따로 존재하지 않는다(상태가 셋뿐이다: todo/review/clear).
+        from services.runner import cleanup_ab_split
+        a_qs, b_qs = cleanup_ab_split()
+        if b_qs.exists():
+            return "todo", STATE_LABELS["todo"]
+        if a_qs.exists():
+            return "review", STATE_LABELS["review"]
+        return "clear", STATE_LABELS["clear"]
     if job_key in GATED_JOB_KEYS and run_job.status == RunJob.STATUS_DONE and run_job.target_count > 0:
         return "review", STATE_LABELS["review"]
     if run_job.status == RunJob.STATUS_FAILED and _is_today_local(run_job.finished_at):
@@ -395,6 +409,69 @@ def _confirmed_count(run_job, job_key) -> int:
     return run_job.processed_count
 
 
+def _pending_review_run_jobs(job_key):
+    """job_key에 걸쳐 확정 대기 제안(또는 초안)이 남아 있는 RunJob 전부,
+    started_at 오름차순(오래된 배치가 먼저). 검토 화면·확정·취소·노드 배지가
+    이 목록 하나를 같이 봐서 「가장 최근 RunJob 하나」에만 묶이던 문제를
+    없앤다(docs/planning.md "SET-010 검토 단위" 절, 2026-09-16 확정 — 사용자가
+    배치별로 나눠 보여주던 것을 기각하고 "확정을 기다리는 것 전부"를 보여주라고
+    확정했다). 실측 사고 — 같은 날 cleanup을 네 번 돌려 제안이 pk107(153건)·
+    pk108(21건)·pk130(161건)·pk131(5건)로 쌓였는데, 종전 코드는 가장 최근
+    RunJob(pk131) 하나만 봐서 앞 세 배치의 제안 335건이 화면에서 사라졌다.
+
+    RunDraft 기반 job(insight/weekly/monthly)은 RunDraft를, 그 외(cleanup 등)는
+    RunProposal을 본다. RUNNING인 배치는 제외한다 — services/runner.py가 건별로
+    그때그때 제안을 저장하므로 진행 중인 배치도 이미 대기 제안을 갖지만, 아직
+    끝나지 않은 배치를 확정·취소 대상에 섞으면 안 된다(그 배치는 아직 더 늘어날
+    수 있다)."""
+    model = RunDraft if job_key in ("insight", "weekly", "monthly") else RunProposal
+    pending_job_ids = model.objects.filter(
+        run_job__job_key=job_key, status=RunProposal.STATUS_PENDING,
+    ).values_list("run_job_id", flat=True).distinct()
+    return list(
+        RunJob.objects.filter(pk__in=pending_job_ids)
+        .exclude(status=RunJob.STATUS_RUNNING)
+        .order_by("started_at", "pk")
+    )
+
+
+def _representative_run_job(job_key):
+    """_run_job_display()(노드 그래프)와 _run_review_context()(검토 화면
+    머리글)가 "이 job_key의 RunJob"으로 취급할 대표 하나. 진행 중이거나(또는
+    한 번도 실행한 적이 없으면) 그냥 가장 최근 RunJob을 쓰고, 그렇지 않으면
+    확정 대기 제안이 남아 있는 배치 중 가장 최근 것을 우선한다 — 없으면 가장
+    최근 RunJob 그대로다.
+
+    이 함수가 없으면 "가장 최근 RunJob"만 본다. 확정 대기 제안이 있는 배치
+    뒤에 대상 0건 등으로 새 RunJob이 하나 더 생기면(예: pk131) 그 최근 배치가
+    이전 배치(pk130)를 노드 배지와 검토 화면 양쪽에서 가려 버린다.
+
+    🔴 cleanup은 이 함수를 상태 판정에 쓰지 않는다(위 _job_run_state()가 A/B로
+    직접 판정한다) — 다만 요약 줄(지난 실행 기록)에는 여전히 이 함수가 고른
+    run_job을 쓴다."""
+    latest = RunJob.objects.filter(job_key=job_key).order_by("-started_at", "-pk").first()
+    if latest is None or latest.status == RunJob.STATUS_RUNNING:
+        return latest
+    pending_jobs = _pending_review_run_jobs(job_key)
+    if pending_jobs:
+        return pending_jobs[-1]
+    # 🔴 확정 이력은 시작 순서와 어긋날 수 있다 — 여러 배치를 한 번에 확정하면
+    # (위 setting_run_review_confirm()) started_at이 더 이른 배치가 더 나중에
+    # 시작된 배치보다 나중에 확정될 수 있다. "마지막 확정"을 말하는 요약 줄이
+    # 실제로 가장 최근에 확정된 배치를 가리키도록, confirmed_at 기준으로도 한 번
+    # 더 비교한다.
+    latest_confirmed = (
+        RunJob.objects.filter(job_key=job_key, status=RunJob.STATUS_CONFIRMED, confirmed_at__isnull=False)
+        .order_by("-confirmed_at", "-pk").first()
+    )
+    if not latest_confirmed:
+        return latest
+    latest_event = latest.finished_at or latest.started_at
+    if latest_event and latest_event > latest_confirmed.confirmed_at:
+        return latest
+    return latest_confirmed
+
+
 def _run_job_display(job_key, has_work):
     """job_key의 최신 RunJob과 "할 일이 있나" 축 판정(has_work)으로 노드
     표시값(state/state_label/summary/elapsed)을 만든다. 그 job_key로 RunJob이 한
@@ -407,7 +484,7 @@ def _run_job_display(job_key, has_work):
     늘고, done/idle이 사라졌다. 아래 함수 끝부분(state가 todo/clear로 떨어졌을 때)이
     RunJob.status를 직접 봐서 요약 문구를 만든다 — 완료/확정됨/취소됨/(오늘이
     아닌) 실패·중단이 전부 여기로 모인다."""
-    run_job = RunJob.objects.filter(job_key=job_key).order_by("-started_at", "-pk").first()
+    run_job = _representative_run_job(job_key)
     if not run_job:
         return None
     state, state_label = _job_run_state(run_job, job_key, has_work)
@@ -489,14 +566,18 @@ def _run_job_display(job_key, has_work):
         # 어제 이전 실패는 이미 todo/clear로 내려가 아래 마지막 블록에서 요약된다.
         return {"state": state, "state_label": state_label, "summary": "실행이 실패했어요"}
     if state == "review":
-        # 🔴 2026-09-16 18차 개정 — 실패가 있으면 그 사실을 여기서 말한다.
-        # 종전에는 processed_count만 찍어서 "67건 판정을 마쳤어요"가 됐는데,
-        # 대상은 68건이었고 1건이 실패해 확정 버튼이 잠긴 상태였다. 사용자가
-        # 화면에서 "1건이 남았는데 왜 67건이라고 하느냐"고 물었다 — 노드가
-        # 잠금의 원인을 말하지 않아 검토 화면에 들어가야만 알 수 있었다.
-        # ⚠️ 제안 건수(몇 건을 지우자고 하는가)는 검토 화면이 온전히 말한다.
-        #    이 줄은 "왜 지금 이 상태인가"만 말한다(PD 18차 ④번).
-        if run_job.failed_count:
+        if job_key == "cleanup":
+            # 🔴 2026-09-16 PD 19차 개정 — 완료형을 금지한다. "N건 판정을
+            # 마쳤어요"는 B가 0이라는 사실("다 됐다")을 말하는 문장인데, 이제
+            # 그 정보는 적체 줄(job.backlog, "판정 A/(A+B)")이 전담한다. 이
+            # 줄은 지나간 실행의 기록만 짧게 남긴다 — 대표 배치(가장 최근
+            # 확정 대기 배치)의 처리 시각과 건수.
+            prefix, when = _today_or_past(run_job.finished_at)
+            summary = f"{prefix} 판정 {when}, {run_job.processed_count}건"
+        elif run_job.failed_count:
+            # 🔴 2026-09-16 18차 개정 — insight/weekly/monthly는 여전히 배치
+            # 하나가 review를 통째로 정하므로(대상 전량에 실패가 섞여도 B라는
+            # 개념이 없다) 실패가 있으면 그 사실을 여기서 말한다.
             summary = (
                 f"{run_job.target_count}건 중 {run_job.processed_count}건 판정, "
                 f"실패 {run_job.failed_count}건"
@@ -515,28 +596,39 @@ def _run_job_display(job_key, has_work):
         # 건수 없음). 오늘 난 실패는 여기 닿지 않는다(_job_run_state()가 이미
         # 앞에서 "실행이 실패했어요"로 가로챈다) — 그래서 여기 오는 finished_at은
         # 항상 오늘이 아니지만, 판정은 다른 곳과 같은 _today_or_past()로 통일한다.
-        _, when = _today_or_past(run_job.finished_at)
-        summary = f"지난 실패 {when}"
+        #
+        # 🔴 2026-09-16 PE 수정 — cleanup은 이제 이 분기에 "오늘" 실패도 닿을 수
+        # 있다(위 _job_run_state()가 cleanup의 failed(오늘) 우선순위 자체를 없앴다
+        # — 실패는 전부 B로 흡수돼 배지는 todo/review/clear 셋뿐이다). 그런데 이
+        # 코드는 prefix를 버리고 "지난"을 하드코딩하고 있었다 — 다른 job_key는
+        # 이 분기에 항상 지난 실패만 왔으니(오늘 실패는 早 위 "state==failed"
+        # 분기가 가로챈다) 드러나지 않던 버그다. 실제 prefix를 쓴다.
+        prefix, when = _today_or_past(run_job.finished_at)
+        summary = f"{prefix} 실패 {when}"
     elif run_job.status == RunJob.STATUS_STOPPED:
-        # 🔴 같은 계약 — "지난 중단 MM/DD, N건까지". 1호출 job(RESUME_FROM_SCRATCH_JOB_KEYS)은
-        # 건수를 찍지 않는다 — "오늘" 중단 요약(위 `if state == "stopped":` 분기)과
-        # 같은 이유다("그만큼은 남아 있겠지"로 오독된다).
+        # 🔴 같은 이유로 prefix를 실제 값으로 쓴다("오늘 중단 13:05, 29건까지" —
+        # PD 19차 개정 backlog 예시와 짝을 이루는 문구). 1호출 job
+        # (RESUME_FROM_SCRATCH_JOB_KEYS)은 건수를 찍지 않는다 — "오늘" 중단 요약
+        # (위 `if state == "stopped":` 분기)과 같은 이유다("그만큼은 남아
+        # 있겠지"로 오독된다).
         stopped_at = run_job.finished_at or run_job.heartbeat_at
         if not stopped_at:
             summary = "중단된 적이 있어요"
         else:
-            _, when = _today_or_past(stopped_at)
+            prefix, when = _today_or_past(stopped_at)
             if job_key in RESUME_FROM_SCRATCH_JOB_KEYS:
-                summary = f"지난 중단 {when}"
+                summary = f"{prefix} 중단 {when}"
             else:
                 current = run_job.processed_count + run_job.failed_count
-                summary = f"지난 중단 {when}, {current}건까지"
+                summary = f"{prefix} 중단 {when}, {current}건까지"
     elif run_job.status == RunJob.STATUS_CONFIRMED:
         # 🔴 15차 개정 ⑥-2 — "마지막 확정 MM/DD HH:MM"(13차가 쓰지 말라고 못박은
         # 종전 서식)에서 {오늘|지난} 접두로 바꾸고, 건수에 단위 낱말(기사/이슈)을
         # 더한다. 건수 자체도 job_key별로 다른 값을 본다(_confirmed_count() 참고 —
         # insight는 processed_count가 아니라 실제로 확정된 Insight 개수를 센다).
-        prefix, when = _today_or_past(run_job.finished_at)
+        # 🔴 2026-09-16 "SET-010 검토 단위" 절 13번 — finished_at이 아니라
+        # confirmed_at을 쓴다(위 _job_finished_today()와 같은 이유).
+        prefix, when = _today_or_past(run_job.confirmed_at or run_job.finished_at)
         unit = CONFIRMED_UNIT_BY_JOB.get(job_key, "")
         count = _confirmed_count(run_job, job_key)
         count_text = f"{unit} {count}건" if unit else f"{count}건"
@@ -580,14 +672,20 @@ def _run_job_display(job_key, has_work):
             # (_run_newsroom_compose()가 len(targets)로 채운다) — 단위 낱말만 더한다.
             prefix, when = _today_or_past(run_job.finished_at)
             summary = f"{prefix} 발송문 {when}, 기사 {run_job.processed_count}건"
+        elif job_key == "newsroom_filter":
+            # 🔴 2026-09-16 PD 19차 개정 ⑧번 — 종전에는 이 값이 화면에 노출되지
+            # 않았다(_newsroom_jobs_context()가 채널 누적("통과 N건, 제외 N건")으로
+            # 항상 덮어썼는데, 그 값이 "제외 296건"처럼 채널이 살아온 전체 기간의
+            # 합이라 어느 실행에도 속하지 않았다 — 15차 규약 위반). RunJob의
+            # target_count/processed_count만으로 "그 실행 한 번"을 정확히 말할 수
+            # 있어(마이그레이션 불필요) 이제 여기서 직접 만들고, 호출부는 더 이상
+            # 덮어쓰지 않는다.
+            prefix, when = _today_or_past(run_job.finished_at)
+            summary = f"{prefix} 필터 {when}, 기사 {run_job.processed_count}건 판정"
         else:
-            # 🔴 newsroom_filter — 여기 값은 실제로 화면에 노출되지 않는다.
-            # _newsroom_jobs_context()가 todo/clear 상태에서 항상
-            # _newsroom_filter_summary()로 덮어쓴다(채널 누적 집계, 15차 개정
-            # ⑦번 "RunJob과 NewsroomArticle을 잇는 길이 없어" 실행 범위로
-            # 좁히지 못한 채 그대로 둔 자리 — PE 보고 참고). 다른 job_key가
-            # 이 경로로 새로 들어오면(이 dict를 깜빡하고 놓치면) 옛 서식이라도
-            # 화면에 뜨는 게 아무 값도 없는 것보다 낫다는 방어적 기본값이다.
+            # 방어적 기본값 — 위 갈래에 없는 job_key가 DONE으로 여기 닿으면(새
+            # job_key를 추가하며 이 분기를 깜빡한 경우) 아무 값도 없는 것보다는
+            # 낫다는 최소한의 안전망이다.
             summary = f"마지막 실행 {timezone.localtime(run_job.finished_at):%m/%d %H:%M}, {run_job.processed_count}건"
     else:
         # RunJob.STATUS_PENDING — 실제 실행 경로(start_run/run_now)는 RunJob을 항상
@@ -612,79 +710,147 @@ def _insight_block_reason() -> str:
     "3~5단계를 LLM으로 옮기는 설계" 2번 표, PM 설계 "선행 미완은 경고가 아니라 버튼
     잠금이다"). 순서가 뜻을 가진다 — 먼저 걸리는 조건의 문구가 화면에 뜬다.
 
-    🔴 두 번째 조건(확정되지 않은 cleanup 배치)은 위 표에 없는 방어 조건이다. 보통은
-    첫 조건(미검증 News 존재)이 먼저 걸린다 — cleanup 배치가 확정 전이면 그 배치가
-    다뤘던 News는 여전히 미검증 상태로 남기 때문이다(확정 뷰에서만 상태가 바뀐다).
-    다만 그 배치의 대상 News가 NEWS-002에서 개별로 먼저 삭제되면(ExcludedURL 경로)
-    미검증 건수가 0으로 떨어지면서도 그 배치 자체는 여전히 확정 전이라, 첫 조건만으로는
-    못 잡는 틈이 생긴다. RunJob 상태를 직접 봐서 그 틈을 막는다."""
+    🔴 2026-09-16 "SET-010 검토 단위" 절 확정(PD 19차 개정 ④번) — 두 조건으로
+    줄었다. 종전 두 번째 조건("확정되지 않은 cleanup 배치가 있는가")은 커버리지
+    조건(uncovered_count)을 지키기 위한 방어였는데, cleanup이 A/B로 넘어가면서
+    그 조건 자체가 없어졌다(services/runner.py cleanup_ab_split() 참고) — 미검증
+    News가 개별로 삭제돼도 A/B는 News 쪽에서 직접 세므로 첫 조건이 이미 정확하다.
+    첫 조건 문구도 "2단계를 먼저 끝내 주세요"로 다음 행동을 말하게 바꿨다."""
     unverified_count = _unverified_news_count()
     if unverified_count:
-        return f"아직 정리되지 않은 뉴스가 {unverified_count}건 있어요"
+        return f"아직 정리되지 않은 뉴스가 {unverified_count}건 있어요. 2단계를 먼저 끝내 주세요"
 
-    pending_cleanup = RunJob.objects.filter(job_key="cleanup", status=RunJob.STATUS_DONE).exists()
-    if pending_cleanup:
-        return "2단계 정리 결과를 아직 확정하지 않았어요"
-
-    unassigned_count = News.objects.verified().filter(insights__isnull=True).count()
-    if unassigned_count == 0:
+    from services.runner import insight_ab_split
+    _, unassigned_qs = insight_ab_split()
+    if not unassigned_qs.exists():
         return "이슈로 묶을 뉴스가 없어요"
 
     return ""
 
 
 def _unverified_news_count() -> int:
-    """미검증 News 건수. 2단계(cleanup) 배지의 재료 축 판정(_job_has_work())과
-    위 _insight_block_reason()의 첫 조건이 같은 값을 본다 — 두 벌이 되면 배지와
-    버튼이 어긋난다(docs/planning.md "SET-010 노드 배지" 8-2)."""
+    """미검증 News 건수(A+B, docs/planning.md "SET-010 검토 단위" 0-1) — 위
+    _insight_block_reason()의 첫 조건과 SET-006 로그가 같은 값을 본다."""
     return News.objects.filter(status=News.STATUS_UNVERIFIED).count()
 
 
-def _cleanup_backlog() -> str:
-    """SET-010 2단계(cleanup) 노드 배지의 적체 줄(docs/design.md "SET-010 · 실행"
-    17차 개정 신설 — run.html 상단 계약 "backlog" 항목이 정본). "미검증 N건,
-    MM/DD부터" 형태 문자열 하나를 서버가 완성해 내린다.
+def _cleanup_backlog():
+    """SET-010 2단계(cleanup) 노드의 할 일 줄(PD 20차 개정 ②③, 19차 ③번의 "완료/전체"
+    빗금 서식을 덮는다 — 사용자가 `67/67`을 "67건 중 67개를 더 해야 한다"로
+    읽었다). services.runner.cleanup_ab_split()·cleanup_today_flow() 하나만
+    본다 — 배지·버튼·검토 화면·흐름 줄과 같은 정본이라 수가 어긋나지 않는다.
 
-    🔴 PD가 준 지름길 — SET-006 로그 화면의 _verification_pipeline_context()가 이미
-    같은 두 값(unverified_count, oldest_unverified_at)을 재는 쿼리라 그 쿼리를
-    그대로 재사용한다. 앞 숫자는 _unverified_news_count()와 같은 값(미검증 News
-    전체)이다 — 이 배치가 실제로 다시 판정할 대상(_run_cleanup()의 이어하기 exclude가
-    적용된 부분집합)이 아니라, "지금 총 몇 건이 미검증으로 쌓여 있나"를 말한다.
-    두 수가 다를 수 있다는 것은 버그가 아니다 — backlog는 적체 전체를, 다음 실행의
-    target_count는 그 배치가 이번에 처리할 부분을 말해 원래 다른 물음이다.
+    상태별 서식(20차 ⑨번 PE 인계):
+      B > 0(todo)        "판정할 기사 {B}건[, 이전 {B 중 오늘 수집분이 아닌 수}건]"
+      B = 0, A > 0(review) "검토할 기사 {A}건" — 🔴 동사가 바뀌고 세는 것도 A다
+      A = B = 0(clear)    "판정할 기사 0건"
 
-    0건이면 빈 문자열을 반환한다 — 호출부가 이 값을 job["backlog"]에 그대로 넣으면
-    템플릿의 `{% if job.backlog %}`가 저절로 줄을 지운다."""
-    unverified_qs = News.objects.filter(status=News.STATUS_UNVERIFIED)
-    count = unverified_qs.count()
-    if count == 0:
-        return ""
-    oldest_collected_at = unverified_qs.aggregate(Min("collected_at"))["collected_at__min"]
-    oldest_date = timezone.localtime(oldest_collected_at).date()
-    return f"미검증 {count}건, {oldest_date:%m/%d}부터"
+    🔴 "이전 N건" 조각은 0이면 붙이지 않는다(어제 것이 섞이는 것은 예외 상황이라
+    예외일 때만 말한다) — cleanup_today_flow()가 계산한 "오늘 수집분 중 대기(B)"를
+    전체 B에서 빼서 구한다. 오늘 수집이 0건인 날은 B 전체가 "오늘 수집분이
+    아닌" 것이므로 carried_over == b_count다.
+
+    반환값은 (backlog, backlog_title) 튜플 — 항상 채워진 문자열이다(빈 문자열이
+    아니다). 호출부가 job["backlog"]/job["backlog_title"]에 그대로 넣는다."""
+    from services.runner import cleanup_ab_split, cleanup_today_flow
+
+    a_qs, b_qs = cleanup_ab_split()
+    a_count, b_count = a_qs.count(), b_qs.count()
+
+    if b_count > 0:
+        flow = cleanup_today_flow()
+        today_waiting = flow["waiting"] if flow else 0
+        carried_over = max(b_count - today_waiting, 0)
+        backlog = f"판정할 기사 {b_count}건"
+        if carried_over:
+            backlog += f", 이전 {carried_over}건"
+            title = f"미검증 {b_count}건 가운데 오늘 수집이 아닌 것이 {carried_over}건이에요"
+        else:
+            title = f"미검증 {b_count}건을 아직 판정하지 않았어요"
+        return backlog, title
+
+    if a_count > 0:
+        # 🔴 review 상태 — 버튼이 "결과 검토하기"로 바뀌는 것과 같은 말을 해야
+        # 한다(20차 ⑨번 "동사가 바뀌고 세는 것도 A다").
+        return f"검토할 기사 {a_count}건", f"확정 대기 {a_count}건이 검토를 기다리고 있어요"
+
+    return "판정할 기사 0건", "정리할 미검증 뉴스가 없어요"
 
 
-def _insight_has_new_material() -> bool:
-    """3단계(주요 이슈) 배지의 "새 재료" 판정(docs/planning.md "SET-010 노드 배지"
-    2번, 8-4번) — _insight_block_reason()의 "이슈로 묶을 뉴스가 없어요" 조건과는
-    다른 물음이다. 그 조건은 잔여 전체(오래 묵은 탈락분 포함)를 보고, 여기는
-    "직전 확정 이후 새로 검증된" 것만 본다 — 승격 기준(LLM)에서 한 번 탈락한
-    기사는 다음 배치에서도 다시 탈락할 공산이 커 잔여가 소비되지 않는데(같은 문서
-    2번), 그 잔여가 있다는 사실만으로 배지가 영구히 "할 일 있음"이 되는 것을 막는다.
+def _cleanup_flow():
+    """SET-010 2단계(cleanup) 노드의 흐름 줄(PD 20차 개정 ② flow, 신설) —
+    "오늘 {모수}건 → 삭제 n, 통과 n, 검토 n, 대기 n" 형태. 0인 갈래는 적지
+    않는다. services.runner.cleanup_today_flow()가 낸 네 수를 그대로 문장으로
+    옮기기만 한다 — 수를 다시 세지 않는다(두 벌이 되면 할 일 줄과 어긋난다).
 
-    기준 시각은 마지막으로 확정된 insight RunJob의 종료 시각이다. 그런 RunJob이
-    없으면 미배정 전량이 새 재료다. 🔴 verified_at이 NULL인 옛 레코드(검증 게이트
-    도입 전, 97건)는 새 재료로 치지 않는다 — verified_at으로 "검증 여부"를 재면
-    안 된다는 원칙(News.status가 정본)과는 다른 자리다. 여기는 시각 비교 자체가
-    목적이라 verified_at을 쓰는 것이 맞다."""
-    qs = News.objects.verified().filter(insights__isnull=True, verified_at__isnull=False)
-    last_confirmed = (
-        RunJob.objects.filter(job_key="insight", status=RunJob.STATUS_CONFIRMED)
-        .order_by("-finished_at", "-pk").first()
+    오늘 수집이 0건이면 (None, None)을 반환한다 — 그날은 "오늘 흐름"이 없는
+    것이 사실이라 줄 자체를 내리지 않는다(17차 "작업이 없으면 억지로 띄우지
+    않는다" 원칙을 여기서도 지킨다)."""
+    from services.runner import cleanup_today_flow
+
+    flow = cleanup_today_flow()
+    if flow is None:
+        return None, None
+
+    parts = []
+    if flow["deleted"]:
+        parts.append(f"삭제 {flow['deleted']}")
+    if flow["verified"]:
+        parts.append(f"통과 {flow['verified']}")
+    if flow["review"]:
+        parts.append(f"검토 {flow['review']}")
+    if flow["waiting"]:
+        parts.append(f"대기 {flow['waiting']}")
+    flow_str = f"오늘 {flow['total']}건 → " + ", ".join(parts) if parts else f"오늘 {flow['total']}건"
+    flow_title = (
+        f"오늘 수집한 {flow['total']}건 가운데 {flow['deleted']}건을 지우고 "
+        f"{flow['verified']}건이 검증을 통과했어요"
     )
-    if last_confirmed and last_confirmed.finished_at:
-        qs = qs.filter(verified_at__gt=last_confirmed.finished_at)
-    return qs.exists()
+    return flow_str, flow_title
+
+
+def _insight_backlog():
+    """SET-010 3단계(주요 이슈) 노드의 할 일 줄(PD 20차 개정 ②③) — "통합할 기사
+    N건" 단일 서식이다(19차의 "배정 82/140" 빗금 서식은 폐기). services.runner.
+    insight_ab_split() 하나만 본다 — _insight_block_reason()·_job_has_work()·이
+    줄이 전부 같은 쿼리를 봐서 배지·버튼·할 일 줄이 어긋나지 않는다.
+
+    🔴 cleanup과 달리 review 상태에서 동사가 바뀌지 않는다(20차 ⑨번 "3단계와
+    교보 2단계에는 이 갈래가 없다") — insight의 "review"(확정 대기 초안이
+    쌓인 상태)는 cleanup의 B=0 같은 "미배정이 0이 됐다"는 뜻이 아니다. 다음
+    배치를 위한 미배정 후보가 여전히 남아 있을 수 있어, 상태와 무관하게 항상
+    같은 문장을 쓴다.
+
+    반환값은 (backlog, backlog_title) 튜플, 항상 채워진 문자열이다(0건이어도)."""
+    from services.runner import insight_ab_split
+
+    assigned_qs, unassigned_qs = insight_ab_split()
+    assigned_count, unassigned_count = assigned_qs.count(), unassigned_qs.count()
+    total = assigned_count + unassigned_count
+    backlog = f"통합할 기사 {unassigned_count}건"
+    title = f"검증된 뉴스 {total}건 가운데 아직 통합하지 않은 것이 {unassigned_count}건이에요"
+    return backlog, title
+
+
+def _insight_flow():
+    """SET-010 3단계 노드의 흐름 줄(PD 20차 개정 ② flow, 신설) — "지금까지 검증
+    {전체}건 → 통합 n, 대기 n" 형태(누적 축이라 "지금까지"로 시작한다, 2단계의
+    "오늘"과 대비된다 — 20차 ③번 "두 글자만 봐도 모수의 성격이 갈린다"). 0인
+    갈래는 적지 않는다."""
+    from services.runner import insight_ab_split
+
+    assigned_qs, unassigned_qs = insight_ab_split()
+    assigned_count, unassigned_count = assigned_qs.count(), unassigned_qs.count()
+    total = assigned_count + unassigned_count
+
+    parts = []
+    if assigned_count:
+        parts.append(f"통합 {assigned_count}")
+    if unassigned_count:
+        parts.append(f"대기 {unassigned_count}")
+    flow = f"지금까지 검증 {total}건 → " + ", ".join(parts) if parts else f"지금까지 검증 {total}건"
+    flow_title = f"검증된 뉴스 {total}건 가운데 {assigned_count}건이 이슈로 통합됐어요"
+    return flow, flow_title
 
 
 def _job_has_work(job_key: str) -> bool:
@@ -708,9 +874,14 @@ def _job_has_work(job_key: str) -> bool:
         # 그날 두 번째 이후 수집을 막는 잘못된 신호가 된다. 항상 todo다.
         return True
     if job_key == "cleanup":
-        return _unverified_news_count() > 0
+        from services.runner import cleanup_ab_split
+        return cleanup_ab_split()[1].exists()  # B(미판정) > 0
     if job_key == "insight":
-        return not _insight_block_reason() and _insight_has_new_material()
+        # 🔴 2026-09-16 "SET-010 검토 단위" 절 11번 — 3단계 대상이 "직전 확정
+        # 이후 새로 검증된 것"(증분형)에서 "탈락 표식 없는 미배정 전체"로
+        # 바뀌면서, 이 판정과 _insight_block_reason()의 마지막 조건이 완전히
+        # 같은 물음이 됐다. 별도 함수(_insight_has_new_material())를 두지 않는다.
+        return not _insight_block_reason()
     if job_key == "weekly":
         from services.report_periods import insights_in_period, target_week
         date_from, date_to = target_week(today)
@@ -737,24 +908,35 @@ def _job_has_work(job_key: str) -> bool:
 # 만들지 않는다, _clear_can_run() 등과 같은 원칙).
 def _job_finished_today(job_key: str) -> bool:
     """SET-010 연결선의 "앞 단계를 오늘 지나왔다" 판정(docs/design.md 15차 개정 ①④).
-    그 job_key의 최신 RunJob 하나만 본다 — _run_job_display()와 같은 최신 행 규칙
-    (order_by("-started_at", "-pk").first())이라 배지가 보는 실행과 항상 같다.
 
-    게이트 단계(cleanup/insight/weekly/monthly)는 오늘 STATUS_CONFIRMED일 때만
-    참이다 — 제안만 내고 검토를 기다리는 중(STATUS_DONE, review 배지)은 사람이
-    아직 확정을 누르지 않아 그 단계를 지나온 것이 아니다. 그 밖(collect·
-    newsroom_collect·newsroom_filter·newsroom_compose)은 오늘 STATUS_DONE이면
-    참이다 — 이 넷은 확정 게이트가 없어 완료가 곧 끝이다.
+    게이트 단계(cleanup/insight/weekly/monthly)는 오늘 STATUS_CONFIRMED인 RunJob이
+    하나라도 있으면 참이다 — 제안만 내고 검토를 기다리는 중(STATUS_DONE, review
+    배지)은 사람이 아직 확정을 누르지 않아 그 단계를 지나온 것이 아니다. 그 밖
+    (collect·newsroom_collect·newsroom_filter·newsroom_compose)은 오늘
+    STATUS_DONE인 RunJob이 하나라도 있으면 참이다 — 이 넷은 확정 게이트가 없어
+    완료가 곧 끝이다.
 
-    running/review/failed/stopped/canceled와 어제 이전 실행은 전부 거짓이다 —
-    사람을 기다리거나 사고가 난 구간, 그리고 오늘이 아닌 과거는 "지나온" 것이
-    아니라는 13차의 판단을 그대로 잇는다. RunJob이 한 번도 없었으면(신규 설치,
-    또는 newsroom_send처럼 애초에 시작 경로가 없는 job) 거짓이다."""
-    run_job = RunJob.objects.filter(job_key=job_key).order_by("-started_at", "-pk").first()
-    if not run_job:
-        return False
-    target_status = RunJob.STATUS_CONFIRMED if job_key in GATED_JOB_KEYS else RunJob.STATUS_DONE
-    return run_job.status == target_status and _is_today_local(run_job.finished_at)
+    🔴 2026-09-16 PE 재수정(코디네이터 실측 지적) — "최신 RunJob 하나"가 아니라
+    "오늘 그 사건이 있었던 RunJob이 하나라도 있는가"(exists)로 바꿨다. 최신
+    배치 하나만 보면, 오늘 이미 확정한 배치가 있어도 그보다 나중에 시작된 다른
+    배치(옛 방식으로 확정돼 confirmed_at이 NULL인 배치 등)가 "가장 최근" 자리를
+    차지하는 순간 "오늘 지나왔다"가 거짓이 된다 — 실측: pk131(확정됨,
+    confirmed_at NULL, 13:05 시작)이 pk130(확정됨, confirmed_at 오늘 14:51)보다
+    started_at이 최신이라, 종전 코드는 pk131만 보고 거짓을 냈다(2→3 화살표가
+    회색으로 남는 사고). 검토 경로를 "확정 대기 전부"로 바꾼 것과 같은 이유로
+    여기도 "최근 하나"에서 "존재하는가"로 바꾼다.
+
+    🔴 confirmed_at이 NULL인 옛 확정 배치를 소급해 채우지 않는다 — exists() 방식은
+    그 배치가 "오늘 확정된 것이 아니다"라는 사실을 소급 없이도 그대로 정확히
+    말한다(그 배치가 오늘 확정이 아니었다는 것 자체가 맞는 값이라 채울 이유가
+    없다)."""
+    if job_key in GATED_JOB_KEYS:
+        return RunJob.objects.filter(
+            job_key=job_key, status=RunJob.STATUS_CONFIRMED, confirmed_at__date=_today_local(),
+        ).exists()
+    return RunJob.objects.filter(
+        job_key=job_key, status=RunJob.STATUS_DONE, finished_at__date=_today_local(),
+    ).exists()
 
 
 def _weekly_job_context():
@@ -938,19 +1120,17 @@ def _research_jobs_context():
     # 항상 같은 말을 한다). 종전엔 can_run이 상태와 무관하게 항상 True였다 —
     # 미검증 뉴스가 0건이라 배지가 "실행 대상 없음"인데 버튼은 열려 있는 실제 버그였다.
     cleanup_can_run = _clear_can_run(cleanup_job, CLEANUP_CLEAR_BLOCK_REASON)
-    # 🔴 2026-09-16 18차 개정 — review를 더한다(17차를 뒤집는다).
-    # 17차는 "review는 요약이 이미 길다"는 이유로 뺐는데, 그 결과 사용자가
-    # 검토 화면 앞에서 "아직 68건이 남았다"를 어디서도 볼 수 없었다. 확정을
-    # 누를지 판단하는 자리야말로 남은 것을 알아야 하는 자리다.
-    # 🔴 17차 근거가 겨눈 것은 상태가 아니라 길이였다 — PD가 길이를 두 곳에서
-    # 막고(요약 줄 whitespace-nowrap truncate, 버튼 한 줄 배치) 상태를 열었다.
-    # running/failed(오늘)/stopped(오늘)는 그대로 뺀다 — 진행률이 그 자리를
-    # 쓰거나 중단 요약이 두 줄 문장이라 겹친다.
-    # ⚠️ 여기서 state로 막지 않으면 뷰와 템플릿 두 곳에 판정이 갈린다(PD 지시).
-    if cleanup_job["state"] in ("todo", "clear", "review"):
-        backlog = _cleanup_backlog()
-        if backlog:
-            cleanup_job["backlog"] = backlog
+    # 🔴 2026-09-16 PD 20차 개정 — 할 일 줄(backlog)과 흐름 줄(flow)을 running
+    # 하나만 빼고 항상 내린다. cleanup은 이제 상태가 todo/review/clear 셋뿐이라
+    # (running은 이 if에서 이미 제외된다) 할 일 줄은 사실상 항상 채워진다
+    # (_cleanup_backlog()가 빈 문자열을 반환하지 않는다). 흐름 줄은 오늘 수집이
+    # 0건인 날엔 (None, None)이 와 자리가 사라진다(_cleanup_flow() 참고,
+    # 20차 ④번 "그날은 오늘 흐름이 없는 것이 사실이다").
+    if cleanup_job["state"] != "running":
+        cleanup_job["backlog"], cleanup_job["backlog_title"] = _cleanup_backlog()
+        flow, flow_title = _cleanup_flow()
+        if flow:
+            cleanup_job["flow"], cleanup_job["flow_title"] = flow, flow_title
     cleanup_job.update({
         "can_run": cleanup_can_run,
         "block_reason": cleanup_job.get("block_reason", ""),
@@ -961,24 +1141,17 @@ def _research_jobs_context():
     })
     jobs["cleanup"] = cleanup_job
 
-    # 3단계 주요 이슈 — 이번 라운드에서 실행 버튼을 연다(services/runner.py
-    # IMPLEMENTED_JOB_KEYS에 "insight" 추가와 짝을 이룬다). GATED_JOB_KEYS에 "insight"가
-    # 이미 있어(이전 라운드) 완료(STATUS_DONE)면 _run_job_display()가 그대로
-    # state="review"를 내려 cleanup과 똑같이 "결과 검토하기" 버튼으로 바뀐다 — 여기서
-    # 따로 분기하지 않는다. can_run/block_reason만 _insight_block_reason()이 결정한다
-    # (PM 설계 "선행 미완은 경고가 아니라 버튼 잠금이다").
+    # 3단계 주요 이슈 — GATED_JOB_KEYS에 "insight"가 있어 완료(STATUS_DONE)면
+    # _run_job_display()가 그대로 state="review"를 내려 cleanup과 똑같이 "결과
+    # 검토하기" 버튼으로 바뀐다 — 여기서 따로 분기하지 않는다.
     #
-    # 🔴 has_work_insight(배지)와 insight_block_reason(버튼 잠금 사유)은 일부러
-    # 다른 물음이다(docs/planning.md "SET-010 노드 배지" 2번) — has_work는 "직전
-    # 확정 이후 새로 검증된" 뉴스만 보고, block_reason은 잔여 전체를 본다. 그래서
-    # "잔여는 있는데 새 재료는 없는" 날에는 배지가 clear가 된다.
-    #
-    # 🔴 2026-09-16 사용자 결정 — 종전에는 그 clear인 날에도 can_run이
-    # insight_block_reason(잔여 전체 기준)만 보고 True로 열려 있었다(실제 버그,
-    # "배지는 없다는데 버튼은 열림"). state=='clear'면 can_run도 False로 강제한다
-    # — insight_block_reason이 이미 채워져 있으면(잔여 자체가 0건 등) 그 구체적인
-    # 사유를 그대로 쓰고, 비어 있으면(잔여는 있지만 새 재료가 없는 경우) 아래
-    # INSIGHT_CLEAR_BLOCK_REASON으로 채운다.
+    # 🔴 2026-09-16 "SET-010 검토 단위" 절 확정 — has_work_insight(배지)와
+    # insight_block_reason(버튼 잠금 사유)이 이제 같은 물음이다. 3단계 대상이
+    # "직전 확정 이후 새로 검증된 것"(증분형)에서 "탈락 표식 없는 미배정
+    # 전체"로 바뀌면서, has_work도 _insight_block_reason()을 그대로 위임해
+    # 쓴다(_job_has_work() 참고) — "잔여는 있는데 새 재료는 없는" 중간 상태
+    # 자체가 없어져 block_reason이 이제 clear일 때 항상 스스로 구체적인 사유를
+    # 채운다.
     has_work_insight = _job_has_work("insight")
     insight_display = _run_job_display("insight", has_work_insight)
     insight_job = insight_display or {
@@ -987,7 +1160,16 @@ def _research_jobs_context():
         "summary": "",
     }
     insight_job["block_reason"] = _insight_block_reason()
-    insight_can_run = _clear_can_run(insight_job, INSIGHT_CLEAR_BLOCK_REASON)
+    # 🔴 block_reason이 이미 위에서 채워졌으므로(has_work=False면 반드시 비어
+    # 있지 않다 — _job_has_work("insight")가 그 함수를 그대로 쓴다) 여기서
+    # _clear_can_run()에 넘기는 대체 문구는 실제로 쓰일 일이 없다.
+    insight_can_run = _clear_can_run(insight_job, "")
+    # 🔴 PD 20차 개정 — 할 일 줄("통합할 기사 N건")과 흐름 줄("지금까지 검증
+    # N건 → 통합 n, 대기 n"). cleanup과 같은 이유로 running 하나만 뺀다. 3단계는
+    # 흐름 줄이 오늘 수집 여부와 무관한 누적 축이라 항상 채워진다.
+    if insight_job["state"] != "running":
+        insight_job["backlog"], insight_job["backlog_title"] = _insight_backlog()
+        insight_job["flow"], insight_job["flow_title"] = _insight_flow()
     insight_job.update({
         "can_run": insight_can_run,
         "block_reason": insight_job["block_reason"],
@@ -1021,53 +1203,38 @@ def _target_newsroom():
     return active_rooms[0] if len(active_rooms) == 1 else None
 
 
-def _newsroom_filter_summary(room) -> str:
-    """SET-010 교보 2단계 노드의 todo/clear 요약 문구(PD 확정, 2026-09-15,
-    docs/planning.md "뉴스룸" 절 12-1 결정 (b), 12-5 PE 인계 5번). 실행 중/(오늘)
-    중단/(오늘) 실패는 이 함수를 쓰지 않는다(_newsroom_jobs_context()가 그 상태는
-    _run_job_display()의 일반 표시를 그대로 쓰고, "할 일이 있음/없음"일 때만 이
-    문구로 덮어쓴다).
+def _newsroom_filter_backlog(room):
+    """SET-010 교보 2단계 노드의 할 일 줄(PD 20차 개정 ②③) — "판정할 기사 N건"
+    단일 서식이다(19차의 "판정 284/306" 빗금 서식은 폐기). `room.pending_count`
+    (apps/newsroom/models.py)와 같은 조건을 쓴다 — SET-009가 거기서 같은 수를
+    보인다(docs/planning.md "뉴스룸" 절 12-1 결정 (b)).
 
-    🔴 2026-09-16 17차 개정 — "판정 전 N건, MM/DD부터"(적체) 갈래를
-    _newsroom_filter_backlog()로 옮겼다(run.html 상단 계약 "backlog" 항목의
-    곁가지 권장안, PE 채택). 종전에는 적체가 있으면 이 함수가 그 문구만 반환해
-    "지난 결과"(통과/제외)가 적체가 있는 날 화면에서 아예 사라졌다 — 자리가
-    summary 하나뿐이었기 때문이다. 이제 자리가 둘(backlog·summary)이라 이
-    함수는 "지난 결과"만 언제나 반환한다.
-
-    | 상태 | summary |
-    |---|---|
-    | 판정 이력 있음 | "통과 N건, 제외 N건" |
-    | 판정 이력 없음 | "판정할 기사가 없어요" |
-    """
-    from apps.newsroom.models import NewsroomArticle
-
-    passed_count = room.articles.filter(filter_status=NewsroomArticle.STATUS_PASSED).count()
-    rejected_count = room.articles.filter(filter_status=NewsroomArticle.STATUS_REJECTED).count()
-    if passed_count or rejected_count:
-        return f"통과 {passed_count}건, 제외 {rejected_count}건"
-    return "판정할 기사가 없어요"
+    반환값은 (backlog, backlog_title) 튜플, 항상 채워진 문자열이다(0건이어도
+    지우지 않는다, 19차 개정 그대로)."""
+    total = room.articles.count()
+    pending = room.pending_count
+    done = total - pending
+    backlog = f"판정할 기사 {pending}건"
+    title = f"채널 기사 {total}건 가운데 판정이 끝난 것이 {done}건이에요"
+    return backlog, title
 
 
-def _newsroom_filter_backlog(room) -> str:
-    """SET-010 교보 2단계 노드 배지의 적체 줄 — 위 _newsroom_filter_summary()에서
-    갈라져 나왔다(2026-09-16 17차 개정, PE 채택). "판정 전 N건, MM/DD부터" 형태.
+def _newsroom_filter_flow(room):
+    """SET-010 교보 2단계 노드의 흐름 줄(PD 20차 개정 ② flow, 신설) — "지금까지
+    기사 {전체}건 → 판정 n, 대기 n" 형태(누적 축, "지금까지"). 0인 갈래는
+    적지 않는다."""
+    total = room.articles.count()
+    pending = room.pending_count
+    done = total - pending
 
-    `room.pending_count`(apps/newsroom/models.py)와 같은 조건을 쓴다 — SET-009가
-    거기서 같은 수를 보인다(docs/planning.md "뉴스룸" 절 12-1 결정 (b) "SET-009
-    뉴스룸 관리에도 같은 수를 한 줄 둔다"). 0건이면 빈 문자열 — 위 cleanup의
-    _cleanup_backlog()와 같은 계약(templates/setting/_run_node.html
-    `{% if job.backlog %}`가 빈 문자열을 그대로 숨긴다)."""
-    from apps.newsroom.models import NewsroomArticle
-
-    pending_count = room.pending_count
-    if not pending_count:
-        return ""
-    oldest = (
-        room.articles.filter(filter_status=NewsroomArticle.STATUS_PENDING)
-        .order_by("collected_at").first()
-    )
-    return f"판정 전 {pending_count}건, {timezone.localtime(oldest.collected_at):%m/%d}부터"
+    parts = []
+    if done:
+        parts.append(f"판정 {done}")
+    if pending:
+        parts.append(f"대기 {pending}")
+    flow = f"지금까지 기사 {total}건 → " + ", ".join(parts) if parts else f"지금까지 기사 {total}건"
+    flow_title = f"채널 기사 {total}건 가운데 {done}건을 판정했어요"
+    return flow, flow_title
 
 
 def _newsroom_compose_has_new_material(room) -> bool:
@@ -1092,10 +1259,18 @@ def _newsroom_compose_has_new_material(room) -> bool:
 
     대신 집합 비교를 쓴다 — `NewsroomMessage.articles`가 그 발송문을 만든 시점의
     통과 기사 집합을 이미 얼려 두므로(모델 docstring "생성 시점의 집합을 얼려
-    둔다"), 지금 대상(통과 + 비중복) 집합에서 마지막 발송문의 집합을 빼고 남는
-    것이 있으면 새 기사다. 시각 필드보다 이 편이 더 정확하다 — "판정 시각이
-    발송 이후인가"는 근사이지만 "그 발송문에 없던 기사인가"는 정의 그 자체다.
+    둔다"), 지금 대상(통과 + 비중복) 집합에서 이미 보낸 기사를 빼고 남는 것이
+    있으면 새 기사다. 시각 필드보다 이 편이 더 정확하다 — "판정 시각이 발송
+    이후인가"는 근사이지만 "이미 어느 발송문에 담겼던 기사인가"는 정의 그 자체다.
     새 필드나 새 모델은 만들지 않는다.
+
+    🔴 2026-09-16 PE 정정("SET-010 검토 단위" 절 12-(b)) — 기준점을 "마지막
+    NewsroomMessage 하나"에서 "모든 NewsroomMessage의 포함 기사 합집합"으로
+    바꿨다. 마지막 하나만 보면 그 앞 메시지에 담겼던 기사가 재판정 없이도 다시
+    새 재료로 잡힌다 — 예를 들어 메시지 A(기사 1,2)를 만들고 메시지 B(기사 3)를
+    만들면, 마지막 하나만 보는 종전 방식은 기사 1,2가 "B에 없다"는 이유로 다시
+    새 재료가 된다. 실무에서 결과가 같을 때가 많아 드러나지 않았을 뿐 정의가
+    틀려 있었다.
 
     마지막 발송문이 한 번도 없으면(첫 실행) 지금 대상이 하나라도 있으면 새
     재료로 친다."""
@@ -1107,12 +1282,14 @@ def _newsroom_compose_has_new_material(room) -> bool:
     current_targets = room.articles.filter(
         filter_status=NewsroomArticle.STATUS_PASSED, duplicate_of__isnull=True,
     )
-    last_message = room.messages.order_by("-created_at", "-pk").first()
-    if not last_message:
+    if not room.messages.exists():
         return current_targets.exists()
-    return current_targets.exclude(
-        pk__in=last_message.articles.values_list("pk", flat=True),
-    ).exists()
+    # NewsroomMessage.articles의 related_name이 "messages"라 역방향은
+    # article.messages(단수 메시지가 아니라 그 기사를 담은 메시지들)다.
+    sent_article_ids = NewsroomArticle.objects.filter(
+        messages__in=room.messages.all(),
+    ).values_list("pk", flat=True)
+    return current_targets.exclude(pk__in=sent_article_ids).exists()
 
 
 def _newsroom_jobs_context():
@@ -1177,28 +1354,34 @@ def _newsroom_jobs_context():
         pending_count = room.pending_count
         has_work_filter = pending_count > 0
         filter_display = _run_job_display("newsroom_filter", has_work_filter)
-        summary = _newsroom_filter_summary(room)
-        # 🔴 2026-09-16 17차 개정 — backlog는 cleanup과 같은 이유(templates/setting/
-        # _run_node.html "높이" 절)로 todo/clear일 때만 내린다. run.html 계약
-        # "곁가지 권장안"을 PE가 채택했다 — 적체가 있는 날에도 지난 결과(summary)가
-        # 함께 보이게 자리를 둘로 나눈다.
-        backlog = _newsroom_filter_backlog(room)
-        if filter_display:
-            # 배지가 todo/clear(=running/failed(오늘)/stopped(오늘)가 아님)일
-            # 때만 PD가 정한 문구로 덮어쓴다.
-            if filter_display["state"] in ("todo", "clear"):
-                filter_display["summary"] = summary
-                if backlog:
-                    filter_display["backlog"] = backlog
-            filter_job = filter_display
+        filter_job = filter_display or {
+            "state": "todo" if has_work_filter else "clear",
+            "state_label": STATE_LABELS["todo" if has_work_filter else "clear"],
+            "summary": "",
+        }
+        # 🔴 2026-09-16 PD 19차 개정 — 적체 줄(완료/전체)을 running만 빼고 항상
+        # 내린다("제외 296건" 채널 누적 문제를 만들던 통과/제외 breakdown
+        # summary는 걷었다 — 그 정보는 ROOM-002 목록이 이미 보여준다). summary는
+        # 이제 _run_job_display()의 DONE 분기(아래 newsroom_filter 전용 갈래)가
+        # RunJob.target_count/processed_count로 직접 만든다 — 채널 누적이 아니라
+        # "그 실행 한 번이 무엇을 했나"를 말한다(PD 19차 ⑧번, 15차 규약 유지).
+        if filter_job["state"] != "running":
+            filter_job["backlog"], filter_job["backlog_title"] = _newsroom_filter_backlog(room)
+            filter_job["flow"], filter_job["flow_title"] = _newsroom_filter_flow(room)
+        # 🔴 PD 19차 개정 ⑧번 — clear 문구를 "판정할 기사가 없어요"(배지를
+        # 되풀이)에서 "무엇이 열리는가"로 바꾼다. 채널에 기사가 아예 없으면
+        # (1단계부터 필요) 종전 문구를 그대로 쓴다 — "3단계가 열린다"는 말이
+        # 거짓이 되면 안 된다.
+        if pending_count == 0 and room.articles.exists():
+            filter_clear_reason = (
+                "판정이 전부 끝났어요. 이 단계는 확정 없이 바로 반영돼서 "
+                "3단계 발송문이 열려요"
+            )
         else:
-            state = "todo" if has_work_filter else "clear"
-            filter_job = {"state": state, "state_label": STATE_LABELS[state], "summary": summary}
-            if backlog:
-                filter_job["backlog"] = backlog
+            filter_clear_reason = "판정할 기사가 없어요"
         filter_job.update({
             "can_run": pending_count > 0,
-            "block_reason": "" if pending_count > 0 else "판정할 기사가 없어요",
+            "block_reason": "" if pending_count > 0 else filter_clear_reason,
             "warning": "",
             "confirm_text": "",
             "run_url": reverse("setting_run_start", args=["newsroom_filter"]) if pending_count > 0 else "",
@@ -1396,24 +1579,13 @@ def _format_duration(seconds: int) -> str:
     return f"{seconds // 60}분 {seconds % 60}초" if seconds >= 60 else f"{seconds}초"
 
 
-def _collected_period(proposals) -> str:
-    """review.input.period — 이 배치가 다룬 뉴스의 수집일 범위(예: "09.02 ~ 09.03").
-    RunJob은 대상 News 목록 자체를 따로 저장하지 않으므로, 이 배치가 남긴
-    RunProposal이 참조하는 News.collected_at으로 근사한다 — 판정 도중 실패해 제안이
-    생기지 않은 대상은 이 범위에서 빠지지만(연속 3회 실패면 배치 자체가 끊기므로
-    실패 건수는 대개 0이거나 소수다), 범위가 하루 이틀 단위로 넓어 그 편차가 눈에 띄는
-    차이를 만들지 않는다."""
-    dates = sorted({timezone.localtime(p.news.collected_at).date() for p in proposals if p.news_id})
-    if not dates:
-        return ""
-    if dates[0] == dates[-1]:
-        return f"{dates[0]:%m.%d}"
-    return f"{dates[0]:%m.%d} ~ {dates[-1]:%m.%d}"
-
-
-def _insight_items_context(run_job):
+def _insight_items_context(run_jobs):
     """SET-010 3단계(주요 이슈) 검토 화면의 insight_items 목록. 계약은
     templates/setting/run_review.html 상단 주석 "insight_items" 절이 정본이다.
+
+    🔴 2026-09-16 "SET-010 검토 단위" 절 — run_job 하나가 아니라 run_jobs 목록을
+    받는다(_pending_review_run_jobs()가 만든 목록). 여러 배치의 확정 대기 초안이
+    한 화면에 모인다.
 
     🔴 id는 RunDraft.pk다(News.pk가 아니다) — 확정 POST의 grade_<id>·insight_ids가
     이 값을 그대로 되돌려 보낸다.
@@ -1424,7 +1596,7 @@ def _insight_items_context(run_job):
     여는 이유")."""
     drafts = list(
         RunDraft.objects.filter(
-            run_job=run_job, draft_type=RunDraft.TYPE_INSIGHT, status=RunProposal.STATUS_PENDING,
+            run_job__in=run_jobs, draft_type=RunDraft.TYPE_INSIGHT, status=RunProposal.STATUS_PENDING,
         ).prefetch_related("news").order_by("pk")
     )
     items = []
@@ -1458,9 +1630,14 @@ def _insight_items_context(run_job):
     return items
 
 
-def _report_items_context(run_job):
+def _report_items_context(run_jobs, job_key):
     """SET-010 4, 5단계(주간·월간 보고서) 검토 화면의 report_items 목록. 계약은
     templates/setting/run_review.html 상단 주석 "report_items" 절이 정본이다.
+
+    🔴 2026-09-16 "SET-010 검토 단위" 절 — run_job 하나가 아니라 run_jobs 목록을
+    받는다. job_key를 별도 인자로 받는 이유 — run_jobs가 비어 있을 수 없다는
+    보장이 없어(호출부가 항상 비지 않은 목록만 넘기지만) run_jobs[0].job_key에
+    기대지 않는다.
 
     🔴 주간과 월간이 이 한 함수를 같이 쓴다 — 갈리는 것은 draft_type 필터뿐이고
     그 값은 services/runner.py._run_report()가 이미 job_key별로 다르게 저장해
@@ -1472,11 +1649,11 @@ def _report_items_context(run_job):
     docstring, "이슈 전용" 필드)."""
     drafts = list(
         RunDraft.objects.filter(
-            run_job=run_job, draft_type__in=(RunDraft.TYPE_WEEKLY, RunDraft.TYPE_MONTHLY),
+            run_job__in=run_jobs, draft_type__in=(RunDraft.TYPE_WEEKLY, RunDraft.TYPE_MONTHLY),
             status=RunProposal.STATUS_PENDING,
         ).prefetch_related("news").order_by("pk")
     )
-    body_label = "주요 이슈 요약" if run_job.job_key == "monthly" else "주요 이슈"
+    body_label = "주요 이슈 요약" if job_key == "monthly" else "주요 이슈"
     items = []
     for draft in drafts:
         news_list = list(draft.news.order_by("published_at"))
@@ -1528,64 +1705,98 @@ def _run_review_context(job_key):
         "criterion_legend": CRITERION_LEGEND,
     }
 
-    run_job = RunJob.objects.filter(job_key=job_key).order_by("-started_at", "-pk").first()
-    if run_job is None:
+    # 🔴 2026-09-16 "SET-010 검토 단위" 절 확정 — 「가장 최근 RunJob 하나」가
+    # 아니라 확정 대기 제안(또는 초안)이 있는 배치 전부를 본다. 배치가 여럿이어도
+    # 한 화면에 모인다(오늘 사고 — pk107·pk108·pk130 세 배치의 335건 중 233건이
+    # 화면에서 사라졌던 원인이 정확히 "최신 하나만 본다"였다).
+    run_jobs = _pending_review_run_jobs(job_key)
+    if not run_jobs:
         return review
 
-    # 🔴 2026-09-15 개정 — _job_has_work(job_key)로 "할 일이 있나" 축을 넘긴다.
-    # 노드 그래프와 같은 함수(_job_run_state())를 쓰므로 같은 job_key에 화면마다
-    # 다른 상태가 뜨지 않는다(docs/planning.md "SET-010 노드 배지" 8-2).
-    state, state_label = _job_run_state(run_job, job_key, _job_has_work(job_key))
-    review["run"] = {
-        "label": f"{timezone.localtime(run_job.started_at):%m/%d %H:%M} 실행" if run_job.started_at else "",
-        "state": state,
-        "state_label": state_label,
-        "progress": (
-            # 🔴 분자는 처리를 마친 수(성공+실패)다 — _run_job_display()의 같은 자리와
-            # 같은 이유(docs/planning.md "SET-010 진행 표시" 5-(a)). processed_count만
-            # 쓰면 실패가 섞인 배치가 "116건 중 113건"처럼 목표 건수에 못 닿은 채로
-            # 보인다.
-            f"{run_job.target_count}건 중 {run_job.processed_count + run_job.failed_count}건 처리"
-            if run_job.target_count else ""
-        ),
-        "failed_str": f"실패 {run_job.failed_count}건" if run_job.failed_count else "",
-        "resumable": state == "stopped",
-    }
+    representative = run_jobs[-1]
+    state, state_label = _job_run_state(representative, job_key, _job_has_work(job_key))
+    # 🔴 PD 19차 개정 ⑤번 — 머리글은 작업 이름과 배지만 말한다. 실행 시각과
+    # 진행률(review.run.label/progress/failed_str/resumable)은 "배치의 것"이라
+    # 내렸다 — 여러 배치가 한 화면에 모이면 "그 실행"이라는 단수가 성립하지
+    # 않는다. 화면(run_review.html)은 review.run.state/state_label만 쓴다.
+    review["run"] = {"state": state, "state_label": state_label}
 
-    proposals = list(
-        RunProposal.objects.filter(run_job=run_job, status=RunProposal.STATUS_PENDING)
-        .select_related("news")
-        .order_by("-news__published_at", "news_id", "pk")
-    )
+    is_draft_based = job_key in ("insight", "weekly", "monthly")
+    if is_draft_based:
+        draft_filter = (
+            {"draft_type": RunDraft.TYPE_INSIGHT} if job_key == "insight"
+            else {"draft_type__in": (RunDraft.TYPE_WEEKLY, RunDraft.TYPE_MONTHLY)}
+        )
+        pending_drafts = list(
+            RunDraft.objects.filter(
+                run_job__in=run_jobs, status=RunProposal.STATUS_PENDING, **draft_filter,
+            ).prefetch_related("news")
+        )
+        proposals = []
+    else:
+        proposals = list(
+            RunProposal.objects.filter(run_job__in=run_jobs, status=RunProposal.STATUS_PENDING)
+            .select_related("news")
+            .order_by("-news__published_at", "news_id", "pk")
+        )
+        pending_drafts = []
 
-    # docs/design.md 5차 개정 ⑦ PE 인계 — review.input/review.step을 채운다. cleanup만
-    # 실제 LLM 판정 배치가 있어(REVIEW_*_BY_JOB) 지금은 그 job_key만 채워진다.
+    # 🔴 PD 19차 개정 ⑤번 "① 검토 대상" — 기사 수(count) / 제안 수(proposal_count,
+    # 신설) / 가장 오래 기다린 날(since, 신설, "MM/DD"). 사용자가 물은 것이
+    # 정확히 "기사 수"였고, 기사 67건에 제안 161건처럼 둘이 크게 갈릴 수 있어
+    # 나눠 보여준다.
     review["input"] = {}
     if job_key in REVIEW_INPUT_LABEL_BY_JOB:
-        # 🔴 target_count는 run_job이 존재하는 한 항상 "알려진 값"이다(0도 "정말 0건"이지
-        # "아직 못 받았다"가 아니다) — run_job이 없는 경우는 위에서 이미 조기 반환했다.
-        review["input"] = {
-            "count": run_job.target_count,
-            "label": REVIEW_INPUT_LABEL_BY_JOB[job_key],
-            "period": _collected_period(proposals),
-        }
+        if is_draft_based:
+            news_ids = set()
+            for draft in pending_drafts:
+                news_ids.update(n.pk for n in draft.news.all())
+            review["input"] = {
+                "count": len(news_ids),
+                "proposal_count": len(pending_drafts),
+                "label": REVIEW_INPUT_LABEL_BY_JOB[job_key],
+            }
+        else:
+            news_dates = [
+                timezone.localtime(p.news.collected_at).date() for p in proposals if p.news_id
+            ]
+            review["input"] = {
+                "count": len({p.news_id for p in proposals if p.news_id}),
+                "proposal_count": len(proposals),
+                "label": REVIEW_INPUT_LABEL_BY_JOB[job_key],
+                "since": f"{min(news_dates):%m/%d}" if news_dates else "",
+            }
 
-    step = {"prompt_version": run_job.prompt_version}
+    # 🔴 PD 19차 개정 ⑤번 "② AI가 한 일" — 실행 횟수(run_count, 맨 앞 조각 —
+    # 뒤 셋의 모수를 정해 준다)·모델·합계 시간·합계 토큰. 토큰과 시간은 이제
+    # "그 배치의 값"이 아니라 여러 배치의 합계다(여러 번의 실행에서 모였다는
+    # 사실 자체가 이번 사고를 화면이 스스로 말하는 자리).
+    step = {"prompt_version": representative.prompt_version}
     if job_key in REVIEW_STEP_SUMMARY_BY_JOB:
         step["summary"] = REVIEW_STEP_SUMMARY_BY_JOB[job_key]
+        # 🔴 모델 이름은 RunJob에 배치별로 저장돼 있지 않다(설정값을 그때그때
+        # 읽어 쓸 뿐 어떤 모델이 실제로 돌았는지는 기록하지 않는다) — 그래서
+        # "갈리면 모델 2가지" 판정은 이번 라운드에서 구현하지 않는다. 지금
+        # 설정값을 그대로 보여준다(설정이 배치 사이에 바뀌지 않은 한 정확하다).
         model_setting_key = REVIEW_MODEL_KEY_BY_JOB.get(job_key, "ANTHROPIC_MODEL_FAST")
         step["model"] = getattr(settings, model_setting_key)
-        if run_job.started_at and run_job.finished_at:
-            step["duration"] = _format_duration(int((run_job.finished_at - run_job.started_at).total_seconds()))
-        # 🔴 2026-09-15 PE 신설 — RunJob에 배치 합계 토큰(input/output/캐시 생성/캐시
-        # 읽기)이 쌓이는 자리가 생겨(services/runner.py _run_cleanup(), 모델 docstring
-        # 참고) 여기서 그대로 읽는다. processed_count가 0이면(아직 한 건도 판정하지
-        # 않았거나 전부 실패) 합계도 전부 0이라 의미 없는 "토큰 0"을 보여주지 않는다.
-        if run_job.processed_count:
-            total_tokens = (
-                run_job.input_tokens + run_job.output_tokens
-                + run_job.cache_creation_input_tokens + run_job.cache_read_input_tokens
-            )
+        if len(run_jobs) > 1:
+            step["run_count"] = len(run_jobs)
+        prompt_versions = {rj.prompt_version for rj in run_jobs if rj.prompt_version}
+        if len(prompt_versions) > 1:
+            step["notice"] = "판정 기준이 다른 실행이 섞여 있어요"
+        total_seconds = sum(
+            (rj.finished_at - rj.started_at).total_seconds()
+            for rj in run_jobs if rj.started_at and rj.finished_at
+        )
+        if total_seconds:
+            step["duration"] = _format_duration(int(total_seconds))
+        total_tokens = sum(
+            rj.input_tokens + rj.output_tokens
+            + rj.cache_creation_input_tokens + rj.cache_read_input_tokens
+            for rj in run_jobs
+        )
+        if total_tokens:
             step["tokens"] = f"{total_tokens:,}"
     review["step"] = step
     # 태그 제안의 target_type(기업 배지 색) 조회 — 제안마다 쿼리하지 않게 한 번에 모은다.
@@ -1676,42 +1887,34 @@ def _run_review_context(job_key):
         # 개정 ⑩번) — OUTPUT 칸에만 별도로 찍는다. 이제 기업 후보뿐 아니라 기술 주제
         # 후보도 합산한 개수다.
         "candidate_count": len(tag_candidates),
-        # 🔴 PE 재수정(2026-09-16 실측 사고) — target_count - processed_count만 빼면
-        # 실패 건(failed_count)이 그대로 uncovered로 잡혀 확정 버튼이 영영 잠긴다.
-        # cleanup은 여전히 "대상 전량에 제안이 있어야 한다"가 맞지만, 그 목적은
-        # "판정 안 된 기사가 조용히 검증됨으로 넘어가는 것"을 막는 데 있다(설계 계약,
-        # 위 output 주석 "uncovered_count"). 실패한 건은 애초에 제안을 만들지 않으므로
-        # 확정해도 그 건에는 아무 일도 안 일어난다 — 목적에 걸리지 않는다. 그래서
-        # failed_count도 처리분으로 빼서 "실패로 이미 계정된 건"과 "조용히 빠진 건"을
-        # 구분한다. insight/weekly/monthly는 아래에서 무조건 0으로 덮어쓴다.
-        "uncovered_count": max(
-            run_job.target_count - run_job.processed_count - run_job.failed_count, 0
-        ),
+        # 🔴 2026-09-16 "SET-010 검토 단위" 절 확정 — 커버리지 조건(uncovered_count의
+        # 배치 산술)이 통째로 없어졌다. 검토 화면이 열렸다는 것 자체가 이제 B(미판정)가
+        # 0이라는 뜻이라(cleanup) — "판정 안 된 기사가 조용히 검증됨으로 넘어가는 것"은
+        # 화면에 들어오기 전에 이미 막힌다. 값 자체는 마지막 안전망으로 0을 그대로
+        # 남겨 둔다(design.md 19차 개정 ④번 — "검토 화면의 uncoveredCount 잠금은
+        # 남겨 뒀다").
+        "uncovered_count": 0,
     }
     if job_key == "insight":
-        insight_items = _insight_items_context(run_job)
+        insight_items = _insight_items_context(run_jobs)
         review["insight_items"] = insight_items
         output["insight_count"] = len(insight_items)
         output["draft_noun"] = RunDraft.TYPE_INSIGHT
-        # 🔴 3단계는 배치 전체가 LLM 호출 1회다(설계 7-(a)) — "대상 전량에 제안이 있어야
-        # 한다"는 커버리지 개념 자체가 이 단계에 없다(설계 PD 인계 3번). 위 일반식을 그대로
-        # 쓰면 이슈로 묶이지 않고 남은 기사 수가 그대로 uncovered_count로 잡혀 확정 버튼이
-        # 영영 잠긴다 — 이슈에 안 묶인 기사가 남는 것은 정상이다("입력 기사 전부를
-        # 어딘가에 묶을 필요가 없다", services/llm.py _build_insight_system_prompt()).
-        output["uncovered_count"] = 0
     elif job_key in ("weekly", "monthly"):
         # 🔴 같은 날 뒤이은 라운드 — 4, 5단계 보고서 초안. insight와 같은 이유로
         # RunProposal이 아니라 RunDraft에서 온다. insight_count 키를 그대로 쓰는 이유는
         # run_review.html 상단 계약 "output.insight_count" 주석 참고 — "세는 것이
         # '채택 대상 RunDraft 수'로 같아서 키를 늘리지 않았다."
-        report_items = _report_items_context(run_job)
+        report_items = _report_items_context(run_jobs, job_key)
         review["report_items"] = report_items
         output["insight_count"] = len(report_items)
         output["draft_noun"] = RunDraft.TYPE_WEEKLY if job_key == "weekly" else RunDraft.TYPE_MONTHLY
-        # 🔴 uncovered_count는 3단계와 같은 이유로 항상 0이다 — 대상 전량(그 기간의
-        # Insight 전부)이 한 편의 보고서에 다 실릴 필요가 없다(상한 5건, 하한 없음).
-        output["uncovered_count"] = 0
     review["output"] = output
+
+    # 🔴 PD 19차 개정 ⑥번 신설 — "모두 취소"가 버릴 대기 제안(또는 초안) 수.
+    # 화면이 보여주는 범위와 글자 그대로 같다(체크 상태와 무관하게 서버 값
+    # 그대로다).
+    review["cancel_count"] = len(proposals) if proposals else len(pending_drafts)
     return review
 
 
@@ -1739,50 +1942,72 @@ def setting_run_review(request, job):
     })
 
 
-def _confirm_insight_drafts(request, run_job) -> None:
+def _confirm_insight_drafts(request, run_jobs) -> None:
     """SET-010 3단계(주요 이슈) 확정. 채택된 RunDraft마다 Insight를 만들어 근거
     News를 M2M으로 옮기고, 등급은 사람이 고른 값을 그대로 쓴다(설계 6번 표). 거절된
     초안은 지우지 않고 상태만 남긴다 — 거절 분포가 프롬프트 정확도를 잴 정답지라는
     원칙이 2단계와 같다.
 
+    🔴 2026-09-16 "SET-010 검토 단위" 절 — run_job 하나가 아니라 run_jobs 목록을
+    받는다. 여러 배치를 한 번에 확정할 수 있다.
+
+    🔴 2026-09-16 같은 절 11번 — 3단계 탈락 표식. 각 run_job이 얼려 둔
+    insight_candidates(그 배치가 후보로 고려한 News 전부, services/runner.py
+    _run_insight())에서 이번 확정으로 실제 채택된 Insight의 news를 뺀 나머지에
+    News.insight_dismissed_at을 찍는다 — 「이슈로 묶이지 않은 대상은 다음 3단계
+    실행에서 대상에서 빠진다」는 새 설계(대상 = 탈락 표식 없는 미배정 전체)의
+    전제다. 표식이 없으면 같은 기준으로 반복 탈락하는 기사가 실행마다 다시
+    대상이 되어 3단계가 영구히 "할 일 있음"이 된다.
+
     🔴 축약본(content_short/implication_short)은 비워 둔다 — RA가 채운다(모델
     default가 이미 빈 문자열이라 여기서 따로 손대지 않는다).
     🔴 headliner_order도 건드리지 않는다 — RA가 배치 단위로 전량 교체한다."""
     accepted_ids = set(request.POST.getlist("insight_ids"))
-    pending = list(
-        RunDraft.objects.filter(
-            run_job=run_job, draft_type=RunDraft.TYPE_INSIGHT, status=RunProposal.STATUS_PENDING,
-        ).prefetch_related("news")
-    )
-    for draft in pending:
-        if str(draft.pk) not in accepted_ids:
-            draft.status = RunProposal.STATUS_REJECTED
-            draft.save(update_fields=["status"])
-            continue
+    candidate_ids = set()
+    assigned_ids = set()
+    for run_job in run_jobs:
+        candidate_ids.update(run_job.insight_candidates.values_list("pk", flat=True))
+        pending = list(
+            RunDraft.objects.filter(
+                run_job=run_job, draft_type=RunDraft.TYPE_INSIGHT, status=RunProposal.STATUS_PENDING,
+            ).prefetch_related("news")
+        )
+        for draft in pending:
+            if str(draft.pk) not in accepted_ids:
+                draft.status = RunProposal.STATUS_REJECTED
+                draft.save(update_fields=["status"])
+                continue
 
-        grade = request.POST.get(f"grade_{draft.pk}", "")
-        if not grade:
-            # grade_choices에는 "미지정"이 없지만(템플릿 계약), item.grade가 애초에
-            # 비어 있던 초안은 select 맨 앞에 고를 수 없는 안내 option이 붙는다(템플릿
-            # 상단 계약). 그 상태로 확정하면 여기로 빈 문자열이 온다 — 태그 교정
-            # 대상을 못 찾았을 때와 같은 처리(messages.warning, 확정 전체는 막지 않음).
-            grade = Insight.GRADE_UNSPECIFIED
-            messages.warning(
-                request, f"'{draft.title}' 이슈에 등급을 고르지 않아 미지정으로 저장했어요.",
-            )
+            grade = request.POST.get(f"grade_{draft.pk}", "")
+            if not grade:
+                # grade_choices에는 "미지정"이 없지만(템플릿 계약), item.grade가 애초에
+                # 비어 있던 초안은 select 맨 앞에 고를 수 없는 안내 option이 붙는다(템플릿
+                # 상단 계약). 그 상태로 확정하면 여기로 빈 문자열이 온다 — 태그 교정
+                # 대상을 못 찾았을 때와 같은 처리(messages.warning, 확정 전체는 막지 않음).
+                grade = Insight.GRADE_UNSPECIFIED
+                messages.warning(
+                    request, f"'{draft.title}' 이슈에 등급을 고르지 않아 미지정으로 저장했어요.",
+                )
 
-        with transaction.atomic():
-            insight = Insight.objects.create(
-                title=draft.title, content=draft.content, implication=draft.implication,
-                grade=grade,
-            )
-            insight.news.set(draft.news.all())
-            draft.created_insight = insight
-            draft.status = RunProposal.STATUS_ACCEPTED
-            draft.save(update_fields=["created_insight", "status"])
+            with transaction.atomic():
+                insight = Insight.objects.create(
+                    title=draft.title, content=draft.content, implication=draft.implication,
+                    grade=grade,
+                )
+                insight.news.set(draft.news.all())
+                draft.created_insight = insight
+                draft.status = RunProposal.STATUS_ACCEPTED
+                draft.save(update_fields=["created_insight", "status"])
+            assigned_ids.update(n.pk for n in draft.news.all())
+
+    dismissed_ids = candidate_ids - assigned_ids
+    if dismissed_ids:
+        News.objects.filter(
+            pk__in=dismissed_ids, insights__isnull=True, insight_dismissed_at__isnull=True,
+        ).update(insight_dismissed_at=timezone.now())
 
 
-def _confirm_report_drafts(request, run_job) -> None:
+def _confirm_report_drafts(request, run_jobs, job_key) -> None:
     """SET-010 4, 5단계(주간·월간 보고서) 확정. 채택된 RunDraft마다 Report를 만들어
     근거 News를 M2M으로 옮긴다(설계 6번 표). 거절된 초안은 지우지 않고 상태만 남긴다
     — _confirm_insight_drafts()와 같은 원칙이다.
@@ -1801,11 +2026,11 @@ def _confirm_report_drafts(request, run_job) -> None:
     accepted_ids = set(request.POST.getlist("draft_ids"))
     pending = list(
         RunDraft.objects.filter(
-            run_job=run_job, draft_type__in=(RunDraft.TYPE_WEEKLY, RunDraft.TYPE_MONTHLY),
+            run_job__in=run_jobs, draft_type__in=(RunDraft.TYPE_WEEKLY, RunDraft.TYPE_MONTHLY),
             status=RunProposal.STATUS_PENDING,
         ).prefetch_related("news")
     )
-    period_type = "weekly" if run_job.job_key == "weekly" else "monthly"
+    period_type = "weekly" if job_key == "weekly" else "monthly"
 
     created_count = 0
     for draft in pending:
@@ -1828,7 +2053,7 @@ def _confirm_report_drafts(request, run_job) -> None:
         except IntegrityError:
             logger.warning(
                 "RunDraft %s(%s) 확정 중 같은 기간 보고서가 이미 있어 건너뛰었어요.",
-                draft.pk, run_job.job_key,
+                draft.pk, job_key,
             )
             messages.warning(
                 request,
@@ -1864,21 +2089,29 @@ def setting_run_review_confirm(request, job):
     if job not in RUN_JOB_KEYS:
         raise Http404
 
-    run_job = RunJob.objects.filter(job_key=job).order_by("-started_at", "-pk").first()
-    # 확정할 배치가 없거나, 이미 확정했거나, 아직 진행 중이거나 실패한 배치면 조용히
-    # 실행 화면으로 돌려보낸다. 🔴 이 게이트가 "같은 배치를 두 번 확정할 수 없게" 만든다
-    # — 이미 확정됨(STATUS_CONFIRMED)이면 여기서 걸려 재처리하지 않는다.
-    if run_job is None or run_job.status not in (RunJob.STATUS_DONE, RunJob.STATUS_STOPPED):
+    # 🔴 2026-09-16 "SET-010 검토 단위" 절 확정 — 「가장 최근 RunJob 하나」가
+    # 아니라 확정 대기 제안(또는 초안)이 있는 배치 전부를 확정한다. 확정하면
+    # 관련 배치 전부가 확정됨이 된다 — 「확정됨」의 뜻은 "이 배치가 남긴 제안 중
+    # 대기로 남은 것이 하나도 없다"이므로 여러 배치를 한 번에 확정해도 흐려지지
+    # 않는다. 🔴 부분 확정은 없다 — run_jobs가 비어 있으면(볼 것이 없으면) 아무
+    # 것도 하지 않고 조용히 돌려보낸다. B(미판정)가 남아 있는 채로 일부만
+    # 확정하는 경로는 어디에도 없다(cleanup은 review 화면 자체가 B=0일 때만
+    # 열린다 — 위 _job_run_state()).
+    run_jobs = _pending_review_run_jobs(job)
+    if not run_jobs:
         response = HttpResponse()
         response["HX-Redirect"] = reverse("setting_run")
         return response
 
+    confirmed_at = timezone.now()
+
     if job == "insight":
         # 🔴 3단계(주요 이슈)는 산출물의 모양이 달라(설계 3번) RunProposal이 아니라
         # RunDraft를 다룬다 — 아래 삭제/태그 교정 경로와 완전히 갈라진 별도 확정 경로다.
-        _confirm_insight_drafts(request, run_job)
-        run_job.status = RunJob.STATUS_CONFIRMED
-        run_job.save(update_fields=["status"])
+        _confirm_insight_drafts(request, run_jobs)
+        RunJob.objects.filter(pk__in=[rj.pk for rj in run_jobs]).update(
+            status=RunJob.STATUS_CONFIRMED, confirmed_at=confirmed_at,
+        )
         response = HttpResponse()
         response["HX-Redirect"] = reverse("setting_run")
         return response
@@ -1886,9 +2119,10 @@ def setting_run_review_confirm(request, job):
     if job in ("weekly", "monthly"):
         # 🔴 4, 5단계(주간·월간 보고서)도 insight와 같은 이유로 RunDraft를 다루는
         # 별도 확정 경로다.
-        _confirm_report_drafts(request, run_job)
-        run_job.status = RunJob.STATUS_CONFIRMED
-        run_job.save(update_fields=["status"])
+        _confirm_report_drafts(request, run_jobs, job)
+        RunJob.objects.filter(pk__in=[rj.pk for rj in run_jobs]).update(
+            status=RunJob.STATUS_CONFIRMED, confirmed_at=confirmed_at,
+        )
         response = HttpResponse()
         response["HX-Redirect"] = reverse("setting_run")
         return response
@@ -1897,7 +2131,7 @@ def setting_run_review_confirm(request, job):
     accepted_retag_ids = set(request.POST.getlist("retag_ids"))
 
     pending = list(
-        RunProposal.objects.filter(run_job=run_job, status=RunProposal.STATUS_PENDING)
+        RunProposal.objects.filter(run_job__in=run_jobs, status=RunProposal.STATUS_PENDING)
         .select_related("news")
     )
     relevance_proposals = [p for p in pending if p.proposal_type in (RunProposal.TYPE_DELETE, RunProposal.TYPE_KEEP)]
@@ -2026,14 +2260,15 @@ def setting_run_review_confirm(request, job):
         p.status = RunProposal.STATUS_CANCELED
         p.save(update_fields=["status"])
 
-    run_job.status = RunJob.STATUS_CONFIRMED
-    run_job.save(update_fields=["status"])
+    RunJob.objects.filter(pk__in=[rj.pk for rj in run_jobs]).update(
+        status=RunJob.STATUS_CONFIRMED, confirmed_at=confirmed_at,
+    )
 
     if delete_failed or tag_not_found or tag_error:
         logger.warning(
             "RunJob %s(%s) 확정 중 삭제 실패 %d건, 태그 교정 대상 못 찾음 %d건, "
             "태그 교정 실행 실패 %d건이었어요.",
-            run_job.pk, job, delete_failed, tag_not_found, tag_error,
+            [rj.pk for rj in run_jobs], job, delete_failed, tag_not_found, tag_error,
         )
 
     response = HttpResponse()
@@ -2051,20 +2286,26 @@ def setting_run_review_cancel(request, job):
     대기 중이던 RunProposal·RunDraft는 지우지 않고 취소로 남긴다(거절과 다른 값 —
     사람이 내용을 보고 거절한 게 아니라 통째로 버린 것이라 거절 분포를 오염시키지
     않는다, 확정 뷰의 같은 판단과 동일). 실제 데이터(News·Insight 등)는 아무것도
-    건드리지 않는다."""
+    건드리지 않는다.
+
+    🔴 2026-09-16 "SET-010 검토 단위" 절 확정 — 범위가 「화면에 보이는 것 전부」다.
+    배치를 골라 일부만 취소하지 않는다(_pending_review_run_jobs()가 검토 화면과
+    똑같은 목록을 본다) — "pk107만 버리고 pk130은 남긴다"는 실행 사정을 사람이
+    다시 떠안는 일이라, 이 설계가 없애려는 것과 같은 자리다."""
     if job not in RUN_JOB_KEYS:
         raise Http404
 
-    run_job = RunJob.objects.filter(job_key=job).order_by("-started_at", "-pk").first()
-    if run_job is not None and run_job.status in (RunJob.STATUS_DONE, RunJob.STATUS_STOPPED):
-        RunProposal.objects.filter(run_job=run_job, status=RunProposal.STATUS_PENDING).update(
+    run_jobs = _pending_review_run_jobs(job)
+    if run_jobs:
+        RunProposal.objects.filter(run_job__in=run_jobs, status=RunProposal.STATUS_PENDING).update(
             status=RunProposal.STATUS_CANCELED,
         )
-        RunDraft.objects.filter(run_job=run_job, status=RunProposal.STATUS_PENDING).update(
+        RunDraft.objects.filter(run_job__in=run_jobs, status=RunProposal.STATUS_PENDING).update(
             status=RunProposal.STATUS_CANCELED,
         )
-        run_job.status = RunJob.STATUS_CANCELED
-        run_job.save(update_fields=["status"])
+        RunJob.objects.filter(pk__in=[rj.pk for rj in run_jobs]).update(
+            status=RunJob.STATUS_CANCELED,
+        )
 
     response = HttpResponse()
     response["HX-Redirect"] = reverse("setting_run")

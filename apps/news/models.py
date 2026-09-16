@@ -59,6 +59,13 @@ class News(models.Model):
     # RA가 배치를 검증됨으로 전환한 시각. 기존 레코드는 백필하지 않는다(모르는 값을
     # 지어내지 않는 원칙, docs/planning.md 3번) — 그래서 null 허용.
     verified_at = models.DateTimeField(null=True, blank=True)
+    # 🔴 3단계(주요 이슈) 탈락 표식(docs/planning.md "SET-010 검토 단위" 절 11번,
+    # 2026-09-16). 3단계 확정에서 이슈로 묶이지 않은 후보(RunJob.insight_candidates에는
+    # 있었지만 어떤 Insight.news에도 속하지 않은 News)에 붙는다. 표식이 있으면 다음
+    # 3단계 실행 대상에서 빠진다 — 값을 지우면(관리 명령) 다시 대상이 된다. 승격
+    # 기준이 통과/탈락 이분법이라 탈락분은 재실행마다 같은 이유로 다시 탈락하므로,
+    # 표식이 없으면 3단계가 "미배정 전체"를 대상으로 삼는 순간 영구히 할 일이 남는다.
+    insight_dismissed_at = models.DateTimeField(null=True, blank=True)
     organizations = models.ManyToManyField(
         "setting.Organization",
         blank=True,

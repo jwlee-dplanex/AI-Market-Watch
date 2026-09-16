@@ -331,6 +331,18 @@ class RunJob(models.Model):
     # 이 값을 보고 판단하기 위한 자리다. processed_count(전체 처리 건)와는 다른
     # 질문에 답한다 — "그중 제목 규칙에 걸린 건이 몇이었는가."
     title_rejected_count = models.IntegerField(default=0)
+    # 🔴 2026-09-16 "SET-010 검토 단위" 절 13번 신설 — 확정 버튼을 누른 시각. 종전에는
+    # 화면 요약 줄이 finished_at(실행 종료 시각)을 "확정 시각"으로 대신 썼는데, 어제
+    # 실행하고 오늘 확정하면 어제로 찍혔다. 여러 배치를 한 번에 확정하는 이번 설계에서
+    # 이 어긋남이 정상 경로가 됐으므로(SET-010 검토 단위 절) 더 미룰 수 없다. 같은
+    # 확정 한 번에 묶인 배치는 전부 같은 값을 갖는다.
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    # 🔴 3단계(주요 이슈) 탈락 표식의 전제 — 그 확정 시점에 "이 배치가 후보로 고려한
+    # News 전부"를 얼려 둔다(docs/planning.md "SET-010 검토 단위" 절 11번). RunDraft.news는
+    # "이슈로 묶인 것"만 담아 "고려했지만 어디에도 안 묶인 것"을 알 방법이 없어 새로
+    # 만들었다 — 확정 시 이 집합에서 실제로 채택된 Insight의 news를 뺀 나머지가
+    # News.insight_dismissed_at을 받는다. job_key="insight"가 아닌 RunJob은 채우지 않는다.
+    insight_candidates = models.ManyToManyField("news.News", blank=True, related_name="+")
 
     class Meta:
         ordering = ["-started_at", "-pk"]

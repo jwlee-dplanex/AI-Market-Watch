@@ -44,6 +44,18 @@
    back_url      실행 화면(SET-010)으로 돌아가는 URL 문자열.
    confirm_url   확정 POST URL 문자열. 비어 있으면 확정 버튼이 비활성이 된다.
    cancel_url    "모두 취소"(제안 폐기) POST URL 문자열. 비어 있으면 버튼을 감춘다.
+                 🔴 19차 개정 — **버리는 범위가 이 화면이 보여주는 범위와 글자 그대로
+                    같다.** 화면이 340건을 보여주면 340건을 버린다. 배치를 고르게
+                    하지 않는다(docs/planning.md 「SET-010 검토 단위」 5번) — 고르게
+                    하는 순간 배치가 사람 앞으로 돌아오고, 그것이 이 개정이 없애려는
+                    바로 그것이다.
+   cancel_count  🔴 19차 신설. 취소가 버릴 **대기 제안 수**(int).
+                 버튼 라벨과 확인 대화상자 제목이 이 수를 들고 있어야 한다 —
+                 종전에는 한 배치의 몫이라 크기가 짐작됐지만 **이제 며칠치가 한 번에
+                 사라질 수 있다.** 없으면 라벨이 "모두 취소"로 떨어진다.
+                 ⚠️ 체크를 풀어도 이 수는 줄지 않는다. 취소는 화면에 있는 대기 제안을
+                    전부 버리는 것이라 체크 상태와 무관하다. 그래서 Alpine이 아니라
+                    서버 값으로 찍는다.
    org_admin_url   SET-007 기업 관리 URL 문자열(reverse("setting_organizations")).
    topic_admin_url SET-008 기술 주제 관리 URL 문자열(reverse("setting_tech_topics")).
                  🔴 topic_admin_url은 2026-09-15 신설이다. 태그 후보가 기업 전용에서
@@ -55,31 +67,59 @@
                     재료이고, 화면 계약으로는 남겨 둔다.
                  ⚠️ url 템플릿태그로 역참조하지 않는 이유는 아래 "URL은 문자열로" 참고.
 
-   run           🔴 신설. 어느 배치를 보고 있는지를 말하는 값이다. RunJob에서 뽑는다.
-     label       배치 식별 문자열. 권장 형식 "09/14 09:12 실행"(started_at 지역시각).
-                 없으면 머리글 아래 메타 줄이 통째로 사라진다.
-     state       idle | running | review | done | failed | stopped
+   run           🔴 2026-09-16 19차 개정으로 **이 화면은 배치 하나를 보지 않는다.**
+                 확정을 기다리는 제안 전부가 여기 모인다(docs/planning.md
+                 「SET-010 검토 단위」 0번 — "배치는 「언제 돌렸나」의 기록이지
+                 「무엇을 검토해야 하나」가 아니다").
+                 🔴 그래서 label / progress / failed_str / resumable 넷을 화면에서
+                    걷었다. 넷 다 배치 하나를 전제한 값이라 여러 배치가 모인
+                    화면에서 뜻이 성립하지 않는다.
+                      label       "09/16 13:05 실행"   어느 실행? 넷 중 하나일 뿐이다
+                      progress    "1건 중 1건 처리"     🔴 이 수가 1이라 사용자가 물었다
+                      failed_str  "실패 2건"           그 배치만의 실패다
+                      resumable   중단 안내에 쓰던 값
+                    ⚠️ 값을 계속 내려도 화면은 조용하다. 끊는 것은 뷰 판단이다.
+                 🔴 대신 아래 input이 「지금 얼마가 기다리는가」를 말하고,
+                    step이 「몇 번의 실행에서 모였는가」를 말한다.
+     state       running | review | todo | clear | failed | stopped
                  🔴 templates/setting/_run_node.html과 같은 어휘를 쓴다. 같은 상태를
                  두 화면이 다른 말로 부르면 색이 갈린다.
                  🔴 stopped(중단됨)는 2026-09-14에 신설했다. 종전에 뷰가 중단됨을
                  failed로 눌러 담고 있었는데(apps/setting/views.py _run_job_display)
                  중단은 이어할 수 있고 실패는 아니라 색이 갈려야 한다.
-     state_label 배지에 찍히는 한국어. 예) "중단됨". 🔴 색이 아니라 이 텍스트가 정본이다.
-     progress    진행 요약 한 줄. 권장 "116건 중 87건 처리".
-     failed_str  실패 건수 문구. 예) "실패 2건". 0건이면 빈 문자열로 두면 줄이 사라진다.
-     resumable   bool. True면 중단 안내에 "이어서 판정해요" 문장을 붙인다.
+     state_label 배지에 찍히는 한국어. 예) "검토 필요". 🔴 색이 아니라 이 텍스트가 정본이다.
+     progress    🔴 19차에서 화면이 안 쓴다(위 run 항목).
+     failed_str  🔴 19차에서 화면이 안 쓴다.
+     resumable   🔴 19차에서 화면이 안 쓴다. 중단 안내 카드를 걷었다.
 
-   input         ① "검토 대상" 칸.  count(int) / label(str) / period(str)
-                 예) count=116, label="미검증 뉴스", period="09.02 ~ 09.03"
-                 🔴 2026-09-14 실측 — apps/setting/views.py의 _run_review_context()가
-                    이 키를 아예 내려 주지 않는다. 그래서 화면에 "집계를 받지 못했어요"가
-                    뜬다. 문구 문제가 아니라 값이 없는 것이다. PE가 채워 주면 된다.
-                    ⚠️ count를 0으로 내려보내지 말 것. 템플릿이 "아직 못 받았다"와
-                       "정말 0건"을 구분하지 못하게 된다. 모르면 키를 비워 둔다.
-                 ⚠️ label은 그 작업이 무엇을 읽었는지를 가리키는 명사다. 2단계는
-                    "미검증 뉴스", 3단계는 "정리된 뉴스"처럼 작업마다 다르다.
-   step          ② "AI가 한 일" 칸.  summary / prompt_version / model / tokens / duration
+   input         ① "검토 대상" 칸. 🔴 19차 개정으로 **배치가 아니라 대기 전량**을 말한다.
+                   count(int)          🔴 확정을 기다리는 **기사** 수
+                   label(str)          그 기사를 부르는 명사. 예) "미검증 뉴스"
+                   proposal_count(int) 🔴 19차 신설. 그 기사들에 달린 **대기 제안** 수
+                   since(str)          🔴 19차 신설. 가장 오래 기다린 기사의 수집일.
+                                       서식 "09/14"(슬래시, 실행 화면과 같다)
+                   period(str)         ⚠️ 종전 키. since가 있으면 쓰이지 않는다
+                 🔴 세 값을 고른 근거는 docs/planning.md 「SET-010 검토 단위」 3번이다.
+                      기사 수    사용자가 물은 것이 정확히 이 수다
+                                 ("현재 총 검토해야하는게 몇건이야?")
+                      제안 수    체크할 행의 양을 미리 알린다. 기사 67건에 제안
+                                 161건처럼 둘이 크게 갈린다
+                      since      🔴 **날짜가 하나가 아닐 수 있다는 사실 자체가 정보다.**
+                                 「오늘 돌린 것만 있는 줄 알았던 것」이 사고의 본질이었다
+                 ⚠️ count를 0으로 내려보내지 말 것. 템플릿이 "아직 못 받았다"와
+                    "정말 0건"을 구분하지 못하게 된다. 모르면 키를 비워 둔다.
+                 ⚠️ 이 화면은 B(미판정)가 0일 때만 열린다. 그래서 여기 적히는 수는
+                    **미검증 전체와 같다.** 두 수가 갈리면 뷰가 틀린 것이다.
+   step          ② "AI가 한 일" 칸.
+                 summary / prompt_version / model / tokens / duration / run_count / notice
                  🔴 읽기 전용이다. 입력 필드를 만들지 않는다.
+                 🔴 19차 개정 — **여러 배치가 한 화면에 모이므로 값마다 처리가 다르다**
+                    (docs/planning.md 「SET-010 검토 단위」 3번 표).
+                      토큰, 걸린 시간   합이 뜻을 가진다(비용, 시간)  → **합계를 내린다**
+                      실행 횟수         🔴 신설. 2 이상이면 화면에 찍힌다
+                      모델 이름         합이 성립하지 않는다 → 전부 같으면 그 이름,
+                                        갈리면 "모델 2가지"처럼 **갈렸다는 사실**을 쓴다
+                      프롬프트 버전     같다. 갈리면 notice로 알린다
      summary     🔴 2026-09-14 신설. 이 단계가 한 일을 한 줄로 말한다.
                  예) "기사마다 관련성을 판정했어요"  예) "같은 사건을 이슈로 묶었어요"
                  어미는 해요체, 낱말은 문어체 명사형이다(실행 화면 노드 설명과 같은 격).
@@ -89,7 +129,17 @@
                     (2026-09-14 사용자 지적 "사용자들이 보는거야"). 내부 버전 문자열이라
                     사용자에게는 아무 뜻도 없지만, 나중에 프롬프트를 고친 뒤 판정 결과를
                     대조하려면 반드시 남아 있어야 하는 값이라 완전히 지우지는 않았다.
+     run_count   🔴 19차 신설. 이 목록을 만든 실행 횟수(int).
+                 **2 이상일 때만 화면에 "실행 4번"으로 찍힌다.** 1이면 조각이 사라진다.
+                 🔴 이 자리가 이번 사고를 화면이 스스로 말하는 자리다 — 340건이
+                    네 번의 실행에서 모였다는 사실이 어디에도 없었다.
+     notice      🔴 19차 신설. 선택. ② 칸 아래에 주황 한 줄로 뜬다.
+                 예) "판정 기준이 다른 실행이 섞여 있어요"
+                 🔴 프롬프트 버전이나 모델이 갈렸을 때만 채운다. **기준이 다른 판정이
+                    한 화면에 섞여 있다는 뜻이라 사람이 알아야 한다.**
+                 ⚠️ 없으면 줄이 통째로 사라진다. "섞이지 않았어요"를 쓰지 말 것.
      model / tokens / duration
+                 🔴 19차 — tokens와 duration은 **합계**다. model은 위 표대로다.
                  🔴 2026-09-14 실측 — 지금 뷰가 prompt_version 하나만 내려 준다.
                     그래서 "실행 기록을 받지 못했어요"가 뜬다. 셋을 채워 주면 된다.
                  ⚠️ SET-003(프롬프트 화면)은 2026-09-04에 제거됐다. 이 칸에 편집 링크를
@@ -372,6 +422,18 @@
         같은 규칙으로 짝을 이룬다. 건수는 제목에, 결과는 본문에 들어간다.
         Alpine이 죽은 경우에만 보이는 정적 hx-confirm에는 건수를 남겨 뒀다.
 
+  🔴 2026-09-16 19차 — **uncoveredCount는 이제 언제나 0이다. 그래도 지우지 않았다**
+     커버리지 조건("대상 전량에 제안이 있어야 확정이 열린다")이 통째로 없어졌다.
+     막으려던 것(판정 안 된 기사가 조용히 검증됨으로 넘어가는 것)을 **화면에
+     들어오기 전에** 막기 때문이다 — B(미판정)가 1건이라도 있으면 검토 화면이
+     아예 열리지 않는다(docs/planning.md 「SET-010 검토 단위」 8번).
+     🔴 조건식을 남겨 둔 것은 판단이다. 뷰가 0을 내리면 이 갈래는 죽은 코드처럼
+        조용하고, 어떤 경로로든 0이 아닌 값이 오면 **그때는 정말로 막아야 하는
+        상태**라 잠기는 편이 옳다. 마지막 안전망으로 둔다.
+     ⚠️ 여기에 "멈춘 만큼만 먼저 확정" 류의 우회를 만들지 말 것. 사용자 지시가
+        "무조건 전체. 중간에 된 것 안 된 것 구분해서 다음 프로세스 태우지 말라는
+        얘기야"이고, **부분 확정 경로는 화면 어디에도 없다.**
+
   🔴 isDisabled()의 조건식에 손대지 않는다 (2026-09-14 PE 수정, PD 재확인).
      종전에는 :disabled="!delCount && !fixCount && !insCount"라 체크를 다 풀거나 LLM이
      전부 "유지"로 판정하면 버튼이 잠겼다. 그런데 "116건 전부 유지"는 정상적으로 일어나는
@@ -464,9 +526,16 @@
 
   {% comment %}
     ── 머리글 ──────────────────────────────────────────────────────
-    🔴 어느 배치를 보고 있는지가 여기서 읽혀야 한다(2026-09-14 신설).
-    작업 이름만 있으면 어제 돌린 배치를 보고 있는지 방금 돌린 배치를 보고 있는지
-    알 수 없고, 그 상태로 확정을 누르면 되돌릴 수 없는 삭제가 엉뚱한 배치에 걸린다.
+    🔴 2026-09-16 19차 개정 — **「언제 돌렸나」를 내리고 「얼마가 기다리는가」를 올렸다**
+       (docs/planning.md 「SET-010 검토 단위」 3번).
+       종전   2단계 뉴스 정리 [검토 필요]
+              09/16 13:05 실행 | 1건 중 1건 처리
+              🔴 두 조각이 다 배치 하나의 것이고, 그 「1건」이 사고의 증상이었다.
+                 같은 순간 확정을 기다리던 것은 기사 68건에 제안 340건이었다.
+       🔴 현행 메타 줄을 통째로 걷었다. 그 세 값(실행 시각, 진행률, 실패 수)이
+          말하는 물음에 이 화면은 더 이상 답하지 않는다. **대기 총량은 바로 아래
+          ① 「검토 대상」 칸이 말하고, 몇 번의 실행에서 모였는지는 ② 칸이 말한다.**
+       ⚠️ 배지는 남긴다. 지금 이 작업이 어느 상태인지는 여전히 한눈에 읽혀야 한다.
     상태 배지 색 어휘는 _run_node.html과 같다. 한국어 텍스트가 정본이고 색은 보조다.
 
     🔴 2026-09-16 실측 정정 — 이 배지도 노드 배지와 같은 계약이다.
@@ -498,13 +567,6 @@
         </span>
         {% endif %}
       </div>
-      {% if review.run.label %}
-      <p class="text-[11px] text-gray-400 mt-1">
-        {{ review.run.label }}
-        {% if review.run.progress %}<span class="mx-1 text-gray-300">|</span>{{ review.run.progress }}{% endif %}
-        {% if review.run.failed_str %}<span class="mx-1 text-gray-300">|</span>{{ review.run.failed_str }}{% endif %}
-      </p>
-      {% endif %}
     </div>
 
     {% if review.back_url %}
@@ -517,21 +579,21 @@
   </div>
 
   {% comment %}
-    중단됨 안내. 🔴 실패(빨강)와 구분되어야 한다. 중단은 다시 이어할 수 있고 실패는 아니다.
-    주황을 쓰는 것이 이 앱의 색 배정과 맞는다. 주황은 이미 "크롤 실패, 기간 불일치,
-    유료 매체"처럼 이상 신호에 배정돼 있고 중단은 이상 신호가 맞다.
-    (docs/design.md의 "검토 대기에 주황을 쓰지 않는다"는 제약은 검토 대기가 정상 절차라서
-     붙은 것이라 여기에는 걸리지 않는다.)
+    ── 🔴 19차 개정 — 중단 안내 카드를 걷었다 ─────────────────────────
+    종전 문구: "판정이 끝나기 전에 끊겼어요. 여기 보이는 제안은 끊기기 전까지
+    나온 것만이에요. 실행 화면에서 다시 누르면 남은 기사부터 이어서 판정해요."
+
+    🔴 새 설계에서 **이 문장이 거짓이 된다.** 이 화면은 B(미판정)가 0일 때만
+       열리므로, 열렸다는 것은 **끊긴 것 없이 전부 판정됐다**는 뜻이다. 중단된
+       배치가 섞여 있어도 그 배치가 못 한 몫은 이미 다른 실행이 마쳤다.
+    🔴 중단이라는 사실 자체가 이 화면의 관심사가 아니게 됐다. 사람이 중단하고
+       다시 돌린 것은 **실행 사정**이고 검토해야 할 목록과 상관이 없다
+       (docs/planning.md 「SET-010 검토 단위」 0번).
+    ⚠️ 그 대신 「여러 번의 실행에서 모였다」를 ② 칸의 실행 횟수가 말한다.
+       그쪽은 참이고, 사람이 실제로 알아야 하는 사실이다.
+    ⚠️ 되살리지 말 것. 되살리려면 먼저 "B가 0일 때만 검토가 열린다"가 깨졌는지를
+       확인해야 하고, 깨졌다면 고칠 곳은 이 카드가 아니라 뷰다.
   {% endcomment %}
-  {% if review.run.state == 'stopped' %}
-  <div class="mb-4 flex items-start gap-2 rounded-[10px] border border-orange-200 bg-orange-50 px-4 py-3">
-    <i data-lucide="alert-triangle" class="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5"></i>
-    <p class="text-xs text-orange-700 leading-relaxed">
-      판정이 끝나기 전에 끊겼어요. 여기 보이는 제안은 끊기기 전까지 나온 것만이에요.
-      {% if review.run.resumable %}실행 화면에서 다시 누르면 남은 기사부터 이어서 판정해요.{% endif %}
-    </p>
-  </div>
-  {% endif %}
 
   {% comment %}
     ── 3분할 요약 ──────────────────────────────────────────────────
@@ -574,12 +636,28 @@
            keep_count, candidate_count, progress_failed는 0이면 할 말이 없어서
            블록 자체를 안 그리는 게 맞다. 여기와 insight_count만 0이 뜻을 갖는다.
       {% endcomment %}
+      {% comment %}
+        🔴 19차 개정 — 둘째 줄이 「수집 기간」에서 「얼마가 어떻게 기다리는가」로 바뀌었다.
+        사용자 물음이 출발점이다 — "여기서 1건이라고 되어있잖아. 근데 현재 총
+        검토해야하는게 몇건이야?"
+          종전   미검증 뉴스 1건 / 09.16 수집분이에요
+          🔴 현행 미검증 뉴스 68건 / 제안 340건, 09/14부터 기다려요
+        🔴 제안 수를 함께 적는 이유 — 기사 68건에 제안 340건처럼 두 수가 크게 갈린다.
+           체크할 행이 몇 줄인지를 스크롤하기 전에 알아야 한다.
+        🔴 날짜는 「수집 기간」이 아니라 **가장 오래 기다린 것이 언제부터인가**다.
+           2단계 대상 선정에서 날짜가 빠졌어도 이 값은 남는다 — 대상의 범위가
+           아니라 **기다린 시간**이고, 「오늘 것만 있는 줄 알았다」가 사고의 본질이었다.
+        ⚠️ 실행 화면 적체 줄에서 날짜를 뺀 것과 부딪히지 않는다. 그쪽은 「무엇이
+           대상인가」를 말하는 자리라 날짜가 거짓 신호였고, 여기는 「얼마나 묵었나」다.
+      {% endcomment %}
       {% if review.input.count is not None %}
       <p class="text-sm font-semibold text-gray-900 mt-1.5">
         {{ review.input.label|default:"뉴스" }} <span class="text-primary">{{ review.input.count }}건</span>
       </p>
       <p class="text-xs text-gray-400 mt-1">
-        {% if review.input.period %}{{ review.input.period }} 수집분이에요{% else %}수집 기간은 기록되어 있지 않아요{% endif %}
+        {% if review.input.proposal_count %}제안 {{ review.input.proposal_count }}건{% endif %}
+        {% if review.input.since %}{% if review.input.proposal_count %}, {% endif %}{{ review.input.since }}부터 기다려요{% elif review.input.period %}{% if review.input.proposal_count %}, {% endif %}{{ review.input.period }} 수집분이에요{% endif %}
+        {% if not review.input.proposal_count and not review.input.since and not review.input.period %}기다린 기간은 기록되어 있지 않아요{% endif %}
       </p>
       {% else %}
       {% comment %}
@@ -617,14 +695,34 @@
            PE 판단 사항으로 아래 인계에 적어 뒀다. 템플릿에서 잘라 내지 않는다 — 여기서
            문자열을 가공하면 같은 값이 화면마다 다르게 보인다.
       {% endcomment %}
-      {% if review.step.model or review.step.tokens or review.step.duration %}
+      {% comment %}
+        🔴 19차 개정 — 조각이 넷이 됐다. 맨 앞이 실행 횟수다
+             실행 4번 | 모델 2가지 | 5분 12초 걸렸어요 | 토큰 1,204,338
+        🔴 실행 횟수가 맨 앞인 이유 — 뒤 셋의 **모수를 정해 주는 값**이다.
+           "5분 12초"가 한 번의 시간인지 네 번의 합인지가 이 조각 하나로 갈린다.
+           1이면 조각이 사라지고 화면은 18차와 한 글자도 다르지 않다.
+        ⚠️ 뷰가 "실행 4번"이라는 문자열을 만들지 않는다. 숫자만 내리고 낱말은
+           여기서 붙인다 — 다른 셋과 달리 서식이 고정이라 서버가 가공할 것이 없다.
+      {% endcomment %}
+      {% if review.step.model or review.step.tokens or review.step.duration or review.step.run_count %}
       <p class="text-xs text-gray-400 mt-1">
-        {% if review.step.model %}<span class="whitespace-nowrap">{{ review.step.model }}</span>{% endif %}
-        {% if review.step.duration %}<span class="whitespace-nowrap">{% if review.step.model %}<span class="mx-1 text-gray-300">|</span>{% endif %}{{ review.step.duration }} 걸렸어요</span>{% endif %}
-        {% if review.step.tokens %}<span class="whitespace-nowrap">{% if review.step.model or review.step.duration %}<span class="mx-1 text-gray-300">|</span>{% endif %}토큰 {{ review.step.tokens }}</span>{% endif %}
+        {% if review.step.run_count > 1 %}<span class="whitespace-nowrap">실행 {{ review.step.run_count }}번</span>{% endif %}
+        {% if review.step.model %}<span class="whitespace-nowrap">{% if review.step.run_count > 1 %}<span class="mx-1 text-gray-300">|</span>{% endif %}{{ review.step.model }}</span>{% endif %}
+        {% if review.step.duration %}<span class="whitespace-nowrap">{% if review.step.model or review.step.run_count > 1 %}<span class="mx-1 text-gray-300">|</span>{% endif %}{{ review.step.duration }} 걸렸어요</span>{% endif %}
+        {% if review.step.tokens %}<span class="whitespace-nowrap">{% if review.step.model or review.step.duration or review.step.run_count > 1 %}<span class="mx-1 text-gray-300">|</span>{% endif %}토큰 {{ review.step.tokens }}</span>{% endif %}
       </p>
       {% else %}
       <p class="text-xs text-gray-400 mt-1">실행 기록을 받지 못했어요</p>
+      {% endif %}
+
+      {% comment %}
+        🔴 19차 신설. 기준이 갈렸다는 알림 한 줄. 값이 없으면 자리째 사라진다.
+        주황인 이유 — 이 앱에서 주황은 이상 신호(크롤 실패, 기간 불일치, 유료 매체)에
+        이미 배정돼 있고, **판정 기준이 다른 결과가 한 화면에 섞인 것은 이상 신호가
+        맞다.** 다만 막지는 않는다. 확정 버튼은 그대로 열려 있다.
+      {% endcomment %}
+      {% if review.step.notice %}
+      <p class="text-xs text-orange-500 mt-1.5 leading-relaxed">{{ review.step.notice }}</p>
       {% endif %}
     </div>
 
@@ -701,17 +799,43 @@
     {% comment %}
       확인 대화상자는 caution이다. 제안을 버려도 다시 실행하면 결과를 받는다.
       문구를 제목과 본문으로 나눴다. 규약은 components/_confirm_dialog.html 참고.
+
+      ══════════════════════════════════════════════════════════════════
+      🔴 2026-09-16 19차 개정 — **버튼이 건수를 들고, 비용을 말한다**
+      ══════════════════════════════════════════════════════════════════
+      버리는 범위가 이 화면이 보여주는 범위와 글자 그대로 같다. 종전에는 한
+      배치의 몫이라 크기가 짐작되는 양이었지만, 🔴 **이제 며칠치 340건이 한 번에
+      사라질 수 있다.** 실측한 340건을 만드는 데 약 990원이 들었다.
+
+        라벨   제안 340건 모두 취소       ← 누르기 전에 규모가 보인다
+        제목   제안 340건을 모두 버려요
+        본문   다시 만들려면 같은 기사를 다시 판정해야 하고 토큰이 또 들어요.
+        버튼   모두 버리기
+
+      🔴 danger로 올리지 않았다. caution 그대로다
+        이 앱에서 danger(빨강 + Enter 차단)는 **되돌릴 수 없는 삭제** 전용이고,
+        이 화면에서는 오른쪽 확정 버튼 하나가 그 자리다. 취소는 기사를 지우지
+        않는다 — 다시 실행하면 같은 결과를 받을 수 있고, 잃는 것은 시간과
+        토큰 비용이다. 🔴 **그 손실을 색이 아니라 문구가 정확히 말한다.**
+        ⚠️ 두 버튼이 같은 무게가 되면 사람은 색으로 가르지 못하고 자리로
+           가르게 된다. 왼쪽 끝과 오른쪽 끝으로 벌려 둔 것이 그 자리다.
+      🔴 배치를 고르게 하지 않는다. 「pk107만 버리고 pk130은 남긴다」는 실행
+         사정을 사람이 다시 떠안는 일이고, 이 개정이 없애려는 것이 그것이다
+         (docs/planning.md 「SET-010 검토 단위」 5번). 개별 제안을 빼는 길은
+         체크 해제로 이미 열려 있다.
+      ⚠️ 건수는 서버 값 그대로다. 체크를 풀어도 줄지 않는다 — 취소는 화면에
+         있는 대기 제안을 전부 버리는 것이라 체크 상태와 무관하다.
     {% endcomment %}
     {% if review.cancel_url %}
     <button type="button"
             hx-post="{{ review.cancel_url }}"
             hx-include="[name=csrfmiddlewaretoken]"
             hx-disabled-elt="this"
-            hx-confirm="다시 실행해야 결과를 받을 수 있어요."
-            data-confirm-title="이번 제안을 모두 버려요"
+            hx-confirm="다시 만들려면 같은 기사를 다시 판정해야 하고 토큰이 또 들어요."
+            data-confirm-title="{% if review.cancel_count %}제안 {{ review.cancel_count }}건을 모두 버려요{% else %}대기 중인 제안을 모두 버려요{% endif %}"
             data-confirm-action="모두 버리기"
             class="text-xs text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-50">
-      모두 취소
+      {% if review.cancel_count %}제안 {{ review.cancel_count }}건 모두 취소{% else %}모두 취소{% endif %}
     </button>
     {% else %}
     <span></span>

@@ -270,63 +270,140 @@ def _save_proposals(run_job_id: int, news, result: dict) -> None:
 CLEANUP_STRUCTURAL_FAILURE_THRESHOLD = 3
 
 
-def _run_cleanup(run_job_id: int) -> None:
+def cleanup_ab_split():
+    """SET-010 2단계(뉴스 정리) 판정 상태 두 수 — 이 저장소에서 A/B를 세는
+    유일한 정본이다(docs/planning.md "SET-010 검토 단위" 절, 2026-09-16 확정 —
+    "A와 B를 세는 함수를 하나만 만들고, 배지·버튼·적체 줄·검토 화면·3단계 선행
+    잠금이 전부 그것만 보게 하라"는 지시). apps/setting/views.py가 배지·버튼·
+    적체 줄·검토 화면에서 이 함수를 그대로 불러 쓴다 — 대상 쿼리(아래
+    _run_cleanup())도 같은 함수를 쓰므로 "무엇이 실행 대상인가"와 "무엇이
+    버튼을 여는가"가 절대 갈리지 않는다.
+
+    A(확정 대기) = 미검증 News 중 대기(PENDING) 제안이 있는 것.
+    B(미판정)   = 미검증 News 중 대기 제안이 없는 것 — 🔴 실패한 건이 여기
+    들어온다(_save_proposals()는 판정이 성공했을 때만 불린다. 실패한 기사는
+    제안 자체가 안 생기므로 정의상 B다).
+
+    A + B = 미검증 News 전체다. 날짜를 보지 않는다. 반환값은
+    (a_queryset, b_queryset) — .count()나 .exists()를 호출부가 그대로 쓴다.
+
+    RunProposal 쪽은 run_job.status를 보지 않는다 — 연속 3회 실패로 배치가
+    STATUS_FAILED로 끊겨도 그 전까지 성공한 판정의 제안은 여전히 유효한 A다
+    (RUNNING만 실질적으로 걸러진다 — 진행 중인 배치가 방금 막 저장한 제안이
+    있어도, 배지 판정은 RUNNING을 A/B보다 먼저 본다는 우선순위로 자연히
+    가려진다)."""
     from apps.news.models import News
+
+    proposed_news_ids = _cleanup_proposed_news_ids()
+    unverified = News.objects.filter(status=News.STATUS_UNVERIFIED)
+    return unverified.filter(pk__in=proposed_news_ids), unverified.exclude(pk__in=proposed_news_ids)
+
+
+def _cleanup_proposed_news_ids():
+    """cleanup_ab_split()과 cleanup_today_flow()가 같이 쓰는 서브쿼리 — 대기
+    (PENDING) 상태인 cleanup RunProposal이 가리키는 news_id 목록. 한 곳에 두는
+    이유는 "제안이 있다"의 정의가 두 함수에서 갈리면 A/B와 흐름 줄의 "검토"
+    갈래 수가 어긋나기 때문이다."""
+    from apps.setting.models import RunProposal
+
+    return RunProposal.objects.filter(
+        run_job__job_key="cleanup", status=RunProposal.STATUS_PENDING, news__isnull=False,
+    ).values("news_id")
+
+
+def cleanup_today_flow():
+    """SET-010 2단계 노드의 흐름 줄(PD 20차 개정 ② flow) — 오늘 수집된 News가
+    지금 어디에 있는지 네 갈래로 센다. docs/design.md "SET-010 · 실행" 20차
+    개정 ⑨번 PE 인계가 정본이다.
+
+    모수(오늘 수집 건수)는 News 테이블이 아니라 CollectionLog.collected_count
+    합계로 잰다 — 삭제된 기사는 News 행 자체가 사라지므로(하드 삭제), 지금
+    존재하는 News를 오늘 날짜로 세면 이미 삭제된 것이 빠져 모수가 줄어든다.
+    CollectionLog는 수집 당시 실제로 저장한 건수를 기록해 두므로 이후에 몇 건이
+    지워지든 흔들리지 않는다.
+
+    🔴 삭제 건수는 직접 쿼리하지 않고 뺄셈으로 구한다 — "오늘 수집됐다가 지금은
+    지워진 것"을 직접 찾으려면 ExcludedURL에 원래 수집일을 저장해야 하는데
+    없다(설계 논의에서 실측 확인). 대신 "모수 − (지금 남아 있는 오늘 수집분)"으로
+    구하면 항상 네 갈래의 합이 모수와 같아지는 것이 산술적으로 보장된다 —
+    별도의 무결성 검사가 필요 없는 구조다.
+
+    반환값은 dict {"total", "deleted", "verified", "review", "waiting"} 또는
+    오늘 수집이 0건이면 None(그날은 "오늘 흐름"이 없는 것이 사실이라 줄 자체를
+    내리지 않는다, 20차 ④번)."""
+    from django.db.models import Sum
+    from django.utils import timezone
+
+    from apps.news.models import News
+    from apps.setting.models import CollectionLog, RunProposal
+
+    today = timezone.localtime(timezone.now()).date()
+    total = CollectionLog.objects.filter(started_at__date=today).aggregate(
+        total=Sum("collected_count"),
+    )["total"] or 0
+    if total == 0:
+        return None
+
+    today_news = News.objects.filter(collected_at__date=today)
+    verified = today_news.filter(status=News.STATUS_VERIFIED).count()
+    unverified_today = today_news.filter(status=News.STATUS_UNVERIFIED)
+    proposed_ids = _cleanup_proposed_news_ids()
+    review = unverified_today.filter(pk__in=proposed_ids).count()
+    waiting = unverified_today.exclude(pk__in=proposed_ids).count()
+    # 🔴 뺄셈 — 위 docstring 참고. max(..., 0)은 방어적 하한선이다(정상 경로에서는
+    # 항상 0 이상이지만, 실행 도중 폴링이 걸리는 등 순간적인 불일치까지 완전히
+    # 배제하지는 않는다).
+    deleted = max(total - (verified + review + waiting), 0)
+    return {"total": total, "deleted": deleted, "verified": verified, "review": review, "waiting": waiting}
+
+
+def insight_ab_split():
+    """SET-010 3단계(주요 이슈) 배정 두 수 — 위 cleanup_ab_split()과 같은 이유로
+    정본을 하나만 둔다(docs/planning.md "SET-010 검토 단위" 절 11번, PD 19차
+    개정 ③번 표). 분자(배정)=탈락 표식 없는 검증 News 중 이미 어느 Insight에
+    묶인 것, 분모는 그 전체(묶였든 아직 안 묶였든, 탈락 표식만 없으면 된다).
+    _run_insight()의 대상 쿼리(insights__isnull=True인 쪽)와 글자 그대로 같은
+    후보 집합이라 배지·적체 줄·선행 잠금·실행 대상이 어긋나지 않는다.
+
+    반환값은 (assigned_queryset, unassigned_queryset). 🔴 둘 다 distinct-safe
+    쿼리셋이다 — 호출부가 .count()/.exists()를 그대로 불러도 안전하다(2026-09-16
+    실측 사고 정정, 아래 참고).
+
+    🔴 실측 버그 — `candidates.filter(insights__isnull=False)`는 Insight
+    M2M을 직접 JOIN한다. 기사 한 건이 이슈 두 개에 묶여 있으면 그 JOIN이 행을
+    둘로 늘려 count()가 241을 냈는데(distinct하면 230), 실제로는 검증된 뉴스
+    247건 중 230건이 배정이었다(230 + 17 = 247, 미배정 쪽은 애초에 JOIN이
+    NULL 한 행만 남겨 늘지 않았다 — 17=17로 실측 일치). `unassigned`(위 표의
+    B에 해당)는 `insights__isnull=True`라 원래도 늘지 않지만, 대칭을 맞추고
+    "이 함수가 반환하는 쿼리셋은 항상 distinct-safe"라는 불변식을 지키기 위해
+    같은 방식(서브쿼리)으로 통일한다 — `.distinct()`를 이 함수 밖에서 붙이는
+    방식은 호출부 하나라도 빠뜨리면 같은 사고가 재발한다(코디네이터 지시)."""
+    from apps.news.models import News
+
+    candidates = News.objects.verified().filter(insight_dismissed_at__isnull=True)
+    # 🔴 cleanup_ab_split()과 같은 서브쿼리 패턴 — pk__in은 SQL의 IN절이라
+    # 서브쿼리 안에 중복 행이 있어도 바깥 쿼리를 늘리지 않는다(JOIN처럼 행을
+    # 곱하지 않는다). distinct() 대신 이 패턴을 쓰는 이유는 값이 아니라
+    # 형태(늘어날 수 없는 구조)로 안전을 보장하기 위해서다.
+    assigned_ids = candidates.filter(insights__isnull=False).values("pk")
+    return candidates.filter(pk__in=assigned_ids), candidates.filter(insights__isnull=True)
+
+
+def _run_cleanup(run_job_id: int) -> None:
     from apps.setting.models import RunProposal
     from services.llm import PROMPT_VERSION, classify_news
 
-    # 이어하기(설계 8-(b)) — 직전(이번 run_job_id 바로 앞, 같은 job_key의 최근
-    # RunJob) 배치가 아직 대기 중으로 남긴 제안이 있는 News만 대상에서 뺀다.
-    # "같은 입력에 같은 결과가 나온다는 보장이 없어 재판정하지 않는다"는 원칙은
-    # 그대로 지키되, 범위를 "직전 배치 하나"로 좁힌다.
-    #
-    # 🔴 PE 재수정(2026-09-16 실측 사고) — 종전에는 "News가 살아 있는 RunProposal
-    # 전부"를(어느 RunJob에서 만들어졌든, 몇 번 전 배치든) exclude했다. 그런데
-    # 검토 화면(apps/setting/views.py _run_review_context())과 "모두 취소"
-    # (setting_run_review_cancel())는 둘 다 "job_key의 가장 최근 RunJob 하나"만
-    # 본다(order_by("-started_at", "-pk").first()). 그래서 중단된 배치가 하나 더
-    # 쌓여 예전 배치가 "가장 최근"의 자리를 내주는 순간, 그 예전 배치의 대기 중
-    # 제안은 화면 어디에서도 다시 볼 수 없는데(확정도 취소도 못 함) 대상 쿼리는
-    # 여전히 그 제안을 근거로 News를 영구히 뺐다 — 실제로 오늘 pk107(153건 제안)·
-    # pk108(21건 제안)이 이 경로로 쌓여 미검증 68건이 전부 대상에서 빠지고(다음
-    # 배치 대상 0건), 그 68건이 남아 있어 3단계까지 잠기는 교착이 났다
-    # (_insight_block_reason() "아직 정리되지 않은 뉴스가 있어요").
-    #
-    # 채택된(STATUS_ACCEPTED) 제안까지 따로 걷어낼 필요는 없다 — 삭제 제안이
-    # 채택되면 News 자체가 사라지고, 유지 제안이 채택되면 News.status가 검증됨으로
-    # 바뀌어(setting_run_review_confirm()) 아래 STATUS_UNVERIFIED 필터가 이미
-    # 걷어낸다. 대기(STATUS_PENDING) 중인 제안만 "아직 사람이 안 본 판정이라 다시
-    # 안 묻는다"의 대상이다.
-    #
-    # ⚠️ 대가 — exclude 범위를 "직전 배치 하나"로 좁히면 2회 이상 연속으로
-    # 중단된 배치의 예전 제안(예: 위 pk107)은 그다음다음 실행에서 다시 대상이
-    # 될 수 있다. 그 배치가 이미 대기 중이던 판정을 다시 물어 토큰을 한 번 더
-    # 쓴다는 뜻이다. 그래도 "영원히 대상에서 빠지는 유령"보다는 낫다고 판단했다
-    # — 교착은 사람이 손대지 않는 한 스스로 안 풀리지만, 재판정은 비용만 치르면
-    # 저절로 복구된다. 근본적으로는 검토·취소 화면이 "가장 최근 하나"가 아니라
-    # "확정 안 된 배치 전부"를 보게 고쳐야 유령이 아예 안 생기는데, 그건 이번
-    # 수정 범위(대상 쿼리) 밖이라 별도로 보고한다.
-    #
-    # 🔴 news__isnull=False는 그대로 유지한다(2026-09-15 실측 버그의 재발 방지) —
-    # RunProposal.news는 SET_NULL이라 그 제안이 가리키던 News가 삭제되면 news_id가
-    # NULL로 남는다. exclude(pk__in=...)의 서브쿼리 결과에 NULL이 섞이면 SQL의
-    # NOT IN이 모든 행을 탈락시켜(NULL과의 비교는 항상 UNKNOWN) targets가 통째로
-    # 0건이 된다.
-    previous_job = (
-        RunJob.objects.filter(job_key="cleanup").exclude(pk=run_job_id)
-        .order_by("-started_at", "-pk").first()
-    )
-    excluded_news_ids = []
-    if previous_job is not None:
-        excluded_news_ids = RunProposal.objects.filter(
-            run_job=previous_job, status=RunProposal.STATUS_PENDING, news__isnull=False,
-        ).values("news_id")
-
-    targets = list(
-        News.objects.filter(status=News.STATUS_UNVERIFIED)
-        .exclude(pk__in=excluded_news_ids)
-        .order_by("pk")
-    )
+    # 🔴 2026-09-16 "SET-010 검토 단위" 절 확정 — 이어하기 exclude 로직을 통째로
+    # 걷어낸다. 대상을 "직전 배치 하나가 남긴 대기 제안"이 아니라 B(미판정, 위
+    # cleanup_ab_split()) 그 자체로 정의하면 "이미 제안이 있는 기사는 정의상
+    # 대상이 아니다"가 성립해 이어하기가 규칙이 아니라 정의가 된다. 배치를
+    # 몇 번 나눠 돌리든, 중단되든, 실패하든 같은 기사가 두 번 판정될 길이
+    # 구조적으로 없다 — previous_job을 찾아 "직전 하나"로 범위를 좁히던 종전
+    # 방식이 안고 있던 "가장 최근 배치가 아니면 유령이 된다"는 문제 자체가
+    # 사라진다(RunProposal.STATUS_PENDING만 보고, 그 제안을 어느 RunJob이
+    # 냈는지·그 RunJob이 지금 무슨 상태인지는 안 본다).
+    _, b_qs = cleanup_ab_split()
+    targets = list(b_qs.order_by("pk"))
     RunJob.objects.filter(pk=run_job_id).update(
         target_count=len(targets), prompt_version=PROMPT_VERSION,
     )
@@ -397,12 +474,31 @@ def _run_insight(run_job_id: int) -> None:
     from apps.setting.models import RunDraft
     from services.llm import PROMPT_VERSION_INSIGHT, generate_insights
 
+    # 🔴 2026-09-16 "SET-010 검토 단위" 절 11번 — insight_dismissed_at이 찍힌
+    # News(3단계 탈락 표식)를 대상에서 뺀다. 3단계 대상이 "직전 확정 이후 새로
+    # 검증된 것"(증분형)에서 "탈락 표식 없는 미배정 전체"로 바뀌었으므로, 표식이
+    # 없으면 한 번 탈락한 기사가 실행마다 계속 다시 대상이 되어 3단계가 영구히
+    # "할 일 있음"이 된다(같은 이유로 탈락한다는 것이 구조이기 때문).
+    #
+    # 🔴 2026-09-16 조인 중복 감사(insight_ab_split()의 실측 사고 정정과 같은
+    # 라운드) — 이 쿼리는 안전하다. insights__isnull=True는 M2M을 LEFT JOIN하되
+    # "묶인 이슈가 하나도 없다"를 묻는 것이라 늘어날 행 자체가 없다(이슈가 여러
+    # 개 묶인 경우에만 JOIN이 행을 늘리는데, 그 경우는 정의상 isnull=False다).
+    # insight_ab_split()의 unassigned도 같은 이유로 원래 안전했다(실측: 17=17).
     targets = list(
-        News.objects.verified().filter(insights__isnull=True).order_by("published_at", "pk")
+        News.objects.verified()
+        .filter(insights__isnull=True, insight_dismissed_at__isnull=True)
+        .order_by("published_at", "pk")
     )
-    RunJob.objects.filter(pk=run_job_id).update(
-        target_count=len(targets), prompt_version=PROMPT_VERSION_INSIGHT,
-    )
+    run_job = RunJob.objects.get(pk=run_job_id)
+    run_job.target_count = len(targets)
+    run_job.prompt_version = PROMPT_VERSION_INSIGHT
+    run_job.save(update_fields=["target_count", "prompt_version"])
+    # 🔴 이 배치가 "고려한 후보 전체"를 얼려 둔다 — RunDraft.news는 실제로 이슈로
+    # 묶인 것만 담아 "고려했지만 어디에도 안 묶인 것"을 알 방법이 없다. 확정
+    # 시점(apps/setting/views.py _confirm_insight_drafts())에 이 집합에서 채택된
+    # Insight의 news를 뺀 나머지가 탈락 표식을 받는다.
+    run_job.insight_candidates.set(targets)
     if not targets:
         # 대상 0건 — 화면 잠금(설계 2번)이 이 상태를 막는 정상 경로이지만, 관리 명령
         # 등으로 직접 불렸을 때를 대비해 방어적으로 그대로 완료 처리한다. RunDraft를
