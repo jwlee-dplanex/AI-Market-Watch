@@ -1,5 +1,5 @@
 from django.db import models
-from apps.news.models import Insight, News, TagCorrectionRecord
+from apps.news.models import DeletedNewsRecord, Insight, News, TagCorrectionRecord
 from apps.reports.models import Report
 
 
@@ -331,6 +331,14 @@ class RunJob(models.Model):
     # 이 값을 보고 판단하기 위한 자리다. processed_count(전체 처리 건)와는 다른
     # 질문에 답한다 — "그중 제목 규칙에 걸린 건이 몇이었는가."
     title_rejected_count = models.IntegerField(default=0)
+    # 🔴 2026-09-16 PE 신설(docs/planning.md "2단계 비용 절감 정책" 회귀 검사,
+    # docs/design.md "SET-010 · 실행" 21차 개정 ⑧번) — "cleanup" 전용. 이 확정으로
+    # 검증됨으로 넘어간 News 중 사전 차단 규칙(services/cleanup_prefilter.py)을 다시
+    # 돌렸을 때 걸리는 건수. 확정 뷰가 채운다. 검토 화면이 "가장 최근 확정된 cleanup
+    # RunJob"의 이 값을 읽어 step.notice에 반영한다 — messages.warning은 확정 직후
+    # 한 번 뜨고 사라지지만, 낱말 목록을 넓히는 일은 코드를 고쳐야 해서 사용자가 그
+    # 자리에서 처리할 수 없어 다음 화면 진입에서도 남아 있어야 한다.
+    regression_flag_count = models.IntegerField(default=0)
     # 🔴 2026-09-16 "SET-010 검토 단위" 절 13번 신설 — 확정 버튼을 누른 시각. 종전에는
     # 화면 요약 줄이 finished_at(실행 종료 시각)을 "확정 시각"으로 대신 썼는데, 어제
     # 실행하고 오늘 확정하면 어제로 찍혔다. 여러 배치를 한 번에 확정하는 이번 설계에서
@@ -471,6 +479,20 @@ class RunProposal(models.Model):
         max_length=20, choices=TagCorrectionRecord.AXIS_CHOICES, blank=True,
         help_text="태그 제거/추가/후보 제안의 축(기업/기술 주제). 삭제/유지 제안은 비워 둔다. "
                    "FK가 아니라 문자열인 이유는 클래스 docstring 참고.",
+    )
+    # 🔴 2026-09-16 PE 신설(docs/planning.md "2단계 비용 절감 정책" 4-3번, 형식 요건
+    # 3번) — 이 삭제/유지 제안을 낸 주체가 LLM인지 코드(사전 차단 규칙)인지 남긴다.
+    # 빈 값(기본값)은 지금까지처럼 LLM(classify_news()) 판정이라는 뜻이다 — 이번에
+    # LLM 경로를 건드리지 않아 기존 행의 의미가 그대로 유지된다. 코드가 낸 제안만
+    # DeletedNewsRecord 판정 주체 어휘를 그대로 채운다(자체 상수를 새로 만들지 않음 —
+    # TagCorrectionRecord.JUDGED_BY_RA가 DeletedNewsRecord.JUDGED_BY_RA를 그대로
+    # 참조하는 것과 같은 드리프트 방지 이유). 확정 뷰(setting_run_review_confirm)가
+    # 이 값을 그대로 delete_news_with_record(judged_by=...)에 넘긴다 — 규칙 정확도와
+    # LLM 정확도가 한 통계에 섞이지 않게 하려는 목적이다.
+    JUDGED_BY_CODE_AI_KEYWORD_RULE = DeletedNewsRecord.JUDGED_BY_CODE_AI_KEYWORD_RULE
+    judged_by = models.CharField(
+        max_length=30, blank=True, default="",
+        help_text=f"빈 값=LLM 판정. 코드 사전 차단 제안만 '{JUDGED_BY_CODE_AI_KEYWORD_RULE}'를 채운다.",
     )
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=STATUS_PENDING)
     judged_at = models.DateTimeField(auto_now_add=True)

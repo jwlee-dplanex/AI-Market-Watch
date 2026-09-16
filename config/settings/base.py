@@ -17,6 +17,9 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # SET-006 「실행 이력」 탭이 {% load humanize %} + |intcomma로 토큰 자릿점을 찍는다
+    # (docs/design.md SET-006 1차 개정 PE 인계 1번) — 빠지면 그 화면이 500을 낸다.
+    "django.contrib.humanize",
     "apps.dashboard",
     "apps.news",
     "apps.reports",

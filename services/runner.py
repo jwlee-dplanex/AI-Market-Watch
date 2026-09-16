@@ -391,6 +391,7 @@ def insight_ab_split():
 
 def _run_cleanup(run_job_id: int) -> None:
     from apps.setting.models import RunProposal
+    from services.cleanup_prefilter import CRITERION_CODE, REASON, should_prefilter_delete
     from services.llm import PROMPT_VERSION, classify_news
 
     # 🔴 2026-09-16 "SET-010 검토 단위" 절 확정 — 이어하기 exclude 로직을 통째로
@@ -410,6 +411,23 @@ def _run_cleanup(run_job_id: int) -> None:
 
     consecutive_failures = 0
     for news in targets:
+        # 🔴 2026-09-16 "2단계 비용 절감 정책" A안 — 제목과 본문 어디에도 AI 계열
+        # 낱말이 없으면 LLM을 부르지 않고 코드가 바로 삭제 제안을 낸다. ExcludedURL
+        # 직행이 아니라 RunProposal(TYPE_DELETE)로 내 검토 화면을 그대로 거친다
+        # (형식 요건 2번, LLM을 안 부르니 토큰은 여전히 0). 본문이 짧으면(크롤 실패
+        # 의심) should_prefilter_delete()가 스스로 False를 반환해 LLM 경로로 넘어간다
+        # (형식 요건 5번 "의심되면 LLM으로").
+        if should_prefilter_delete(news.title, news.body):
+            RunProposal.objects.create(
+                run_job_id=run_job_id, news=news, proposal_type=RunProposal.TYPE_DELETE,
+                criterion_code=CRITERION_CODE, reason=REASON,
+                judged_by=RunProposal.JUDGED_BY_CODE_AI_KEYWORD_RULE,
+            )
+            RunJob.objects.filter(pk=run_job_id).update(
+                processed_count=F("processed_count") + 1, heartbeat_at=timezone.now(),
+            )
+            continue
+
         try:
             result = classify_news(news)
         except Exception as exc:

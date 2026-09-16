@@ -1,15 +1,26 @@
 {% extends "setting/base_setting.html" %}
+{% load humanize %}
 
+{% comment %}
+  🔴 `{% load humanize %}`는 `django.contrib.humanize`가 INSTALLED_APPS에 있어야 동작한다
+  (2026-09-16, PD → PE 인계 1번). 없으면 이 화면이 통째로 500을 낸다 — 조용히 틀리는 대신
+  크게 실패하는 쪽을 골랐다. 토큰이 76만 단위까지 올라가 자릿점 없이는 읽을 수 없다.
+{% endcomment %}
 
 {% block setting_content %}
-<div x-data="{ tab: 'collection' }">
+{% comment %}
+  탭 초기값을 뷰가 내려준 active_tab으로 잡는다(2026-09-16, PD). 페이지네이션 링크가
+  ?tab=runs&rpage=2 처럼 전체 새로고침을 일으키므로, Alpine 초기값이 'collection'으로
+  고정돼 있으면 페이지를 넘길 때마다 수집 로그 탭으로 튕긴다.
+{% endcomment %}
+<div x-data="{ tab: '{{ active_tab|default:"collection" }}' }">
 
   {% comment %}
        검증 파이프라인 현황 (운영자 전용, 2026-08-04 검증 게이트 정책 PD 인계 —
        docs/planning.md "검증 게이트: 미검증 뉴스는 화면에 노출하지 않는다" 5번,
        docs/design.md SET-006 절 "검증 파이프라인 현황 블록" 참고).
        미검증 뉴스는 사용자 화면에서 완전히 숨기므로, 이 화면(운영자 전용)에서만 "검증이 밀린 것"과
-       "수집 자체가 죽은 것"을 구분할 수 있어야 한다. 탭(수집 로그/LLM 이력) 밖, 두 탭 어느 쪽을 보고
+       "수집 자체가 죽은 것"을 구분할 수 있어야 한다. 탭(수집 로그/실행 이력) 밖, 두 탭 어느 쪽을 보고
        있어도 항상 보이는 위치에 둔다 — 파이프라인 전체 상태 요약이라 특정 탭에 종속시키지 않는다.
 
        PE 컨텍스트 변수 계약(News 상태 필드 미구현 — 아래 값은 PE가 필드 구현과 함께 채운다):
@@ -108,18 +119,36 @@
             :class="tab === 'collection' ? 'bg-primary text-white' : 'text-gray-500 hover:bg-gray-50'">
       수집 로그
     </button>
-    <button @click="tab = 'llm'"
+    {% comment %}
+      🔴 2026-09-16 「LLM 이력」을 「실행 이력」으로 갈아 끼웠다(탭을 셋으로 늘리지 않았다).
+      LLMLog는 0건이고, 그 모델에는 캐시 토큰 칸도 모델명 칸도 없어 값이 쌓여도 비용을
+      맞출 수 없다(캐시 읽기가 입력의 5배가 넘는다). 반대로 RunJob에는 입력/출력/캐시 저장/
+      캐시 읽기 네 칸이 다 있고 데이터도 쌓여 있다. 영영 비어 있을 탭을 옆에 남겨 두면
+      "여기 뭔가 있어야 하는데 안 나온다"는 오해만 계속 만든다.
+      자세한 근거는 docs/design.md SET-006 "실행 이력과 비용" 절.
+    {% endcomment %}
+    <button @click="tab = 'runs'"
             class="px-4 py-2 text-xs font-medium rounded-[10px] transition-colors"
-            :class="tab === 'llm' ? 'bg-primary text-white' : 'text-gray-500 hover:bg-gray-50'">
-      LLM 이력
+            :class="tab === 'runs' ? 'bg-primary text-white' : 'text-gray-500 hover:bg-gray-50'">
+      실행 이력
     </button>
   </div>
 
-  {% comment %}수집 로그 탭{% endcomment %}
-  <div x-show="tab === 'collection'">
+  {% comment %}
+    수집 로그 탭.
+    🔴 x-cloak을 붙였다(2026-09-16) — 종전에는 이 탭이 언제나 기본값이라 없어도 됐지만,
+    이제 초기 탭이 active_tab에 따라 달라진다. 안 붙이면 ?tab=runs로 들어왔을 때 Alpine이
+    뜨기 전까지 수집 로그 표가 먼저 보였다 사라지는 FOUC가 생긴다.
+  {% endcomment %}
+  <div x-show="tab === 'collection'" x-cloak>
     <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm">
       <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
         <h2 class="text-sm font-semibold text-gray-900">수집 로그</h2>
+        {% comment %}
+          ⚠️ 정직성 주석 — 이 select 둘은 아직 동작하지 않는 목업이다(골라도 목록이 바뀌지 않는다).
+          2026-09-16 실행 이력 탭에도 같은 모양의 필터를 달자는 안이 나왔지만, 동작하지 않는 목업을
+          하나 더 늘리는 셈이라 접었다. 필터를 살릴 때는 두 탭을 같은 라운드에 함께 살린다.
+        {% endcomment %}
         <div class="flex items-center gap-2">
           <select class="text-xs border border-gray-200 rounded-[10px] px-3 py-1.5 focus:outline-none focus:border-primary">
             <option>전체 소스</option>
@@ -153,13 +182,13 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-50">
-          {% for log in collection_logs %}
+          {% for log in collection_page %}
           <tr class="hover:bg-gray-50 transition-colors">
-            <td class="px-5 py-3 text-gray-500">{{ log.started_at|date:"m.d H:i" }}</td>
+            <td class="px-5 py-3 text-gray-500 tabular-nums whitespace-nowrap">{{ log.started_at|date:"m.d H:i" }}</td>
             <td class="py-3 text-gray-700">{{ log.source.name|default:"—" }}</td>
-            <td class="py-3 text-gray-700">{{ log.collected_count }}건</td>
-            <td class="py-3 {% if log.crawl_failed_count %}text-orange-500 font-semibold{% else %}text-gray-400{% endif %}">
-              {{ log.crawl_failed_count }}건
+            <td class="py-3 text-gray-700 tabular-nums">{{ log.collected_count|intcomma }}건</td>
+            <td class="py-3 tabular-nums {% if log.crawl_failed_count %}text-orange-500 font-semibold{% else %}text-gray-400{% endif %}">
+              {{ log.crawl_failed_count|intcomma }}건
             </td>
             <td class="py-3">
               <span class="px-2 py-0.5 rounded-full
@@ -177,67 +206,144 @@
         </tbody>
       </table>
     </div>
+    {% include "setting/_log_pagination.html" with page=collection_page page_range=collection_page_range param="cpage" tab="collection" %}
   </div>
 
-  {% comment %}LLM 이력 탭{% endcomment %}
-  <div x-show="tab === 'llm'" x-cloak>
+  {% comment %}
+    실행 이력 탭 (2026-09-16 신설, docs/design.md SET-006 "실행 이력과 비용" 절).
+    RunJob 한 행이 곧 실행 한 번이고, 그 행에 붙은 토큰 넷으로 비용을 계산해 보여준다.
+    사용자가 이 탭에서 묻는 것은 하나다 — "얼마 썼나".
+  {% endcomment %}
+  <div x-show="tab === 'runs'" x-cloak>
+
+    {% comment %}
+      ① 쓴 비용 요약 — 이 탭의 첫 블록이자 이 화면의 답.
+      탭 밖(검증 파이프라인 카드 옆)이 아니라 탭 안에 둔 이유는 docs/design.md에 적어 뒀다.
+      요약하면 비용은 실행 이력의 요약이지 파이프라인 상태 신호가 아니고, 상시 카드를 둘로
+      늘리면 정작 봐야 할 표가 화면 아래로 밀린다.
+    {% endcomment %}
+    <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm mb-4">
+      <div class="px-5 py-4">
+        <h2 class="text-sm font-semibold text-gray-900">쓴 비용</h2>
+        <p class="text-xs text-gray-400 mt-0.5">실행할 때마다 쓴 토큰으로 계산한 금액이에요.</p>
+        <div class="flex items-center gap-8 flex-wrap mt-4">
+          <div>
+            <p class="text-xs text-gray-400 mb-1">오늘</p>
+            <p class="text-xl font-semibold text-gray-900 tabular-nums">{{ cost_today_krw|default:0|intcomma }}원</p>
+            <p class="text-[11px] text-gray-400 mt-0.5 tabular-nums">실행 {{ runs_today_count|default:0|intcomma }}회</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-400 mb-1">이번 달</p>
+            <p class="text-xl font-semibold text-gray-900 tabular-nums">{{ cost_month_krw|default:0|intcomma }}원</p>
+            <p class="text-[11px] text-gray-400 mt-0.5 tabular-nums">실행 {{ runs_month_count|default:0|intcomma }}회</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-400 mb-1">전체</p>
+            <p class="text-xl font-semibold text-gray-900 tabular-nums">{{ cost_total_krw|default:0|intcomma }}원</p>
+            <p class="text-[11px] text-gray-400 mt-0.5 tabular-nums">실행 {{ runs_total_count|default:0|intcomma }}회</p>
+          </div>
+        </div>
+      </div>
+      {% comment %}
+        단가를 화면에 적어 둔다. 금액이 어떻게 나온 값인지 화면 안에서 끝까지 확인할 수 있어야
+        운영자가 숫자를 믿고 쓴다(팩트 기반 원칙). 모델이나 환율이 바뀌면 이 문장도 같이 고친다.
+      {% endcomment %}
+      <div class="px-5 py-3 border-t border-gray-100">
+        <p class="text-[11px] text-gray-400 leading-tight">
+          Haiku 4.5 단가로 계산했어요. 100만 토큰마다 입력 1.00달러, 출력 5.00달러, 캐시 저장 1.25달러,
+          캐시 읽기 0.10달러예요. 환율은 1,400원으로 고정해서 계산해요.
+        </p>
+      </div>
+    </div>
+
+    {% comment %}② 실행 이력 표{% endcomment %}
     <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm">
       <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-        <h2 class="text-sm font-semibold text-gray-900">LLM 이력</h2>
-        <div class="flex items-center gap-2">
-          <select class="text-xs border border-gray-200 rounded-[10px] px-3 py-1.5 focus:outline-none focus:border-primary">
-            <option>전체 상태</option>
-            <option>성공</option>
-            <option>실패</option>
-          </select>
-        </div>
+        <h2 class="text-sm font-semibold text-gray-900">실행 이력</h2>
+        <p class="text-xs text-gray-400">최근에 실행한 것부터 보여드려요</p>
       </div>
       <table class="w-full text-xs">
         <thead>
           <tr class="border-b border-gray-100">
-            <th class="text-left font-semibold text-gray-500 px-5 py-3 w-40">처리 시각</th>
-            <th class="text-left font-semibold text-gray-500 py-3 w-32">프롬프트</th>
-            <th class="text-left font-semibold text-gray-500 py-3 flex-1">뉴스 제목</th>
-            <th class="text-left font-semibold text-gray-500 py-3 w-20">입력 토큰</th>
-            <th class="text-left font-semibold text-gray-500 py-3 w-20">출력 토큰</th>
+            <th class="text-left font-semibold text-gray-500 px-5 py-3 w-24">시각</th>
+            <th class="text-left font-semibold text-gray-500 py-3">단계</th>
             <th class="text-left font-semibold text-gray-500 py-3 w-20">상태</th>
+            <th class="text-right font-semibold text-gray-500 py-3 w-20">건수</th>
+            {% comment %}
+              토큰 넷을 열 셋으로 접었다. 캐시 저장은 배치 첫 건에서 한 번 잡히고 대개 0이라
+              독립된 열을 줄 만큼 자주 채워지지 않는다. 대신 값이 있을 때만 캐시 열 안에
+              작은 보조 줄로 따라붙는다 — 넷을 다 늘어놓으면 표가 무거워지고, 빼 버리면
+              캐시 절감이 얼마나 먹혔는지 읽을 수 없다.
+            {% endcomment %}
+            <th class="text-right font-semibold text-gray-500 py-3 w-24">입력 토큰</th>
+            <th class="text-right font-semibold text-gray-500 py-3 w-24">출력 토큰</th>
+            <th class="text-right font-semibold text-gray-500 py-3 w-28">캐시 토큰</th>
+            <th class="text-right font-semibold text-gray-500 pr-4 py-3 w-24">비용</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-50">
-          {% for log in llm_logs %}
+          {% for row in run_rows %}
           <tr class="hover:bg-gray-50 transition-colors">
-            <td class="px-5 py-3 text-gray-500">{{ log.created_at|date:"m.d H:i" }}</td>
-            <td class="py-3 text-gray-700">{{ log.prompt_name }}</td>
-            <td class="py-3 text-gray-500 truncate max-w-xs">
-              {% if log.news %}
-                {% if log.news.is_verified %}
-                <a href="{% url 'news_detail' log.news.uid %}" class="hover:text-primary transition-colors">{{ log.news.title }}</a>
-                {% else %}
-                {% comment %}
-                  미검증 뉴스는 상세가 404이므로 링크를 걸지 않는다. 제목은 운영자가
-                  무엇이 대기 중인지 알아야 하므로 그대로 보여준다.
-                  ⚠️ 여러 줄 주석은 반드시 {% comment %} 블록을 쓴다 — Django의 {# #}는
-                  한 줄 전용이라 여러 줄로 쓰면 주석으로 인식되지 않고 화면에 그대로 출력된다.
-                {% endcomment %}
-                <span class="text-gray-400 cursor-default" title="아직 검증하지 않은 뉴스라 상세를 열 수 없어요">{{ log.news.title }}</span>
-                {% endif %}
-              {% else %}—{% endif %}
+            <td class="px-5 py-3 text-gray-500 tabular-nums whitespace-nowrap">
+              {% if row.started_at %}{{ row.started_at|date:"m.d H:i" }}{% else %}<span class="text-gray-300">시작 전</span>{% endif %}
             </td>
-            <td class="py-3 text-gray-500">{{ log.input_tokens|default:"—" }}</td>
-            <td class="py-3 text-gray-500">{{ log.output_tokens|default:"—" }}</td>
-            <td class="py-3">
-              <span class="px-2 py-0.5 rounded-full
-                {% if log.status == 'success' %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-600{% endif %}">
-                {{ log.get_status_display }}
+            {% comment %}
+              단계 이름은 두 축에서 겹친다("1단계 수집"이 리서치에도 소식에도 있다).
+              그래서 축 배지를 앞에 붙인다. 색은 디자인 시스템 규칙 그대로 리서치는 보라,
+              교보 소식은 파랑이다.
+            {% endcomment %}
+            <td class="py-3 text-gray-700">
+              <span class="inline-flex items-center gap-1.5">
+                <span class="px-2 py-0.5 rounded-full {% if row.axis == 'newsroom' %}bg-blue-50 text-blue-700{% else %}bg-purple-50 text-primary{% endif %}">{{ row.axis_label }}</span>
+                {{ row.step_label }}
               </span>
             </td>
+            {% comment %}
+              상태 팔레트는 수집 로그 배지와 SET-010 노드에서 쓰는 값을 그대로 가져왔다.
+              실패와 중단됨도 돈을 쓰므로 목록에서 빼지 않는다.
+            {% endcomment %}
+            <td class="py-3">
+              <span class="px-2 py-0.5 rounded-full whitespace-nowrap
+                {% if row.status == '완료' or row.status == '확정됨' %}bg-green-100 text-green-700
+                {% elif row.status == '실패' %}bg-red-100 text-red-600
+                {% elif row.status == '중단됨' %}bg-orange-100 text-orange-700
+                {% elif row.status == '진행중' or row.status == '대기' %}bg-yellow-100 text-yellow-700
+                {% else %}bg-gray-100 text-gray-600{% endif %}">
+                {{ row.status_label }}
+              </span>
+            </td>
+            <td class="py-3 text-right text-gray-700 tabular-nums">
+              {{ row.processed_count|default:0|intcomma }}건
+              {% if row.failed_count %}
+              <span class="block text-[11px] text-orange-600">실패 {{ row.failed_count|intcomma }}건</span>
+              {% endif %}
+            </td>
+            {% comment %}
+              토큰이 0인 실행(수집처럼 LLM을 쓰지 않는 단계)은 행을 숨기지 않고 회색 0으로 둔다.
+              감추면 "이 시각에 무엇이 돌았나"라는 흐름이 끊기고, 0은 지어낸 값이 아니라 사실이다.
+            {% endcomment %}
+            <td class="py-3 text-right tabular-nums {% if row.input_tokens %}text-gray-700{% else %}text-gray-300{% endif %}">{{ row.input_tokens|default:0|intcomma }}</td>
+            <td class="py-3 text-right tabular-nums {% if row.output_tokens %}text-gray-700{% else %}text-gray-300{% endif %}">{{ row.output_tokens|default:0|intcomma }}</td>
+            <td class="py-3 text-right tabular-nums {% if row.cache_read_tokens %}text-gray-700{% else %}text-gray-300{% endif %}">
+              {{ row.cache_read_tokens|default:0|intcomma }}
+              {% if row.cache_write_tokens %}
+              <span class="block text-[11px] text-gray-400">저장 {{ row.cache_write_tokens|intcomma }}</span>
+              {% endif %}
+            </td>
+            <td class="pr-4 py-3 text-right tabular-nums whitespace-nowrap {% if row.cost_krw %}font-semibold text-gray-900{% else %}text-gray-300{% endif %}">{{ row.cost_krw|default:0|intcomma }}원</td>
           </tr>
           {% empty %}
-          <tr><td colspan="6" class="px-5 py-10 text-center text-gray-400">아직 LLM 이력이 없어요. LLM이 호출되면 여기에 표시돼요.</td></tr>
+          <tr>
+            <td colspan="8" class="px-5 py-10 text-center text-gray-400">
+              아직 실행 이력이 없어요.
+              <a href="{% url 'setting_run' %}" class="text-primary hover:underline">실행</a> 화면에서 버튼을 누르면 여기에 표시돼요.
+            </td>
+          </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
+    {% include "setting/_log_pagination.html" with page=run_page page_range=run_page_range param="rpage" tab="runs" %}
   </div>
 
 </div>

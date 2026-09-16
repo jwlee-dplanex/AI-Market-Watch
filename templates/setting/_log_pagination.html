@@ -1,0 +1,40 @@
+{% comment %}
+  SET-006 로그 화면 페이지네이션 (2026-09-16, PD — docs/design.md SET-006 "실행 이력과 비용" 절).
+
+  두 탭(수집 로그 / 실행 이력)이 같은 화면 안에 있어 page 파라미터를 공유하면 한쪽을 넘길 때
+  다른 쪽까지 같이 넘어간다. 그래서 탭마다 파라미터 이름을 따로 쓰고(cpage / rpage) 링크에
+  tab을 함께 실어 새로고침 뒤에도 보던 탭이 그대로 열리게 한다.
+
+  넘겨받는 값
+  - page        : Django Page 객체(페이지네이션 컨트롤용)
+  - page_range  : 정수 또는 문자열 "…"이 섞인 목록(뷰에서 get_elided_page_range로 만든다)
+  - param       : 페이지 번호를 담을 쿼리 파라미터 이름("cpage" | "rpage")
+  - tab         : 링크에 실을 탭 키("collection" | "runs")
+
+  ⚠️ 무한 스크롤을 쓰지 않는다(2026-09-16 사용자 지시). HTMX 부분 교체도 쓰지 않는다 —
+  주소에 페이지가 남아야 같은 자리를 다시 열 수 있고, 이 화면은 운영자가 여러 번 되짚어
+  보는 화면이다.
+{% endcomment %}
+{% if page.paginator.num_pages > 1 %}
+<div class="flex items-center justify-center gap-1 mt-6">
+  {% if page.has_previous %}
+  <a href="?tab={{ tab }}&{{ param }}={{ page.previous_page_number }}"
+     class="px-3 py-1.5 text-sm text-gray-600 border border-gray-200 rounded-[10px] hover:border-primary transition-colors">이전</a>
+  {% endif %}
+  {% for num in page_range %}
+    {% if num == "…" %}
+    <span class="px-3 py-1.5 text-sm text-gray-300">…</span>
+    {% else %}
+    <a href="?tab={{ tab }}&{{ param }}={{ num }}"
+       class="px-3 py-1.5 text-sm rounded-[10px] transition-colors tabular-nums
+              {% if num == page.number %}bg-primary text-white{% else %}text-gray-600 border border-gray-200 hover:border-primary{% endif %}">
+      {{ num }}
+    </a>
+    {% endif %}
+  {% endfor %}
+  {% if page.has_next %}
+  <a href="?tab={{ tab }}&{{ param }}={{ page.next_page_number }}"
+     class="px-3 py-1.5 text-sm text-gray-600 border border-gray-200 rounded-[10px] hover:border-primary transition-colors">다음</a>
+  {% endif %}
+</div>
+{% endif %}

@@ -3,6 +3,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.contrib import messages
+from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Min, Max, Exists, OuterRef, Sum
 from django.http import Http404, HttpResponse
@@ -13,8 +14,10 @@ from django.views.decorators.http import require_POST
 from apps.news.models import DeletedNewsRecord, Insight, News, TagCorrectionRecord
 from apps.news.services import correct_news_tag, delete_news_with_record
 from apps.reports.models import Report
+from services.cleanup_prefilter import AI_KEYWORDS, should_prefilter_delete
+from services.pricing import compute_cost_krw
 from .models import (
-    DataSource, Keyword, CollectionLog, LLMLog, SlackConfig,
+    DataSource, Keyword, CollectionLog, SlackConfig,
     Organization, TechTopic, OrgRelation, RunJob, RunProposal, RunDraft,
 )
 
@@ -802,10 +805,25 @@ def _cleanup_flow():
     if flow["waiting"]:
         parts.append(f"대기 {flow['waiting']}")
     flow_str = f"오늘 {flow['total']}건 → " + ", ".join(parts) if parts else f"오늘 {flow['total']}건"
-    flow_title = (
-        f"오늘 수집한 {flow['total']}건 가운데 {flow['deleted']}건을 지우고 "
-        f"{flow['verified']}건이 검증을 통과했어요"
-    )
+
+    # 🔴 2026-09-16 — 흐름 줄 자체(flow_str)의 "삭제 N"은 두 주체를 쪼개지 않는다
+    # (design.md "SET-010 · 실행" 21차 개정 ⑥번 — 줄 길이 예산이 없고, 이 줄이
+    # 답하는 물음은 "그 수가 어디서 나왔나"이지 "누가 판정했나"가 아니다). 대신
+    # flow_title(마우스 올림)에만 한 조각을 더한다 — 문장이라 자리가 있다.
+    today = timezone.localtime(timezone.now()).date()
+    rule_deleted_today = DeletedNewsRecord.objects.filter(
+        collected_at__date=today, judged_by=DeletedNewsRecord.JUDGED_BY_CODE_AI_KEYWORD_RULE,
+    ).count()
+    if rule_deleted_today:
+        flow_title = (
+            f"오늘 수집한 {flow['total']}건 가운데 {flow['deleted']}건을 지웠고 그중 "
+            f"{rule_deleted_today}건은 코드 규칙이 걸렀어요. {flow['verified']}건이 검증을 통과했어요"
+        )
+    else:
+        flow_title = (
+            f"오늘 수집한 {flow['total']}건 가운데 {flow['deleted']}건을 지우고 "
+            f"{flow['verified']}건이 검증을 통과했어요"
+        )
     return flow_str, flow_title
 
 
@@ -1783,8 +1801,30 @@ def _run_review_context(job_key):
         if len(run_jobs) > 1:
             step["run_count"] = len(run_jobs)
         prompt_versions = {rj.prompt_version for rj in run_jobs if rj.prompt_version}
+        # 🔴 2026-09-16 — 기존 슬롯(step["notice"])을 그대로 재사용한다(design.md
+        # "SET-010 · 실행" 21차 개정 ⑧번 "새 자리를 만들지 않은 것이 판단이다"). 두
+        # 종류(기준 갈림 / 사전 차단 규칙 회귀 반례)가 겹치면 한 줄에 이어 쓴다 —
+        # 줄을 둘로 늘리면 요약 칸 세 개의 높이가 어긋난다.
+        notices = []
         if len(prompt_versions) > 1:
-            step["notice"] = "판정 기준이 다른 실행이 섞여 있어요"
+            notices.append("판정 기준이 다른 실행이 섞여 있어요")
+        if job_key == "cleanup":
+            # 🔴 "다음에 이 화면을 열 때" 보이는 자리 — 가장 최근에 확정된 cleanup
+            # RunJob의 regression_flag_count를 읽는다(확정 뷰가 채운 값). messages.warning은
+            # 확정 직후 한 번 뜨고 사라지지만, 낱말 목록을 넓히는 일은 코드를 고쳐야
+            # 해서 사용자가 그 자리에서 처리할 수 없어 여기서도 보여야 한다.
+            last_regression = (
+                RunJob.objects.filter(
+                    job_key="cleanup", status=RunJob.STATUS_CONFIRMED, regression_flag_count__gt=0,
+                ).order_by("-confirmed_at", "-pk").first()
+            )
+            if last_regression:
+                notices.append(
+                    f"지난 확정에서 규칙으로 걸러질 뻔한 기사가 "
+                    f"{last_regression.regression_flag_count}건 나왔어요. 낱말 목록을 넓혀야 해요."
+                )
+        if notices:
+            step["notice"] = " ".join(notices)
         total_seconds = sum(
             (rj.finished_at - rj.started_at).total_seconds()
             for rj in run_jobs if rj.started_at and rj.finished_at
@@ -1811,14 +1851,22 @@ def _run_review_context(job_key):
     for p in proposals:
         if p.proposal_type == RunProposal.TYPE_DELETE:
             delete_news_ids.add(p.news_id)
+            # 🔴 2026-09-16 — 판정 주체가 둘이 됐다(docs/design.md "SET-010 · 실행"
+            # 21차 개정). by_rule=True는 LLM을 부르지 않고 코드 사전 차단 규칙
+            # (services/cleanup_prefilter.py)이 낸 제안이다. criterion_code/
+            # criterion_label은 코드 행에서 빈 문자열로 내린다 — 기준 코드는 LLM
+            # 판정 어휘라 규칙 판정에 붙으면 두 주체의 정확도가 한 통계에 섞인다
+            # (정책 4-3, 21차 ⑦번).
+            by_rule = p.judged_by == RunProposal.JUDGED_BY_CODE_AI_KEYWORD_RULE
             delete_items.append({
                 "id": p.pk,
                 "title": p.news.title,
                 "published_at": p.news.published_at,
                 "source": p.news.source_domain,
                 "body_preview": _body_preview(p.news.body),
-                "criterion_code": p.criterion_code,
-                "criterion_label": CRITERION_LABELS.get(p.criterion_code, ""),
+                "by_rule": by_rule,
+                "criterion_code": "" if by_rule else p.criterion_code,
+                "criterion_label": "" if by_rule else CRITERION_LABELS.get(p.criterion_code, ""),
                 "reason": p.reason,
             })
         elif p.proposal_type == RunProposal.TYPE_KEEP:
@@ -1868,6 +1916,15 @@ def _run_review_context(job_key):
 
     retag_groups = list(retag_by_news.values())
 
+    # 🔴 2026-09-16 — 코드 규칙 제안(by_rule=True)을 앞에 모은다(design.md 21차 개정
+    # ⑤번). 반증("이건 남았어야 했다")이 코드 그룹 안에 모여 있어야 발견되고, 5건뿐인
+    # 코드 그룹을 뒤에 두면 86건짜리 LLM 그룹에 묻혀 실질적으로 안 보인다. 템플릿은
+    # 정렬하지 않는다(21차 ⑤번) — sort()는 stable이라 같은 by_rule 안에서는 기존
+    # published_at 내림차순이 그대로 보존된다.
+    delete_items.sort(key=lambda item: not item["by_rule"])
+    rule_delete_count = sum(1 for item in delete_items if item["by_rule"])
+    llm_delete_count = len(delete_items) - rule_delete_count
+
     review["delete_items"] = delete_items
     review["retag_groups"] = retag_groups
     # 🔴 2026-09-15 개정 — org_candidates에서 tag_candidates로 이름을 바꿨다(축 일반화).
@@ -1881,6 +1938,10 @@ def _run_review_context(job_key):
     # 내려 "새로 쓴 이슈 초안 0건"이 찍히게 한다.
     output = {
         "delete_count": len(delete_items),
+        # 🔴 2026-09-16 신설(design.md 21차 개정 ⑨번) — 뷰가 직접 뺄셈해 내린다(Django
+        # 템플릿에 뺄셈이 없다). 둘의 합은 항상 delete_count와 같다.
+        "rule_delete_count": rule_delete_count,
+        "llm_delete_count": llm_delete_count,
         "retag_count": sum(len(g["items"]) for g in retag_groups),
         "keep_count": keep_count,
         # 🔴 커버리지·잠금 조건에 세지 않는다(run_review.html 상단 계약, design.md 4차
@@ -1910,6 +1971,13 @@ def _run_review_context(job_key):
         output["insight_count"] = len(report_items)
         output["draft_noun"] = RunDraft.TYPE_WEEKLY if job_key == "weekly" else RunDraft.TYPE_MONTHLY
     review["output"] = output
+
+    # 🔴 2026-09-16 신설(design.md 21차 개정 ⑨번) — 코드 그룹 머리의 title에만 쓰는
+    # 선택 값. 코드 제안이 0건이면 그룹 머리 자체가 안 그려지므로 만들지 않는다.
+    # 낱말 목록은 services/cleanup_prefilter.AI_KEYWORDS 한 곳(정책 8번)에서 그대로
+    # 가져온다 — 여기서 다시 쓰면 그 목록과 갈릴 수 있다.
+    if rule_delete_count:
+        review["rule_words"] = ", ".join(AI_KEYWORDS)
 
     # 🔴 PD 19차 개정 ⑥번 신설 — "모두 취소"가 버릴 대기 제안(또는 초안) 수.
     # 화면이 보여주는 범위와 글자 그대로 같다(체크 상태와 무관하게 서버 값
@@ -2142,6 +2210,7 @@ def setting_run_review_confirm(request, job):
     tag_not_found = 0  # 대상 이름을 이름/별칭 어느 쪽으로도 찾지 못한 경우
     tag_error = 0       # 대상은 찾았지만 correct_news_tag() 실행 자체가 실패한 경우
     deleted_news_ids = set()
+    newly_verified_news = []  # 이번 확정으로 검증됨으로 넘어간 News — 아래 회귀 검사용
 
     # ① 삭제/유지 — 태그 교정보다 먼저 처리한다(위 docstring 근거).
     for p in relevance_proposals:
@@ -2152,6 +2221,7 @@ def setting_run_review_confirm(request, job):
             p.news.save(update_fields=["status", "verified_at"])
             p.status = RunProposal.STATUS_ACCEPTED
             p.save(update_fields=["status"])
+            newly_verified_news.append(p.news)
             continue
 
         if str(p.pk) not in accepted_delete_ids:
@@ -2164,7 +2234,11 @@ def setting_run_review_confirm(request, job):
                 p.news,
                 criterion_code=p.criterion_code,
                 reason=p.reason,
-                judged_by=DeletedNewsRecord.JUDGED_BY_AUTO,
+                # 🔴 2026-09-16 — 이 제안이 코드 사전 차단 규칙(RunProposal.judged_by,
+                # services/cleanup_prefilter.py)이 낸 것이면 그 주체 값을 그대로
+                # 넘긴다. 빈 값(LLM 판정)은 종전대로 JUDGED_BY_AUTO다 — 규칙 정확도와
+                # LLM 정확도가 한 통계에 섞이지 않게 하려는 목적이다.
+                judged_by=p.judged_by or DeletedNewsRecord.JUDGED_BY_AUTO,
             )
         except Exception:
             logger.exception("RunProposal %s(삭제) 확정 중 실패했어요.", p.pk)
@@ -2182,6 +2256,39 @@ def setting_run_review_confirm(request, job):
             # 객체 그래프를 보지 않고 status 컬럼만 SQL로 직접 바꾸므로 걸리지 않는다 — 여러
             # 행을 건드리는 일괄 update가 아니라 이 한 행만 pk로 특정한 단건 갱신이다.
             RunProposal.objects.filter(pk=p.pk).update(status=RunProposal.STATUS_ACCEPTED)
+
+    # 🔴 2026-09-16 회귀 검사(docs/planning.md "2단계 비용 절감 정책" 절, docs/design.md
+    # "SET-010 · 실행" 21차 개정 ⑧번) — 실행 비용 0(LLM을 안 부른다). 방금 검증됨으로
+    # 넘어간 News에 같은 사전 차단 규칙을 다시 돌려, "이 규칙이 지금 살아 있었다면
+    # 걸렸을" 기사가 있는지 본다. 새 AI 관련 용어가 나왔는데 낱말 목록이 못 따라가면
+    # 조용히 놓치기 시작하므로, 여기가 그걸 잡는 유일한 자리다. job == "cleanup"일
+    # 때만 의미가 있다 — 다른 job은 relevance_proposals가 비어 있어
+    # newly_verified_news도 항상 비어 있다.
+    #
+    # 🔴 알리는 자리가 둘이다(PD 21차 ⑧번) — ① 여기(messages.warning)는 확정 직후
+    # 한 번 뜨고 사라진다. ② regression_flag_count는 RunJob에 남겨 "다음에 검토
+    # 화면을 열 때"(_run_review_context()의 step.notice)도 보이게 한다 — 낱말 목록을
+    # 넓히는 일은 코드를 고쳐야 해서 사용자가 그 자리에서 처리할 수 없기 때문이다.
+    regression_flagged_count = 0
+    if newly_verified_news:
+        regression_flagged = [
+            news for news in newly_verified_news
+            if should_prefilter_delete(news.title, news.body)
+        ]
+        regression_flagged_count = len(regression_flagged)
+        if regression_flagged:
+            flagged_pks = ", ".join(str(news.pk) for news in regression_flagged)
+            logger.warning(
+                "2단계 회귀 검사: 검증됨으로 넘어간 %d건 중 %d건에 AI 낱말이 0회예요 "
+                "(News pk: %s).",
+                len(newly_verified_news), regression_flagged_count, flagged_pks,
+            )
+            # 🔴 문구는 PD가 정본이다(design.md 21차 ⑧번 권장 문안 ①).
+            messages.warning(
+                request,
+                f"방금 통과한 기사 {regression_flagged_count}건은 규칙으로 걸러질 뻔했어요. "
+                f"AI 관련 낱말을 넓혀야 해요.",
+            )
 
     # ② 태그 교정. 대상 조회는 collector의 별칭 매칭과 이름/별칭 비교 규칙을 그대로
     # 공유한다(services/collector.resolve_entity_by_name) — 수집 쪽 태깅은 이미 별칭을
@@ -2260,8 +2367,13 @@ def setting_run_review_confirm(request, job):
         p.status = RunProposal.STATUS_CANCELED
         p.save(update_fields=["status"])
 
+    # 🔴 regression_flagged_count는 "cleanup" 확정에서만 뜻이 있다(위 규칙 회귀 검사
+    # 블록 참고) — 다른 job은 newly_verified_news가 항상 비어 있어 0 그대로다. 이번
+    # 확정에 묶인 배치 전부에 같은 값을 남긴다 — confirmed_at을 이미 똑같이 채우는
+    # 것과 같은 방식이다.
     RunJob.objects.filter(pk__in=[rj.pk for rj in run_jobs]).update(
         status=RunJob.STATUS_CONFIRMED, confirmed_at=confirmed_at,
+        regression_flag_count=regression_flagged_count,
     )
 
     if delete_failed or tag_not_found or tag_error:
@@ -2457,11 +2569,111 @@ def _orphan_relation_count() -> int:
     )
 
 
+# SET-006 「실행 이력과 비용」(docs/design.md 1차 개정, 2026-09-16) 페이지 크기. 두 탭
+# (수집 로그/실행 이력) 모두 20건/쪽이다(PD 확정, ⑦번 "무한 스크롤을 쓰지 않는다").
+LOG_PAGE_SIZE = 20
+
+
+def _paginate_log(queryset, request, param):
+    """SET-006 두 탭(수집 로그 cpage / 실행 이력 rpage)이 공유하는 페이지네이션 헬퍼.
+    templates/setting/_log_pagination.html이 받는 (page, page_range) 튜플을 만든다.
+    page_range 항목은 정수이거나 Paginator.ELLIPSIS("…") 문자열인데, 템플릿의
+    `{% if num == "…" %}` 비교가 항상 문자열과 맞도록 str()로 한 번 더 캐스팅해 넘긴다
+    (docs/design.md PE 인계 계약 "문자열 '…'")."""
+    paginator = Paginator(queryset, LOG_PAGE_SIZE)
+    try:
+        page = paginator.page(request.GET.get(param, 1))
+    except PageNotAnInteger:
+        page = paginator.page(1)
+    except EmptyPage:
+        page = paginator.page(paginator.num_pages)
+    page_range = [
+        n if isinstance(n, int) else str(n)
+        for n in paginator.get_elided_page_range(page.number, on_each_side=1, on_ends=1)
+    ]
+    return page, page_range
+
+
+def _run_cost_summary(queryset):
+    """RunJob 쿼리셋 하나의 (비용 합계 원, 실행 건수) — SET-006 "쓴 비용" 카드의 오늘/이번
+    달/전체 세 칸이 각각 이 함수를 한 번씩 부른다. 페이지가 아니라 기간 전체를 집계하므로
+    페이지를 넘겨도 이 값은 바뀌지 않는다(PE 인계 계약 4번)."""
+    agg = queryset.aggregate(
+        input_sum=Sum("input_tokens"),
+        output_sum=Sum("output_tokens"),
+        cache_write_sum=Sum("cache_creation_input_tokens"),
+        cache_read_sum=Sum("cache_read_input_tokens"),
+        run_count=Count("pk"),
+    )
+    cost_krw = compute_cost_krw(
+        agg["input_sum"] or 0, agg["output_sum"] or 0,
+        agg["cache_write_sum"] or 0, agg["cache_read_sum"] or 0,
+    )
+    return cost_krw, agg["run_count"] or 0
+
+
+def _run_row(run_job):
+    """RunJob 한 건을 SET-006 실행 이력 표의 한 행(dict)으로 바꾼다(PE 인계 계약
+    "run_rows 각 항목의 키"). axis는 job_key가 NEWSROOM_JOB_KEYS에 속하는지로 가른다 —
+    RUN_JOB_LABELS의 "1단계 수집"이 리서치·소식 양쪽에 있어 배지 없이는 구분되지 않는다."""
+    is_newsroom = run_job.job_key in NEWSROOM_JOB_KEYS
+    return {
+        "started_at": run_job.started_at,
+        "axis": "newsroom" if is_newsroom else "research",
+        "axis_label": "소식" if is_newsroom else "리서치",
+        "step_label": RUN_JOB_LABELS.get(run_job.job_key, run_job.job_key),
+        "status": run_job.status,
+        "status_label": run_job.get_status_display(),
+        "processed_count": run_job.processed_count,
+        "failed_count": run_job.failed_count,
+        "input_tokens": run_job.input_tokens,
+        "output_tokens": run_job.output_tokens,
+        "cache_write_tokens": run_job.cache_creation_input_tokens,
+        "cache_read_tokens": run_job.cache_read_input_tokens,
+        "cost_krw": compute_cost_krw(
+            run_job.input_tokens, run_job.output_tokens,
+            run_job.cache_creation_input_tokens, run_job.cache_read_input_tokens,
+        ),
+    }
+
+
 def logs(request):
+    # ?tab= 화이트리스트(docs/design.md PE 인계 계약) — 엉뚱한 값이 오면 기본값으로
+    # 조용히 떨어진다(에러를 내지 않는다, 조회 전용 화면이라 사고 위험이 없다).
+    active_tab = request.GET.get("tab")
+    if active_tab not in ("collection", "runs"):
+        active_tab = "collection"
+
+    collection_page, collection_page_range = _paginate_log(
+        CollectionLog.objects.select_related("source").order_by("-started_at"), request, "cpage",
+    )
+    run_page, run_page_range = _paginate_log(
+        RunJob.objects.order_by("-started_at", "-pk"), request, "rpage",
+    )
+    run_rows = [_run_row(run_job) for run_job in run_page.object_list]
+
+    today = _today_local()
+    month_start = today.replace(day=1)
+    cost_today_krw, runs_today_count = _run_cost_summary(RunJob.objects.filter(started_at__date=today))
+    cost_month_krw, runs_month_count = _run_cost_summary(
+        RunJob.objects.filter(started_at__date__gte=month_start, started_at__date__lte=today)
+    )
+    cost_total_krw, runs_total_count = _run_cost_summary(RunJob.objects.all())
+
     return render(request, "setting/logs.html", {
         "setting_menu": _setting_menu("logs"),
-        "collection_logs": CollectionLog.objects.select_related("source").order_by("-started_at")[:50],
-        "llm_logs": LLMLog.objects.select_related("news").order_by("-created_at")[:50],
+        "active_tab": active_tab,
+        "collection_page": collection_page,
+        "collection_page_range": collection_page_range,
+        "run_page": run_page,
+        "run_page_range": run_page_range,
+        "run_rows": run_rows,
+        "cost_today_krw": cost_today_krw,
+        "cost_month_krw": cost_month_krw,
+        "cost_total_krw": cost_total_krw,
+        "runs_today_count": runs_today_count,
+        "runs_month_count": runs_month_count,
+        "runs_total_count": runs_total_count,
         **_verification_pipeline_context(),
     })
 

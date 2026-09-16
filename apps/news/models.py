@@ -145,11 +145,18 @@ class DeletedNewsRecord(models.Model):
     유일한 소비자는 사람(RA·PE)과 향후 옵션 B 코드화 작업이다.
     """
 
-    # 판정 주체 — 권장 어휘(고정 강제 아님. 아래 4개 상수 우선 사용을 권장한다).
+    # 판정 주체 — 권장 어휘(고정 강제 아님. 아래 5개 상수 우선 사용을 권장한다).
     JUDGED_BY_RA = "RA"
     JUDGED_BY_USER = "사용자(화면 삭제)"
     JUDGED_BY_RETRO = "소급 정비"
     JUDGED_BY_AUTO = "자동 판정"
+    # 🔴 2026-09-16 PE 신설(docs/planning.md "2단계 비용 절감 정책" 4-3번) — 조사
+    # 2단계 사전 차단 규칙(services/cleanup_prefilter.py)이 LLM 없이 코드로 직접
+    # 내린 삭제 판정. `자동 판정`(LLM, classify_news())과 통계를 섞지 않으려고
+    # 별도 값을 둔다 — 규칙 정확도와 LLM 정확도는 다른 질문이다. 표기는
+    # apps/newsroom/models.py의 JUDGED_BY_CODE_TITLE_RULE("코드(제목 규칙)")과
+    # 같은 형태를 따른다.
+    JUDGED_BY_CODE_AI_KEYWORD_RULE = "코드(AI 낱말 규칙)"
 
     # --- 기사 식별·원문 (삭제 시점 News 필드를 그대로 복사) ---
     title = models.CharField(max_length=500)
@@ -181,7 +188,10 @@ class DeletedNewsRecord(models.Model):
     judged_by = models.CharField(
         max_length=30,
         default=JUDGED_BY_RA,
-        help_text=f"권장 어휘: {JUDGED_BY_RA} / {JUDGED_BY_USER} / {JUDGED_BY_RETRO} / {JUDGED_BY_AUTO}",
+        help_text=(
+            f"권장 어휘: {JUDGED_BY_RA} / {JUDGED_BY_USER} / {JUDGED_BY_RETRO} / "
+            f"{JUDGED_BY_AUTO} / {JUDGED_BY_CODE_AI_KEYWORD_RULE}"
+        ),
     )
 
     # --- 삭제 시점 태그 스냅샷 ---
