@@ -226,47 +226,125 @@ ZERO_TARGET_SUMMARY_BY_JOB = {
 REVIEW_MODEL_KEY_BY_JOB = {"insight": "BEDROCK_MODEL_SMART", "weekly": "BEDROCK_MODEL_SMART", "monthly": "BEDROCK_MODEL_SMART"}
 
 
-def _job_run_state(run_job, job_key):
-    """RunJob.status를 화면 어휘(idle/running/review/done/failed/stopped)로 바꾼다.
-    _run_job_display()(노드 그래프)와 검토 화면 머리글이 이 함수를 함께 써서, 같은
-    상태를 두 화면이 다른 말로 부르는 것을 막는다(_run_node.html "상태 배지" 주석의
-    원칙 — "한국어 텍스트가 정본이고 테두리 색은 훑기용 보조")."""
+# SET-010 노드 배지 어휘(docs/planning.md "SET-010 노드 배지" 절, 2026-09-15 확정) —
+# done과 idle이 사라지고 여섯 값(running/review/todo/clear/failed/stopped)으로
+# 바뀐다. 낱말은 PD 몫이라 새로 짓지 않는다 — templates/setting/_run_node.html
+# "🔴 ③ 낱말은 해요체다" 절이 이미 같은 라운드에 이 여섯 낱말을 확정해 둔 것을
+# 그대로 옮긴다(값 이름을 바꾸면 그 템플릿의 data-state 분기가 깨진다).
+STATE_LABELS = {
+    "running": "실행 중",
+    "review": "검토 필요",
+    "todo": "실행 가능",
+    "clear": "실행 대상 없음",
+    "failed": "실행 실패",
+    "stopped": "실행 중단",
+}
+
+# clear(할 일 없음)면 버튼도 잠근다(사용자 결정, 2026-09-16, 실측 버그 신고) — 배지와
+# 버튼이 항상 같은 말을 해야 한다. "1단계를 안 했는데 2·3단계가 열린다"도 이 규칙
+# 하나로 함께 풀린다(조사 2·3단계가 이미 clear인데 버튼만 열려 있었을 뿐이었다).
+#
+# 🔴 아래 세 문구는 PE가 이 파일의 기존 block_reason 문구 패턴(예:
+# _insight_block_reason()의 "이슈로 묶을 뉴스가 없어요")을 흉내 내 임시로 지은
+# 것이었다. 🔴 2026-09-16 PD 확정 문구로 교체했다(docs/design.md 14차 개정).
+#
+# 🔴 셋이 한 형태다 — 앞 문장은 왜 지금 잠겼는가, 뒤 문장은 무엇을 하면 열리는가.
+#    툴팁은 마우스를 올려야 보이는 자리라, 올린 사람이 두 번째 문장까지 읽고
+#    다음 행동을 고를 수 있어야 한다. 한 문장만 두면 배지 낱말("실행 대상 없음")과
+#    같은 말을 두 번 하게 된다.
+# 🔴 3단계가 2단계가 아니라 1단계까지 가리키는 이유 — 이 문구가 뜨는 때는 미검증
+#    뉴스가 0건인 때다(있으면 _insight_block_reason()의 "아직 정리되지 않은 뉴스가
+#    N건 있어요"가 먼저 걸린다). 즉 2단계도 같이 잠겨 있어서 실제로 누를 수 있는
+#    첫 버튼은 1단계 수집이다. 누를 수 없는 버튼을 가리키는 안내문은 잠긴 버튼을
+#    하나 더 만드는 것과 같다.
+# ⚠️ 문자열에 줄바꿈을 넣지 말 것 — title 속성에서 브라우저마다 다르게 접힌다.
+CLEANUP_CLEAR_BLOCK_REASON = (
+    "정리할 미검증 뉴스가 없어요. 1단계 수집으로 새 기사가 들어오면 열려요"
+)
+INSIGHT_CLEAR_BLOCK_REASON = (
+    "미배정 뉴스가 남아 있어도 지난 확정 이후 새로 검증된 뉴스가 있어야 열려요. "
+    "1단계 수집과 2단계 정리를 먼저 해 주세요"
+)
+NEWSROOM_COMPOSE_CLEAR_BLOCK_REASON = (
+    "마지막 발송문과 재료가 같아서 지금 만들면 같은 글이 또 나와요. "
+    "1단계 수집과 2단계 필터로 새 기사가 통과하면 열려요"
+)
+
+
+def _clear_can_run(job: dict, clear_block_reason: str) -> bool:
+    """state=='clear'(할 일 없음)면 can_run을 강제로 False로 내리고, job에
+    block_reason이 아직 없으면(빈 문자열/키 없음) clear_block_reason으로 채운다.
+    이미 더 구체적인 block_reason이 채워져 있으면(예: 선행 단계 미완 사유)
+    그대로 둔다 — 이 함수는 "그 밖에는 다 채웠는데 clear인데 이유가 없는" 틈만
+    메운다. 반환값이 곧 can_run이다."""
+    if job["state"] == "clear":
+        if not job.get("block_reason"):
+            job["block_reason"] = clear_block_reason
+        return False
+    return True
+
+
+def _today_local():
+    """오늘 날짜(로컬 타임존). SET-010 노드 배지의 날짜 축 판정과 사고 배지("오늘
+    벌어진 실패·중단")의 하루 경계가 전부 이 함수를 쓴다(docs/planning.md "SET-010
+    노드 배지" 8-6 "하루 경계는 로컬 날짜로 판정한다", USE_TZ=True에서 aware
+    datetime을 직접 .date()하지 않는 이유는 CLAUDE.md 패턴 12)."""
+    return timezone.localtime(timezone.now()).date()
+
+
+def _is_today_local(dt) -> bool:
+    """dt(aware datetime)의 로컬 날짜가 오늘인지. dt가 None이면 False다 — 아직 한
+    번도 안 찍힌 시각을 "오늘"로 오판하지 않는다."""
+    return dt is not None and timezone.localtime(dt).date() == _today_local()
+
+
+def _job_run_state(run_job, job_key, has_work):
+    """RunJob.status와 "할 일이 있나" 축 판정(has_work)을 화면 어휘
+    (running/review/todo/clear/failed/stopped)로 바꾼다. _run_job_display()(노드
+    그래프)와 검토 화면 머리글(_run_review_context())이 이 함수를 함께 써서, 같은
+    상태를 두 화면이 다른 말로 부르는 것을 막는다.
+
+    🔴 2026-09-15 개정(docs/planning.md "SET-010 노드 배지") — "무엇을 했는가"
+    (RunJob.status 그대로)에서 "지금 눌러야 할 일이 있는가"로 축을 바꿨다. done과
+    idle은 더 이상 반환하지 않는다 — done 안에 눌려 담겨 있던 완료/확정됨/취소됨
+    셋의 할 일 여부가 서로 달라서다(같은 문서 8-1).
+
+    판정 순서가 뜻을 가진다 — 먼저 걸리는 것이 배지를 차지한다.
+      1. 실행 중
+      2. 검토 대기 — 휴먼 인 더 루프가 사람을 기다리는 자리다. "할 일 있음"의
+         한 종류라 todo와 같은 색을 쓰지만(_run_node.html), 이름은 갈라 둔다.
+      3. 🔴 오늘 벌어진 실패 또는 중단 — 날짜가 바뀌면 이 자리를 잃고 4번으로
+         떨어진다("어제 실패가 오늘 빨간 배지로 남으면 안 된다").
+      4. 그 밖 전부 — has_work 축 판정(todo/clear). 확정됨·취소됨과, 오늘이 아닌
+         실패·중단도 전부 여기로 떨어진다(같은 문서 "확정됨과 취소됨은 이 순서에
+         자리를 갖지 않는다. 4번으로 떨어진다")."""
     if run_job.status == RunJob.STATUS_RUNNING:
-        return "running", "실행 중"
-    if run_job.status == RunJob.STATUS_STOPPED:
-        return "stopped", "중단됨"
-    if run_job.status == RunJob.STATUS_FAILED:
-        return "failed", "실패"
-    if run_job.status == RunJob.STATUS_DONE:
-        # 🔴 대상 0건이면 검토할 제안 자체가 없다(RunProposal이 하나도 없다). 그런데도
-        # review로 보내면 노드는 "결과 검토하기"만 내주고 검토 화면은 확정 버튼이 잠겨
-        # 있어(isDisabled(), 커버리지 0) 빠져나갈 길이 없는 교착에 빠진다 — 2026-09-15에
-        # 실제로 사용자가 이 상태에 갇혀 RunJob을 손으로 취소됨으로 바꿔야 했다.
-        # 대상이 없으면 애초에 검토할 것도 없으므로 done으로 내려 실행 버튼을 그대로
-        # 돌려준다.
-        if job_key in GATED_JOB_KEYS and run_job.target_count > 0:
-            return "review", "검토 대기"
-        return "done", "완료"
-    if run_job.status == RunJob.STATUS_CONFIRMED:
-        return "done", "확정됨"
-    if run_job.status == RunJob.STATUS_CANCELED:
-        return "done", "취소됨"
-    return "idle", "대기"
+        return "running", STATE_LABELS["running"]
+    if job_key in GATED_JOB_KEYS and run_job.status == RunJob.STATUS_DONE and run_job.target_count > 0:
+        return "review", STATE_LABELS["review"]
+    if run_job.status == RunJob.STATUS_FAILED and _is_today_local(run_job.finished_at):
+        return "failed", STATE_LABELS["failed"]
+    if run_job.status == RunJob.STATUS_STOPPED and _is_today_local(run_job.finished_at or run_job.heartbeat_at):
+        return "stopped", STATE_LABELS["stopped"]
+    return ("todo", STATE_LABELS["todo"]) if has_work else ("clear", STATE_LABELS["clear"])
 
 
-def _run_job_display(job_key):
-    """job_key의 최신 RunJob으로 노드 표시값(state/state_label/summary/elapsed)을
-    만든다. 그 job_key로 RunJob이 한 번도 없었으면 None을 반환한다 — 호출부가 기존
-    방식(CollectionLog, NewsroomArticle.collected_at)으로 idle/done을 채운다.
+def _run_job_display(job_key, has_work):
+    """job_key의 최신 RunJob과 "할 일이 있나" 축 판정(has_work)으로 노드
+    표시값(state/state_label/summary/elapsed)을 만든다. 그 job_key로 RunJob이 한
+    번도 없었으면 None을 반환한다 — 호출부가 has_work만으로 todo/clear를 채운다.
 
     상태 어휘는 _job_run_state()가 정한다 — templates/setting/_run_node.html이 아는
-    값(idle/running/review/done/failed/stopped)만 나온다. STATUS_STOPPED(중단됨)는
-    2026-09-14에 전용 주황 배지가 생겨(_run_node.html) 이제 'stopped'를 그대로
-    내린다 — 종전에는 전용 색이 없어 'failed'로 눌러 담았었다."""
+    값(running/review/todo/clear/failed/stopped)만 나온다.
+
+    🔴 2026-09-15 개정(docs/planning.md "SET-010 노드 배지") — has_work 인자가
+    늘고, done/idle이 사라졌다. 아래 함수 끝부분(state가 todo/clear로 떨어졌을 때)이
+    RunJob.status를 직접 봐서 요약 문구를 만든다 — 완료/확정됨/취소됨/(오늘이
+    아닌) 실패·중단이 전부 여기로 모인다."""
     run_job = RunJob.objects.filter(job_key=job_key).order_by("-started_at", "-pk").first()
     if not run_job:
         return None
-    state, state_label = _job_run_state(run_job, job_key)
+    state, state_label = _job_run_state(run_job, job_key, has_work)
     if state == "running":
         seconds = int((timezone.now() - run_job.started_at).total_seconds())
         # 🔴 2026-09-15 10차 개정 — "21초째"에서 "21초"로("째" 접미사 제거).
@@ -341,13 +419,39 @@ def _run_job_display(job_key):
             )
         return {"state": state, "state_label": state_label, "summary": summary}
     if state == "failed":
+        # 🔴 여기 닿는 것은 "오늘 벌어진" 실패뿐이다(_job_run_state 우선순위 3번) —
+        # 어제 이전 실패는 이미 todo/clear로 내려가 아래 마지막 블록에서 요약된다.
         return {"state": state, "state_label": state_label, "summary": "실행이 실패했어요"}
     if state == "review":
         return {
             "state": state, "state_label": state_label,
             "summary": f"{run_job.processed_count}건 판정을 마쳤어요, 검토를 기다리고 있어요",
         }
-    if run_job.status == RunJob.STATUS_DONE:
+
+    # 🔴 여기부터는 state가 "todo" 또는 "clear"다(docs/planning.md "SET-010 노드
+    # 배지" 4번 "확정됨과 취소됨은 4번으로 떨어진다", 3번 "사고 사실은 요약 줄에
+    # 남긴다"). run_job.status는 DONE(비게이트 또는 대상 0건)/CONFIRMED/CANCELED,
+    # 또는 오늘이 아닌 FAILED/STOPPED 중 하나다 — 배지 색은 이미 todo/clear로
+    # 정해졌으니, 요약 줄만 실제 status를 보고 사실대로 말한다.
+    if run_job.status == RunJob.STATUS_FAILED:
+        summary = f"{timezone.localtime(run_job.finished_at):%m/%d} 실행이 실패했어요"
+    elif run_job.status == RunJob.STATUS_STOPPED:
+        stopped_at = run_job.finished_at or run_job.heartbeat_at
+        summary = (
+            f"{timezone.localtime(stopped_at):%m/%d} 실행이 중단됐어요" if stopped_at
+            else "중단된 적이 있어요"
+        )
+    elif run_job.status == RunJob.STATUS_CONFIRMED:
+        summary = f"마지막 확정 {timezone.localtime(run_job.finished_at):%m/%d %H:%M}, {run_job.processed_count}건"
+    elif run_job.status == RunJob.STATUS_CANCELED:
+        # 🔴 취소됨은 "상태가 아니라 사건"이고(같은 문서 5번), 사실은 요약 줄에
+        # 남긴다 — 재료는 취소 뒤에도 그대로 남으므로 배지(todo/clear)는 재료
+        # 유무로 이미 따로 정해져 있다.
+        summary = (
+            f"{timezone.localtime(run_job.finished_at):%m/%d %H:%M} 실행을 취소했어요" if run_job.finished_at
+            else "지난 실행을 취소했어요"
+        )
+    elif run_job.status == RunJob.STATUS_DONE:
         # 🔴 2026-09-15 PE 개정 — 조건을 GATED_JOB_KEYS 소속에서 ZERO_TARGET_SUMMARY_BY_JOB
         # 소속으로 바꿨다. 종전엔 "대상 0건이 review로 잘못 떨어지는 교착을 막는다"는
         # GATED 전용 사고를 막는 코드였는데, 뉴스룸 3단계(newsroom_compose)는 게이트가
@@ -358,24 +462,14 @@ def _run_job_display(job_key):
         # 판정을 옮기면 GATED 여부와 무관하게 옳다 — cleanup/insight/weekly/monthly는
         # 여전히 GATED이자 이 dict에도 있어 동작이 그대로다.
         if job_key in ZERO_TARGET_SUMMARY_BY_JOB and run_job.target_count == 0:
-            # 대상 0건 교착 방지(위 _job_run_state 주석과 같은 사고) — state는 이미
-            # "done"으로 내려오므로(review로 가지 않는다) 요약 문구만 그 사정에 맞게
-            # 따로 말해 준다. job_key마다 "대상"이 다른 말이라 ZERO_TARGET_SUMMARY_BY_JOB로
-            # 갈라 쓴다(위 정의 주석 참고).
             summary = ZERO_TARGET_SUMMARY_BY_JOB.get(job_key, "처리할 대상이 없었어요")
-            return {"state": state, "state_label": state_label, "summary": summary}
-        return {
-            "state": state, "state_label": state_label,
-            "summary": f"마지막 실행 {timezone.localtime(run_job.finished_at):%m/%d %H:%M}, {run_job.processed_count}건",
-        }
-    if run_job.status == RunJob.STATUS_CONFIRMED:
-        return {
-            "state": state, "state_label": state_label,
-            "summary": f"마지막 확정 {timezone.localtime(run_job.finished_at):%m/%d %H:%M}, {run_job.processed_count}건",
-        }
-    # 대기/취소됨 — 이번 라운드는 여기 닿지 않는다(collect/newsroom_collect는 확정·취소
-    # 상태로 가는 경로가 없고, cleanup도 확정 전까지는 대기를 거치지 않는다).
-    return None
+        else:
+            summary = f"마지막 실행 {timezone.localtime(run_job.finished_at):%m/%d %H:%M}, {run_job.processed_count}건"
+    else:
+        # RunJob.STATUS_PENDING — 실제 실행 경로(start_run/run_now)는 RunJob을 항상
+        # STATUS_RUNNING으로 만들어 여기 닿지 않는다(방어적으로만 남긴다).
+        summary = ""
+    return {"state": state, "state_label": state_label, "summary": summary}
 
 
 def _current_running_job():
@@ -400,7 +494,7 @@ def _insight_block_reason() -> str:
     다만 그 배치의 대상 News가 NEWS-002에서 개별로 먼저 삭제되면(ExcludedURL 경로)
     미검증 건수가 0으로 떨어지면서도 그 배치 자체는 여전히 확정 전이라, 첫 조건만으로는
     못 잡는 틈이 생긴다. RunJob 상태를 직접 봐서 그 틈을 막는다."""
-    unverified_count = News.objects.filter(status=News.STATUS_UNVERIFIED).count()
+    unverified_count = _unverified_news_count()
     if unverified_count:
         return f"아직 정리되지 않은 뉴스가 {unverified_count}건 있어요"
 
@@ -413,6 +507,81 @@ def _insight_block_reason() -> str:
         return "이슈로 묶을 뉴스가 없어요"
 
     return ""
+
+
+def _unverified_news_count() -> int:
+    """미검증 News 건수. 2단계(cleanup) 배지의 재료 축 판정(_job_has_work())과
+    위 _insight_block_reason()의 첫 조건이 같은 값을 본다 — 두 벌이 되면 배지와
+    버튼이 어긋난다(docs/planning.md "SET-010 노드 배지" 8-2)."""
+    return News.objects.filter(status=News.STATUS_UNVERIFIED).count()
+
+
+def _insight_has_new_material() -> bool:
+    """3단계(주요 이슈) 배지의 "새 재료" 판정(docs/planning.md "SET-010 노드 배지"
+    2번, 8-4번) — _insight_block_reason()의 "이슈로 묶을 뉴스가 없어요" 조건과는
+    다른 물음이다. 그 조건은 잔여 전체(오래 묵은 탈락분 포함)를 보고, 여기는
+    "직전 확정 이후 새로 검증된" 것만 본다 — 승격 기준(LLM)에서 한 번 탈락한
+    기사는 다음 배치에서도 다시 탈락할 공산이 커 잔여가 소비되지 않는데(같은 문서
+    2번), 그 잔여가 있다는 사실만으로 배지가 영구히 "할 일 있음"이 되는 것을 막는다.
+
+    기준 시각은 마지막으로 확정된 insight RunJob의 종료 시각이다. 그런 RunJob이
+    없으면 미배정 전량이 새 재료다. 🔴 verified_at이 NULL인 옛 레코드(검증 게이트
+    도입 전, 97건)는 새 재료로 치지 않는다 — verified_at으로 "검증 여부"를 재면
+    안 된다는 원칙(News.status가 정본)과는 다른 자리다. 여기는 시각 비교 자체가
+    목적이라 verified_at을 쓰는 것이 맞다."""
+    qs = News.objects.verified().filter(insights__isnull=True, verified_at__isnull=False)
+    last_confirmed = (
+        RunJob.objects.filter(job_key="insight", status=RunJob.STATUS_CONFIRMED)
+        .order_by("-finished_at", "-pk").first()
+    )
+    if last_confirmed and last_confirmed.finished_at:
+        qs = qs.filter(verified_at__gt=last_confirmed.finished_at)
+    return qs.exists()
+
+
+def _job_has_work(job_key: str) -> bool:
+    """SET-010 노드 배지 "할 일이 있나" 축 판정(docs/planning.md "SET-010 노드
+    배지" 1번 표) — job_key 하나로 위임한다. _run_job_display()의 호출부(그래프,
+    아래 _research_jobs_context()/_newsroom_jobs_context())와
+    _run_review_context()(검토 화면 머리글)가 이 함수 하나를 같이 써서, 같은
+    job_key에 서로 다른 답을 내지 않게 한다(같은 문서 8-2 "판정이 두 벌이 되면
+    배지와 버튼이 어긋난다").
+
+    축은 노드마다 다르다 — collect류는 항상 True(2026-09-16, 날짜 축 폐기 — 아래
+    분기 참고), 재료(cleanup·newsroom_filter), 기간(weekly·monthly), 그리고
+    insight(새 재료)·newsroom_compose(마지막 발송문 이후 새 통과 기사, 단 선행으로
+    pending 잔여를 본다)는 각각 예외 규칙을 따로 갖는다. newsroom_send(9번)는
+    만들지 않기로 확정돼 있어(정책 12-0) 이 표에 없다 — 항상 False다."""
+    today = _today_local()
+    if job_key in ("collect", "newsroom_collect"):
+        # 🔴 2026-09-16 사용자 결정 — 날짜 축을 버린다. 수집은 눌러 봐야 새 기사가
+        # 있는지 알 수 있다(CollectionLog 실측 — 같은 날 여러 번, 신규 0건 포함해
+        # 반복 실행되는 게 정상 운영이었다). "오늘 이미 완료했다"는 이유로 잠그면
+        # 그날 두 번째 이후 수집을 막는 잘못된 신호가 된다. 항상 todo다.
+        return True
+    if job_key == "cleanup":
+        return _unverified_news_count() > 0
+    if job_key == "insight":
+        return not _insight_block_reason() and _insight_has_new_material()
+    if job_key == "weekly":
+        from services.report_periods import insights_in_period, target_week
+        date_from, date_to = target_week(today)
+        if not insights_in_period(date_from, date_to).exists():
+            return False
+        return not Report.objects.filter(period_type="weekly", date_from=date_from).exists()
+    if job_key == "monthly":
+        from services.report_periods import insights_in_period, target_month
+        date_from, date_to = target_month(today)
+        if not insights_in_period(date_from, date_to).exists():
+            return False
+        return not Report.objects.filter(period_type="monthly", date_from=date_from).exists()
+    if job_key == "newsroom_filter":
+        room = _target_newsroom()
+        return bool(room and room.pending_count > 0)
+    if job_key == "newsroom_compose":
+        room = _target_newsroom()
+        return bool(room) and _newsroom_compose_has_new_material(room)
+    return False
 
 
 def _weekly_job_context():
@@ -436,16 +605,22 @@ def _weekly_job_context():
     안팎을 갈랐던 "이번 주 보고서가 이미 있어요/금요일부터 만들 수 있어요" 두
     문구가 10차에서 하나로 합쳐졌다 — 근거는 design.md 10차 개정 ③번).
 
-    🔴 idle/done일 때만 summary를 덮는다(design.md 10차 개정 ④번 말미) — running은
-    summary가 빈 문자열이어야 진행 표시가 그 자리를 받고(_run_job_display() 참고),
-    stopped/failed/review는 지금 벌어진 일을 말하는 게 더 급하다."""
+    🔴 todo/clear일 때만 summary를 덮는다(2026-09-15 "SET-010 노드 배지" 개정 —
+    done/idle 두 값이 이 축으로 합쳐졌다) — running은 summary가 빈 문자열이어야
+    진행 표시가 그 자리를 받고(_run_job_display() 참고), stopped/failed/review는
+    지금 벌어진 일을 말하는 게 더 급하다.
+
+    🔴 can_run은 여기서 계산하는 값 그대로가 곧 "할 일이 있나" 축 판정
+    (has_work)이다 — _job_has_work("weekly")도 같은 두 조건(대상 주 Insight
+    존재, 그 주 Report 부재)을 본다(docs/planning.md "SET-010 노드 배지" 8-2).
+    여기서 다시 계산하는 이유는 block_reason·summary_override 문구를 만들려면
+    갈래(재료 없음/때가 아님/열려 있음)를 알아야 해서이고, has_work용으로
+    _job_has_work()를 따로 부르지 않는 것은 같은 쿼리를 두 번 던지지 않기
+    위해서다 — 이 함수가 계산한 can_run을 그대로 has_work로 넘긴다."""
     from services.report_periods import _week_number_in_month, insights_in_period, target_week
 
-    today = timezone.localtime(timezone.now()).date()
+    today = _today_local()
     date_from, date_to = target_week(today)
-
-    display = _run_job_display("weekly")
-    job = display or {"state": "idle", "state_label": "대기", "summary": ""}
 
     can_run, block_reason = True, ""
     if not insights_in_period(date_from, date_to).exists():
@@ -467,7 +642,10 @@ def _weekly_job_context():
             week_no = _week_number_in_month(date_to)
             summary_override = f"{date_to.month}월 {week_no}주차를 지금 만들 수 있어요"
 
-    if job["state"] in ("idle", "done"):
+    display = _run_job_display("weekly", can_run)
+    job = display or {"state": "todo" if can_run else "clear", "state_label": STATE_LABELS["todo" if can_run else "clear"], "summary": ""}
+
+    if job["state"] in ("todo", "clear"):
         job["summary"] = summary_override
 
     job.update({
@@ -494,14 +672,14 @@ def _monthly_job_context():
         다음에 열리는 결산의 대상 달은 정확히 today.month(오늘이 속한 달)이고
         그 시작일은 다음 달 1일이다.
       - 열려 있음: "{대상 월}월 결산을 지금 만들 수 있어요"
-    """
+
+    🔴 can_run이 그대로 "할 일이 있나" 축 판정(has_work)이다 —
+    _weekly_job_context()와 같은 이유(위 docstring 참고)로 _job_has_work()를
+    따로 부르지 않는다."""
     from services.report_periods import insights_in_period, target_month
 
-    today = timezone.localtime(timezone.now()).date()
+    today = _today_local()
     date_from, date_to = target_month(today)
-
-    display = _run_job_display("monthly")
-    job = display or {"state": "idle", "state_label": "대기", "summary": ""}
 
     can_run, block_reason = True, ""
     if not insights_in_period(date_from, date_to).exists():
@@ -519,7 +697,10 @@ def _monthly_job_context():
         else:
             summary_override = f"{date_from.month}월 결산을 지금 만들 수 있어요"
 
-    if job["state"] in ("idle", "done"):
+    display = _run_job_display("monthly", can_run)
+    job = display or {"state": "todo" if can_run else "clear", "state_label": STATE_LABELS["todo" if can_run else "clear"], "summary": ""}
+
+    if job["state"] in ("todo", "clear"):
         job["summary"] = summary_override
 
     job.update({
@@ -535,20 +716,27 @@ def _monthly_job_context():
 
 def _research_jobs_context():
     """run.html/_run_graph.html의 research_jobs(AI 시장 조사 축, 5개 키 고정)."""
-    run_display = _run_job_display("collect")
+    has_work_collect = _job_has_work("collect")
+    run_display = _run_job_display("collect", has_work_collect)
     if run_display:
         collect_job = run_display
     else:
+        # 🔴 RunJob이 한 번도 없었던 레거시 경로 — CollectionLog만 있다. "오늘"
+        # 판정도 우선순위 3번(오늘 벌어진 실패)과 같은 규칙을 그대로 적용한다.
         latest = CollectionLog.objects.order_by("-started_at").first()
-        if latest:
-            failed = latest.status == "fail"
+        if latest and latest.status == "fail" and _is_today_local(latest.started_at):
             collect_job = {
-                "state": "failed" if failed else "done",
-                "state_label": "실패" if failed else "완료",
+                "state": "failed", "state_label": STATE_LABELS["failed"],
                 "summary": f"마지막 수집 {timezone.localtime(latest.started_at):%m/%d %H:%M}",
             }
         else:
-            collect_job = {"state": "idle", "state_label": "대기", "summary": ""}
+            state = "todo" if has_work_collect else "clear"
+            collect_job = {
+                "state": state, "state_label": STATE_LABELS[state],
+                "summary": (
+                    f"마지막 수집 {timezone.localtime(latest.started_at):%m/%d %H:%M}" if latest else ""
+                ),
+            }
 
     jobs = {
         "collect": {
@@ -566,11 +754,20 @@ def _research_jobs_context():
     # IMPLEMENTED_JOB_KEYS에 "cleanup" 추가와 짝을 이룬다). 완료(STATUS_DONE)면
     # _run_job_display()가 GATED_JOB_KEYS 분기로 state="review"를 내려, 노드가 자동으로
     # "결과 검토하기" 버튼으로 바뀐다(_run_node.html) — 여기서 따로 분기하지 않는다.
-    cleanup_display = _run_job_display("cleanup")
-    cleanup_job = cleanup_display or {"state": "idle", "state_label": "대기", "summary": ""}
+    has_work_cleanup = _job_has_work("cleanup")
+    cleanup_display = _run_job_display("cleanup", has_work_cleanup)
+    cleanup_job = cleanup_display or {
+        "state": "todo" if has_work_cleanup else "clear",
+        "state_label": STATE_LABELS["todo" if has_work_cleanup else "clear"],
+        "summary": "",
+    }
+    # 🔴 2026-09-16 사용자 결정 — state=='clear'면 can_run도 False다(배지와 버튼이
+    # 항상 같은 말을 한다). 종전엔 can_run이 상태와 무관하게 항상 True였다 —
+    # 미검증 뉴스가 0건이라 배지가 "실행 대상 없음"인데 버튼은 열려 있는 실제 버그였다.
+    cleanup_can_run = _clear_can_run(cleanup_job, CLEANUP_CLEAR_BLOCK_REASON)
     cleanup_job.update({
-        "can_run": True,
-        "block_reason": "",
+        "can_run": cleanup_can_run,
+        "block_reason": cleanup_job.get("block_reason", ""),
         "warning": "",
         "confirm_text": "",
         "run_url": reverse("setting_run_start", args=["cleanup"]),
@@ -584,12 +781,30 @@ def _research_jobs_context():
     # state="review"를 내려 cleanup과 똑같이 "결과 검토하기" 버튼으로 바뀐다 — 여기서
     # 따로 분기하지 않는다. can_run/block_reason만 _insight_block_reason()이 결정한다
     # (PM 설계 "선행 미완은 경고가 아니라 버튼 잠금이다").
-    insight_display = _run_job_display("insight")
-    insight_job = insight_display or {"state": "idle", "state_label": "대기", "summary": ""}
-    insight_block_reason = _insight_block_reason()
+    #
+    # 🔴 has_work_insight(배지)와 insight_block_reason(버튼 잠금 사유)은 일부러
+    # 다른 물음이다(docs/planning.md "SET-010 노드 배지" 2번) — has_work는 "직전
+    # 확정 이후 새로 검증된" 뉴스만 보고, block_reason은 잔여 전체를 본다. 그래서
+    # "잔여는 있는데 새 재료는 없는" 날에는 배지가 clear가 된다.
+    #
+    # 🔴 2026-09-16 사용자 결정 — 종전에는 그 clear인 날에도 can_run이
+    # insight_block_reason(잔여 전체 기준)만 보고 True로 열려 있었다(실제 버그,
+    # "배지는 없다는데 버튼은 열림"). state=='clear'면 can_run도 False로 강제한다
+    # — insight_block_reason이 이미 채워져 있으면(잔여 자체가 0건 등) 그 구체적인
+    # 사유를 그대로 쓰고, 비어 있으면(잔여는 있지만 새 재료가 없는 경우) 아래
+    # INSIGHT_CLEAR_BLOCK_REASON으로 채운다.
+    has_work_insight = _job_has_work("insight")
+    insight_display = _run_job_display("insight", has_work_insight)
+    insight_job = insight_display or {
+        "state": "todo" if has_work_insight else "clear",
+        "state_label": STATE_LABELS["todo" if has_work_insight else "clear"],
+        "summary": "",
+    }
+    insight_job["block_reason"] = _insight_block_reason()
+    insight_can_run = _clear_can_run(insight_job, INSIGHT_CLEAR_BLOCK_REASON)
     insight_job.update({
-        "can_run": not insight_block_reason,
-        "block_reason": insight_block_reason,
+        "can_run": insight_can_run,
+        "block_reason": insight_job["block_reason"],
         "warning": "",
         "confirm_text": "",
         "run_url": reverse("setting_run_start", args=["insight"]),
@@ -616,10 +831,11 @@ def _target_newsroom():
 
 
 def _newsroom_filter_summary(room) -> str:
-    """SET-010 교보 2단계 노드의 idle/done 요약 문구(PD 확정, 2026-09-15,
+    """SET-010 교보 2단계 노드의 todo/clear 요약 문구(PD 확정, 2026-09-15,
     docs/planning.md "뉴스룸" 절 12-1 결정 (b), 12-5 PE 인계 5번). 세 갈래다 —
-    실행 중/중단/실패는 이 함수를 쓰지 않는다(_newsroom_jobs_context()가 그 상태는
-    _run_job_display()의 일반 표시를 그대로 쓰고, "완료"일 때만 이 문구로 덮어쓴다).
+    실행 중/(오늘) 중단/(오늘) 실패는 이 함수를 쓰지 않는다(_newsroom_jobs_context()가
+    그 상태는 _run_job_display()의 일반 표시를 그대로 쓰고, "할 일이 있음/없음"일
+    때만 이 문구로 덮어쓴다).
 
     | 상태 | summary |
     |---|---|
@@ -646,6 +862,51 @@ def _newsroom_filter_summary(room) -> str:
     return "판정할 기사가 없어요"
 
 
+def _newsroom_compose_has_new_material(room) -> bool:
+    """SET-010 교보 3단계(발송문) 배지의 "새 기사" 판정(사용자 결정, 2026-09-16) —
+    날짜 축("오늘 발송문이 아직 없나")을 버린다. 어제 만든 발송문과 오늘 통과분이
+    같으면(재판정으로 새로 늘지 않았으면) 다시 실행해도 같은 문구를 또 만들 뿐이다
+    — 실제로 09/15 16:24에 9건으로 발송문을 만들고 오늘도 passed가 그대로 9건인
+    상태가 이 조건을 확인한 근거다.
+
+    🔴 선행 조건(2단계 판정 전 기사가 남아 있으면 무조건 할 일 없음)도 여기서
+    본다 — `_job_has_work("newsroom_compose")`와 `_newsroom_jobs_context()`가
+    이 함수 하나를 같이 쓰므로, 선행 조건을 호출부마다 따로 검사하면 판정이
+    다시 두 벌이 된다(2026-09-16 PM 지적, docs/planning.md "SET-010 노드 배지"
+    8-2). `_newsroom_jobs_context()`는 이 함수와 별개로 pending_count를 다시
+    조회하는데, 그건 block_reason 문구("판정 전 기사가 있어요…")를 만들기
+    위해서일 뿐 has_work 판정 자체를 다시 하는 게 아니다.
+
+    🔴 판정 시각 필드가 없다 — `NewsroomArticle`에는 filter_status가 언제
+    passed로 바뀌었는지 기록하는 필드(judged_at 같은 것)가 없다(2026-09-16 PE
+    실측, 모델 필드 전수 확인). 그래서 `_insight_has_new_material()`처럼 "마지막
+    확정 시각 이후"를 시각 비교로 판정할 수 없다.
+
+    대신 집합 비교를 쓴다 — `NewsroomMessage.articles`가 그 발송문을 만든 시점의
+    통과 기사 집합을 이미 얼려 두므로(모델 docstring "생성 시점의 집합을 얼려
+    둔다"), 지금 대상(통과 + 비중복) 집합에서 마지막 발송문의 집합을 빼고 남는
+    것이 있으면 새 기사다. 시각 필드보다 이 편이 더 정확하다 — "판정 시각이
+    발송 이후인가"는 근사이지만 "그 발송문에 없던 기사인가"는 정의 그 자체다.
+    새 필드나 새 모델은 만들지 않는다.
+
+    마지막 발송문이 한 번도 없으면(첫 실행) 지금 대상이 하나라도 있으면 새
+    재료로 친다."""
+    from apps.newsroom.models import NewsroomArticle
+
+    if room.pending_count > 0:
+        return False
+
+    current_targets = room.articles.filter(
+        filter_status=NewsroomArticle.STATUS_PASSED, duplicate_of__isnull=True,
+    )
+    last_message = room.messages.order_by("-created_at", "-pk").first()
+    if not last_message:
+        return current_targets.exists()
+    return current_targets.exclude(
+        pk__in=last_message.articles.values_list("pk", flat=True),
+    ).exists()
+
+
 def _newsroom_jobs_context():
     """run.html/_run_graph.html의 newsroom_jobs(교보 소식 축, 4개 키 고정).
     1~3단계는 각각 apps/newsroom/services.py의 collect_newsroom(),
@@ -666,21 +927,22 @@ def _newsroom_jobs_context():
     )
 
     if room:
-        run_display = _run_job_display("newsroom_collect")
+        has_work_ncollect = _job_has_work("newsroom_collect")
+        run_display = _run_job_display("newsroom_collect", has_work_ncollect)
         if run_display:
             collect_job = run_display
         else:
             latest_article = NewsroomArticle.objects.filter(newsroom=room).order_by("-collected_at").first()
-            if latest_article:
-                collect_job = {
-                    "state": "done",
-                    "state_label": "완료",
-                    # CollectionLog는 본 파이프라인 전용이라 여기 쓰지 않는다(코디네이터 지시) —
-                    # 마지막 실행 요약은 NewsroomArticle.collected_at으로 만든다.
-                    "summary": f"마지막 수집 {timezone.localtime(latest_article.collected_at):%m/%d %H:%M}",
-                }
-            else:
-                collect_job = {"state": "idle", "state_label": "대기", "summary": ""}
+            state = "todo" if has_work_ncollect else "clear"
+            collect_job = {
+                "state": state, "state_label": STATE_LABELS[state],
+                # CollectionLog는 본 파이프라인 전용이라 여기 쓰지 않는다(코디네이터 지시) —
+                # 마지막 실행 요약은 NewsroomArticle.collected_at으로 만든다.
+                "summary": (
+                    f"마지막 수집 {timezone.localtime(latest_article.collected_at):%m/%d %H:%M}"
+                    if latest_article else ""
+                ),
+            }
         collect_job.update({
             "can_run": True,
             "block_reason": "",
@@ -691,7 +953,7 @@ def _newsroom_jobs_context():
         })
     else:
         collect_job = {
-            "state": "idle", "state_label": "대기", "summary": no_room_reason,
+            "state": "clear", "state_label": STATE_LABELS["clear"], "summary": no_room_reason,
             "can_run": False, "block_reason": no_room_reason,
             "warning": "", "confirm_text": "", "run_url": "", "review_url": "",
         }
@@ -705,16 +967,18 @@ def _newsroom_jobs_context():
     # 여부·review_url 존재) 중 하나만 비워도 될 것을, 둘 다 비워 구조적으로 막는다.
     if room:
         pending_count = room.pending_count
-        filter_display = _run_job_display("newsroom_filter")
+        has_work_filter = pending_count > 0
+        filter_display = _run_job_display("newsroom_filter", has_work_filter)
         summary = _newsroom_filter_summary(room)
         if filter_display:
-            # "완료"일 때만 PD가 정한 세 갈래 문구로 덮어쓴다 — running/stopped/failed는
-            # _run_job_display()의 일반 표시(경과 시간, 중단 요약 등)를 그대로 쓴다.
-            if filter_display["state"] == "done":
+            # 배지가 todo/clear(=running/failed(오늘)/stopped(오늘)가 아님)일
+            # 때만 PD가 정한 세 갈래 문구로 덮어쓴다.
+            if filter_display["state"] in ("todo", "clear"):
                 filter_display["summary"] = summary
             filter_job = filter_display
         else:
-            filter_job = {"state": "idle", "state_label": "대기", "summary": summary}
+            state = "todo" if has_work_filter else "clear"
+            filter_job = {"state": state, "state_label": STATE_LABELS[state], "summary": summary}
         filter_job.update({
             "can_run": pending_count > 0,
             "block_reason": "" if pending_count > 0 else "판정할 기사가 없어요",
@@ -724,8 +988,9 @@ def _newsroom_jobs_context():
             "review_url": "",
         })
     else:
+        pending_count = 0
         filter_job = {
-            "state": "idle", "state_label": "대기", "summary": no_room_reason,
+            "state": "clear", "state_label": STATE_LABELS["clear"], "summary": no_room_reason,
             "can_run": False, "block_reason": no_room_reason,
             "warning": "", "confirm_text": "", "run_url": "", "review_url": "",
         }
@@ -736,25 +1001,37 @@ def _newsroom_jobs_context():
     # 사람이 끼어드는 자리가 이미 복사 행위 자체다) — GATED_JOB_KEYS에 넣지 않고
     # review_url도 비운다. 결과는 SET-009 발송 섹션(_newsroom_message.html)이
     # 보여준다 — 검토 화면이 따로 필요 없다.
+    #
+    # 🔴 2026-09-16 사용자 결정 — 날짜 축("오늘 발송문이 아직 없나")을 버린다.
+    # 어제와 같은 재료로 같은 발송문을 또 만드는 일을 막는다 — 실제로 09/15
+    # 16:24에 9건으로 발송문을 만들고 오늘도 passed가 그대로 9건인데(새 기사
+    # 없음) 배지는 todo, 버튼도 열려 있던 실제 버그였다. 대신 "마지막 발송문
+    # 이후 통과 기사가 늘었나"(_newsroom_compose_has_new_material())를 본다 —
+    # _insight_has_new_material()과 같은 방식(새 재료 축)이다. pending_count
+    # 선행 조건(2단계 미완이면 할 일 없음)은 그 함수 안에서 본다 — 여기서 다시
+    # `pending_count == 0 and`로 검사하면 판정이 두 벌이 된다(2026-09-16 PM
+    # 지적). 아래 pending_count는 has_work 판정이 아니라 block_reason 문구를
+    # 만드는 데만 쓴다.
     if room:
-        compose_target_count = room.articles.filter(
-            filter_status=NewsroomArticle.STATUS_PASSED, duplicate_of__isnull=True,
-        ).count()
-        compose_display = _run_job_display("newsroom_compose")
-        compose_job = compose_display or {"state": "idle", "state_label": "대기", "summary": ""}
-        if compose_target_count > 0:
-            compose_can_run, compose_block_reason = True, ""
-        elif pending_count > 0:
+        has_work_compose = _newsroom_compose_has_new_material(room)
+        compose_display = _run_job_display("newsroom_compose", has_work_compose)
+        compose_job = compose_display or {
+            "state": "todo" if has_work_compose else "clear",
+            "state_label": STATE_LABELS["todo" if has_work_compose else "clear"],
+            "summary": "",
+        }
+        if pending_count > 0:
             # 🔴 아직 2단계를 안 돌렸거나 방금 수집한 기사가 판정 전으로 남아 있다
             # — "무엇을 하면 풀리는지"가 읽히도록 2단계 실행을 구체적으로 가리킨다.
-            compose_can_run, compose_block_reason = False, "판정 전 기사가 있어요. 2단계 필터를 먼저 실행해 주세요"
+            compose_job["block_reason"] = "판정 전 기사가 있어요. 2단계 필터를 먼저 실행해 주세요"
+            compose_can_run = False
         else:
-            # 🔴 2단계까지 이미 끝냈는데 통과가 0건인 정상적인 빈 날이다 — 더 누르라고
-            # 시킬 다음 동작이 없으므로(다음 수집을 기다리는 것뿐) 사실만 말한다.
-            compose_can_run, compose_block_reason = False, "통과한 기사가 없어요"
+            # 🔴 2026-09-16 사용자 결정 — state=='clear'(새 통과 기사 없음)면
+            # can_run도 False다(배지와 버튼이 항상 같은 말을 한다).
+            compose_can_run = _clear_can_run(compose_job, NEWSROOM_COMPOSE_CLEAR_BLOCK_REASON)
         compose_job.update({
             "can_run": compose_can_run,
-            "block_reason": compose_block_reason,
+            "block_reason": compose_job.get("block_reason", ""),
             "warning": "",
             "confirm_text": "",
             "run_url": reverse("setting_run_start", args=["newsroom_compose"]) if compose_can_run else "",
@@ -762,7 +1039,7 @@ def _newsroom_jobs_context():
         })
     else:
         compose_job = {
-            "state": "idle", "state_label": "대기", "summary": no_room_reason,
+            "state": "clear", "state_label": STATE_LABELS["clear"], "summary": no_room_reason,
             "can_run": False, "block_reason": no_room_reason,
             "warning": "", "confirm_text": "", "run_url": "", "review_url": "",
         }
@@ -772,9 +1049,13 @@ def _newsroom_jobs_context():
     # 메시지는 구현하지마"). "아직 안 만들었다"가 아니라 "안 만들기로 했다"이므로
     # 문구도 그 사실을 말한다 — NOT_IMPLEMENTED_REASON("아직 만들지 않은
     # 기능이에요")을 쓰면 순서를 기다리는 중으로 읽힌다(design.md ⑥ PE 인계 표).
+    # 🔴 9번 노드는 "SET-010 노드 배지"(여섯 값) 표에 없다 — 만들지 않기로
+    # 확정된 노드라 애초에 여덟 노드 판정 대상이 아니다(docs/planning.md 같은 절
+    # "9번은 이 표에 없다"). state는 "clear"(할 일 없음 축)로 둬 idle이라는 죽은
+    # 값이 코드에 남지 않게 하되, 고유 라벨("만들지 않음")은 그대로 유지한다.
     jobs["newsroom_send"] = {
-        "state": "idle",
-        "state_label": "만들지 않음",
+        "state": "clear",
+        "state_label": "해당 없음",
         "summary": "만들지 않기로 한 단계예요",
         "can_run": False,
         "block_reason": "Slack 발송은 만들지 않기로 했어요. 3단계 발송문을 복사해서 직접 보내 주세요",
@@ -1029,7 +1310,10 @@ def _run_review_context(job_key):
     if run_job is None:
         return review
 
-    state, state_label = _job_run_state(run_job, job_key)
+    # 🔴 2026-09-15 개정 — _job_has_work(job_key)로 "할 일이 있나" 축을 넘긴다.
+    # 노드 그래프와 같은 함수(_job_run_state())를 쓰므로 같은 job_key에 화면마다
+    # 다른 상태가 뜨지 않는다(docs/planning.md "SET-010 노드 배지" 8-2).
+    state, state_label = _job_run_state(run_job, job_key, _job_has_work(job_key))
     review["run"] = {
         "label": f"{timezone.localtime(run_job.started_at):%m/%d %H:%M} 실행" if run_job.started_at else "",
         "state": state,

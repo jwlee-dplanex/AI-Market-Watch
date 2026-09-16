@@ -131,7 +131,13 @@ def mark_stale_running_as_stopped() -> int:
     UPDATE 한 번으로 끝내던 종전 구조를 "특수 job_key마다 한 번, 나머지 한 번"으로
     바꿨다. 쿼리가 늘지만 비용은 무시할 만하다. RunJob.Meta.unique_running_run_job이
     "진행중" 행을 시스템 전체에 최대 1개로 강제하므로, 이 함수가 실제로 갱신 대상으로
-    보는 행은 항상 0개 아니면 1개다."""
+    보는 행은 항상 0개 아니면 1개다.
+
+    🔴 2026-09-15 PE 개정 — finished_at도 함께 찍는다(종전에는 status만 바꾸고
+    finished_at을 비워 뒀다). apps/setting/views.py의 SET-010 노드 배지가 "오늘
+    벌어진 중단"을 판정할 때 finished_at을 본다(docs/planning.md "SET-010 노드
+    배지" 3번) — 비워 두면 중단된 배치는 날짜를 영영 알 수 없어 그 판정이
+    불가능해진다."""
     now = timezone.now()
     stopped = 0
     special_keys = list(HEARTBEAT_STALE_SECONDS_BY_JOB_KEY.keys())
@@ -139,11 +145,11 @@ def mark_stale_running_as_stopped() -> int:
         threshold = now - timedelta(seconds=seconds)
         stopped += RunJob.objects.filter(
             job_key=job_key, status=RunJob.STATUS_RUNNING, heartbeat_at__lt=threshold,
-        ).update(status=RunJob.STATUS_STOPPED)
+        ).update(status=RunJob.STATUS_STOPPED, finished_at=now)
     default_threshold = now - timedelta(seconds=HEARTBEAT_STALE_SECONDS)
     stopped += RunJob.objects.exclude(job_key__in=special_keys).filter(
         status=RunJob.STATUS_RUNNING, heartbeat_at__lt=default_threshold,
-    ).update(status=RunJob.STATUS_STOPPED)
+    ).update(status=RunJob.STATUS_STOPPED, finished_at=now)
     return stopped
 
 

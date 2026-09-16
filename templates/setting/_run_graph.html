@@ -182,21 +182,46 @@
           {% include "setting/_run_node.html" with job=research_jobs.collect key="collect" label="1단계 수집" description="새 기사를 수집해요" icon="play" outline=False dimmed=running_job %}
 
           {% comment %}
-            연결선. 이미 지난 구간은 보라, 아직 안 지난 구간은 회색 — 흐름을 움직임이 아니라
+            연결선. 뚫린 구간은 보라, 막힌 구간은 회색 — 흐름을 움직임이 아니라
             색으로 굳힌다. data-flow는 애니메이션 B(연결선 흐름)를 켰을 때만 쓰인다.
+
+            🔴 2026-09-15 13차 개정 — 조건이 'done'에서 'clear'로 바뀌었다.
+               'done'이라는 상태가 사라졌기 때문이고(배지 축 전환, _run_node.html 맨 위
+               주석), 같은 개정으로 **뜻도 한 칸 옮겨졌다.**
+                 종전   "앞 단계를 완료했다"   → 어제 완료가 오늘도 보라로 남았다
+                 현행   "앞 단계에 할 일이 없다 = 흐름이 거기서 막혀 있지 않다"
+               🔴 이게 배지가 고친 것과 같은 문제를 선에서도 고친다. 아침에 수집을
+                  아직 안 눌렀으면 1단계가 todo라 첫 구간이 회색이고, 누르고 나면
+                  보라가 된다. **선도 날마다 처음으로 돌아간다.**
+               ⚠️ running, review, failed, stopped는 전부 회색이다. 앞 단계가 사람을
+                  기다리거나 사고가 난 구간은 뚫린 것이 아니다.
+
+            🔴 2026-09-16 — 위 "아침이면 회색, 누르면 보라"가 **수집 두 구간에서는
+               성립하지 않게 됐다.** 사용자 결정으로 수집 노드는 clear가 되지 않고
+               사고가 없는 동안 todo에 고정되므로(docs/planning.md 1-1, 1-2),
+               **1단계 → 2단계 구간과 교보 1단계 → 2단계 구간은 늘 회색이다.**
+               ⚠️ 색을 억지로 되살리지 말 것. 이 선이 보라일 때 하는 말은 "앞 단계에
+                  할 일이 없다"인데, **수집에 할 일이 없다고 말할 근거가 우리에게
+                  없다**(바깥에 새 기사가 있는지는 눌러야 안다). 없는 근거로 보라를
+                  칠하는 것이 회색으로 두는 것보다 나쁘다.
+               ⚠️ "오늘 한 번 돌았으면 보라"처럼 날짜로 되살리는 안은 특히 금지다.
+                  사용자가 걷어낸 날짜 축을 선에 다시 심는 것이고, 같은 절이 금지한
+                  보완 장치에 그대로 해당한다.
+               🔴 이 결과를 줄이려면 선이 무엇을 말하는가 자체를 다시 정해야 한다.
+                  그건 PD가 혼자 정할 일이 아니라 PM에게 물을 일이다.
           {% endcomment %}
           <div class="run-edge flex-1 min-w-[36px] flex items-center px-1"
                data-flow="{% if research_jobs.cleanup.state == 'running' %}running{% endif %}">
-            <div class="run-edge-line flex-1 h-0.5 {% if research_jobs.collect.state == 'done' %}bg-primary{% else %}bg-gray-200{% endif %}"></div>
-            <i data-lucide="chevron-right" class="w-4 h-4 -ml-1.5 flex-shrink-0 {% if research_jobs.collect.state == 'done' %}text-primary{% else %}text-gray-300{% endif %}"></i>
+            <div class="run-edge-line flex-1 h-0.5 {% if research_jobs.collect.state == 'clear' %}bg-primary{% else %}bg-gray-200{% endif %}"></div>
+            <i data-lucide="chevron-right" class="w-4 h-4 -ml-1.5 flex-shrink-0 {% if research_jobs.collect.state == 'clear' %}text-primary{% else %}text-gray-300{% endif %}"></i>
           </div>
 
           {% include "setting/_run_node.html" with job=research_jobs.cleanup key="cleanup" label="2단계 뉴스 정리" description="기사의 관련성을 판정해요" icon="sparkles" outline=False dimmed=running_job %}
 
           <div class="run-edge flex-1 min-w-[36px] flex items-center px-1"
                data-flow="{% if research_jobs.insight.state == 'running' %}running{% endif %}">
-            <div class="run-edge-line flex-1 h-0.5 {% if research_jobs.cleanup.state == 'done' %}bg-primary{% else %}bg-gray-200{% endif %}"></div>
-            <i data-lucide="chevron-right" class="w-4 h-4 -ml-1.5 flex-shrink-0 {% if research_jobs.cleanup.state == 'done' %}text-primary{% else %}text-gray-300{% endif %}"></i>
+            <div class="run-edge-line flex-1 h-0.5 {% if research_jobs.cleanup.state == 'clear' %}bg-primary{% else %}bg-gray-200{% endif %}"></div>
+            <i data-lucide="chevron-right" class="w-4 h-4 -ml-1.5 flex-shrink-0 {% if research_jobs.cleanup.state == 'clear' %}text-primary{% else %}text-gray-300{% endif %}"></i>
           </div>
 
           {% include "setting/_run_node.html" with job=research_jobs.insight key="insight" label="3단계 주요 이슈" description="같은 사건을 이슈로 통합해요" icon="sparkles" outline=False dimmed=running_job %}
@@ -313,10 +338,15 @@
           중이라는 뜻인데 이 노드에는 순서가 오지 않는다. 문구만 고치고 배지를 두면
           배지가 문구를 덮는다(배지는 항상 보이고 툴팁은 올려야 보인다).
        🔴 그래서 뷰가 이 셋을 내려 준다. 템플릿은 고칠 것이 없다.
-            state_label  "만들지 않음"          ← 배지. 상태 값은 idle 그대로다
+            state_label  "만들지 않아요"        ← 배지
             summary      "만들지 않기로 한 단계예요"
             block_reason "Slack 발송은 만들지 않기로 했어요.
                           3단계 발송문을 복사해서 직접 보내 주세요"
+       🔴 2026-09-15 13차 개정 — 상태 값이 idle에서 clear로 바뀐다. idle이라는 값이
+          사라졌기 때문이고, 뜻은 그대로 맞는다(이 노드에는 영영 할 일이 없다).
+          배지 낱말도 명사구 "만들지 않음"에서 해요체 "만들지 않아요"로 바뀌었다 —
+          여섯 값의 낱말이 전부 해요체가 되면서 이 하나만 남으면 격이 갈린다.
+          ⚠️ 색은 회색 그대로다. clear가 회색이라 바뀌는 것이 없다.
        🔴 노드를 지우지 않는다. 지우면 이 축이 3단계에서 끝나는 것처럼 보여
           "왜 안 보내지"라는 물음이 화면 밖으로 밀려난다. 자리에 남아서 "여기서
           끝난다"고 말하는 것이 그 물음에 답하는 유일한 자리다.
@@ -410,10 +440,16 @@
           <div class="w-[588px] flex items-center">
             {% include "setting/_run_node.html" with job=newsroom_jobs.newsroom_collect key="newsroom_collect" label="1단계 수집" description="교보 관련 기사를 수집해요" icon="play" outline=False dimmed=running_job %}
 
+            {% comment %}
+              🔴 이 구간도 늘 회색이다. 앞이 수집 노드라 clear가 오지 않는다.
+                 근거와 금지 사항은 위 리서치 축 1단계 연결선 주석의
+                 2026-09-16 문단에 있다. 조건을 여기서만 바꾸지 말 것 —
+                 두 축이 같은 규칙을 쓰지 않으면 같은 화면이 두 말을 한다.
+            {% endcomment %}
             <div class="run-edge flex-1 min-w-[36px] flex items-center px-1"
                  data-flow="{% if newsroom_jobs.newsroom_filter.state == 'running' %}running{% endif %}">
-              <div class="run-edge-line flex-1 h-0.5 {% if newsroom_jobs.newsroom_collect.state == 'done' %}bg-primary{% else %}bg-gray-200{% endif %}"></div>
-              <i data-lucide="chevron-right" class="w-4 h-4 -ml-1.5 flex-shrink-0 {% if newsroom_jobs.newsroom_collect.state == 'done' %}text-primary{% else %}text-gray-300{% endif %}"></i>
+              <div class="run-edge-line flex-1 h-0.5 {% if newsroom_jobs.newsroom_collect.state == 'clear' %}bg-primary{% else %}bg-gray-200{% endif %}"></div>
+              <i data-lucide="chevron-right" class="w-4 h-4 -ml-1.5 flex-shrink-0 {% if newsroom_jobs.newsroom_collect.state == 'clear' %}text-primary{% else %}text-gray-300{% endif %}"></i>
             </div>
 
             {% include "setting/_run_node.html" with job=newsroom_jobs.newsroom_filter key="newsroom_filter" label="2단계 필터" description="게재할 기사를 선별해요" icon="sparkles" outline=False dimmed=running_job %}
@@ -456,22 +492,22 @@
             {% comment %} ① 2단계 카드 중앙(절대 606)에서 짧게 내려온다 {% endcomment %}
             <div class="flex justify-end">
               <div class="w-[276px] flex justify-center">
-                <div class="run-edge-line-v w-0.5 h-4 {% if newsroom_jobs.newsroom_filter.state == 'done' %}bg-primary{% else %}bg-gray-200{% endif %}"></div>
+                <div class="run-edge-line-v w-0.5 h-4 {% if newsroom_jobs.newsroom_filter.state == 'clear' %}bg-primary{% else %}bg-gray-200{% endif %}"></div>
               </div>
             </div>
 
             {% comment %} ② 오른쪽 열에서 왼쪽 열로 이동한다 (절대 606 → 294) {% endcomment %}
             <div class="flex">
               <div class="w-[138px]"></div>
-              <div class="run-edge-line flex-1 h-0.5 {% if newsroom_jobs.newsroom_filter.state == 'done' %}bg-primary{% else %}bg-gray-200{% endif %}"></div>
+              <div class="run-edge-line flex-1 h-0.5 {% if newsroom_jobs.newsroom_filter.state == 'clear' %}bg-primary{% else %}bg-gray-200{% endif %}"></div>
               <div class="w-[138px]"></div>
             </div>
 
             {% comment %} ③ 3단계로 내려간다(절대 294). 화살촉은 여기 하나뿐이다 {% endcomment %}
             <div class="flex">
               <div class="w-[276px] flex flex-col items-center">
-                <div class="run-edge-line-v w-0.5 h-10 {% if newsroom_jobs.newsroom_filter.state == 'done' %}bg-primary{% else %}bg-gray-200{% endif %}"></div>
-                <i data-lucide="chevron-down" class="w-4 h-4 -mt-1.5 {% if newsroom_jobs.newsroom_filter.state == 'done' %}text-primary{% else %}text-gray-300{% endif %}"></i>
+                <div class="run-edge-line-v w-0.5 h-10 {% if newsroom_jobs.newsroom_filter.state == 'clear' %}bg-primary{% else %}bg-gray-200{% endif %}"></div>
+                <i data-lucide="chevron-down" class="w-4 h-4 -mt-1.5 {% if newsroom_jobs.newsroom_filter.state == 'clear' %}text-primary{% else %}text-gray-300{% endif %}"></i>
               </div>
             </div>
           </div>

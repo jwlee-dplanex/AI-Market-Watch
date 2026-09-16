@@ -164,12 +164,63 @@
 
       opacity-60은 의도적이다 — 제품 이름이 주인공이어야 한다. 둘 다 또렷하면
       어디를 봐야 할지 헷갈린다. 회사 마크는 "누구 제품인지" 알려주는 배경 정보다.
+
+      ══════════════════════════════════════════════════════════════════
+      🔴 2026-09-15 — 로고 줄에 「전략기획팀」이 붙었다 (사용자 지시)
+      ══════════════════════════════════════════════════════════════════
+        "사이드 바 헤더에 / dplanex 로고 전략기획팀 / AI Market Watch로 하자"
+
+      ▣ 두 줄로 읽었다. 세 줄로 만들지 않았다
+          [DPLANEX 로고] 전략기획팀      ← 누구의 제품인가 (회사 + 조직)
+          AI Market Watch                ← 제품 이름. 주인공은 그대로다
+        지시문의 줄바꿈이 그렇게 갈라져 있고, 로고 아래 별도 줄로 빼면 세 줄이
+        되어 머리가 무거워진다. 🔴 사이드바 머리는 항상 보이는 자리라 줄 수가
+        늘면 그만큼 메뉴가 아래로 밀린다.
+
+      ▣ 폭 계산 — 192px 안에 들어간다 (여유 44px)
+          로고 h-4      85px   (원본 138x26을 16px 높이로)
+          gap-2          8px
+          전략기획팀    55px   (11px x 5글자)
+          ────────────────────
+          합           148px   ≤ 192px
+        ⚠️ 이 줄에 낱말을 더 붙이려면 다시 계산할 것. 남은 44px은 한글 네 글자다.
+
+      ▣ 「전략기획팀」의 시각 무게는 로고와 같은 급이다
+        둘은 성질이 같은 정보다 — 회사와 그 안의 조직이고, 합쳐서 "누구의
+        제품인가" 한 줄을 이룬다. 그래서 한 단계 아래로 누르지 않았다.
+        🔴 text-white/70을 쓴 것은 로고의 opacity-60보다 밝게 하려는 것이 아니라
+           **같아 보이게** 하려는 것이다. 11px 한글은 워드마크 이미지보다 획이
+           가늘어서 같은 투명도를 주면 더 흐리게 보인다.
+        ⚠️ text-white/60은 빌드에 없다. 쓰면 조용히 무시돼 글자가 흰색 그대로
+           나오고, 그 순간 이 줄이 제품 이름과 같은 무게가 된다.
+
+      ▣ 정렬은 items-center다
+        items-baseline은 이미지의 기준선이 **박스 아래 모서리**라, 한글의
+        디센더 여백만큼 글자가 로고보다 내려앉아 보인다. 게다가 워드마크가
+        이미지 파일 안에서 위아래 여백을 얼마나 갖는지 이 마크업에서는 알 수
+        없다. 가운데 정렬은 그 여백과 무관하게 흔들리지 않는다.
+
+      ▣ 구분은 여백 8px 하나다. 세로선을 두지 않았다
+        🔴 이 앱에서 구분선은 사이드바에서 이미 기각된 수단이다.
+        🔴 무엇보다 여기서는 둘이 **하나로 읽히는 것이 맞다.** "DPLANEX
+           전략기획팀"이 한 소속이지 두 정보가 아니다. 선을 그으면 둘을
+           갈라 놓는 셈이라 뜻이 반대가 된다.
+
+      ▣ 링크 범위는 그대로 전체다
+        「전략기획팀」도 <a> 안에 있어 누르면 대시보드로 간다. 로고 머리를
+        누르면 홈으로 가는 것이 웹의 관례이고, 한 줄 안에서 로고는 눌리는데
+        옆 글자는 안 눌리면 "왜 안 되지"가 된다.
+        ⚠️ 그래서 이 링크의 이름이 "DPLANEX 전략기획팀 AI Market Watch"로
+           읽힌다(스크린리더). 제품 홈으로 가는 링크의 설명으로 맞는 문장이다.
     {% endcomment %}
     <div class="px-6 py-5 border-b border-white/10">
       <a href="{% url 'dashboard' %}" class="block">
-        <img src="{% static 'img/logo_white.png' %}" alt="DPLANEX"
-             class="h-4 w-auto opacity-60 mb-1.5">
-        <span class="text-white font-bold text-base leading-tight whitespace-nowrap">AI Market Watch</span>
+        <div class="flex items-center gap-2 mb-1.5">
+          <img src="{% static 'img/logo_white.png' %}" alt="DPLANEX"
+               class="h-4 w-auto opacity-60">
+          <span class="text-[11px] leading-tight text-white/70 whitespace-nowrap">전략기획팀</span>
+        </div>
+        <span class="text-white font-bold text-lg leading-tight whitespace-nowrap">AI Market Watch</span>
       </a>
     </div>
 
