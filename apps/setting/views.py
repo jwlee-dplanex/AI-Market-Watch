@@ -4,7 +4,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.contrib import messages
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Min, Max, Exists, OuterRef
+from django.db.models import Count, Min, Max, Exists, OuterRef, Sum
 from django.http import Http404, HttpResponse
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
@@ -329,6 +329,72 @@ def _job_run_state(run_job, job_key, has_work):
     return ("todo", STATE_LABELS["todo"]) if has_work else ("clear", STATE_LABELS["clear"])
 
 
+def _today_or_past(dt):
+    """15차 개정 ⑥-2, 13차 ①번 서식 — 요약 줄 접두 `{오늘|지난} {사건} {시각|날짜}`의
+    앞 두 조각을 만든다. dt가 오늘(로컬 날짜)이면 ("오늘", "HH:MM")을, 아니면
+    ("지난", "MM/DD")를 반환한다 — "지난" 쪽에 시각을 적지 않는 것은 지난 일에서
+    사람이 쓰는 정보가 몇 시냐가 아니라 며칠 전이냐이기 때문이다(13차 ④번 근거)."""
+    if _is_today_local(dt):
+        return "오늘", f"{timezone.localtime(dt):%H:%M}"
+    return "지난", f"{timezone.localtime(dt):%m/%d}"
+
+
+def _collect_article_count(run_job) -> int:
+    """15차 개정 ⑦ PE 인계 핵심 — collect.summary가 세는 값은 새로 저장된 기사 수
+    (`CollectionLog.collected_count` 합)이지 `RunJob.processed_count`(키워드 수, 실측
+    19건 고정)가 아니다. RunJob과 CollectionLog는 FK로 이어져 있지 않다 —
+    services/collector.py의 run_collection()이 이 실행 도중 정확히 1건을 남기므로
+    (진행중 RunJob은 전역에 최대 1개라 RunJob.Meta.constraints가 겹침을 막는다),
+    그 실행 구간([started_at, finished_at])에 든 CollectionLog를 그 실행의 것으로
+    본다. Sum으로 합치는 이유는 향후 실행 하나가 로그를 여러 건 남기게 되어도
+    이 함수가 그대로 맞기 위해서다(지금은 항상 1건)."""
+    qs = CollectionLog.objects.filter(started_at__gte=run_job.started_at)
+    if run_job.finished_at:
+        qs = qs.filter(started_at__lte=run_job.finished_at)
+    return qs.aggregate(total=Sum("collected_count"))["total"] or 0
+
+
+def _newsroom_collect_article_count(run_job) -> int:
+    """newsroom_collect.summary가 세는 값 — 그 실행 구간에 채널에 새로 들어온 기사 수
+    (`NewsroomArticle.collected_at` 기준, 위 _collect_article_count()와 같은 이유로
+    processed_count(키워드 수)를 쓰지 않는다). RunJob이 newsroom_id를 저장하지
+    않으므로(services/runner.py의 kwargs는 스레드 인자로만 쓰이고 영속되지 않는다)
+    지금 유일하게 고를 수 있는 대상 채널(_target_newsroom(), 활성 채널이 정확히
+    1개일 때만 정해진다)을 그대로 쓴다 — 이 축의 다른 모든 표시도 이미 같은
+    전제(활성 채널 1개) 위에 서 있다."""
+    room = _target_newsroom()
+    if not room:
+        return 0
+    qs = room.articles.filter(collected_at__gte=run_job.started_at)
+    if run_job.finished_at:
+        qs = qs.filter(collected_at__lte=run_job.finished_at)
+    return qs.count()
+
+
+# CONFIRMED 요약 줄의 단위 낱말(15차 개정 ⑥-1). weekly/monthly는 이 규약의 대상이
+# 아니다(⑥-2 각주) — CONFIRMED로 떨어져도 _weekly_job_context()/_monthly_job_context()가
+# todo/clear 상태에서 항상 summary_override로 덮어써 여기 값이 화면에 노출되지 않는다.
+CONFIRMED_UNIT_BY_JOB = {"cleanup": "기사", "insight": "이슈"}
+
+
+def _confirmed_count(run_job, job_key) -> int:
+    """CONFIRMED 요약 줄의 건수. 🔴 insight는 `processed_count`를 쓰지 않는다 —
+    그 값은 _run_insight()가 "이슈로 묶을 후보로 고려한 뉴스 수"(len(targets))로
+    채운 것이라 "그 실행이 만든 이슈 수"와 다른 수다(예: 뉴스 71건을 고려해 이슈
+    6건을 만들 수 있다). 실제로 확정(채택)된 Insight 개수는 그 배치가 남긴
+    RunDraft에서 직접 센다 — _confirm_insight_drafts()가 채택된 초안마다
+    RunProposal.STATUS_ACCEPTED로 남긴다.
+
+    cleanup은 processed_count 자체가 이미 "판정한 기사 수"라 그대로 쓴다(생성
+    시점에 성공+실패를 합쳐 저장한다, _run_cleanup() 참고) — design.md 15차 개정
+    ⑦번이 "수는 이미 맞다"고 확인한 자리다."""
+    if job_key == "insight":
+        return RunDraft.objects.filter(
+            run_job=run_job, draft_type=RunDraft.TYPE_INSIGHT, status=RunProposal.STATUS_ACCEPTED,
+        ).count()
+    return run_job.processed_count
+
+
 def _run_job_display(job_key, has_work):
     """job_key의 최신 RunJob과 "할 일이 있나" 축 판정(has_work)으로 노드
     표시값(state/state_label/summary/elapsed)을 만든다. 그 job_key로 RunJob이 한
@@ -434,23 +500,48 @@ def _run_job_display(job_key, has_work):
     # 또는 오늘이 아닌 FAILED/STOPPED 중 하나다 — 배지 색은 이미 todo/clear로
     # 정해졌으니, 요약 줄만 실제 status를 보고 사실대로 말한다.
     if run_job.status == RunJob.STATUS_FAILED:
-        summary = f"{timezone.localtime(run_job.finished_at):%m/%d} 실행이 실패했어요"
+        # 🔴 template run.html 상단 계약(13차 개정 ③) — "지난 실패 MM/DD"(사건만,
+        # 건수 없음). 오늘 난 실패는 여기 닿지 않는다(_job_run_state()가 이미
+        # 앞에서 "실행이 실패했어요"로 가로챈다) — 그래서 여기 오는 finished_at은
+        # 항상 오늘이 아니지만, 판정은 다른 곳과 같은 _today_or_past()로 통일한다.
+        _, when = _today_or_past(run_job.finished_at)
+        summary = f"지난 실패 {when}"
     elif run_job.status == RunJob.STATUS_STOPPED:
+        # 🔴 같은 계약 — "지난 중단 MM/DD, N건까지". 1호출 job(RESUME_FROM_SCRATCH_JOB_KEYS)은
+        # 건수를 찍지 않는다 — "오늘" 중단 요약(위 `if state == "stopped":` 분기)과
+        # 같은 이유다("그만큼은 남아 있겠지"로 오독된다).
         stopped_at = run_job.finished_at or run_job.heartbeat_at
-        summary = (
-            f"{timezone.localtime(stopped_at):%m/%d} 실행이 중단됐어요" if stopped_at
-            else "중단된 적이 있어요"
-        )
+        if not stopped_at:
+            summary = "중단된 적이 있어요"
+        else:
+            _, when = _today_or_past(stopped_at)
+            if job_key in RESUME_FROM_SCRATCH_JOB_KEYS:
+                summary = f"지난 중단 {when}"
+            else:
+                current = run_job.processed_count + run_job.failed_count
+                summary = f"지난 중단 {when}, {current}건까지"
     elif run_job.status == RunJob.STATUS_CONFIRMED:
-        summary = f"마지막 확정 {timezone.localtime(run_job.finished_at):%m/%d %H:%M}, {run_job.processed_count}건"
+        # 🔴 15차 개정 ⑥-2 — "마지막 확정 MM/DD HH:MM"(13차가 쓰지 말라고 못박은
+        # 종전 서식)에서 {오늘|지난} 접두로 바꾸고, 건수에 단위 낱말(기사/이슈)을
+        # 더한다. 건수 자체도 job_key별로 다른 값을 본다(_confirmed_count() 참고 —
+        # insight는 processed_count가 아니라 실제로 확정된 Insight 개수를 센다).
+        prefix, when = _today_or_past(run_job.finished_at)
+        unit = CONFIRMED_UNIT_BY_JOB.get(job_key, "")
+        count = _confirmed_count(run_job, job_key)
+        count_text = f"{unit} {count}건" if unit else f"{count}건"
+        summary = f"{prefix} 확정 {when}, {count_text}"
     elif run_job.status == RunJob.STATUS_CANCELED:
         # 🔴 취소됨은 "상태가 아니라 사건"이고(같은 문서 5번), 사실은 요약 줄에
         # 남긴다 — 재료는 취소 뒤에도 그대로 남으므로 배지(todo/clear)는 재료
         # 유무로 이미 따로 정해져 있다.
-        summary = (
-            f"{timezone.localtime(run_job.finished_at):%m/%d %H:%M} 실행을 취소했어요" if run_job.finished_at
-            else "지난 실행을 취소했어요"
-        )
+        # 🔴 같은 계약(13차 개정 ②) — "{오늘|지난} 취소 {시각|날짜}, N건"(사고 색이
+        # 아니라 사람이 의도해 누른 정상 동작이라는 사실만 말한다). 건수는 그
+        # 배치의 크기(processed_count)이지 지금 남은 재료가 아니다.
+        if not run_job.finished_at:
+            summary = "지난 실행을 취소했어요"
+        else:
+            prefix, when = _today_or_past(run_job.finished_at)
+            summary = f"{prefix} 취소 {when}, {run_job.processed_count}건"
     elif run_job.status == RunJob.STATUS_DONE:
         # 🔴 2026-09-15 PE 개정 — 조건을 GATED_JOB_KEYS 소속에서 ZERO_TARGET_SUMMARY_BY_JOB
         # 소속으로 바꿨다. 종전엔 "대상 0건이 review로 잘못 떨어지는 교착을 막는다"는
@@ -463,7 +554,29 @@ def _run_job_display(job_key, has_work):
         # 여전히 GATED이자 이 dict에도 있어 동작이 그대로다.
         if job_key in ZERO_TARGET_SUMMARY_BY_JOB and run_job.target_count == 0:
             summary = ZERO_TARGET_SUMMARY_BY_JOB.get(job_key, "처리할 대상이 없었어요")
+        elif job_key in ("collect", "newsroom_collect"):
+            # 🔴 15차 개정 ⑦번 핵심 — processed_count(키워드 수, 실측 19건 고정)를
+            # 쓰지 않는다. 실제로 새로 저장된 기사 수를 별도로 센다(위 헬퍼 참고).
+            prefix, when = _today_or_past(run_job.finished_at)
+            count = (
+                _collect_article_count(run_job) if job_key == "collect"
+                else _newsroom_collect_article_count(run_job)
+            )
+            count_text = "새 기사 없음" if count == 0 else f"새 기사 {count}건"
+            summary = f"{prefix} 수집 {when}, {count_text}"
+        elif job_key == "newsroom_compose":
+            # 🔴 processed_count가 이미 "그 발송문이 담은 기사 수"라 그대로 쓴다
+            # (_run_newsroom_compose()가 len(targets)로 채운다) — 단위 낱말만 더한다.
+            prefix, when = _today_or_past(run_job.finished_at)
+            summary = f"{prefix} 발송문 {when}, 기사 {run_job.processed_count}건"
         else:
+            # 🔴 newsroom_filter — 여기 값은 실제로 화면에 노출되지 않는다.
+            # _newsroom_jobs_context()가 todo/clear 상태에서 항상
+            # _newsroom_filter_summary()로 덮어쓴다(채널 누적 집계, 15차 개정
+            # ⑦번 "RunJob과 NewsroomArticle을 잇는 길이 없어" 실행 범위로
+            # 좁히지 못한 채 그대로 둔 자리 — PE 보고 참고). 다른 job_key가
+            # 이 경로로 새로 들어오면(이 dict를 깜빡하고 놓치면) 옛 서식이라도
+            # 화면에 뜨는 게 아무 값도 없는 것보다 낫다는 방어적 기본값이다.
             summary = f"마지막 실행 {timezone.localtime(run_job.finished_at):%m/%d %H:%M}, {run_job.processed_count}건"
     else:
         # RunJob.STATUS_PENDING — 실제 실행 경로(start_run/run_now)는 RunJob을 항상
@@ -582,6 +695,31 @@ def _job_has_work(job_key: str) -> bool:
         room = _target_newsroom()
         return bool(room) and _newsroom_compose_has_new_material(room)
     return False
+
+
+# 게이트 단계는 "완료"가 아니라 "확정까지 눌렀다"일 때만 그 단계를 지나온 것이다
+# (docs/design.md 15차 개정 ④번) — GATED_JOB_KEYS를 그대로 재사용한다(새 목록을
+# 만들지 않는다, _clear_can_run() 등과 같은 원칙).
+def _job_finished_today(job_key: str) -> bool:
+    """SET-010 연결선의 "앞 단계를 오늘 지나왔다" 판정(docs/design.md 15차 개정 ①④).
+    그 job_key의 최신 RunJob 하나만 본다 — _run_job_display()와 같은 최신 행 규칙
+    (order_by("-started_at", "-pk").first())이라 배지가 보는 실행과 항상 같다.
+
+    게이트 단계(cleanup/insight/weekly/monthly)는 오늘 STATUS_CONFIRMED일 때만
+    참이다 — 제안만 내고 검토를 기다리는 중(STATUS_DONE, review 배지)은 사람이
+    아직 확정을 누르지 않아 그 단계를 지나온 것이 아니다. 그 밖(collect·
+    newsroom_collect·newsroom_filter·newsroom_compose)은 오늘 STATUS_DONE이면
+    참이다 — 이 넷은 확정 게이트가 없어 완료가 곧 끝이다.
+
+    running/review/failed/stopped/canceled와 어제 이전 실행은 전부 거짓이다 —
+    사람을 기다리거나 사고가 난 구간, 그리고 오늘이 아닌 과거는 "지나온" 것이
+    아니라는 13차의 판단을 그대로 잇는다. RunJob이 한 번도 없었으면(신규 설치,
+    또는 newsroom_send처럼 애초에 시작 경로가 없는 job) 거짓이다."""
+    run_job = RunJob.objects.filter(job_key=job_key).order_by("-started_at", "-pk").first()
+    if not run_job:
+        return False
+    target_status = RunJob.STATUS_CONFIRMED if job_key in GATED_JOB_KEYS else RunJob.STATUS_DONE
+    return run_job.status == target_status and _is_today_local(run_job.finished_at)
 
 
 def _weekly_job_context():
@@ -817,6 +955,11 @@ def _research_jobs_context():
     # 이룬다). can_run/block_reason/summary는 각 컨텍스트 함수가 전부 결정한다.
     jobs["weekly"] = _weekly_job_context()
     jobs["monthly"] = _monthly_job_context()
+
+    # 🔴 15차 개정 ① — 연결선이 보는 "오늘 지나왔다" 판정. 다섯 노드 전부 같은
+    # 함수 하나로 채운다(판정을 두 벌로 만들지 않는다).
+    for key in jobs:
+        jobs[key]["finished_today"] = _job_finished_today(key)
     return jobs
 
 
@@ -1064,6 +1207,11 @@ def _newsroom_jobs_context():
         "run_url": "",
         "review_url": "",
     }
+
+    # 🔴 15차 개정 ① — _research_jobs_context()와 같은 함수 하나로 네 노드를
+    # 채운다(newsroom_send 포함, 항상 False — RunJob이 애초에 생기지 않는다).
+    for key in jobs:
+        jobs[key]["finished_today"] = _job_finished_today(key)
     return jobs
 
 

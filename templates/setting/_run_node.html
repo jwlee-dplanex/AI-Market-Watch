@@ -15,6 +15,15 @@
     icon         lucide 아이콘 이름  수집만 play, LLM 4개는 sparkles
     outline      True면 테두리 버튼(3·4번 가지 노드)
     dimmed       다른 노드가 실행 중이면 True — 이 노드를 흐리고 버튼을 잠근다
+    key          job 키 문자열  예) "collect" "newsroom_filter"
+                 🔴 화면에 찍히지 않고 id와 data 속성에만 쓰인다. 쓰는 곳이 둘이다.
+                   ① 스피너 id(run-spinner-{{ key }}) — hx-indicator가 가리킨다
+                   ② 🔴 경과 시간 span의 data-elapsed-key (2026-09-16 15차 개정)
+                      초를 1초마다 올리는 스크립트가 노드를 구분하는 데 쓴다.
+                 ⚠️ 아홉 include가 전부 이 값을 넘긴다. 빠뜨리면 두 자리가 조용히
+                    빈 문자열이 된다. 전역 잠금 때문에 지금은 한 번에 한 노드만
+                    실행되므로 화면이 곧바로 틀리지는 않지만, 잠금이 풀리는 날
+                    두 노드의 타이머가 한 값을 나눠 쓰게 된다.
 
   ⚠️ 노드 크기는 상태와 무관하게 고정이어야 한다. 3초 폴링으로 이 조각만 갈아끼우는데
      상태마다 높이가 달라지면 화면이 3초마다 들썩인다. 그래서 본문은 min-h로 바닥을
@@ -270,9 +279,45 @@
          🔴 두 줄을 다 써도 34px이라 본문 min-h-[80px] 안에 들어간다. 그래서 위 두
             클래스가 빌드되지 않은 상태에서도 노드 높이는 그대로다.
 
-      경과 시간은 서버가 계산해 문자열로 내려준다(클라이언트 setInterval 금지 —
-      탭이 백그라운드로 가면 브라우저가 타이머를 조인다). 숫자도 같은 이유로
-      서버가 내려주는 정수를 그대로 찍기만 한다.
+      ══════════════════════════════════════════════════════════════════════
+      🔴 2026-09-16 15차 개정 — 초는 브라우저가 1초마다 올린다. 폴링과 갈랐다
+      ══════════════════════════════════════════════════════════════════════
+      사용자 지시 "타이머를 1초마다 올리기 이거는 모든 초에 적용해줘", 근거도
+      사용자 말이 그대로다 — **"검사는 3초마다해도 타이머는 +1초 할 수 있잖아."**
+
+        종전   서버가 3초마다 elapsed 문자열을 만들어 내림 → 화면이 3초씩 점프
+        현행   🔴 서버 값이 **기준점**이고, 그 사이 1초는 브라우저가 센다
+
+      🔴 서버 문자열을 없애지 않았다. 이 자리의 정본은 여전히 서버 값이다
+        아래 span의 **내용**이 서버가 만든 "1분 12초" 그대로이고, 같은 값을
+        data-elapsed 속성에 한 번 더 적어 둔다. JS가 죽거나 막히면 그 내용이
+        그대로 남아 **3초마다 점프하는 종전 동작으로 조용히 떨어진다.** 초가
+        사라지는 경우는 없다.
+        🔴 그래서 이 span에서 내용과 data-elapsed를 갈라 쓰지 말 것. 둘이 같은
+           값이어야 JS가 다시 붙을 때(폴링 교체마다) 기준점이 맞는다.
+
+      🔴 3초 폴링이 조각을 통째로 갈아끼우는 것과 어떻게 같이 사는가
+        교체가 오면 이 span도 새것으로 바뀌어 **브라우저가 세던 값이 버려지고
+        서버 값으로 다시 시작한다.** 그게 맞다 — 서버 값이 정본이고 클라이언트는
+        3초 사이를 메우는 몫이다. 세는 쪽이 아니라 **기준점을 새로 받는 쪽**이라
+        오차가 쌓이지 않는다.
+        구현은 run.html 맨 아래 <script>에 있다(조각 밖에 있어야 교체를 넘긴다).
+        찾는 방법이 이 class="run-elapsed" 하나뿐이므로 **class 이름을 바꾸면
+        타이머가 조용히 멈춘다.** 서식도 그 스크립트가 서버와 같은 규칙으로
+        만든다(60초부터 "1분 0초").
+
+      ⚠️ 종전 주석이 "클라이언트 setInterval 금지 — 탭이 백그라운드로 가면
+         브라우저가 타이머를 조인다"였다. **그 우려는 지금 구현에 걸리지 않는다.**
+         값을 1씩 더해 쌓는 것이 아니라 **매번 기준점과 현재 시각의 차로 다시
+         계산**하기 때문이다. 타이머가 조여 늦게 깨어나도 그때 찍히는 값은 맞는
+         값이고, 3초마다 서버 값으로 다시 맞춰진다.
+         🔴 되돌리지 말 것 — "초를 1씩 더한다"로 구현을 바꾸면 그 우려가 그대로
+            되살아난다.
+
+      ⚠️ 이 화면의 다른 시간 표시는 타이머가 아니다. 절대 돌리지 말 것
+           지난 실행 2분 40초   지나간 실행의 **기록**이다
+           오늘 확정 10:57      지나간 사건의 시각이다
+         둘에는 run-elapsed를 붙이지 않았다. 올라가면 거짓이 된다.
     {% endcomment %}
     {% if job.state == 'running' %}
     <div class="flex items-start gap-1.5">
@@ -292,9 +337,9 @@
         <span class="text-xs leading-4 text-gray-600 font-medium whitespace-nowrap truncate" title="{{ job.progress_note }}">{{ job.progress_note }}</span>
         {% elif job.progress_total %}
         <span class="text-xs leading-4 text-gray-600 font-medium whitespace-nowrap"
-              title="{% if job.progress_unit %}{{ job.progress_unit }} {% endif %}{{ job.progress_total }}건 중 {{ job.progress_current|default:0 }}건">{{ job.progress_current|default:0 }}/{{ job.progress_total }}{% if job.elapsed %} ({{ job.elapsed }}){% endif %}</span>
+              title="{% if job.progress_unit %}{{ job.progress_unit }} {% endif %}{{ job.progress_total }}건 중 {{ job.progress_current|default:0 }}건">{{ job.progress_current|default:0 }}/{{ job.progress_total }}{% if job.elapsed %} (<span class="run-elapsed" data-elapsed-key="{{ key }}" data-elapsed="{{ job.elapsed }}">{{ job.elapsed }}</span>){% endif %}</span>
         {% else %}
-        <span class="text-xs leading-4 text-gray-500 whitespace-nowrap">{{ job.elapsed|default:"실행하고 있어요" }}</span>
+        <span class="text-xs leading-4 text-gray-500 whitespace-nowrap">{% if job.elapsed %}<span class="run-elapsed" data-elapsed-key="{{ key }}" data-elapsed="{{ job.elapsed }}">{{ job.elapsed }}</span>{% else %}실행하고 있어요{% endif %}</span>
         {% endif %}
 
         {% comment %} 보조 줄. 비어 있어도 min-h-4로 자리를 지킨다(높이 고정). {% endcomment %}
@@ -302,9 +347,9 @@
           {% if job.progress_note %}
             {% if job.progress_total %}
             <span class="text-[10px] leading-4 text-gray-400 whitespace-nowrap flex-shrink-0"
-                  title="{{ job.progress_total }}{{ job.progress_unit|default:'국면' }} 중 {{ job.progress_current|default:0 }}{{ job.progress_unit|default:'국면' }}">{{ job.progress_current|default:0 }}/{{ job.progress_total }}{% if job.elapsed %} ({{ job.elapsed }}){% endif %}</span>
+                  title="{{ job.progress_total }}{{ job.progress_unit|default:'국면' }} 중 {{ job.progress_current|default:0 }}{{ job.progress_unit|default:'국면' }}">{{ job.progress_current|default:0 }}/{{ job.progress_total }}{% if job.elapsed %} (<span class="run-elapsed" data-elapsed-key="{{ key }}" data-elapsed="{{ job.elapsed }}">{{ job.elapsed }}</span>){% endif %}</span>
             {% elif job.elapsed %}
-            <span class="text-[10px] leading-4 text-gray-400 whitespace-nowrap flex-shrink-0">{{ job.elapsed }}</span>
+            <span class="text-[10px] leading-4 text-gray-400 whitespace-nowrap flex-shrink-0"><span class="run-elapsed" data-elapsed-key="{{ key }}" data-elapsed="{{ job.elapsed }}">{{ job.elapsed }}</span></span>
             {% endif %}
           {% endif %}
           {% if job.progress_failed %}<span class="text-[10px] leading-4 text-orange-500 whitespace-nowrap flex-shrink-0">실패 {{ job.progress_failed }}건</span>{% endif %}
@@ -329,6 +374,15 @@
       🔴 ⑤ 중단 요약이 답해야 하는 것은 "어디까지 했는가"가 아니라
          "다시 누르면 어디서부터인가"다. 단계마다 답이 달라서 문구도 갈린다.
          계약과 예시 문구는 run.html 상단 "summary" 항목에 정리해 뒀다.
+      🔴 ⑥ 2026-09-16 15차 개정 — **이 줄의 건수는 그 실행 한 번의 수다.**
+         수집 노드가 "19건"이라고 말하던 것이 활성 키워드 개수(전체 모수)여서
+         매번 19였고, 교보 2단계의 "제외 275건"은 채널 누적이었다. 둘 다 이 줄이
+         답하는 물음("방금 무슨 일이 있었나")에 답하지 않는다.
+         🔴 **문자열은 전부 서버가 만든다. 이 파일에 고칠 것이 없다** — 서식과
+            노드별 예시는 run.html "summary" 항목의 15차 개정 블록이 정본이다.
+         ⚠️ 이 줄에는 **단위 낱말을 적는다**("새 기사 113건"). 진행 줄에서 낱말을
+            뺀 대신 title에 내렸는데(10차 ①번) 마우스를 올려야 보여서 사용자가
+            못 봤다. 요약 줄은 명사구라 낱말이 들어갈 자리가 있다.
       ⚠️ 두 줄을 넘기지 말 것. 넘치면 노드 높이가 흔들린다(한 줄 약 20자).
     {% endcomment %}
     <p class="text-xs text-gray-500 leading-relaxed">{{ job.summary|default:"아직 실행한 적이 없어요" }}</p>
