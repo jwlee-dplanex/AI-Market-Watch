@@ -275,19 +275,56 @@ def _run_cleanup(run_job_id: int) -> None:
     from apps.setting.models import RunProposal
     from services.llm import PROMPT_VERSION, classify_news
 
-    # 이어하기(설계 8-(b)) — 이미 RunProposal이 있는 News는(어느 RunJob에서 만들어졌든)
-    # 대상에서 뺀다. "같은 입력에 같은 결과가 나온다는 보장이 없어 재판정하지 않는다."
+    # 이어하기(설계 8-(b)) — 직전(이번 run_job_id 바로 앞, 같은 job_key의 최근
+    # RunJob) 배치가 아직 대기 중으로 남긴 제안이 있는 News만 대상에서 뺀다.
+    # "같은 입력에 같은 결과가 나온다는 보장이 없어 재판정하지 않는다"는 원칙은
+    # 그대로 지키되, 범위를 "직전 배치 하나"로 좁힌다.
     #
-    # 🔴 PE 수정(2026-09-15 실측 버그) — RunProposal.news는 SET_NULL이라, 그 제안이
-    # 가리키던 News가 삭제되면 news_id가 NULL로 남는다. exclude(pk__in=...)의 서브쿼리
-    # 결과에 NULL이 하나라도 섞이면 SQL의 NOT IN이 모든 행을 탈락시켜(NULL과의 비교는
-    # 항상 UNKNOWN) targets가 통째로 0건이 된다 — 실제로 확정 때 삭제된 기사가 생기자마자
-    # 이 쿼리가 영구히 0건으로 굳었다. news__isnull=False로 서브쿼리에서 NULL을 먼저
-    # 걷어낸다 — "이미 제안이 있는 News는 재판정하지 않는다"는 애초에 News가 남아 있는
-    # 제안에만 의미가 있다. News가 이미 사라진 제안은 배제 대상 자체가 될 수 없다.
+    # 🔴 PE 재수정(2026-09-16 실측 사고) — 종전에는 "News가 살아 있는 RunProposal
+    # 전부"를(어느 RunJob에서 만들어졌든, 몇 번 전 배치든) exclude했다. 그런데
+    # 검토 화면(apps/setting/views.py _run_review_context())과 "모두 취소"
+    # (setting_run_review_cancel())는 둘 다 "job_key의 가장 최근 RunJob 하나"만
+    # 본다(order_by("-started_at", "-pk").first()). 그래서 중단된 배치가 하나 더
+    # 쌓여 예전 배치가 "가장 최근"의 자리를 내주는 순간, 그 예전 배치의 대기 중
+    # 제안은 화면 어디에서도 다시 볼 수 없는데(확정도 취소도 못 함) 대상 쿼리는
+    # 여전히 그 제안을 근거로 News를 영구히 뺐다 — 실제로 오늘 pk107(153건 제안)·
+    # pk108(21건 제안)이 이 경로로 쌓여 미검증 68건이 전부 대상에서 빠지고(다음
+    # 배치 대상 0건), 그 68건이 남아 있어 3단계까지 잠기는 교착이 났다
+    # (_insight_block_reason() "아직 정리되지 않은 뉴스가 있어요").
+    #
+    # 채택된(STATUS_ACCEPTED) 제안까지 따로 걷어낼 필요는 없다 — 삭제 제안이
+    # 채택되면 News 자체가 사라지고, 유지 제안이 채택되면 News.status가 검증됨으로
+    # 바뀌어(setting_run_review_confirm()) 아래 STATUS_UNVERIFIED 필터가 이미
+    # 걷어낸다. 대기(STATUS_PENDING) 중인 제안만 "아직 사람이 안 본 판정이라 다시
+    # 안 묻는다"의 대상이다.
+    #
+    # ⚠️ 대가 — exclude 범위를 "직전 배치 하나"로 좁히면 2회 이상 연속으로
+    # 중단된 배치의 예전 제안(예: 위 pk107)은 그다음다음 실행에서 다시 대상이
+    # 될 수 있다. 그 배치가 이미 대기 중이던 판정을 다시 물어 토큰을 한 번 더
+    # 쓴다는 뜻이다. 그래도 "영원히 대상에서 빠지는 유령"보다는 낫다고 판단했다
+    # — 교착은 사람이 손대지 않는 한 스스로 안 풀리지만, 재판정은 비용만 치르면
+    # 저절로 복구된다. 근본적으로는 검토·취소 화면이 "가장 최근 하나"가 아니라
+    # "확정 안 된 배치 전부"를 보게 고쳐야 유령이 아예 안 생기는데, 그건 이번
+    # 수정 범위(대상 쿼리) 밖이라 별도로 보고한다.
+    #
+    # 🔴 news__isnull=False는 그대로 유지한다(2026-09-15 실측 버그의 재발 방지) —
+    # RunProposal.news는 SET_NULL이라 그 제안이 가리키던 News가 삭제되면 news_id가
+    # NULL로 남는다. exclude(pk__in=...)의 서브쿼리 결과에 NULL이 섞이면 SQL의
+    # NOT IN이 모든 행을 탈락시켜(NULL과의 비교는 항상 UNKNOWN) targets가 통째로
+    # 0건이 된다.
+    previous_job = (
+        RunJob.objects.filter(job_key="cleanup").exclude(pk=run_job_id)
+        .order_by("-started_at", "-pk").first()
+    )
+    excluded_news_ids = []
+    if previous_job is not None:
+        excluded_news_ids = RunProposal.objects.filter(
+            run_job=previous_job, status=RunProposal.STATUS_PENDING, news__isnull=False,
+        ).values("news_id")
+
     targets = list(
         News.objects.filter(status=News.STATUS_UNVERIFIED)
-        .exclude(pk__in=RunProposal.objects.filter(news__isnull=False).values("news_id"))
+        .exclude(pk__in=excluded_news_ids)
         .order_by("pk")
     )
     RunJob.objects.filter(pk=run_job_id).update(

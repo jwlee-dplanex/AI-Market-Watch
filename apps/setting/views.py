@@ -629,6 +629,30 @@ def _unverified_news_count() -> int:
     return News.objects.filter(status=News.STATUS_UNVERIFIED).count()
 
 
+def _cleanup_backlog() -> str:
+    """SET-010 2단계(cleanup) 노드 배지의 적체 줄(docs/design.md "SET-010 · 실행"
+    17차 개정 신설 — run.html 상단 계약 "backlog" 항목이 정본). "미검증 N건,
+    MM/DD부터" 형태 문자열 하나를 서버가 완성해 내린다.
+
+    🔴 PD가 준 지름길 — SET-006 로그 화면의 _verification_pipeline_context()가 이미
+    같은 두 값(unverified_count, oldest_unverified_at)을 재는 쿼리라 그 쿼리를
+    그대로 재사용한다. 앞 숫자는 _unverified_news_count()와 같은 값(미검증 News
+    전체)이다 — 이 배치가 실제로 다시 판정할 대상(_run_cleanup()의 이어하기 exclude가
+    적용된 부분집합)이 아니라, "지금 총 몇 건이 미검증으로 쌓여 있나"를 말한다.
+    두 수가 다를 수 있다는 것은 버그가 아니다 — backlog는 적체 전체를, 다음 실행의
+    target_count는 그 배치가 이번에 처리할 부분을 말해 원래 다른 물음이다.
+
+    0건이면 빈 문자열을 반환한다 — 호출부가 이 값을 job["backlog"]에 그대로 넣으면
+    템플릿의 `{% if job.backlog %}`가 저절로 줄을 지운다."""
+    unverified_qs = News.objects.filter(status=News.STATUS_UNVERIFIED)
+    count = unverified_qs.count()
+    if count == 0:
+        return ""
+    oldest_collected_at = unverified_qs.aggregate(Min("collected_at"))["collected_at__min"]
+    oldest_date = timezone.localtime(oldest_collected_at).date()
+    return f"미검증 {count}건, {oldest_date:%m/%d}부터"
+
+
 def _insight_has_new_material() -> bool:
     """3단계(주요 이슈) 배지의 "새 재료" 판정(docs/planning.md "SET-010 노드 배지"
     2번, 8-4번) — _insight_block_reason()의 "이슈로 묶을 뉴스가 없어요" 조건과는
@@ -903,6 +927,15 @@ def _research_jobs_context():
     # 항상 같은 말을 한다). 종전엔 can_run이 상태와 무관하게 항상 True였다 —
     # 미검증 뉴스가 0건이라 배지가 "실행 대상 없음"인데 버튼은 열려 있는 실제 버그였다.
     cleanup_can_run = _clear_can_run(cleanup_job, CLEANUP_CLEAR_BLOCK_REASON)
+    # 🔴 2026-09-16 17차 개정 — backlog는 state가 todo/clear일 때만 내린다
+    # (run.html 상단 계약 "backlog" 항목, templates/setting/_run_node.html "높이"
+    # 절). running/review/failed(오늘)/stopped(오늘)는 요약 줄이 이미 그 자리를
+    # 쓰고 있거나(진행률) 두 줄짜리 문장이라 겹친다 — 여기서 state로 막지 않으면
+    # 뷰와 템플릿 두 곳에 판정이 갈린다(PD 지시).
+    if cleanup_job["state"] in ("todo", "clear"):
+        backlog = _cleanup_backlog()
+        if backlog:
+            cleanup_job["backlog"] = backlog
     cleanup_job.update({
         "can_run": cleanup_can_run,
         "block_reason": cleanup_job.get("block_reason", ""),
@@ -975,34 +1008,51 @@ def _target_newsroom():
 
 def _newsroom_filter_summary(room) -> str:
     """SET-010 교보 2단계 노드의 todo/clear 요약 문구(PD 확정, 2026-09-15,
-    docs/planning.md "뉴스룸" 절 12-1 결정 (b), 12-5 PE 인계 5번). 세 갈래다 —
-    실행 중/(오늘) 중단/(오늘) 실패는 이 함수를 쓰지 않는다(_newsroom_jobs_context()가
-    그 상태는 _run_job_display()의 일반 표시를 그대로 쓰고, "할 일이 있음/없음"일
-    때만 이 문구로 덮어쓴다).
+    docs/planning.md "뉴스룸" 절 12-1 결정 (b), 12-5 PE 인계 5번). 실행 중/(오늘)
+    중단/(오늘) 실패는 이 함수를 쓰지 않는다(_newsroom_jobs_context()가 그 상태는
+    _run_job_display()의 일반 표시를 그대로 쓰고, "할 일이 있음/없음"일 때만 이
+    문구로 덮어쓴다).
+
+    🔴 2026-09-16 17차 개정 — "판정 전 N건, MM/DD부터"(적체) 갈래를
+    _newsroom_filter_backlog()로 옮겼다(run.html 상단 계약 "backlog" 항목의
+    곁가지 권장안, PE 채택). 종전에는 적체가 있으면 이 함수가 그 문구만 반환해
+    "지난 결과"(통과/제외)가 적체가 있는 날 화면에서 아예 사라졌다 — 자리가
+    summary 하나뿐이었기 때문이다. 이제 자리가 둘(backlog·summary)이라 이
+    함수는 "지난 결과"만 언제나 반환한다.
 
     | 상태 | summary |
     |---|---|
-    | 판정 전 N건 있음 | "판정 전 N건, MM/DD부터" |
-    | 판정 전 0건, 이력 있음 | "통과 N건, 제외 N건" |
-    | 판정 전 0건, 이력 없음 | "판정할 기사가 없어요" |
-
-    `room.pending_count`(apps/newsroom/models.py)와 같은 조건을 쓴다 — SET-009가
-    거기서 같은 수를 보인다(12-1 결정 (b) "SET-009 뉴스룸 관리에도 같은 수를 한 줄
-    둔다")."""
+    | 판정 이력 있음 | "통과 N건, 제외 N건" |
+    | 판정 이력 없음 | "판정할 기사가 없어요" |
+    """
     from apps.newsroom.models import NewsroomArticle
 
-    pending_count = room.pending_count
-    if pending_count:
-        oldest = (
-            room.articles.filter(filter_status=NewsroomArticle.STATUS_PENDING)
-            .order_by("collected_at").first()
-        )
-        return f"판정 전 {pending_count}건, {timezone.localtime(oldest.collected_at):%m/%d}부터"
     passed_count = room.articles.filter(filter_status=NewsroomArticle.STATUS_PASSED).count()
     rejected_count = room.articles.filter(filter_status=NewsroomArticle.STATUS_REJECTED).count()
     if passed_count or rejected_count:
         return f"통과 {passed_count}건, 제외 {rejected_count}건"
     return "판정할 기사가 없어요"
+
+
+def _newsroom_filter_backlog(room) -> str:
+    """SET-010 교보 2단계 노드 배지의 적체 줄 — 위 _newsroom_filter_summary()에서
+    갈라져 나왔다(2026-09-16 17차 개정, PE 채택). "판정 전 N건, MM/DD부터" 형태.
+
+    `room.pending_count`(apps/newsroom/models.py)와 같은 조건을 쓴다 — SET-009가
+    거기서 같은 수를 보인다(docs/planning.md "뉴스룸" 절 12-1 결정 (b) "SET-009
+    뉴스룸 관리에도 같은 수를 한 줄 둔다"). 0건이면 빈 문자열 — 위 cleanup의
+    _cleanup_backlog()와 같은 계약(templates/setting/_run_node.html
+    `{% if job.backlog %}`가 빈 문자열을 그대로 숨긴다)."""
+    from apps.newsroom.models import NewsroomArticle
+
+    pending_count = room.pending_count
+    if not pending_count:
+        return ""
+    oldest = (
+        room.articles.filter(filter_status=NewsroomArticle.STATUS_PENDING)
+        .order_by("collected_at").first()
+    )
+    return f"판정 전 {pending_count}건, {timezone.localtime(oldest.collected_at):%m/%d}부터"
 
 
 def _newsroom_compose_has_new_material(room) -> bool:
@@ -1113,15 +1163,24 @@ def _newsroom_jobs_context():
         has_work_filter = pending_count > 0
         filter_display = _run_job_display("newsroom_filter", has_work_filter)
         summary = _newsroom_filter_summary(room)
+        # 🔴 2026-09-16 17차 개정 — backlog는 cleanup과 같은 이유(templates/setting/
+        # _run_node.html "높이" 절)로 todo/clear일 때만 내린다. run.html 계약
+        # "곁가지 권장안"을 PE가 채택했다 — 적체가 있는 날에도 지난 결과(summary)가
+        # 함께 보이게 자리를 둘로 나눈다.
+        backlog = _newsroom_filter_backlog(room)
         if filter_display:
             # 배지가 todo/clear(=running/failed(오늘)/stopped(오늘)가 아님)일
-            # 때만 PD가 정한 세 갈래 문구로 덮어쓴다.
+            # 때만 PD가 정한 문구로 덮어쓴다.
             if filter_display["state"] in ("todo", "clear"):
                 filter_display["summary"] = summary
+                if backlog:
+                    filter_display["backlog"] = backlog
             filter_job = filter_display
         else:
             state = "todo" if has_work_filter else "clear"
             filter_job = {"state": state, "state_label": STATE_LABELS[state], "summary": summary}
+            if backlog:
+                filter_job["backlog"] = backlog
         filter_job.update({
             "can_run": pending_count > 0,
             "block_reason": "" if pending_count > 0 else "판정할 기사가 없어요",
