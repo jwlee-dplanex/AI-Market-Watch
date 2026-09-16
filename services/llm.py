@@ -352,7 +352,18 @@ def classify_news(news) -> dict:
     try:
         response = client.messages.create(
             model=settings.BEDROCK_MODEL_FAST,
-            max_tokens=1024,
+            # 🔴 PE 재수정(2026-09-16 실측 사고) — 1024는 News 3949(pk130) 실패의
+            # 직접 원인이었다: 재현 호출에서 stop_reason="max_tokens", output_tokens
+            # 정확히 1024로 잘려 reason 문자열이 중간에 끊긴 채 JSON 파싱이
+            # 실패했다(Unterminated string). 같은 호출을 max_tokens=2048로 다시 하니
+            # stop_reason="end_turn", 실제 소비는 992토큰으로 자연 종료됐다.
+            # pk130(67건 성공)·pk124(45건) 평균 출력은 각각 319·324토큰이라 정상
+            # 케이스는 1024에도 전혀 안 걸린다 — 이번 실패는 판정 이유를 길게 쓴
+            # 꼬리값(outlier) 케이스였다. 2048은 그 꼬리값(992)에도 약 2배의 여유를
+            # 두면서, 출력 토큰은 상한이 아니라 실제 생성량만큼만 과금되므로(모델이
+            # 상한이 올랐다고 더 길게 쓰지 않는다 — end_turn으로 자연 종료) 평균
+            # 케이스의 비용에는 영향이 없다.
+            max_tokens=2048,
             system=[{
                 "type": "text",
                 "text": _build_system_prompt(),

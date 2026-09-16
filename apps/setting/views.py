@@ -489,10 +489,21 @@ def _run_job_display(job_key, has_work):
         # 어제 이전 실패는 이미 todo/clear로 내려가 아래 마지막 블록에서 요약된다.
         return {"state": state, "state_label": state_label, "summary": "실행이 실패했어요"}
     if state == "review":
-        return {
-            "state": state, "state_label": state_label,
-            "summary": f"{run_job.processed_count}건 판정을 마쳤어요, 검토를 기다리고 있어요",
-        }
+        # 🔴 2026-09-16 18차 개정 — 실패가 있으면 그 사실을 여기서 말한다.
+        # 종전에는 processed_count만 찍어서 "67건 판정을 마쳤어요"가 됐는데,
+        # 대상은 68건이었고 1건이 실패해 확정 버튼이 잠긴 상태였다. 사용자가
+        # 화면에서 "1건이 남았는데 왜 67건이라고 하느냐"고 물었다 — 노드가
+        # 잠금의 원인을 말하지 않아 검토 화면에 들어가야만 알 수 있었다.
+        # ⚠️ 제안 건수(몇 건을 지우자고 하는가)는 검토 화면이 온전히 말한다.
+        #    이 줄은 "왜 지금 이 상태인가"만 말한다(PD 18차 ④번).
+        if run_job.failed_count:
+            summary = (
+                f"{run_job.target_count}건 중 {run_job.processed_count}건 판정, "
+                f"실패 {run_job.failed_count}건"
+            )
+        else:
+            summary = f"{run_job.processed_count}건 판정을 마쳤어요, 검토를 기다리고 있어요"
+        return {"state": state, "state_label": state_label, "summary": summary}
 
     # 🔴 여기부터는 state가 "todo" 또는 "clear"다(docs/planning.md "SET-010 노드
     # 배지" 4번 "확정됨과 취소됨은 4번으로 떨어진다", 3번 "사고 사실은 요약 줄에
@@ -927,12 +938,16 @@ def _research_jobs_context():
     # 항상 같은 말을 한다). 종전엔 can_run이 상태와 무관하게 항상 True였다 —
     # 미검증 뉴스가 0건이라 배지가 "실행 대상 없음"인데 버튼은 열려 있는 실제 버그였다.
     cleanup_can_run = _clear_can_run(cleanup_job, CLEANUP_CLEAR_BLOCK_REASON)
-    # 🔴 2026-09-16 17차 개정 — backlog는 state가 todo/clear일 때만 내린다
-    # (run.html 상단 계약 "backlog" 항목, templates/setting/_run_node.html "높이"
-    # 절). running/review/failed(오늘)/stopped(오늘)는 요약 줄이 이미 그 자리를
-    # 쓰고 있거나(진행률) 두 줄짜리 문장이라 겹친다 — 여기서 state로 막지 않으면
-    # 뷰와 템플릿 두 곳에 판정이 갈린다(PD 지시).
-    if cleanup_job["state"] in ("todo", "clear"):
+    # 🔴 2026-09-16 18차 개정 — review를 더한다(17차를 뒤집는다).
+    # 17차는 "review는 요약이 이미 길다"는 이유로 뺐는데, 그 결과 사용자가
+    # 검토 화면 앞에서 "아직 68건이 남았다"를 어디서도 볼 수 없었다. 확정을
+    # 누를지 판단하는 자리야말로 남은 것을 알아야 하는 자리다.
+    # 🔴 17차 근거가 겨눈 것은 상태가 아니라 길이였다 — PD가 길이를 두 곳에서
+    # 막고(요약 줄 whitespace-nowrap truncate, 버튼 한 줄 배치) 상태를 열었다.
+    # running/failed(오늘)/stopped(오늘)는 그대로 뺀다 — 진행률이 그 자리를
+    # 쓰거나 중단 요약이 두 줄 문장이라 겹친다.
+    # ⚠️ 여기서 state로 막지 않으면 뷰와 템플릿 두 곳에 판정이 갈린다(PD 지시).
+    if cleanup_job["state"] in ("todo", "clear", "review"):
         backlog = _cleanup_backlog()
         if backlog:
             cleanup_job["backlog"] = backlog
@@ -1661,10 +1676,17 @@ def _run_review_context(job_key):
         # 개정 ⑩번) — OUTPUT 칸에만 별도로 찍는다. 이제 기업 후보뿐 아니라 기술 주제
         # 후보도 합산한 개수다.
         "candidate_count": len(tag_candidates),
-        # 🔴 uncovered_count는 target_count - processed_count의 일반식을 그대로 쓴다.
-        # cleanup은 이 식이 맞다(건별 판정이라 대상 전량에 제안이 있어야 한다). insight는
-        # 아래에서 무조건 0으로 덮어쓴다 — 이유는 바로 아래 분기.
-        "uncovered_count": max(run_job.target_count - run_job.processed_count, 0),
+        # 🔴 PE 재수정(2026-09-16 실측 사고) — target_count - processed_count만 빼면
+        # 실패 건(failed_count)이 그대로 uncovered로 잡혀 확정 버튼이 영영 잠긴다.
+        # cleanup은 여전히 "대상 전량에 제안이 있어야 한다"가 맞지만, 그 목적은
+        # "판정 안 된 기사가 조용히 검증됨으로 넘어가는 것"을 막는 데 있다(설계 계약,
+        # 위 output 주석 "uncovered_count"). 실패한 건은 애초에 제안을 만들지 않으므로
+        # 확정해도 그 건에는 아무 일도 안 일어난다 — 목적에 걸리지 않는다. 그래서
+        # failed_count도 처리분으로 빼서 "실패로 이미 계정된 건"과 "조용히 빠진 건"을
+        # 구분한다. insight/weekly/monthly는 아래에서 무조건 0으로 덮어쓴다.
+        "uncovered_count": max(
+            run_job.target_count - run_job.processed_count - run_job.failed_count, 0
+        ),
     }
     if job_key == "insight":
         insight_items = _insight_items_context(run_job)

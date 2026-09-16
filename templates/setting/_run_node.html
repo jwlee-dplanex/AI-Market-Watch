@@ -472,12 +472,41 @@
             이미 "남은 것"을 말하고 있어 적체 줄이 겹친다.
          ⚠️ 여기서 state로 분기하지 않은 것은 판단이다. 분기를 두면 "언제
             적체를 말하는가"가 뷰와 템플릿 두 곳에 갈려 적힌다.
+
+      ══════════════════════════════════════════════════════════════════════
+      🔴 2026-09-16 18차 개정 — **review에도 적체 줄이 온다.** 17차를 뒤집는다
+      ══════════════════════════════════════════════════════════════════════
+      17차가 "review는 요약이 이미 길다"는 이유로 뺐는데, 그 결과 **「미검증
+      68건이 아직 남았다」가 화면에서 사라졌다.** 🔴 review야말로 그것을 알아야
+      하는 상태다 — 확정을 누를지, 실행을 먼저 누를지 판단하는 자리이기 때문이다.
+      17차의 근거가 겨눈 것은 상태가 아니라 **요약 줄의 길이**였고, 길이는
+      아래 두 가지로 막았다.
+
+        ① 🔴 review 요약 줄을 한 줄 서식으로 못박았다(run.html 계약 summary
+           18차 문단). "68건 중 67건 판정, 실패 1건"처럼 20자 안쪽이다.
+        ② 🔴 **적체 줄이 있으면 요약 줄도 한 줄로 자른다**(아래 markup).
+           계약이 지켜지지 않아도 높이는 수학적으로 고정이다. 잘린 전문은
+           title(마우스 올림)에 남는다.
+           ⚠️ 이때 요약 줄의 행간도 leading-relaxed(20px)에서 적체 줄과 같은
+              leading-4(16px)로 맞춘다. 한 줄로 고정된 두 줄이 위아래로 붙는
+              자리라 행간이 다르면 아래 줄만 떠 보인다. 높이는 그만큼 더
+              여유가 생긴다 — 16 + 2 + 16 + gap 8 + 버튼 32 = 74px.
+        ⚠️ ②는 todo와 clear에서는 눈에 띄는 변화가 없다. 그 둘의 요약 줄은
+           이미 한 줄 서식이라 자를 것이 없다.
+        ⚠️ 적체 줄이 없을 때는 요약이 종전대로 두 줄까지 늘어난다. 중단·실패
+           문장이 두 줄을 실제로 쓰고, 그 갈래에는 적체가 오지 않는다.
+
+      🔴 그래서 지금 적체를 내리는 상태는 셋이다 — todo, clear, review.
+         running(진행 줄이 자리를 쓴다), stopped, failed(문장이 이미 남은 것을
+         말한다)에는 여전히 내리지 않는다. 판정은 뷰가 한다(위 ⚠️ 그대로).
     {% endcomment %}
     <div class="flex flex-col gap-0.5">
       {% if job.backlog %}
       <p class="text-xs leading-4 text-gray-600 font-medium whitespace-nowrap truncate" title="{{ job.backlog }}">{{ job.backlog }}</p>
-      {% endif %}
+      <p class="text-xs leading-4 text-gray-500 whitespace-nowrap truncate" title="{{ job.summary }}">{{ job.summary|default:"아직 실행한 적이 없어요" }}</p>
+      {% else %}
       <p class="text-xs text-gray-500 leading-relaxed">{{ job.summary|default:"아직 실행한 적이 없어요" }}</p>
+      {% endif %}
     </div>
     {% endif %}
 
@@ -489,89 +518,77 @@
     <p class="text-[10px] text-orange-500 leading-relaxed">{{ job.warning }}</p>
     {% endif %}
 
-    {% comment %} 주 동작은 항상 하나만 노출한다 — 검토 대기면 [검토하기], 그 외엔 [실행]. {% endcomment %}
+    {% comment %}
+      ══════════════════════════════════════════════════════════════════════
+      🔴 2026-09-16 18차 개정 — review에서 버튼이 둘이 된다. 교착을 푼다
+      ══════════════════════════════════════════════════════════════════════
+      사용자 물음이 출발점이다 — "2단계에서 결과 검토하기 버튼말고 없잖아 근데
+      어떻게 실행을 해?"
+
+      🔴 실제로 빠져나갈 길이 없었다
+           노드      버튼이 「결과 검토하기」 하나뿐    →  남은 1건을 못 돌린다
+           검토 화면  확정 버튼이 잠김(uncovered=1)     →  67건을 확정 못 한다
+           유일한 길  「모두 취소」 = 판정 67건을 버린다
+         🔴 뷰는 이미 실행을 허용하고 있었다(can_run=True, run_url도 있다).
+            **막고 있던 것은 오직 이 템플릿이었다.**
+
+      🔴 둘은 다른 일이라 둘 다 있어야 한다. 사용자 물음("미검증이 남아 있으면
+         결과 검토하기 버튼이 있으면 안 되는 거 아니야?")에 대한 답이 이것이다
+           결과 검토하기   이미 판정된 67건을 **확정**한다
+           실행           아직 판정되지 않은 것을 **처리**한다
+         🔴 순서가 정해져 있지 않다. 어느 쪽을 먼저 눌러도 되고, 지금처럼 확정이
+            잠긴 날에는 실행이 먼저다. 한쪽을 지우면 그날 할 수 있는 일이 사라진다.
+
+      ▣ 주는 「결과 검토하기」다. 실행은 테두리 버튼으로 옆에 붙는다
+        ┌ 244px (노드 안쪽 폭) ─────────────────────┐
+        │ [   결과 검토하기  →   ][ 실행 ]          │
+        └───────────────────────────────────────────┘
+             flex-1 (180px)     8px   56px
+        🔴 검토를 주로 둔 근거 — **이 자리는 사람이 기다리고 있는 자리다.**
+           배지가 「검토 필요」이고 테두리가 보라인 것도 같은 말을 한다. 실행은
+           "그런데 아직 남은 게 있으면 지금 돌릴 수도 있다"는 곁길이라 보조가 맞다.
+           ⚠️ 확정이 잠긴 날에는 실제로 실행을 먼저 눌러야 하는데, 그 사정은
+              **색의 위계가 아니라 요약 줄이 말한다**(아래 ④). 위계를 날마다
+              뒤집으면 같은 노드의 주 버튼이 오늘과 내일 다른 것이 된다.
+
+      ▣ 🔴 왜 위아래가 아니라 나란히인가 — 높이 때문이다
+        위아래로 쌓으면 버튼 둘이 32 + 8 + 32 = 72px이라, 적체 줄과 요약 줄까지
+        더하면 110px이 되어 **min-h-[80px]을 넘고 이 노드만 커진다.** 노드 크기는
+        상태와 무관하게 고정이어야 한다(이 파일 맨 위 규약). 나란히 두면 버튼
+        줄이 그대로 32px이라 다른 여덟 노드와 한 픽셀도 다르지 않다.
+          적체 16 + 2 + 요약 16 + gap 8 + 버튼 32 = 74px  ≤ 80px
+          (요약 줄은 적체가 있을 때 leading-4로 맞춰진다. 위 18차 블록 ②번)
+        ⚠️ 그래서 「결과 검토하기」의 화살표 아이콘을 남길 수 있었다. 두 버튼을
+           합쳐 200px이라 244px 안에 여유가 있다.
+
+      ▣ 🔴 언제 둘 다 그리나 — **review면 언제나 자리를 만든다**
+        조건은 `state == 'review'`뿐이고, 옆 버튼이 살아 있는지 잠기는지는
+        **can_run이 그대로 정한다**(_run_button.html이 판정한다).
+        🔴 이 파일에서 can_run을 다시 해석하지 않는다. 판정이 두 벌이 되면 어긋난다.
+        ⚠️ 자리를 조건부로 만들지 않은 이유 — dimmed는 3초 폴링 사이에 바뀐다.
+           그때 버튼이 나타났다 사라지면 옆 버튼 폭이 같이 널뛴다. 잠긴 버튼이
+           그 자리에 남아 있으면 폭이 고정이고, 왜 잠겼는지는 title이 말한다.
+        ⚠️ review인데 review_url이 없으면(교보 2단계, 3단계처럼 검토 화면이 없는 job)
+           이 갈래로 오지 않는다. 그쪽은 애초에 review가 되지 않아야 하고,
+           그 규약은 run.html 계약의 GATED_JOB_KEYS 항목에 있다.
+
+      ▣ 버튼 markup은 setting/_run_button.html 한 곳에 있다
+        18차 개정에서 빼냈다. 같은 hx-* 여섯 줄을 두 자리에 복사해 두면 한쪽만
+        고쳐지는 날이 오고, 특히 hx-disabled-elt를 빠뜨리면 배치가 두 번 돌아
+        **화면에 보이지 않는 채로 비용이 두 배가 된다.**
+    {% endcomment %}
     {% if job.state == 'review' and job.review_url %}
-    <a href="{{ job.review_url }}"
-       class="flex items-center justify-center gap-1.5 px-4 py-2 bg-primary text-white text-xs font-medium rounded-[10px] hover:bg-primary-hover transition-colors">
-      결과 검토하기
-      <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
-    </a>
-
-    {% elif job.state == 'running' %}
-    {% comment %}
-      실행 중인 본인 노드. 다른 노드가 막힌 이유("다른 작업이 실행 중이에요")와
-      말이 달라야 해서 분기를 따로 뒀다. 진행 상황은 위 진행 줄이 말한다.
-    {% endcomment %}
-    <button type="button" disabled
-            title="지금 실행하고 있어요"
-            class="flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-medium rounded-[10px] opacity-40 cursor-not-allowed
-                   {% if outline %}border border-primary text-primary bg-white{% else %}bg-primary text-white{% endif %}">
-      실행 중
-    </button>
-
-    {% elif job.can_run and job.run_url and not dimmed %}
-    {% comment %}
-      hx-disabled-elt="this" — 응답이 올 때까지 버튼을 잠가 연타를 막는다.
-      LLM 호출이 분 단위라 이게 없으면 같은 작업이 두 번 돌고 비용이 두 배가 된다.
-      HTMX 2.0.3에서 지원한다(static/vendor/htmx.min.js 확인).
-    {% endcomment %}
-    <button type="button"
-            hx-post="{{ job.run_url }}"
-            hx-target="#run-graph"
-            hx-swap="outerHTML"
-            hx-include="[name=csrfmiddlewaretoken]"
-            hx-indicator="#run-spinner-{{ key }}"
-            hx-disabled-elt="this"
-            {% comment %}
-              확인 대화상자(2026-09-15). 🔴 hx-confirm은 남아 있지만 브라우저 기본
-              확인창이 아니다. 규약은 templates/components/_confirm_dialog.html 참고.
-
-              이 자리는 값이 전부 컨텍스트에서 온다. 세 속성 모두 선택이고
-              없으면 레벨 기본 문구로 떨어지므로 뷰를 안 고쳐도 화면은 그대로 돈다.
-              🔴 confirm_level을 비워 두면 caution이다. 지금 이 버튼이 띄우는 물음은
-                 "아직 1번을 확정하지 않았어요"처럼 막지 않고 알려 주는 종류라
-                 caution이 맞다. 되돌릴 수 없는 실행이 생기면 그때만 danger를 넣는다.
-            {% endcomment %}
-            {% if job.confirm_text %}hx-confirm="{{ job.confirm_text }}"
-            {% if job.confirm_title %}data-confirm-title="{{ job.confirm_title }}"{% endif %}
-            data-confirm-action="{{ job.confirm_action|default:'실행하기' }}"
-            data-confirm-level="{{ job.confirm_level|default:'caution' }}"{% endif %}
-            class="flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-medium rounded-[10px] transition-colors disabled:opacity-50
-                   {% if outline %}border border-primary text-primary bg-white hover:bg-primary/5{% else %}bg-primary text-white hover:bg-primary-hover{% endif %}">
-      <span id="run-spinner-{{ key }}" class="htmx-indicator items-center">
-        <svg class="animate-spin w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
-        </svg>
-      </span>
-      실행
-    </button>
+    <div class="flex items-center gap-2">
+      <a href="{{ job.review_url }}"
+         class="flex-1 min-w-0 flex items-center justify-center gap-1.5 px-4 py-2 bg-primary text-white text-xs font-medium rounded-[10px] hover:bg-primary-hover transition-colors whitespace-nowrap">
+        결과 검토하기
+        <i data-lucide="arrow-right" class="w-3.5 h-3.5 flex-shrink-0"></i>
+      </a>
+      {% include "setting/_run_button.html" with job=job key=key outline=outline dimmed=dimmed variant="secondary" %}
+    </div>
 
     {% else %}
-    {% comment %}
-      비활성. 왜 막혔는지 title로 알려준다. 이유가 없으면(뷰 미구현 등) 기본 문구를 쓴다.
-      비활성을 남발하지 않는 이유는 design.md "핵심 결정 ③" 참고.
-
-      🔴 2026-09-16 — 이 갈래로 오는 노드가 늘었다. **배지가 clear(실행 대상 없음)면
-         버튼도 잠근다**(사용자 결정, docs/planning.md 「SET-010 노드 배지」 1-5).
-         종전에는 배지가 「실행 대상 없음」인데 버튼이 눌리는 노드가 있었고 사용자가
-         화면에서 둘을 찾았다.
-         🔴 그래서 **모든 clear 노드가 block_reason을 하나씩 갖는다.** 기본 문구
-            「아직 실행할 수 없어요」가 실제로 보인다면 그건 뷰가 사유를 빠뜨린
-            것이고, 화면이 아니라 apps/setting/views.py를 봐야 한다.
-            ⚠️ 이 기본값을 없애지는 말 것. 없으면 title이 통째로 비어 잠긴 이유를
-               물을 자리 자체가 사라진다.
-         ⚠️ 수집 두 노드(1단계, 교보 1단계)는 이 갈래에 오지 않는다. 바깥에 새 기사가
-            있는지는 눌러야 알아서 clear가 되지 않고, 사고가 없는 동안 실행 가능에
-            고정된다. 그 대가로 배지가 종일 같은 색인데 **사용자가 알고 고른 것이라
-            실행 횟수 배지 같은 보완 장치를 만들지 않는다**(같은 절 1-2).
-    {% endcomment %}
-    <button type="button" disabled
-            title="{% if dimmed %}다른 작업이 실행 중이에요. 끝나면 다시 누를 수 있어요{% else %}{{ job.block_reason|default:'아직 실행할 수 없어요' }}{% endif %}"
-            class="flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-medium rounded-[10px] opacity-40 cursor-not-allowed
-                   {% if outline %}border border-primary text-primary bg-white{% else %}bg-primary text-white{% endif %}">
-      실행
-    </button>
+    {% include "setting/_run_button.html" with job=job key=key outline=outline dimmed=dimmed variant="primary" %}
     {% endif %}
   </div>
 
