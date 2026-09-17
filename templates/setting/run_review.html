@@ -1494,7 +1494,7 @@
              바꾸는 일은 22차의 예외 항목("카드 안의 수치 문장은 그대로 둔다")을
              뒤집는 별도 라운드다.
         {% endcomment %}
-        <p class="text-gray-700">태그 교정을 제안한 항목 <strong class="text-primary">{{ review.output.retag_total_count|default:review.output.retag_count|default:0 }}</strong>건</p>
+        <p class="text-gray-700">태그 교정을 제안한 항목 <strong class="text-primary">{% firstof review.output.retag_total_count review.output.retag_count 0 %}</strong>건</p>
         <p class="text-gray-700">손댈 곳이 없는 기사 <strong class="text-gray-400">{{ review.output.keep_count|default:0 }}</strong>건</p>
         {% comment %}
           🔴 태그 후보는 확정 대상이 아니라 알림이다. 위 세 줄과 같은 무게로 쓰면 확정
@@ -3095,7 +3095,7 @@
       {% endcomment %}
       <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
         <h3 class="text-sm font-semibold text-gray-900 flex items-center gap-2 min-w-0">
-          <span class="flex-shrink-0">태그 교정 <span class="text-gray-400 font-normal">{{ review.output.retag_total_count|default:review.output.retag_count|default:0 }}</span></span>
+          <span class="flex-shrink-0">태그 교정 <span class="text-gray-400 font-normal">{% firstof review.output.retag_total_count review.output.retag_count 0 %}</span></span>
           {% if review.output.retag_canceled_count %}
           <span class="text-xs text-gray-400 font-normal">그중 삭제와 겹쳐 취소될 것 {{ review.output.retag_canceled_count }}건</span>
           {% endif %}
