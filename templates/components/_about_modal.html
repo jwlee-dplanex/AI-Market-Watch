@@ -227,8 +227,15 @@
 
       원본은 docs/(정적 서빙 대상 아님)에 있어 static/docs/로 빌드 시 복사한 사본을 가리킨다
       (scripts/copy-vendor.js, npm run build에 물려 있어 문서를 고쳐도 복사를 잊지 않는다).
+
+      🔴 2026-09-17 사용자 지시로 숨겼다. 지운 것이 아니라 감춘 것이다 — 위 근거(모달은
+      3초 답변, 소개 자료는 정독용이라 성격이 다르다)가 무너진 것이 아니고, 지금 그 자리에
+      둘 만한 상태가 아니라는 판단이다. 되살릴 때는 아래 블록의 hidden 한 낱말만 떼면 된다.
+      ⚠️ static/docs/의 사본과 scripts/copy-vendor.js의 복사 단계는 그대로 둔다 — 문서
+      자체는 살아 있고 주소를 아는 사람은 여전히 열 수 있다. 복사를 끊으면 되살릴 때
+      빌드가 먼저 깨진다.
     {% endcomment %}
-    <div class="px-6 py-4 border-t border-gray-100 flex justify-end flex-shrink-0">
+    <div hidden class="px-6 py-4 border-t border-gray-100 flex justify-end flex-shrink-0">
       <a href="{% static 'docs/AI_Market_Watch_service_intro.html' %}" target="_blank" rel="noopener"
          class="inline-flex items-center gap-2 px-4 py-2.5 rounded-[10px] bg-primary hover:bg-primary-hover text-white text-sm font-semibold transition-colors">
         전체 소개 자료 보기
