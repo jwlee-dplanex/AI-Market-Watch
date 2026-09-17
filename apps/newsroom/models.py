@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
+from django.utils.functional import cached_property
 
 
 class Newsroom(models.Model):
@@ -69,14 +70,22 @@ class Newsroom(models.Model):
         (예: SET-009 요약)에서 쓸 수 있다. 이 프로퍼티는 그것과 별개로 카드 전용이다."""
         return NewsroomArticle.objects.for_newsroom_display(self).count()
 
-    @property
+    @cached_property
     def pending_count(self):
         """판정 전(filter_status=pending) 기사 수. docs/planning.md 뉴스룸 정책 12-1
         결정 (b) "적체를 화면이 말하게 한다" 구현 — SET-010 교보 2단계 노드와
         SET-009 뉴스룸 관리가 함께 쓴다(같은 문서 12-5 PE 인계 5번). 노출 게이트
         (for_newsroom_display)를 거치지 않는다 — pending은 애초에 그 게이트 밖의
         개념(5-1 예외가 닫힌 뒤에는 화면에 안 보이는 쪽)이라 article_count와는
-        다른 질문에 답한다."""
+        다른 질문에 답한다.
+
+        🔴 2026-09-17 PE 개정(점검 지적 ④) — SET-009 템플릿(newsroom.html)이
+        `room.pending_count`를 한 렌더 안에서 두 번 참조한다(if 존재 검사 +
+        실제 값). @property는 참조마다 새로 쿼리하므로 그대로 두면 Newsroom
+        인스턴스 하나에 같은 COUNT가 두 번 나간다 — cached_property로 인스턴스
+        생애(이 요청의 렌더 동안) 동안 한 번만 계산해 재사용한다. 값이 바뀌는
+        요청 간에는 항상 새 Newsroom 인스턴스를 조회하므로(뷰가 매번
+        `Newsroom.objects...`로 새로 가져온다) 오래된 값이 새는 일은 없다."""
         return self.articles.filter(filter_status=NewsroomArticle.STATUS_PENDING).count()
 
     @property
@@ -87,11 +96,20 @@ class Newsroom(models.Model):
         아래 today_metric() 라벨 전환이 반드시 같은 조건이어야 어긋나지 않는다."""
         return self.articles.judged().exists()
 
-    @property
+    @cached_property
     def latest_message(self):
         """SET-009 발송 섹션(templates/setting/_newsroom_message.html)이 쓰는 가장
         최근 발송 레코드 1건 또는 None(docs/planning.md 뉴스룸 정책 12-3 (b)(c)).
-        목록이 아니다 — 그 화면은 항상 최신 1건만 보여준다."""
+        목록이 아니다 — 그 화면은 항상 최신 1건만 보여준다.
+
+        🔴 2026-09-17 PE 개정(점검 지적 ④ — SET-009 47쿼리의 실제 주범) —
+        `_newsroom_message.html`이 `room.latest_message.X`를 12곳 넘게 직접
+        참조한다. @property였을 때는 참조마다 `.order_by(...).first()`가 다시
+        실행돼, "최근 메시지 하나"를 가져오는 같은 쿼리가 한 렌더에서 10회 넘게
+        반복됐다 — 그 안에서 다시 `.article_count`/`.new_article_count`를
+        참조하면 그 프로퍼티들의 서브쿼리까지 곱해진다. cached_property로 이
+        Newsroom 인스턴스가 살아 있는 동안(한 요청의 렌더) 딱 한 번만 조회하고
+        재사용한다 — 반환하는 메시지 자체는 그대로다(가장 최근 1건)."""
         return self.messages.order_by("-created_at", "-pk").first()
 
     @property
@@ -140,13 +158,18 @@ class Newsroom(models.Model):
             filter_status=NewsroomArticle.STATUS_PASSED, duplicate_of__isnull=True,
         ).exclude(pk__in=already_sent)
 
-    @property
+    @cached_property
     def past_messages(self):
         """SET-009 발송 섹션 "이전 초안 전체 보기" 목록(docs/design.md
         "SET-009 · 발송 섹션" ⑩ PE 인계) — `latest_message`를 뺀 나머지
         초안, 최신순. 실패 초안도 빼지 않는다(다음 회차의 기준점이라 지우면
         경계가 틀어진다는 정책 때문에 목록에서도 빼면 안 된다). DOM에 한꺼번에
-        실리는 것을 막으려 최근 20건으로 끊는다(같은 절 "목록 상한")."""
+        실리는 것을 막으려 최근 20건으로 끊는다(같은 절 "목록 상한").
+
+        🔴 2026-09-17 PE 개정(점검 지적 ④) — 위 latest_message와 같은 이유로
+        cached_property다. 템플릿이 존재 검사·길이·순회 세 곳에서
+        `room.past_messages`를 참조한다(_newsroom_message.html) — @property면
+        그때마다 쿼리와 슬라이스가 다시 돈다."""
         latest = self.latest_message
         qs = self.messages.all()
         if latest:
@@ -520,10 +543,15 @@ class NewsroomMessage(models.Model):
     def __str__(self):
         return f"{self.newsroom.name} {self.date}"
 
-    @property
+    @cached_property
     def article_count(self):
         """SET-009 발송 섹션이 보이는 "기사 N건" 줄. 저장 시점에 얼린 articles
-        집합의 크기이지, 지금 이 순간의 통과 기사 수가 아니다."""
+        집합의 크기이지, 지금 이 순간의 통과 기사 수가 아니다.
+
+        🔴 2026-09-17 PE 개정(점검 지적 ④) — _newsroom_message.html이 최신
+        카드와 "이전 초안" 표 행마다 이 값을 "존재 검사 + 실제 값" 두 번
+        참조한다. @property는 참조마다 COUNT를 다시 던지므로 cached_property로
+        인스턴스당 한 번만 계산한다."""
         return self.articles.count()
 
     @property
@@ -533,7 +561,7 @@ class NewsroomMessage(models.Model):
         않는다."""
         return self.get_status_display()
 
-    @property
+    @cached_property
     def new_article_count(self):
         """SET-009 "이전 초안 전체 보기" 목록·최신 카드가 함께 쓰는 "이 회차 새
         기사" 수(docs/design.md "SET-009 · 발송 섹션" ④번) — 이 메시지에
@@ -542,7 +570,13 @@ class NewsroomMessage(models.Model):
         (Meta.ordering과 같은 tie-breaker).
 
         `Newsroom.compose_targets`와 같은 정의(`NewsroomMessageQuerySet.
-        article_ids()`)를 그대로 쓴다 — 회차 경계를 두 벌로 나누지 않는다."""
+        article_ids()`)를 그대로 쓴다 — 회차 경계를 두 벌로 나누지 않는다.
+
+        🔴 2026-09-17 PE 개정(점검 지적 ④ — SET-009 47쿼리의 큰 몫. 메시지마다
+        article_ids() 서브쿼리 + exclude().count()가 "존재 검사 + 실제 값" 두
+        번씩 나갔다) — cached_property로 인스턴스당 이 계산을 한 번만 돈다.
+        캐싱은 계산 자체(무엇이 "이 메시지 이전"인가)를 바꾸지 않는다 —
+        querystring도 값도 그대로다."""
         earlier = self.newsroom.messages.filter(
             Q(created_at__lt=self.created_at)
             | Q(created_at=self.created_at, pk__lt=self.pk)

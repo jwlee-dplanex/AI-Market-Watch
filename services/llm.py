@@ -413,8 +413,15 @@ def classify_news(news) -> dict:
 #     묶음을 낼 수 있게 둔다.
 #   - 호출 여부 자체가 후보 수에 달려 있다 — 후보가 0개면 이 함수를 아예 부르지
 #     않는다(호출부 services/runner.py._run_dedup()의 책임, 2-6-(d)).
-#   - 캐싱을 켜지 않는다 — 후보 묶음마다 입력(기사 목록)이 다르므로 시스템 프롬프트가
-#     고정이어도 캐시가 적중하지 않는다(같은 문서 7번).
+#   - 🔴 2026-09-17 재확인 — 캐싱을 켠다(「3~5단계」 7-(b) 재확인 절 손익분기 표).
+#     종전 근거("후보 묶음마다 입력이 다르므로 캐시가 적중하지 않는다")는 틀렸다 —
+#     캐시 breakpoint는 system 프롬프트 끝에 걸리고, 그 뒤에 오는 messages(후보
+#     기사 목록)가 매번 달라도 system 접두사가 그대로면 캐시가 적중한다. 시스템
+#     프롬프트(_build_dedup_system_prompt())는 후보 묶음과 무관하게 고정 문자열
+#     약 3,900토큰이고, 한 배치 안에서 후보 묶음 수만큼(N) 반복 호출된다. 같은
+#     접두사를 N회 쓸 때 캐싱이 이득으로 넘어가는 손익분기는 1시간 TTL 기준
+#     N > 2.11회이고, 후보 5묶음이면 N=5로 분기를 넉넉히 넘는다(classify_news()와
+#     같은 TTL 1시간을 쓴다 — 이어하기 간격이 5분을 넘길 수 있다는 같은 근거).
 #   - 대표(어느 기사를 남길지)는 이 함수가 정하지 않는다. LLM은 "어느 기사들이 같은
 #     사건인가"만 내고, 대표 선정은 services/runner.py가 결정론적으로 한다(같은 문서
 #     5번 "틀리면 안 되는 것을 생성 모델에 맡기지 않는다").
@@ -615,8 +622,14 @@ def find_duplicate_news(new_batch, window_news, matched_signals=None, over_soft_
             # 입력 건수가 늘수록 출력도 함께 는다 — 첫 실행의 RunJob 토큰 칸으로
             # 실측해 교체한다(같은 문서 7번 "이 표도 추정이다").
             max_tokens=4096,
-            system=[{"type": "text", "text": _build_dedup_system_prompt()}],
-            # 🔴 cache_control 없음 — 위 모듈독스트링 "캐싱을 켜지 않는다" 참고.
+            system=[{
+                "type": "text",
+                "text": _build_dedup_system_prompt(),
+                # 🔴 2026-09-17 재확인으로 켠다 — 위 모듈독스트링 참고. TTL 1시간은
+                # classify_news()와 같은 근거(설계 7-(b), 이어하기 간격이 5분을 넘길
+                # 수 있다).
+                "cache_control": {"type": "ephemeral", "ttl": "1h"},
+            }],
             messages=[{
                 "role": "user",
                 "content": _build_dedup_user_message(new_batch, window_news, matched_signals, over_soft_cap),
@@ -1228,6 +1241,43 @@ OUTPUT_SCHEMA_RELATION = {
     "required": ["relations"],
     "additionalProperties": False,
 }
+
+
+def filter_relation_targets(news_list):
+    """B안(11-1-(d)) — 관계 호출 입력을 「활성 Organization 태그가 금융사·보험사
+    쪽 1개 이상 그리고 AI 기업 쪽 1개 이상 붙어 있는 기사」로 좁힌다.
+
+    🔴 판정을 대신하는 게 아니라 판정이 원리적으로 불가능한 입력을 뺀다(11-1-(c)-1).
+    ALLOWED_TYPE_PAIRS(apps/graph/views.py)가 관계는 {금융사,AI}·{보험사,AI} 두 쌍
+    사이에서만 성립한다고 이미 코드로 못박고 있다 — 그 쌍이 성립할 수 없는 기사는
+    LLM이 읽어도 관계를 낼 수 없으므로 넣으나 안 넣으나 출력이 같다.
+
+    이 필터는 1번(이슈)·3번(헤드라인) 호출 입력에는 쓰지 않는다 — 관계 호출에만
+    쓴다(11-1-(d) "1번과 3번 호출 입력은 하나도 바뀌지 않는다").
+
+    ⚠️ 유일한 손실 경로(11-1-(d) 마지막 항) — 기사 X에 금융사만 태깅되고 AI 기업
+    태깅이 빠졌는데 그 AI 기업이 배치의 다른 기사 덕에 태깅돼 있는 경우, X는 이
+    필터에서 빠진다. 되돌림 조건은 11-1-(e)가 진다(사람이 "본문에 관계가 있는데
+    제안에 없다"를 지목하면 안 N/M 로그로 필터 탓인지 LLM 탓인지를 가른다).
+
+    2개 쿼리로 끝낸다(News 개수만큼 반복 쿼리하지 않는다) — build_relation_org_index()와
+    같은 기준(is_active=True)으로 태그를 센다."""
+    from apps.news.models import News
+
+    news_ids = [news.pk for news in news_list]
+    financial_ids = set(
+        News.objects.filter(
+            pk__in=news_ids, organizations__is_active=True,
+            organizations__org_type__in=["금융사", "보험사"],
+        ).values_list("pk", flat=True)
+    )
+    ai_ids = set(
+        News.objects.filter(
+            pk__in=news_ids, organizations__is_active=True, organizations__org_type="AI",
+        ).values_list("pk", flat=True)
+    )
+    matched_ids = financial_ids & ai_ids
+    return [news for news in news_list if news.pk in matched_ids]
 
 
 def build_relation_org_index(news_list):

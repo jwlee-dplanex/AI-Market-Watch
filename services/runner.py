@@ -1095,7 +1095,9 @@ def _run_insight(run_job_id: int) -> None:
 def _run_relation_extraction(run_job_id: int, targets) -> None:
     """3단계 두 번째 호출 — 지식그래프 관계 추출(docs/planning.md "지식그래프 관계
     라벨링을 3단계의 두 번째 LLM 호출로 옮긴다"가 정본). targets는 _run_insight()가
-    이슈 판정에 넣은 것과 같은 배치다(3-1 근거 3 "재료가 같다").
+    이슈 판정에 넣은 것과 같은 배치다(3-1 근거 3 "재료가 같다") — 다만 이 함수는
+    그중 filter_relation_targets()를 통과한 부분집합만 실제 호출 입력으로 쓴다
+    (아래 "2026-09-17 신설" 문단, B안).
 
     🔴 배치 전체를 한 번에 묻는다(건별·이슈별로 쪼개지 않는다) — PE 판단, 근거는
     셋이다. ① planning.md 3번이 이미 이 자리를 "배치 전체 1회 호출"로 확정했고,
@@ -1125,16 +1127,30 @@ def _run_relation_extraction(run_job_id: int, targets) -> None:
     확정 시점이 아니라 여기, 제안 생성 시점에 거른다) 은 제안 자체를 만들지 않는다.
     ①은 "코드가 버린 건수"로 로그에 남기고(4번 말미), ②는 RunJob.relation_skipped_count/
     relation_conflict_count로 남긴다(13번 PE 인계 5번) — 화면(run_review.html)이 이미
-    이 두 값을 읽게 그려져 있다."""
+    이 두 값을 읽게 그려져 있다.
+
+    🔴 2026-09-17 신설 — 관계 호출 입력을 filter_relation_targets()(B안, 11-1-(d))로
+    좁힌다. targets(3단계 입력 M건) 그대로 넘기지 않는다 — 1번(이슈) 호출은 이 필터를
+    거치지 않은 targets를 그대로 쓰므로(_run_insight()) 이슈 판정 입력은 안 바뀐다.
+    좁힌 결과(관계 호출 대상 N건)를 RunJob.relation_target_count로 남긴다 — 이
+    로그가 11-1-(e) ⓐ의 전제다: "본문에 관계가 있는데 제안에 없는 기사"가 나오면
+    N과 target_count(M)를 비교해 그 기사가 필터에서 빠진 것인지(N<M이고 그 기사가
+    빠진 쪽) LLM이 놓친 것인지(필터를 통과했는데도 못 찾음) 가른다."""
     from apps.graph.views import ALLOWED_TYPE_PAIRS
     from apps.setting.models import OrgRelation, RunDraft, normalize_org_pair
-    from services.llm import PROMPT_VERSION_RELATION, RELATION_LABELS, build_relation_org_index, extract_relations
+    from services.llm import (
+        PROMPT_VERSION_RELATION, RELATION_LABELS, build_relation_org_index,
+        extract_relations, filter_relation_targets,
+    )
+
+    relation_targets = filter_relation_targets(targets)
+    RunJob.objects.filter(pk=run_job_id).update(relation_target_count=len(relation_targets))
 
     try:
-        org_index = build_relation_org_index(targets)
-        result = extract_relations(targets, org_index)
+        org_index = build_relation_org_index(relation_targets)
+        result = extract_relations(relation_targets, org_index)
 
-        news_by_id = {news.pk: news for news in targets}
+        news_by_id = {news.pk: news for news in relation_targets}
         org_count = len(org_index)
 
         skipped_count = 0

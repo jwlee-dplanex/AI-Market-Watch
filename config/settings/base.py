@@ -37,6 +37,10 @@ MIDDLEWARE = [
     # /setting/ 전체를 로그인 필수로 잠근다(2026-09-17). AuthenticationMiddleware
     # 뒤에 와야 request.user가 채워진 상태에서 판단할 수 있다.
     "apps.setting.middleware.SettingLoginRequiredMiddleware",
+    # SET-010 실행 그래프 성능 캐시 리셋(2026-09-17 점검 대응, 「setting_run_graph
+    # 68쿼리」 처방) — 요청마다 스레드 로컬 캐시를 비운다. 어디에 둬도 되지만
+    # 캐시를 실제로 쓰는 apps.setting 옆에 둔 위 미들웨어 바로 뒤에 배치했다.
+    "apps.setting.middleware.PerfCacheMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]

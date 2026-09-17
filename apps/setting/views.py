@@ -1,5 +1,5 @@
 import logging
-from collections import Counter
+from collections import Counter, defaultdict
 from datetime import timedelta
 
 from django.conf import settings
@@ -23,6 +23,7 @@ from .models import (
     DataSource, Keyword, CollectionLog, SlackConfig,
     Organization, TechTopic, OrgRelation, RunJob, RunProposal, RunDraft,
 )
+from .perf_cache import cache_get_or_set
 
 logger = logging.getLogger(__name__)
 
@@ -363,6 +364,30 @@ def _is_today_local(dt) -> bool:
     return dt is not None and timezone.localtime(dt).date() == _today_local()
 
 
+def _cached_cleanup_ab_counts():
+    """cleanup A(확정 대기)/B(미판정) 건수(점검 지적 ① — `cleanup_ab_split()`이
+    배지(_job_run_state)·선행 잠금(_job_has_work)·적체 줄(_cleanup_backlog)에서
+    각각 다시 계산되던 중복 계산). `.count()` 두 번만 요청당 한 번 실행하고,
+    `.exists()`가 필요한 자리는 `count > 0`으로 대신한다(distinct-safe 쿼리셋의
+    count는 exists와 항상 같은 참/거짓을 낸다) — 반환값은 (a_count, b_count)."""
+    def compute():
+        from services.runner import cleanup_ab_split
+        a_qs, b_qs = cleanup_ab_split()
+        return a_qs.count(), b_qs.count()
+    return cache_get_or_set("cleanup_ab_counts", compute)
+
+
+def _cached_insight_ab_counts():
+    """insight 배정/미배정 건수 — 위 `_cached_cleanup_ab_counts()`와 같은 이유로
+    `insight_ab_split()`의 `.count()`를 요청당 한 번만 실행한다. 반환값은
+    (assigned_count, unassigned_count)."""
+    def compute():
+        from services.runner import insight_ab_split
+        assigned_qs, unassigned_qs = insight_ab_split()
+        return assigned_qs.count(), unassigned_qs.count()
+    return cache_get_or_set("insight_ab_counts", compute)
+
+
 def _job_run_state(run_job, job_key, has_work):
     """RunJob.status와 "할 일이 있나" 축 판정(has_work)을 화면 어휘
     (running/review/todo/clear/failed/stopped)로 바꾼다. _run_job_display()(노드
@@ -390,11 +415,10 @@ def _job_run_state(run_job, job_key, has_work):
         # RunJob.status를 더 이상 보지 않는다. A/B 두 수만 본다 — 성공도 실패도
         # 중단도 전부 A 또는 B로 흡수되므로 이 job_key에는 failed/stopped 배지가
         # 따로 존재하지 않는다(상태가 셋뿐이다: todo/review/clear).
-        from services.runner import cleanup_ab_split
-        a_qs, b_qs = cleanup_ab_split()
-        if b_qs.exists():
+        a_count, b_count = _cached_cleanup_ab_counts()
+        if b_count:
             return "todo", STATE_LABELS["todo"]
-        if a_qs.exists():
+        if a_count:
             return "review", STATE_LABELS["review"]
         return "clear", STATE_LABELS["clear"]
     if job_key in GATED_JOB_KEYS and run_job.status == RunJob.STATUS_DONE and run_job.target_count > 0:
@@ -481,6 +505,45 @@ def _confirmed_count(run_job, job_key) -> int:
     return run_job.processed_count
 
 
+def _cached_run_jobs_by_key():
+    """RUN_JOB_KEYS 아홉 개 전체의 RunJob을 한 번의 쿼리로 가져와 job_key별
+    리스트(started_at desc, pk desc — "가장 최근"이 인덱스 0)로 묶는다(점검
+    지적 ① 처방 "RunJob.objects.filter(job_key__in=RUN_JOB_KEYS) 한 번으로
+    가져와 파이썬에서 job_key별로 분배"). `_representative_run_job()`이
+    job_key마다 latest/confirmed를 개별 SELECT하던 것을 이 한 번으로
+    대체한다. `cache_get_or_set()`(apps/setting/perf_cache.py)이 요청 1회당
+    한 번만 이 쿼리를 실행하게 보장한다 — 값을 다시 계산하지 않으므로 이
+    함수를 여러 번 불러도 안전하다."""
+    def compute():
+        by_key = defaultdict(list)
+        for job in RunJob.objects.filter(job_key__in=RUN_JOB_KEYS).order_by("-started_at", "-pk"):
+            by_key[job.job_key].append(job)
+        return by_key
+    return cache_get_or_set("run_jobs_by_key", compute)
+
+
+def _cached_pending_run_job_ids():
+    """job_key별 "확정 대기 제안(또는 초안)이 있는 RunJob pk 집합"을
+    RunProposal·RunDraft 각각 한 번의 쿼리로 가져온다 —
+    `_pending_review_run_jobs()`가 job_key마다 별도로 distinct() 쿼리를
+    던지던 것(최대 9회)을 2회로 줄인다. 반환값은
+    `{("proposal", job_key): {run_job_id, ...}, ("draft", job_key): {...}}`."""
+    def compute():
+        by_key = defaultdict(set)
+        proposal_pairs = RunProposal.objects.filter(
+            run_job__job_key__in=RUN_JOB_KEYS, status=RunProposal.STATUS_PENDING,
+        ).values_list("run_job__job_key", "run_job_id").distinct()
+        for job_key, run_job_id in proposal_pairs:
+            by_key[("proposal", job_key)].add(run_job_id)
+        draft_pairs = RunDraft.objects.filter(
+            run_job__job_key__in=RUN_JOB_KEYS, status=RunProposal.STATUS_PENDING,
+        ).values_list("run_job__job_key", "run_job_id").distinct()
+        for job_key, run_job_id in draft_pairs:
+            by_key[("draft", job_key)].add(run_job_id)
+        return by_key
+    return cache_get_or_set("pending_run_job_ids", compute)
+
+
 def _pending_review_run_jobs(job_key):
     """job_key에 걸쳐 확정 대기 제안(또는 초안)이 남아 있는 RunJob 전부,
     started_at 오름차순(오래된 배치가 먼저). 검토 화면·확정·취소·노드 배지가
@@ -495,16 +558,20 @@ def _pending_review_run_jobs(job_key):
     RunProposal을 본다. RUNNING인 배치는 제외한다 — services/runner.py가 건별로
     그때그때 제안을 저장하므로 진행 중인 배치도 이미 대기 제안을 갖지만, 아직
     끝나지 않은 배치를 확정·취소 대상에 섞으면 안 된다(그 배치는 아직 더 늘어날
-    수 있다)."""
-    model = RunDraft if job_key in ("insight", "weekly", "monthly") else RunProposal
-    pending_job_ids = model.objects.filter(
-        run_job__job_key=job_key, status=RunProposal.STATUS_PENDING,
-    ).values_list("run_job_id", flat=True).distinct()
-    return list(
-        RunJob.objects.filter(pk__in=pending_job_ids)
-        .exclude(status=RunJob.STATUS_RUNNING)
-        .order_by("started_at", "pk")
-    )
+    수 있다).
+
+    🔴 2026-09-17 PE 개정(점검 지적 ①) — 위 두 캐시 헬퍼(_cached_run_jobs_by_key,
+    _cached_pending_run_job_ids)가 이미 가져온 데이터를 파이썬에서 걸러 쓴다.
+    RunJob·RunProposal/RunDraft를 여기서 다시 쿼리하지 않는다 — 반환값(정렬
+    포함)은 종전과 동일하다."""
+    model_kind = "draft" if job_key in ("insight", "weekly", "monthly") else "proposal"
+    pending_ids = _cached_pending_run_job_ids().get((model_kind, job_key), set())
+    jobs = [
+        job for job in _cached_run_jobs_by_key().get(job_key, [])
+        if job.pk in pending_ids and job.status != RunJob.STATUS_RUNNING
+    ]
+    jobs.sort(key=lambda job: (job.started_at, job.pk))
+    return jobs
 
 
 def _representative_run_job(job_key):
@@ -520,8 +587,16 @@ def _representative_run_job(job_key):
 
     🔴 cleanup은 이 함수를 상태 판정에 쓰지 않는다(위 _job_run_state()가 A/B로
     직접 판정한다) — 다만 요약 줄(지난 실행 기록)에는 여전히 이 함수가 고른
-    run_job을 쓴다."""
-    latest = RunJob.objects.filter(job_key=job_key).order_by("-started_at", "-pk").first()
+    run_job을 쓴다.
+
+    🔴 2026-09-17 PE 개정(점검 지적 ① — job_key 아홉 개마다 RunJob을 latest/
+    pending/confirmed로 각각 개별 SELECT해 최대 21쿼리였다) — RunJob을 여기서
+    직접 쿼리하지 않는다. `_cached_run_jobs_by_key()`가 요청당 한 번만 가져온
+    목록(이미 -started_at, -pk로 정렬됨)에서 파이썬으로 latest([0])와
+    confirmed(같은 목록을 confirmed_at 기준으로 다시 정렬)를 고른다 — 판정
+    로직과 우선순위는 그대로다."""
+    jobs = _cached_run_jobs_by_key().get(job_key, [])  # -started_at, -pk 순
+    latest = jobs[0] if jobs else None
     if latest is None or latest.status == RunJob.STATUS_RUNNING:
         return latest
     pending_jobs = _pending_review_run_jobs(job_key)
@@ -532,9 +607,11 @@ def _representative_run_job(job_key):
     # 시작된 배치보다 나중에 확정될 수 있다. "마지막 확정"을 말하는 요약 줄이
     # 실제로 가장 최근에 확정된 배치를 가리키도록, confirmed_at 기준으로도 한 번
     # 더 비교한다.
+    confirmed_jobs = [
+        job for job in jobs if job.status == RunJob.STATUS_CONFIRMED and job.confirmed_at
+    ]
     latest_confirmed = (
-        RunJob.objects.filter(job_key=job_key, status=RunJob.STATUS_CONFIRMED, confirmed_at__isnull=False)
-        .order_by("-confirmed_at", "-pk").first()
+        max(confirmed_jobs, key=lambda job: (job.confirmed_at, job.pk)) if confirmed_jobs else None
     )
     if not latest_confirmed:
         return latest
@@ -894,9 +971,8 @@ def _insight_block_reason() -> str:
     if unverified_count:
         return f"아직 정리되지 않은 뉴스가 {unverified_count}건 있어요. 2단계를 먼저 끝내 주세요"
 
-    from services.runner import insight_ab_split
-    _, unassigned_qs = insight_ab_split()
-    if not unassigned_qs.exists():
+    _, unassigned_count = _cached_insight_ab_counts()
+    if not unassigned_count:
         # 🔴 2026-09-17 낱말 통일 — "묶을"을 "그룹화할"로 바꿨다(위
         # REVIEW_STEP_SUMMARY_BY_JOB 주석 참고).
         return "이슈로 그룹화할 뉴스가 없어요"
@@ -906,8 +982,15 @@ def _insight_block_reason() -> str:
 
 def _unverified_news_count() -> int:
     """미검증 News 건수(A+B, docs/planning.md "SET-010 검토 단위" 0-1) — 위
-    _insight_block_reason()의 첫 조건과 SET-006 로그가 같은 값을 본다."""
-    return News.objects.filter(status=News.STATUS_UNVERIFIED).count()
+    _insight_block_reason()의 첫 조건과 SET-006 로그가 같은 값을 본다.
+
+    🔴 2026-09-17 PE 개정(점검 지적 ①) — _insight_block_reason()이
+    _job_has_work("insight")를 거쳐 한 요청 안에서 두 번 불릴 수 있어(선행
+    잠금 문구용, block_reason 저장용) 캐시를 거친다."""
+    return cache_get_or_set(
+        "unverified_news_count",
+        lambda: News.objects.filter(status=News.STATUS_UNVERIFIED).count(),
+    )
 
 
 def _cleanup_backlog():
@@ -935,10 +1018,9 @@ def _cleanup_backlog():
     반환값은 (backlog, backlog_title) 튜플. 할 일이 있으면 항상 채워진
     문자열이다(빈 문자열이 아니다). 호출부가 job["backlog"]/job["backlog_title"]에
     그대로 넣는다."""
-    from services.runner import cleanup_ab_split, cleanup_today_flow
+    from services.runner import cleanup_today_flow
 
-    a_qs, b_qs = cleanup_ab_split()
-    a_count, b_count = a_qs.count(), b_qs.count()
+    a_count, b_count = _cached_cleanup_ab_counts()
 
     if a_count == 0 and b_count == 0:
         return None, None
@@ -1041,10 +1123,7 @@ def _insight_backlog():
 
     반환값은 (backlog, backlog_title) 튜플. 할 일이 있으면 항상 채워진
     문자열이다."""
-    from services.runner import insight_ab_split
-
-    assigned_qs, unassigned_qs = insight_ab_split()
-    assigned_count, unassigned_count = assigned_qs.count(), unassigned_qs.count()
+    assigned_count, unassigned_count = _cached_insight_ab_counts()
     if unassigned_count == 0:
         return None, None
     total = assigned_count + unassigned_count
@@ -1065,10 +1144,7 @@ def _insight_flow():
     판단하지 않는다. 호출부가 _insight_backlog()의 결과(할 일 수 0이면
     None)로 이 함수의 호출 여부까지 함께 정한다 — 흐름 줄을 따로 판정하지
     않는다는 원칙이 여기 있다."""
-    from services.runner import insight_ab_split
-
-    assigned_qs, unassigned_qs = insight_ab_split()
-    assigned_count, unassigned_count = assigned_qs.count(), unassigned_qs.count()
+    assigned_count, unassigned_count = _cached_insight_ab_counts()
     total = assigned_count + unassigned_count
 
     parts = []
@@ -1102,8 +1178,7 @@ def _job_has_work(job_key: str) -> bool:
         # 그날 두 번째 이후 수집을 막는 잘못된 신호가 된다. 항상 todo다.
         return True
     if job_key == "cleanup":
-        from services.runner import cleanup_ab_split
-        return cleanup_ab_split()[1].exists()  # B(미판정) > 0
+        return _cached_cleanup_ab_counts()[1] > 0  # B(미판정) > 0
     if job_key == "insight":
         # 🔴 2026-09-16 "SET-010 검토 단위" 절 11번 — 3단계 대상이 "직전 확정
         # 이후 새로 검증된 것"(증분형)에서 "탈락 표식 없는 미배정 전체"로
@@ -1157,14 +1232,29 @@ def _job_finished_today(job_key: str) -> bool:
     🔴 confirmed_at이 NULL인 옛 확정 배치를 소급해 채우지 않는다 — exists() 방식은
     그 배치가 "오늘 확정된 것이 아니다"라는 사실을 소급 없이도 그대로 정확히
     말한다(그 배치가 오늘 확정이 아니었다는 것 자체가 맞는 값이라 채울 이유가
-    없다)."""
+    없다).
+
+    🔴 2026-09-17 PE 개정(점검 지적 ① — 같은 패턴의 추가 N+1. 그래프 컨텍스트가
+    이 함수를 job_key 아홉 개마다 불러 매번 새 EXISTS 쿼리를 던졌다) — RunJob을
+    여기서 직접 쿼리하지 않는다. `_cached_run_jobs_by_key()`(요청당 한 번만
+    RunJob 전체를 가져온다)의 목록을 파이썬에서 훑어 같은 조건을 판정한다.
+    `confirmed_at__date=오늘`/`finished_at__date=오늘`은 USE_TZ=True에서 항상
+    현재 타임존 기준이므로(패턴 문서 12번), 파이썬 쪽도
+    `timezone.localtime(dt).date()`로 맞춰야 값이 갈리지 않는다 — aware
+    datetime에 `.date()`를 바로 부르면 안 된다."""
+    jobs = _cached_run_jobs_by_key().get(job_key, [])
+    today = _today_local()
     if job_key in GATED_JOB_KEYS:
-        return RunJob.objects.filter(
-            job_key=job_key, status=RunJob.STATUS_CONFIRMED, confirmed_at__date=_today_local(),
-        ).exists()
-    return RunJob.objects.filter(
-        job_key=job_key, status=RunJob.STATUS_DONE, finished_at__date=_today_local(),
-    ).exists()
+        return any(
+            job.status == RunJob.STATUS_CONFIRMED and job.confirmed_at
+            and timezone.localtime(job.confirmed_at).date() == today
+            for job in jobs
+        )
+    return any(
+        job.status == RunJob.STATUS_DONE and job.finished_at
+        and timezone.localtime(job.finished_at).date() == today
+        for job in jobs
+    )
 
 
 def _weekly_job_context():
@@ -1440,10 +1530,18 @@ def _target_newsroom():
     """SET-010 교보 소식 1단계 수집의 대상 채널을 고른다. _setting_menu()/newsroom_nav가
     쓰는 "활성 채널이 1개면 그것" 규칙과 같은 방식이다(코디네이터 지시) — 채널이
     여러 개로 늘면 그때 다시 판단한다. 활성이 0개거나 2개 이상이면 어느 채널을 돌릴지
-    정할 수 없으므로 None을 반환하고, 호출부가 그 이유를 block_reason으로 내려준다."""
-    from apps.newsroom.models import Newsroom
-    active_rooms = list(Newsroom.objects.filter(is_active=True))
-    return active_rooms[0] if len(active_rooms) == 1 else None
+    정할 수 없으므로 None을 반환하고, 호출부가 그 이유를 block_reason으로 내려준다.
+
+    🔴 2026-09-17 PE 개정(점검 지적 ① 연장 — _newsroom_jobs_context()가 이 함수를
+    job마다(newsroom_collect/filter/compose 등) 따로 불러 매번 새 Newsroom
+    인스턴스를 가져왔다) — 요청당 한 번만 조회해 재사용한다. 활성 채널 목록이
+    이 요청 도중 바뀔 일은 없으므로(사람이 같은 요청 안에서 채널을 활성화·
+    비활성화하지 않는다) 캐싱이 값을 바꾸지 않는다."""
+    def compute():
+        from apps.newsroom.models import Newsroom
+        active_rooms = list(Newsroom.objects.filter(is_active=True))
+        return active_rooms[0] if len(active_rooms) == 1 else None
+    return cache_get_or_set("target_newsroom", compute)
 
 
 def _newsroom_filter_backlog(room):
@@ -2211,6 +2309,24 @@ def _run_review_context(job_key):
         )
         pending_drafts = []
 
+    # 🔴 2026-09-17 PE 개정(점검 지적 ③ — 아래 TYPE_DUPLICATE 분기가 행마다
+    # p.news.insights.count()/.reports.count()/.org_relations.count()를 개별
+    # 실행해 묶음 하나(행 N개)에 3N쿼리가 나가던 것). 감출 행에만 필요한 값이라
+    # TYPE_DUPLICATE news_id만 모아 한 번에 집계한다 — 셋 다 M2M이라 Count에
+    # distinct=True를 걸지 않으면 JOIN이 행을 늘려 값이 부풀 수 있다
+    # (insight_ab_split() 독스트링의 같은 함정).
+    dup_news_ids = [p.news_id for p in proposals if p.proposal_type == RunProposal.TYPE_DUPLICATE]
+    ref_counts_by_news_id = {}
+    if dup_news_ids:
+        ref_counts_by_news_id = {
+            row["pk"]: row
+            for row in News.objects.filter(pk__in=dup_news_ids).annotate(
+                insight_count=Count("insights", distinct=True),
+                report_count=Count("reports", distinct=True),
+                relation_count=Count("org_relations", distinct=True),
+            ).values("pk", "insight_count", "report_count", "relation_count")
+        }
+
     # 🔴 PD 19차 개정 ⑤번 "① 검토 대상" — 기사 수(count) / 제안 수(proposal_count,
     # 신설) / 가장 오래 기다린 날(since, 신설, "MM/DD"). 사용자가 물은 것이
     # 정확히 "기사 수"였고, 기사 67건에 제안 161건처럼 둘이 크게 갈릴 수 있어
@@ -2418,9 +2534,13 @@ def _run_review_context(job_key):
                 # 🔴 Insight.news/Report.news/OrgRelation.news 역참조 수(design.md
                 # ⑩-1) — 감출 행에 이 배지가 뜨면 그 자체가 규칙 위반 신호다(대표
                 # 선정이 "명시 연결 있는 것 우선"이라 정상적으로는 0이어야 한다).
-                "insight_count": p.news.insights.count(),
-                "report_count": p.news.reports.count(),
-                "relation_count": p.news.org_relations.count(),
+                # 🔴 위에서 한 번에 집계한 ref_counts_by_news_id를 쓴다(행마다
+                # 다시 쿼리하지 않는다) — dup_news_ids에 이미 p.news_id가 있으므로
+                # 키가 없을 일은 없지만, get()의 기본값 0은 그 불변식이 깨졌을
+                # 때도 화면이 조용히 죽지 않게 하는 방어값이다.
+                "insight_count": ref_counts_by_news_id.get(p.news_id, {}).get("insight_count", 0),
+                "report_count": ref_counts_by_news_id.get(p.news_id, {}).get("report_count", 0),
+                "relation_count": ref_counts_by_news_id.get(p.news_id, {}).get("relation_count", 0),
             })
             # 같은 묶음의 모든 행이 같은 값을 갖는다(모델 필드 docstring 참고) — 마지막에
             # 본 행 값으로 채워도 결과가 같지만, 매번 그대로 덮어써 둔다.

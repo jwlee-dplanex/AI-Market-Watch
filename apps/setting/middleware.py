@@ -1,6 +1,8 @@
 from django.contrib.auth.views import redirect_to_login
 from django.http import HttpResponse
 
+from .perf_cache import reset_perf_cache
+
 
 class SettingLoginRequiredMiddleware:
     """`/setting/` 경로 전체를 로그인 필수로 잠근다 (2026-09-17, 사용자 지시).
@@ -32,4 +34,23 @@ class SettingLoginRequiredMiddleware:
                 response["HX-Redirect"] = login_redirect.url
                 return response
             return login_redirect
+        return self.get_response(request)
+
+
+class PerfCacheMiddleware:
+    """요청마다 apps/setting/perf_cache.py의 스레드 로컬 캐시를 비운다(점검 지적
+    ① — `setting_run_graph` 68쿼리 처방 "요청 1회당 한 번만 계산해 재사용"의
+    전제 조건). get_response보다 앞서 반드시 리셋해야 한다 — 그러지 않으면 같은
+    스레드가 처리한 이전 요청의 RunJob/AB 카운트 값이 새 요청에 그대로 샌다.
+
+    전역(글로벌)으로 등록해 /setting/ 밖에는 아무 영향이 없다(캐시를 아무도
+    읽지 않으면 매번 빈 dict를 만들고 버리는 것뿐이라 비용이 사실상 0이다) —
+    path prefix로 좁히지 않는 이유는 SettingLoginRequiredMiddleware처럼 범위를
+    좁혀야 할 실질적 이유(로그인 차단)가 없어서다."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        reset_perf_cache()
         return self.get_response(request)

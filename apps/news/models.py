@@ -184,6 +184,30 @@ class News(models.Model):
 
     class Meta:
         ordering = ["-published_at", "-pk"]
+        indexes = [
+            # 🔴 2026-09-17 PE 신설(점검 지적 ⑤ — published_at 인덱스 0개).
+            # 비교 창(중복 판별)·기간 필터(대시보드·지식그래프)·
+            # insights_in_period()의 Min/Max·최신순 정렬(Meta.ordering 그대로)·
+            # _adjacent_news()가 전부 이 필드를 건다. 지금(News 수백 건)은
+            # Postgres가 어차피 Seq Scan을 고를 규모라 체감 차이는 없지만,
+            # 테이블이 작을 때 AddIndex는 사실상 즉시 끝나(락 시간 무시할
+            # 수준) CONCURRENTLY가 필요 없다 — 나중에 행이 많아진 뒤 만들면
+            # 그때는 필요해진다.
+            models.Index(fields=["published_at"], name="news_published_at_idx"),
+            # 🔴 2026-09-17 PE 신설(점검 지적 ⑤ 복합 인덱스 판단) — NewsQuerySet.
+            # verified()가 이 두 조건(status, duplicate_of_id IS NULL)을 항상
+            # 함께 건다. verified()는 앱 전체에서 News를 직접 읽는 거의 모든
+            # 경로의 게이트라 가장 자주 실행되는 쿼리 형태다. status가 먼저
+            # 오는 이유 — duplicate_of_id IS NULL은 선택도가 낮다(대다수
+            # News가 중복이 아니라 NULL이라 이 조건 하나로는 거의 안 좁혀진다).
+            # status를 선행 컬럼으로 두면 그 값으로 먼저 좁힌 뒤 남은 행에서
+            # duplicate_of_id를 걸러 인덱스 단계에서 조건이 거의 다 끝난다.
+            # 기존 duplicate_of FK 인덱스(status 없이 duplicate_of_id 단독)는
+            # 그대로 둔다 — `News.duplicates`(같은 대표를 가리키는 나머지 조회)
+            # 등 status 없이 duplicate_of_id만 거는 경로가 있어 지우면 그
+            # 경로가 손해를 본다.
+            models.Index(fields=["status", "duplicate_of"], name="news_status_dup_idx"),
+        ]
 
     def __str__(self):
         return self.title
@@ -417,6 +441,20 @@ class Insight(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [
+            # 🔴 2026-09-17 PE 신설(점검 지적 ⑤ — headliner_order 인덱스 0개,
+            # 실측 Seq Scan cost 63.70). 대시보드 헤드라인
+            # (apps/dashboard/views.py)이 filter(headliner_order__isnull=False)
+            # .order_by("headliner_order")만 쓰므로 NULL(헤드라이너 아님 —
+            # 대다수)을 뺀 부분 인덱스로 둔다. 전체 인덱스보다 작고, 이 쿼리
+            # 모양과 정확히 맞는다(조건 없는 인덱스는 안 쓰는 대다수 NULL 행도
+            # 함께 쌓아 두는 낭비다).
+            models.Index(
+                fields=["headliner_order"],
+                name="insight_headliner_order_idx",
+                condition=models.Q(headliner_order__isnull=False),
+            ),
+        ]
 
     def __str__(self):
         return self.title

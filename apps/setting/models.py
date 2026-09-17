@@ -386,6 +386,16 @@ class RunJob(models.Model):
     # 6번 "잃는 것을 관측으로 남긴다"). RA가 배치 보고서에 옮겨 적어 2회 누적되면
     # PM이 관계 변천 경로를 연다(14번 되돌림 조건).
     relation_conflict_count = models.IntegerField(default=0)
+    # 🔴 2026-09-17 PE 신설(docs/planning.md "3단계 비용 구조 — 관계 호출의 입력을
+    # 좁힌다" 11-1-(e) ⓐ) — job_key="insight"만 채운다. 관계 호출(두 번째 LLM
+    # 호출)에 실제로 들어간 News 건수, 즉 filter_relation_targets()를 거쳐 「금융사·
+    # 보험사 태그 1개 이상 그리고 AI 기업 태그 1개 이상」을 만족한 건수다(B안). 3단계
+    # 입력 전체(M)는 이미 target_count가 진다 — job_key="insight"에서 target_count는
+    # 관계 필터와 무관하게 이슈 판정 대상 전체로 한 번만 채워진다. 이 로그(N)가
+    # target_count(M)보다 먼저 존재해야 필터를 켤 수 있다(11-1-(e) ⓐ "이 기록이
+    # 없으면 B를 켜지 않는다") — RA가 "본문에 관계가 있는데 제안에 없는 기사"를
+    # 발견했을 때 N과 M을 비교해 필터 탓인지 LLM이 놓친 것인지 가르는 유일한 수단.
+    relation_target_count = models.IntegerField(default=0)
 
     class Meta:
         ordering = ["-started_at", "-pk"]
@@ -656,6 +666,23 @@ class RunProposal(models.Model):
 
     class Meta:
         ordering = ["-judged_at", "-pk"]
+        indexes = [
+            # 🔴 2026-09-17 PE 신설(점검 지적 ⑤ — _reject_stats_context()가 확정된
+            # RunJob 전체 이력의 RunProposal을 무제한 스캔, 점검자가 "가장 먼저
+            # 체감될 자리"로 지목). 그 함수가 매번 던지는
+            # filter(run_job_id__in=...).filter(status=...) 모양과 맞춘 복합
+            # 인덱스 — run_job이 선행 컬럼이라 run_job_id__in 자체도 그대로
+            # 덕을 본다.
+            #
+            # ⚠️ 이 인덱스가 그 함수의 "누적 이력 전체를 본다"는 설계 자체를
+            # 바꾸지는 않는다 — 화면에 보이는 집계 범위(수)는 손대지 않는다는
+            # 제약(고친 뒤에도 화면 값이 하나도 달라지면 안 된다) 때문에 일부러
+            # 그대로 뒀다. 인덱스는 상수 비용을 줄일 뿐 "이력이 계속 쌓이면
+            # 언젠가 다시 느려진다"는 점근적 한계 자체는 그대로다 — 그 함수
+            # docstring이 이미 적어 둔 트레이드오프고, 이 라운드에서 그 설계를
+            # 다시 판단하지 않는다.
+            models.Index(fields=["run_job", "status"], name="runproposal_runjob_status_idx"),
+        ]
 
     def __str__(self):
         return f"RunProposal({self.proposal_type}, news={self.news_id})"

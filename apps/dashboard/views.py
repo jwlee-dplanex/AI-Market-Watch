@@ -1,3 +1,4 @@
+from collections import defaultdict
 from datetime import timedelta
 
 from django.db.models import Count, F, Max, Min, Q
@@ -172,6 +173,35 @@ def _date_filter(field_prefix, start_date, today):
     })
 
 
+RECENT_NEWS_PER_GROUP = 5
+
+
+def _recent_news_by_group(m2m_field, group_ids, news_filter):
+    """org.news.verified().filter(...)[:5]를 그룹(기업/기술 주제) 수만큼 반복하던
+    N+1을 없앤다(점검 지적 ② — Top10 뽑은 뒤 루프 안에서 그룹마다 개별 조회,
+    20쿼리). m2m_field는 News의 M2M 필드명("organizations" 또는 "tech_topics")
+    이다.
+
+    전체 매칭 행을 한 번에 가져와(News가 현재 수백 건 규모라 그룹당 상한을 DB
+    단에서 슬라이스하지 않아도 무리가 없다 — Django는 Prefetch에 슬라이스
+    쿼리셋을 쓸 수 없어 이 방식이 더 단순하다) 그룹 오름차순·발행일 내림차순으로
+    정렬한 뒤 파이썬에서 그룹마다 상위 RECENT_NEWS_PER_GROUP건만 남긴다. 정렬
+    키(-published_at, -pk)는 원래 코드의 tie-breaker와 동일하다."""
+    rows = (
+        News.objects.verified()
+        .filter(**{f"{m2m_field}__in": group_ids})
+        .filter(news_filter)
+        .order_by(m2m_field, "-published_at", "-pk")
+        .values_list(m2m_field, "uid", "title")
+    )
+    by_group = defaultdict(list)
+    for group_id, uid, title in rows:
+        bucket = by_group[group_id]
+        if len(bucket) < RECENT_NEWS_PER_GROUP:
+            bucket.append({"uid": uid, "title": title})
+    return by_group
+
+
 def _build_org_ranking(start_date, today):
     # 검증 게이트: 기업별 건수 Top 10은 ALL-001 핵심 지표 3종 중 하나(직접 조회 경로)이므로
     # 검증분만 센다. Count(filter=...)는 annotate 앞에서 JOIN 자체를 거르지 않으므로
@@ -187,21 +217,17 @@ def _build_org_ranking(start_date, today):
     )
 
     max_count = orgs[0].count if orgs else 0
+    recent_by_org = _recent_news_by_group("organizations", [org.pk for org in orgs], news_filter)
     org_ranking = []
     for rank, org in enumerate(orgs, start=1):
-        recent_news = list(
-            org.news
-            .verified()
-            .filter(news_filter)
-            .order_by("-published_at", "-pk")[:5]
-        )
+        recent_news = recent_by_org.get(org.pk, [])
         org_ranking.append({
             "rank": rank,
             "name": org.name,
             "org_type": org.org_type,
             "count": org.count,
             "pct": _pct(org.count, max_count),
-            "recent_news": [{"uid": n.uid, "title": n.title} for n in recent_news],
+            "recent_news": recent_news,
             "more_count": max(org.count - len(recent_news), 0),
         })
     return org_ranking
@@ -220,20 +246,16 @@ def _build_tech_topic_counts(start_date, today):
     )
 
     max_count = topics[0].count if topics else 0
+    recent_by_topic = _recent_news_by_group("tech_topics", [topic.pk for topic in topics], news_filter)
     tech_topic_counts = []
     for rank, topic in enumerate(topics, start=1):
-        recent_news = list(
-            topic.news
-            .verified()
-            .filter(news_filter)
-            .order_by("-published_at", "-pk")[:5]
-        )
+        recent_news = recent_by_topic.get(topic.pk, [])
         tech_topic_counts.append({
             "rank": rank,
             "name": topic.name,
             "count": topic.count,
             "pct": _pct(topic.count, max_count),
-            "recent_news": [{"uid": n.uid, "title": n.title} for n in recent_news],
+            "recent_news": recent_news,
             "more_count": max(topic.count - len(recent_news), 0),
         })
     return tech_topic_counts
