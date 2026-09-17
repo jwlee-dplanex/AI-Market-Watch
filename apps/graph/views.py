@@ -177,16 +177,26 @@ def _get_edge_orgs_or_404(pk_a, pk_b):
 
 def _edge_news_queryset(org_a, org_b, period):
     """org_a·org_b 교집합 뉴스에 선택된 기간(period) 필터를 적용한 쿼리셋.
-    graph_edge_panel(화면 표시)과 graph_edge_label_save(근거뉴스 저장)가 이 함수 하나를
-    공유한다 — 패널에 실제로 보이는 news_list와 OrgRelation.news로 저장되는 값이 항상
-    같은 쿼리에서 나오도록 강제하기 위해서다(docs/planning.md 근거뉴스 범위 확정 정책:
-    "패널의 news_list와 저장되는 relation.news는 항상 동일해야 한다", 기간 필터 없는 전체
-    교집합을 저장하지 않는다).
+    graph_edge_panel(화면 표시)과 graph_edge_label_save(OrgRelation 최초 생성 시 근거뉴스
+    채우기)가 이 함수 하나를 공유한다 — 패널에 보이는 news_list와 OrgRelation 생성 시점에
+    저장되는 값이 같은 쿼리에서 나오도록 하기 위해서다.
+
+    🔴 2026-09-17 정정(RA 실측 — OrgRelation 51 "아마존 × 우리금융지주"): 이 결과를
+    "라벨을 다시 저장할 때마다" relation.news에 그대로 재적용하면 안 된다. RA가 근거뉴스
+    중 문맥상 틀린 것(News 1715)을 골라 relation.news에서 손으로 뺀 뒤, 라벨만 고쳐
+    한 번 더 저장했더니 이 함수의 재계산 결과가 통째로 덮어써 1715가 되돌아오고 그사이
+    새로 검증된 3778까지 함께 들어왔다(재현: 트랜잭션 롤백, 2026-09-17). relation.news는
+    화면 렌더에 쓰이지 않는다 — 엣지 노출·굵기는 News.objects.verified()의 공동태그
+    집계(graph() 함수)가 결정하고, 이 필드는 "이 관계의 근거가 무엇인가"를 사람이
+    기록·교정하는 칸이다(RA가 근거를 읽고 직접 판단해 채운다는 OrgRelation 모델 docstring
+    그대로). 그래서 graph_edge_label_save는 OrgRelation이 처음 만들어질 때만 이 함수의
+    결과로 채우고, 그 뒤로는 사람 몫으로 남긴다(아래 함수 참고).
 
     검증 게이트: .verified()를 여기 한 곳에만 걸어 두 가지를 동시에 만족시킨다 —
     (A) 엣지 패널의 뉴스 리스트는 직접 조회 경로라 검증분만 보여야 하고,
-    (B) graph_edge_label_save가 relation.news.set()에 넘기는 값도 이 함수를 그대로 쓰므로
-    "미검증 뉴스를 OrgRelation에 연결하지 않는다"는 (B) 계약이 필터 한 줄로 함께 지켜진다."""
+    (B) graph_edge_label_save가 최초 생성 시 relation.news.set()에 넘기는 값도 이 함수를
+    그대로 쓰므로 "미검증 뉴스를 OrgRelation에 연결하지 않는다"는 (B) 계약이 필터
+    한 줄로 함께 지켜진다."""
     today = timezone.localtime(timezone.now()).date()
     start_date, today = period_bounds(period, today)
 
@@ -249,17 +259,19 @@ def graph_edge_label_save(request, pk_a, pk_b):
     description = (request.POST.get("description") or "").strip()
 
     if label and len(label) <= MAX_LABEL_LENGTH:
-        # 근거뉴스 = _edge_news_queryset(패널이 news_list를 만드는 것과 동일한 쿼리)의
-        # 결과 그대로(docs/planning.md 근거뉴스 범위 확정 정책 — 화면에 보이는 선택된 기간의
-        # 교집합만 저장, 기간 필터 없는 전체 교집합을 임의로 저장하지 않는다).
-        # update_or_create와 news.set()을 하나의 트랜잭션으로 묶어, 라벨은 저장됐는데
-        # 근거뉴스 세팅만 실패하는(또는 그 반대) 반쪽 상태가 생기지 않게 한다.
+        # 🔴 2026-09-17 정정(RA 실측, 위 _edge_news_queryset() docstring 참고) — 근거뉴스는
+        # OrgRelation이 "처음 생성될 때만" _edge_news_queryset()의 결과로 채운다. 이미
+        # 존재하는 관계를 라벨만 고쳐 다시 저장하는 경우에는 news를 건드리지 않는다 —
+        # RA가 손으로 뺀/더한 근거를 그대로 둔다. update_or_create와 news.set()(생성
+        # 시에만)을 하나의 트랜잭션으로 묶어, 라벨은 저장됐는데 근거뉴스 세팅만 실패하는
+        # (또는 그 반대) 반쪽 상태가 생기지 않게 한다.
         with transaction.atomic():
-            relation, _created = OrgRelation.objects.update_or_create(
+            relation, created = OrgRelation.objects.update_or_create(
                 org_a=org_a, org_b=org_b,
                 defaults={"label": label, "description": description},
             )
-            relation.news.set(_edge_news_queryset(org_a, org_b, period))
+            if created:
+                relation.news.set(_edge_news_queryset(org_a, org_b, period))
 
     context = _build_edge_panel_context(org_a, org_b, period)
     return render(request, "graph/_edge_panel.html", context)

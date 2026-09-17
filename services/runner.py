@@ -568,6 +568,416 @@ def _run_cleanup(run_job_id: int) -> None:
                 ),
             )
 
+    _run_dedup(run_job_id)
+
+
+# 🔴 비교 창 — docs/planning.md "기준 2(동일 사건 중복 보도)를 2단계의 두 번째 LLM
+# 호출로 옮긴다" 2-2-(b)(c) 확정. 길이는 상수(나중에 값만 바꿀 수 있다)이지만 기준점은
+# "실행일"이 아니라 "이번 배치 신규분의 published_at 최솟값"이다(_run_dedup() 참고,
+# 형태라 나중에 못 바꾼다 — 같은 문서 12번 표).
+DEDUP_WINDOW_DAYS = 3
+
+# 🔴 입력 상한 — 넘으면 조용히 좁히지 말고 로그로 보고한다(같은 문서 2-1-(d) ⚠️,
+# 2-2-(b) ⚠️). 지금 규모(신규분 15~40건 + 3일 창 검증분 45~120건, 합 상한 약 160건)의
+# 약 2배 여유를 둔다 — 며칠 밀린 배치는 앵커 때문에 창이 자동으로 늘어나므로(위 문서
+# 2-2-(b) "사흘을 안 돌리다 오늘 돌리면 창이 6일이 된다"), 그 정상적인 확장을 상한
+# 오판으로 잘못 알리지 않을 값이 필요하다.
+DEDUP_MAX_INPUT_COUNT = 300
+
+
+def _pick_dedup_representative(members):
+    """묶음 안에서 대표를 결정론적으로 고른다(docs/design.md "SET-010 · 실행" 28차
+    정정 ⑤번 대표 선정 순위). 🔴 이 함수는 "순수하게 우선순위만으로" 고를 때 쓴다 —
+    창 밖 기존분 우선(0번), 이번 호출 안에서 이미 대표로 확정된 항목을 그대로 지키는
+    스티키 규칙 같은 상위 규칙은 _run_dedup()이 이 함수를 부르기 전에 먼저 걸러낸다.
+    그래서 이 함수는 "이미 기존분/스티키가 없는 순수 신규 묶음"과 "기존분끼리(또는
+    스티키끼리) 여럿이 겹쳤을 때 그 부분집합 안에서 하나를 정하는" 두 자리 모두에서
+    재사용된다 — 후자에 쓸 때는 그 부분집합만 members로 넘긴다.
+
+    순위: 명시 연결(`has_explicit_link()`) 있는 것 > 본문이 가장 긴 것 > 발행이 가장
+    이른 것 > pk가 가장 작은 것(마지막은 이 함수 안에서만 의미 있는 결정성 확보용
+    tie-breaker다 — CLAUDE.md "정렬 일관성" 패턴).
+
+    ⚠️ 매체 등급은 쓰지 않는다(같은 문서 5번 "이 프로젝트에 매체를 서열화한 데이터가
+    없고, 없는 기준을 지어내지 않는다")."""
+    from apps.news.services import has_explicit_link
+
+    def sort_key(news):
+        return (has_explicit_link(news), len(news.body), -news.published_at.timestamp(), -news.pk)
+
+    return max(members, key=sort_key)
+
+
+def _dedup_pick_reason(rep, from_existing):
+    """duplicate_representative를 고른 이유 코드(RunProposal.DUP_PICK_REASON_*).
+
+    🔴 세 값뿐이다(모델 choices) — "이번 호출 안에서 이미 대표로 확정됐다"(스티키)는
+    네 번째 값을 새로 만들지 않는다. 스티키로 지켜진 대표도 애초에 처음 뽑힐 때는
+    명시 연결 또는 본문 길이로 결정된 것이므로, 그 근거를 그대로 재확인해 반환한다 —
+    "왜 대표인가"는 시점이 아니라 성질의 문제다."""
+    from apps.news.services import has_explicit_link
+    from apps.setting.models import RunProposal
+
+    if from_existing:
+        return RunProposal.DUP_PICK_REASON_EXISTING
+    if has_explicit_link(rep):
+        return RunProposal.DUP_PICK_REASON_LINKED
+    return RunProposal.DUP_PICK_REASON_LONGEST
+
+
+def _run_dedup(run_job_id: int) -> None:
+    """SET-010 2단계 두 번째 LLM 호출 — 기준 2(동일 사건 중복 보도) 판정.
+    docs/planning.md "기준 2(동일 사건 중복 보도)를 2단계의 두 번째 LLM 호출로
+    옮긴다"(2026-09-17 확정), 그리고 그 다음 라운드 "코드가 후보를 좁히고 LLM은
+    확인만 한다"(2-6)가 정본. `_run_cleanup()`의 건별 판정 루프가 끝난 뒤, 같은
+    `RunJob` 안에서 이어 돈다.
+
+    🔴 2026-09-17 2차 개정 — 배치 전체(신규 + 창 전량)를 한 번에 LLM에 묻던 방식을
+    걷어낸다. 실측(같은 배치, 47건을 한 번에 물은 결과)이 묶음 0개·input 88,892
+    토큰·약 124원을 냈다 — 성과 없이 비용만 썼다. 대신
+    services/dedup_candidates.py의 find_duplicate_candidates()로 사건 지문·숫자
+    토큰이 겹치는 후보 묶음을 코드가 먼저(0원) 좁히고, 후보 묶음마다 LLM에
+    "확인"만 묻는다(2-6, PM "찾기가 아니라 확인입니다"). 🔴 후보가 0개면 LLM을
+    아예 부르지 않는다 — 그 미호출을 판정 실패·"묶음 0개 판정"과 구분해 로그로
+    남긴다(2-6-(d) "미호출을 실패·0건과 구분해 기록. 실측 124원이 성과 0에
+    지불됐다").
+
+    🔴 입력이 두 갈래다(같은 문서 2번 ①안 도식, 12번 "못 바꾼다" 표) — 이번 배치가
+    "유지"로 제안한 신규분(삭제될 수 있는 쪽) + 비교 창 안의 검증 통과분(비교 대상
+    전용, 이 호출로는 절대 삭제되지 않는다 — 2-1-(b)). ④에서 이미 "삭제"로 제안된
+    건은 여기 넣지 않는다 — 버릴 기사를 두 번 묻지 않는다(같은 문서 2번 마지막 불릿).
+    🔴 코드 후보 탐색(find_duplicate_candidates)은 신규분 + 창 전량을 합쳐서 한
+    번에 돌린다 — 사건 지문·숫자 토큰은 신규/기존을 가리지 않고 겹칠 수 있어서다.
+    다만 실제 LLM 호출은 후보 묶음 단위로 나뉘고, 신규분이 하나도 없는 후보(창 안
+    기존분끼리만 묶인 것)는 이 호출로 손댈 것이 없어 LLM을 부르지 않는다.
+
+    🔴 대표 선정은 LLM이 아니라 이 함수가 결정론적으로 한다. 묶음에 창 밖 기존분이
+    하나라도 있으면 그 묶음은 신규분만 지우고 대표를 새로 정하지 않는다(0번,
+    "기존분이 둘 이상이면 그 묶음에서는 신규만 지우고 대표를 새로 정하지 않는다").
+    전부 신규분이면 `_pick_dedup_representative()`로 고른다.
+
+    🔴 확정하면 삭제가 아니라 감춘다(2026-09-17 28차 정정) — `RunProposal.TYPE_DELETE`가
+    아니라 `TYPE_DUPLICATE`를 만들고, 그 행에 `duplicate_representative`(묶음의 대표
+    News)·`dup_fingerprint`(공통 표현)·`dup_pick_reason`(대표를 고른 이유)을 채운다.
+    확정 뷰가 `duplicate_representative`를 그대로 대상 News의 `duplicate_of`에 넣는다
+    (지우지 않는다) — `TYPE_DELETE`로 두면 확정 뷰가 "지울 것"과 "감출 것"을 DB에서
+    되짚어 구분해야 하므로 타입 자체를 가른다.
+
+    🔴 명시 연결(Insight/Report/OrgRelation)이 있는 News는 대표가 아니어도 삭제하지
+    않는다 — `has_explicit_link()`로 방어한다. 정상 운영에서는 신규분이 아직 미검증이라
+    이 방어가 걸릴 일이 없지만(명시 연결은 검증 통과 후에나 생긴다), 형태 자체는
+    계약이므로 조건 없이 넣는다. 🔴 명시 연결이 묶음 안에 **둘 이상**이면(어느 쪽이
+    핵심인지 코드가 판단할 근거가 없다) 대표를 정하지 않고 **hold**로 올린다 —
+    `duplicate_representative`를 비워 둔 채 `TYPE_DUPLICATE`만 만들어, 확정 화면에서
+    사람이 대표를 고르게 한다(지우지도 감추지도 않는다).
+
+    🔴 **대표 flip 방어(같은 정정, PE 자체 발견)** — 이번 호출 "안에서" 이미 대표로
+    확정된 News(신규분끼리 묶인 앞선 후보/묶음에서 승자가 된 것)는 뒤 묶음에서 다시
+    평가하지 않고 그대로 대표를 지킨다(스티키). 실측 재현 조건: 같은 호출 안에서
+    사건 지문이 셋 이상(A·B·C)을 잇는 다이아몬드 형태로 묶이면, LLM이 이를 두 개의
+    별도 그룹({A,B}, {B,C})으로 나눠 응답할 수 있다 — 이때 스티키가 없으면 {A,B}에서
+    B가 대표가 된 뒤 {B,C}를 처음부터 다시 평가해 C가 본문이 더 길다는 이유로 대표를
+    빼앗을 수 있고, 그러면 A→B(구 대표)가 B→C(신 대표)를 가리키는 "대표의 대표"가
+    생긴다(`News.verified()`가 기대는 "대표는 duplicate_of가 없다" 불변식이 깨짐).
+    스티키가 둘 이상 부딪히면(서로 다른 앞선 묶음에서 각자 대표가 된 것끼리 나중에
+    다시 묶임) 이미 커밋된 앞선 대표 지정을 되돌려 쓰는 복잡도를 피하려고 그 묶음은
+    통째로 건너뛴다(로그만 남김) — 사람이 다음 배치에서 다시 보게 된다.
+
+    🔴 **창 밖 기존분 사이의 결정성** — 한 묶음에 기존분이 둘 이상 섞이면(서로 다른
+    배치에서 이미 확정된 대표 둘이 이번에 같은 사건으로 다시 묶인 경우) 예전엔
+    `existing_member_ids[0]`(LLM 응답 순서에 좌우되는 임의 순서)을 그대로 썼다 —
+    CLAUDE.md "정렬 일관성" 패턴 위반이라 실행마다 다른 기존분에 신규분이 붙을 수
+    있었다. 이제 `_pick_dedup_representative()`로 그 기존분 부분집합 안에서마저
+    결정론적으로 고른다(신규분을 어느 기존 대표에 붙일지만 정하며, 기존 대표 둘을
+    서로 병합하지는 않는다 — 기존 News에는 이번 호출로 건드릴 RunProposal 자체가
+    없어서 구조적으로 못 한다. 로그로 남겨 사람이 보게 한다).
+
+    예외는 여기서 잡지 않는다 — `_run_insight()`와 같은 이유로 `_execute()`의 바깥
+    try/except가 받아 RunJob을 실패로 남긴다. 후보 묶음마다 트랜잭션을 따로 묶으므로,
+    뒤 묶음 호출이 실패해도 이미 처리한 앞선 묶음의 판정(RunProposal)은 유효하게
+    남는다(`cleanup_ab_split()` 독스트링과 같은 원칙)."""
+    from apps.news.models import News
+    from apps.news.services import has_explicit_link
+    from apps.setting.models import RunProposal
+    from services.dedup_candidates import find_duplicate_candidates
+    from services.llm import PROMPT_VERSION_DEDUP, find_duplicate_news
+
+    keep_proposals = list(
+        RunProposal.objects.filter(
+            run_job_id=run_job_id, proposal_type=RunProposal.TYPE_KEEP,
+            status=RunProposal.STATUS_PENDING,
+        ).select_related("news")
+    )
+    if not keep_proposals:
+        return
+
+    new_batch = [p.news for p in keep_proposals]
+    proposal_by_news_id = {p.news_id: p for p in keep_proposals}
+    new_batch_ids = set(proposal_by_news_id)
+
+    # 🔴 앵커 — "실행일"이 아니라 "이번 배치 신규분의 published_at 최솟값"(2-2-(b)).
+    # 검증 지연이 배치를 갈라놓는 경로(놓치는 경로 6번)를 구조적으로 닫는 자리다.
+    anchor = min(news.published_at for news in new_batch)
+    window_start = anchor - timedelta(days=DEDUP_WINDOW_DAYS)
+    window_news = list(
+        News.objects.verified()
+        .filter(published_at__gte=window_start, published_at__lte=timezone.now())
+        .exclude(pk__in=new_batch_ids)
+        .order_by("published_at")
+    )
+
+    total_input = len(new_batch) + len(window_news)
+    if total_input > DEDUP_MAX_INPUT_COUNT:
+        logger.warning(
+            "RunJob %s 중복 판정 입력이 상한(%d)을 넘었어요(신규 %d + 창 %d일 %d건 = %d). "
+            "몰래 좁히지 않고 그대로 후보 탐색을 돌려요.", run_job_id, DEDUP_MAX_INPUT_COUNT,
+            len(new_batch), DEDUP_WINDOW_DAYS, len(window_news), total_input,
+        )
+
+    current_version = RunJob.objects.filter(pk=run_job_id).values_list(
+        "prompt_version", flat=True,
+    ).first() or ""
+    combined_version = f"{current_version}+{PROMPT_VERSION_DEDUP}" if current_version else PROMPT_VERSION_DEDUP
+    RunJob.objects.filter(pk=run_job_id).update(prompt_version=combined_version)
+
+    all_news = new_batch + window_news
+    news_by_id = {news.pk: news for news in all_news}
+    known_ids = set(news_by_id)
+
+    # 🔴 대표 flip에 대한 마지막 방어선(2026-09-17, 그래프 담당 PE 지적 — GRAPH-001
+    # 엣지 임계가 "대표는 duplicate_of가 없다" 불변식에 의존한다, apps/graph/views.py
+    # 49-52·78-88 "묶음마다 대표 1건은 반드시 남아 공동언급이 0으로 떨어지지 않는다").
+    # 위 0번(창 밖 기존분 우선)·스티키(이번 호출 안 대표 유지) 분기가 이미 이 불변식을
+    # 구조적으로 지킨다 — 새로 만드는 신규분 pk는 애초에 기존 대표일 수 없고, 창 안
+    # 기존분은 이 함수가 그 News의 RunProposal 자체를 건드리지 않는다(존재하지 않는다).
+    # 그래도 분기 로직이 나중에 바뀌어도 조용히 깨지지 않도록, 실제로 변환(TYPE_DUPLICATE/
+    # hold)하는 시점에 한 번 더 확인한다 — 이미 다른 News가 duplicate_of로 가리키는
+    # News(다른 배치에서 이미 확정된 대표)는 어떤 경우에도 감추거나 hold로 바꾸지 않는다.
+    established_rep_ids = set(
+        News.objects.filter(duplicate_of__isnull=False)
+        .values_list("duplicate_of_id", flat=True).distinct()
+    )
+
+    candidate_groups = find_duplicate_candidates(all_news)
+    if not candidate_groups:
+        # 🔴 미호출 — 판정 실패도 "묶음 0개 판정"도 아니다. LLM을 아예 부르지
+        # 않았다는 사실 자체를 구분해 로그로 남긴다(2-6-(d)).
+        logger.info(
+            "RunJob %s 중복 판정 — 코드 후보 0묶음이라 LLM을 호출하지 않았어요"
+            "(신규 %d건 + 창 %d일 검증분 %d건 검사).",
+            run_job_id, len(new_batch), DEDUP_WINDOW_DAYS, len(window_news),
+        )
+        return
+
+    converted = 0
+    held = 0
+    protected = 0
+    conflict_skipped = 0
+    call_count = 0
+    llm_group_total = 0
+    # 🔴 이번 호출 안에서 "이미 처리를 마쳤다"(감춰졌거나 hold로 올라갔다)고 확정된
+    # 신규분 pk. 뒤 묶음의 member_ids 필터링에 계속 반영해 두 번 처리하지 않는다.
+    resolved_pks = set()
+    # 🔴 이번 호출 안에서 "이미 대표로 확정됐다"(스티키)고 결정된 신규분 pk. 뒤 묶음이
+    # 이 pk를 다시 만나면 처음부터 다시 뽑지 않고 그대로 대표를 지킨다(대표 flip 방어,
+    # 독스트링 참고).
+    sticky_rep_pks = set()
+
+    for candidate in candidate_groups:
+        group_new = [news_by_id[pk] for pk in candidate.news_ids if pk in new_batch_ids]
+        group_existing = [news_by_id[pk] for pk in candidate.news_ids if pk not in new_batch_ids]
+        if not group_new:
+            # 창 안 기존분끼리만 묶인 후보 — 이 호출로는 손댈 것이 없다(5-1).
+            # LLM을 부르지 않는다.
+            continue
+
+        call_count += 1
+        result = find_duplicate_news(
+            group_new, group_existing,
+            matched_signals=sorted(candidate.matched_signals),
+            over_soft_cap=candidate.over_soft_cap,
+        )
+        groups = result.get("groups", [])
+        llm_group_total += len(groups)
+
+        with transaction.atomic():
+            for group in groups:
+                # 응답은 신뢰하되 검증한다(_run_insight()의 news_ids 매칭과 같은
+                # 원칙) — 이번 호출 밖의 pk나 이미 처리한 pk는 건너뛴다.
+                member_ids = [
+                    pk for pk in group.get("news_ids", [])
+                    if pk in known_ids and pk not in resolved_pks
+                ]
+                if len(member_ids) < 2:
+                    continue
+
+                new_member_ids = [pk for pk in member_ids if pk in new_batch_ids]
+                existing_member_ids = [pk for pk in member_ids if pk not in new_batch_ids]
+                if not new_member_ids:
+                    # 창 안 기존분끼리만 묶였다 — 이 호출로는 손대지 않는다(5-1
+                    # "기존분이 둘 이상이면 그 묶음에서는 신규만 지우고 대표를 새로
+                    # 정하지 않는다").
+                    continue
+
+                sticky_new_ids = [pk for pk in new_member_ids if pk in sticky_rep_pks]
+
+                if existing_member_ids and sticky_new_ids:
+                    # 🔴 충돌 — 창 밖 기존 대표와 이번 호출 안에서 이미 확정된 신규
+                    # 대표가 한 묶음에서 만났다. 기존 News에는 이번 호출로 건드릴
+                    # RunProposal이 없어 "둘 중 하나로 병합"을 안전하게 실행할 방법이
+                    # 없다(앞서 커밋된 신규 대표 지정을 되돌려 쓰는 것도 위험하다).
+                    # 지우지도 감추지도 않고 그대로 건너뛴다 — 사람이 다음 배치에서
+                    # 다시 보게 된다.
+                    conflict_skipped += 1
+                    logger.warning(
+                        "News %s는 창 밖 기존 대표와 이번 호출 안 신규 대표(스티키 %s)가 "
+                        "한 묶음에서 만나 자동으로 병합할 수 없어요. 건너뛰어요.",
+                        sorted(member_ids), sorted(sticky_new_ids),
+                    )
+                    continue
+
+                if len(sticky_new_ids) > 1:
+                    # 🔴 충돌 — 서로 다른 앞선 묶음에서 각자 대표가 된 신규분 둘이 이번
+                    # 묶음에서 다시 만났다. 어느 한쪽을 대표로 정하면 이미 커밋된 다른
+                    # 쪽의 앞선 판정(그 대표를 가리키는 RunProposal들)을 다시 써야 하는데,
+                    # 그 재작성은 하지 않는다(대표 flip 방어와 같은 이유). 건너뛴다.
+                    conflict_skipped += 1
+                    logger.warning(
+                        "News %s는 이번 호출 안에서 이미 대표가 된 신규분이 둘 이상(%s) "
+                        "섞여 있어 자동으로 병합할 수 없어요. 건너뛰어요.",
+                        sorted(member_ids), sorted(sticky_new_ids),
+                    )
+                    continue
+
+                fingerprint = group.get("fingerprint", "")
+                dup_fingerprint = [fingerprint] if fingerprint else []
+
+                if existing_member_ids:
+                    # 0번 — 창 밖 기존분이 하나라도 있으면 무조건 대표다. 신규만
+                    # 지운다(감춘다). 기존분이 둘 이상이면 그 부분집합 안에서마저
+                    # 결정론적으로 골라 붙인다(독스트링 "창 밖 기존분 사이의 결정성").
+                    if len(existing_member_ids) == 1:
+                        rep_pk = existing_member_ids[0]
+                    else:
+                        rep_pk = _pick_dedup_representative(
+                            [news_by_id[pk] for pk in existing_member_ids]
+                        ).pk
+                        logger.warning(
+                            "News %s는 서로 다른 기존 대표(%s)가 한 묶음으로 묶였어요 — "
+                            "신규분은 %s에 붙이지만, 기존 대표 두 묶음 자체의 병합은 "
+                            "이 호출로 하지 않아요(사람 확인 필요).",
+                            sorted(member_ids), sorted(existing_member_ids), rep_pk,
+                        )
+                    to_hold_ids = []
+                    to_delete_ids = new_member_ids
+                    pick_reason = _dedup_pick_reason(news_by_id[rep_pk], from_existing=True)
+                elif sum(1 for pk in member_ids if has_explicit_link(news_by_id[pk])) >= 2:
+                    # 🔴 명시 연결이 둘 이상 — 어느 쪽이 핵심인지 코드가 판단할
+                    # 근거가 없다. 대표를 정하지 않고 hold로 올린다(지우지도 감추지도
+                    # 않는다). existing_member_ids가 비어 있으므로 대상은 전부 신규분.
+                    rep_pk = None
+                    pick_reason = ""
+                    to_delete_ids = []
+                    to_hold_ids = new_member_ids
+                else:
+                    rep = sticky_new_ids[0] if sticky_new_ids else None
+                    if rep is None:
+                        rep = _pick_dedup_representative([news_by_id[pk] for pk in member_ids]).pk
+                    rep_pk = rep
+                    to_hold_ids = []
+                    to_delete_ids = [pk for pk in new_member_ids if pk != rep_pk]
+                    pick_reason = _dedup_pick_reason(news_by_id[rep_pk], from_existing=False)
+
+                if rep_pk is not None:
+                    sticky_rep_pks.add(rep_pk)
+
+                for pk in to_hold_ids:
+                    if pk in established_rep_ids or pk in sticky_rep_pks:
+                        # 대표 flip 방어선(마지막 확인) — 이론상 도달하지 않는다(위
+                        # 설명 참고). 도달하면 분기 로직에 버그가 있다는 뜻이라 조용히
+                        # 넘기지 않고 error로 남긴다.
+                        conflict_skipped += 1
+                        logger.error(
+                            "News %s는 이미 다른 기사의 대표인데 hold로 전환하려 했어요 — "
+                            "대표 flip 방어선이 막았어요. 분기 로직 버그 의심, 건너뛰어요.", pk,
+                        )
+                        continue
+                    proposal = proposal_by_news_id[pk]
+                    proposal.proposal_type = RunProposal.TYPE_DUPLICATE
+                    proposal.criterion_code = "2"
+                    proposal.duplicate_representative = None
+                    proposal.dup_fingerprint = dup_fingerprint
+                    proposal.dup_pick_reason = ""
+                    proposal.reason = (
+                        f"동일 사건 중복 보도로 보이나 명시 연결(근거)이 둘 이상 걸려 "
+                        f"코드가 대표를 정하지 못했어요. 사건 지문: {fingerprint}. "
+                        f"사람 확인이 필요해요."
+                    )
+                    proposal.save(update_fields=[
+                        "proposal_type", "criterion_code", "duplicate_representative",
+                        "dup_fingerprint", "dup_pick_reason", "reason",
+                    ])
+                    resolved_pks.add(pk)
+                    held += 1
+
+                for pk in to_delete_ids:
+                    if pk in established_rep_ids or pk in sticky_rep_pks:
+                        # 대표 flip 방어선(마지막 확인) — 이론상 도달하지 않는다(위
+                        # established_rep_ids 정의 참고). 도달하면 분기 로직에 버그가
+                        # 있다는 뜻이라 조용히 넘기지 않고 error로 남긴다.
+                        conflict_skipped += 1
+                        logger.error(
+                            "News %s는 이미 다른 기사의 대표인데 감춤으로 전환하려 했어요 — "
+                            "대표 flip 방어선이 막았어요. 분기 로직 버그 의심, 건너뛰어요.", pk,
+                        )
+                        continue
+                    if has_explicit_link(news_by_id[pk]):
+                        # 대표가 아니어도 명시 연결이 있으면 남긴다(위 hold 분기가
+                        # "묶음 안에 2건 이상"을 이미 걸렀으므로, 여기 걸리는 것은
+                        # "묶음 안에 정확히 1건"인데 그 1건이 대표로 뽑히지 않은
+                        # 경우다 — 대표 선정 우선순위가 명시 연결을 최우선으로 두므로
+                        # 정상 운영에서는 일어나지 않지만, 방어로 남긴다).
+                        protected += 1
+                        logger.warning(
+                            "News %s는 중복 묶음(대표 News %s)에 속하지만 명시 연결이 있어 "
+                            "감춤 제안으로 바꾸지 않아요.", pk, rep_pk,
+                        )
+                        continue
+                    proposal = proposal_by_news_id[pk]
+                    proposal.proposal_type = RunProposal.TYPE_DUPLICATE
+                    proposal.criterion_code = "2"
+                    proposal.duplicate_representative_id = rep_pk
+                    proposal.dup_fingerprint = dup_fingerprint
+                    proposal.dup_pick_reason = pick_reason
+                    proposal.reason = f"동일 사건 중복 보도. 사건 지문: {fingerprint}. 대표 News {rep_pk}."
+                    proposal.save(update_fields=[
+                        "proposal_type", "criterion_code", "duplicate_representative",
+                        "dup_fingerprint", "dup_pick_reason", "reason",
+                    ])
+                    resolved_pks.add(pk)
+                    converted += 1
+
+        usage = result.get("_usage", {})
+        RunJob.objects.filter(pk=run_job_id).update(
+            heartbeat_at=timezone.now(),
+            input_tokens=F("input_tokens") + usage.get("input_tokens", 0),
+            output_tokens=F("output_tokens") + usage.get("output_tokens", 0),
+            cache_creation_input_tokens=(
+                F("cache_creation_input_tokens") + usage.get("cache_creation_input_tokens", 0)
+            ),
+            cache_read_input_tokens=(
+                F("cache_read_input_tokens") + usage.get("cache_read_input_tokens", 0)
+            ),
+        )
+
+    logger.info(
+        "RunJob %s 중복 판정 완료 — 코드 후보 %d묶음, LLM 호출 %d회(신규 없는 후보 %d개는 "
+        "건너뜀), LLM이 확인한 실제 중복 묶음 %d개, 감춤 전환 %d건, hold %d건, "
+        "명시 연결로 보호 %d건, 자동 병합 불가로 건너뜀 %d건.",
+        run_job_id, len(candidate_groups), call_count, len(candidate_groups) - call_count,
+        llm_group_total, converted, held, protected, conflict_skipped,
+    )
+
 
 def _run_insight(run_job_id: int) -> None:
     """SET-010 조사 축 3단계(주요 이슈) — docs/planning.md "3~5단계를 LLM으로 옮기는
@@ -957,15 +1367,18 @@ def _run_newsroom_compose(run_job_id: int, newsroom_id: int) -> None:
     사라진다). RunJob 자체는 실패로 끊지 않는다 — LLM 호출은 성공했고, 걸린 것은
     그 산출물의 구조적 완결성이라 배치 자체의 실패(인증·리전 등)와는 다른 사건이다.
     """
-    from apps.newsroom.models import Newsroom, NewsroomArticle, NewsroomMessage
+    from apps.newsroom.models import Newsroom, NewsroomMessage
     from services.llm import compose_newsroom_message
 
     room = Newsroom.objects.get(pk=newsroom_id)
-    targets = list(
-        room.articles.filter(
-            filter_status=NewsroomArticle.STATUS_PASSED, duplicate_of__isnull=True,
-        ).order_by("impact_rank", "pk")
-    )
+    # 🔴 2026-09-17 PE 수정 — 종전에는 여기서 "통과 + 비중복" 전량을 직접 다시
+    # 걸렀다. 배지(apps/setting/views.py의 _newsroom_compose_has_new_material())는
+    # 09-16에 이미 "기존 모든 발송문의 포함 기사 합집합에 없는 것"으로 고쳐졌는데
+    # 실행은 그대로 남아 갈렸고, 그 결과 배지는 "새 재료 없음"이라 말해도 실행을
+    # 누르면 이미 보낸 기사까지 다시 담겼다(사용자가 발견한 "14건에 이전 회차까지
+    # 담김" 사고). `Newsroom.compose_targets`(apps/newsroom/models.py) 하나로
+    # 배지와 실행이 같은 것을 보게 한다(PM 지시 "두 벌로 짜지 말 것").
+    targets = list(room.compose_targets.order_by("impact_rank", "pk"))
 
     prompt_version = (
         f"newsroom_compose-room{room.pk}-{len(room.compose_prompt)}c-"

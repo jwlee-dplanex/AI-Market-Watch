@@ -14,7 +14,7 @@ Report 저장)가 이 모듈의 target_week()/target_month()를 함께 쓴다. �
 """
 from datetime import timedelta
 
-from django.db.models import Max
+from django.db.models import Max, Min
 
 
 def target_week(today):
@@ -51,16 +51,44 @@ def target_month(today):
 def insights_in_period(date_from, date_to):
     """대상 기간(date_from~date_to, 양끝 포함)에 속하는 Insight 쿼리셋.
 
-    기준은 근거 뉴스 발행일의 최댓값(Max("news__published_at"))이다. Insight.created_at은
-    RA(또는 확정 시점)가 쓴 시각이라 재작성 때 전부 같은 날로 몰려 기간 판별에 쓸 수
-    없다 — 대시보드가 이미 같은 이유로 그 정렬을 폐기했다(apps/dashboard/views.py
-    latest_news_at 주석). 대시보드가 쓰는 것과 같은 값이며, 이 정의를 4·5단계 LLM에
-    넘기는 입력 기사 범위와도 일치시킨다.
+    🔴 기준은 근거 뉴스 발행일의 최댓값 단독이 아니라 "그 Insight가 연결한 News의
+    published_at 구간[최솟값, 최댓값]이 대상 기간과 겹치는가"다(구간 겹침, docs/planning.md
+    7-1 정본 — "최솟값도 최댓값도 아니고 집합이 겹치는가를 묻는다"). 2026-09-17까지는
+    Max만 보는 코드였다 — 최댓값이 기간 안이면 통과, 밖이면 무조건 탈락시켰는데, 이슈
+    하나가 여러 날에 걸친 후속 보도를 계속 흡수하면(예: 이번 주에 만들어진 이슈가
+    다음 주에도 관련 후속 기사를 새로 받는 경우) 최댓값이 기간 상단 밖으로 밀려나
+    "그 기간 뉴스를 갖고 있는데도 빠지는" 결과를 냈다.
+
+    🔴 **실측(2026-09-17, PE)** — 코드와 문서(7-1)가 실제로 갈리는지 이번 라운드
+    확정 전에 먼저 쟀다(원칙 "고치기 전에 실측"). 결과는 "9/25부터 갈릴 수 있다"는
+    추정보다 심각했다 — **이미 지금 갈리고 있었다.** 다음 4단계(주간) 실행이 실제로
+    쓸 이번 대상 주(`target_week()` 산출 2026-09-05~09-11)를 옛 Max 방식과 이 구간
+    겹침 방식으로 각각 돌려 비교하니 **21건 대 26건(+5)** — Insight 112·159·165·168·
+    182 다섯 건이 옛 방식에서 빠져 있었다(전부 대상 주 안에 근거 뉴스가 있는데, 그
+    뒤로도 관련 후속 보도가 계속 나와 최댓값이 9/14까지 밀려난 경우). 과거 실제
+    Report 9건(주간 7 + 월간 2, 2026-07-03~2026-09-11 전 구간)에도 전부 같은 방향
+    (구간 겹침이 항상 Max 방식의 상위집합, 0건 제거·2~5건씩 추가)으로 나타났다 —
+    수학적으로도 그렇다: `date_from<=max<=date_to`(옛 조건)가 참이면
+    `min<=max<=date_to`이고 `max>=date_from`이 자동으로 성립해 새 조건을 항상
+    함의하므로, 구간 겹침은 절대 옛 결과를 줄이지 않고 늘리기만 한다(회귀 위험 없음).
+    ⚠️ 다만 과거 Report 비교는 "그 시점에 존재했던 Insight"가 아니라 "오늘 존재하는
+    전체 Insight"로 다시 돌린 것이라, 그 차이에는 이 로직 차이뿐 아니라 그 뒤에 RA가
+    새로 만든 Insight가 옛 기간 뉴스를 참조하는 경우도 섞여 있다 — 과거 Report 본문이
+    실제로 틀렸다는 뜻은 아니다(재생성한 적이 없어 그 시점 결과가 그대로 남아 있다).
+    확실한 것은 "지금 이 함수를 다시 부르면" 이번 주 숫자부터 이미 달라진다는 것이다.
+
+    Insight.created_at은 RA(또는 확정 시점)가 쓴 시각이라 재작성 때 전부 같은 날로
+    몰려 기간 판별에 쓸 수 없다 — 대시보드가 이미 같은 이유로 그 정렬을 폐기했다
+    (apps/dashboard/views.py latest_news_at 주석). 이 정의를 4·5단계 LLM에 넘기는
+    입력 기사 범위와도 일치시킨다.
     """
     from apps.news.models import Insight
 
-    return Insight.objects.annotate(latest_news_at=Max("news__published_at")).filter(
-        latest_news_at__date__gte=date_from, latest_news_at__date__lte=date_to,
+    return Insight.objects.annotate(
+        earliest_news_at=Min("news__published_at"),
+        latest_news_at=Max("news__published_at"),
+    ).filter(
+        earliest_news_at__date__lte=date_to, latest_news_at__date__gte=date_from,
     )
 
 

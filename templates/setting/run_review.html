@@ -14,6 +14,9 @@
        9차(2026-09-15) 4단계 잠금 문구 두 갈래와 교보 소식 2, 3단계.
        19차(2026-09-16) 검토 단위가 배치에서 대기 전량으로.
        21차(2026-09-16) 삭제 제안을 판정 주체로 가른다(코드 규칙 / LLM).
+       27차(2026-09-17) 머리 숫자 = 카드가 나열하는 행 수. 체크를 풀면 「왜」를 묻는다.
+       28차(2026-09-17) 중복 보도 카드. 처분이 삭제와 감춤으로 갈린다.
+       29차(2026-09-17) 관계 초안 카드. 3단계가 두 번째 호출로 기업 관계를 낸다.
        ⚠️ 8차 ②번이 7차 ⑨번의 "같은 카드를 쓴다"는 예고를 실측으로 정정했다.
        ⚠️ 9차는 이 화면에 아무것도 더하지 않는다. 교보 소식 2, 3단계는 이 화면으로
           오지 않는다(확정할 것이 없다). 근거는 그 절.
@@ -217,6 +220,41 @@
                                     3단계 전용이 아니라 4, 5단계 보고서 초안도 이 키로 온다.
                                     세는 것이 "채택 대상 RunDraft 수"로 같아서 키를 늘리지
                                     않았다. Alpine의 insCount도 같은 이유로 하나다.
+                   relation_count   🔴 29차 신설. 관계 초안(RunDraft) 수.
+                                    쓰는 자리는 셋이다. 요약 ③ 칸, 관계 초안 카드
+                                    머리 숫자, Alpine relCount 초기값.
+                                    🔴 **0을 내려보낼 것. 키를 비우지 말 것.**
+                                       0이 뜻을 갖는 값이다 — docs/planning.md가
+                                       「관계 초안 3배치 연속 0건」에 되돌림 조건을
+                                       걸었고, 줄이 사라지면 그 조건을 볼 자리가
+                                       화면에 없다. 그래서 요약 칸이 insight_count와
+                                       같은 is not None 비교를 쓴다.
+                                    ⚠️ 없으면 카드 머리가 0으로 떨어지고 요약 줄이
+                                       사라진다.
+                                    🔴 **3단계에서만 내린다. 4, 5단계에서는 키를
+                                       비운다.** 보고서 검토 화면에 「새로 낸 관계
+                                       초안 0건」이 뜨면 그 화면이 하지 않은 일을
+                                       말하는 것이 된다(2026-09-15에 이슈 줄이 같은
+                                       사고를 한 번 냈다 — 위 None 비교 주석 참고).
+                                       ⚠️ 2단계는 insight_count가 없어서 이 갈래로
+                                          아예 오지 않는다. 걱정할 자리가 아니다.
+                   relation_skipped_count 🔴 29차 신설. **이미 OrgRelation이 있어서
+                                    제안을 만들지 않은 쌍 수.** 요약 ③ 칸 회색 줄이
+                                    이 값을 쓴다.
+                                    🔴 이 수가 없으면 사람이 「LLM이 놓쳤다」고
+                                       오해한다. 그리고 오해가 가장 잘 나는 날은
+                                       제안이 0건인 날인데, 그날은 카드가 통째로
+                                       안 뜬다. 그래서 자리가 카드 머리가 아니라
+                                       언제나 뜨는 요약 칸이다.
+                                    ⚠️ 0이거나 없으면 줄이 통째로 사라진다. 건너뛴
+                                       것이 없는 날이 정상이고 「0건」을 쓰지 않는다.
+                   relation_conflict_count 🔴 29차 신설. **선택.** 건너뛴 쌍 중
+                                    LLM이 기존과 다른 라벨을 본 쌍 수.
+                                    🔴 RA가 배치 보고서에 옮겨 적는 수다(정책 6번 —
+                                       2회 누적되면 PM이 관계 변천 경로를 연다).
+                                       화면에 없으면 RA가 DB를 직접 조회해야 하고,
+                                       그러면 안 적힌다.
+                                    ⚠️ 0이거나 없으면 뒤 조각만 사라진다.
                    uncovered_count  입력 기사 중 삭제 제안도 유지 제안도 못 받은 기사 수
                  draft_noun  🔴 2026-09-15 신설. 초안을 부르는 낱말 하나다.
                              이슈 | 주간 보고서 | 월간 보고서. RunDraft.draft_type 값 그대로다.
@@ -415,6 +453,46 @@
                            🔴 반드시 새 탭이다. 이 화면의 체크 상태와 등급 select 값은
                               DOM에만 있고 서버에 없다. 같은 탭으로 나갔다 돌아오면
                               수십 건의 선택이 통째로 초기화된다.
+   relation_items 🔴 2026-09-17 29차 신설. 3단계의 **두 번째 LLM 호출**이 낸 관계
+                 초안 목록이다. 확정하면 OrgRelation이 만들어지고 지식 그래프에
+                 선이 그려진다. 정책 정본은 docs/planning.md 「지식그래프 관계
+                 라벨링을 3단계의 두 번째 LLM 호출로 옮긴다」, 설계 정본은
+                 docs/design.md 「SET-010 · 실행」 29차 개정이다.
+                 🔴 **이 키가 안 오면 카드가 통째로 안 뜨고 화면은 28차와 한
+                    픽셀도 다르지 않다.** 조용히 실패하는 자리라 먼저 확인할 것.
+                 각 항목은
+                   id          🔴 RunDraft.pk (OrgRelation.pk가 아니다)
+                   org_a       {name, org_type}. org_type은 '금융사' | '보험사' | 'AI'
+                   org_b       같은 모양.
+                               🔴 정렬은 뷰가 한다 — 금융사나 보험사가 org_a,
+                                  AI가 org_b다. ALLOWED_TYPE_PAIRS가 금융사×AI와
+                                  보험사×AI 둘만 허용하므로 순서가 언제나 정해진다.
+                                  ⚠️ org_type이 비거나 셋 밖이면 회색 배지로
+                                     떨어질 뿐 화면은 죽지 않는다.
+                   label       라벨 일곱 중 하나. 기술협업 공동개발 공급계약
+                               지분투자 인수 업무협약 파트너십.
+                               🔴 「합병」은 오지 않는다 — 노드 정체성 문제라
+                                  LLM 목록에서 뺐고 RA가 처리한다.
+                               🔴 비면 주황 pill이 뜬다. 그 상태로 확정하면
+                                  라벨 없는 관계가 되어 엣지가 안 그려진다.
+                               🔴 이 화면에 라벨을 고치는 입구가 없다. 고치는
+                                  자리는 확정 뒤 GRAPH-001 엣지 패널이다.
+                   reason      한 문장. 🔴 **본문의 서술어가 드러나야 한다.**
+                               비면 주황 한 줄이 뜬다. 이 카드의 알맹이다.
+                   news_count  근거 기사 수(int). 0이면 주황 배지가 뜬다.
+                   news_range  근거 기사 발행일 범위. 예) "09.11 ~ 09.15". 선택.
+                   news_items  근거 기사. insight_items의 것과 같은 모양이다
+                               (title / published_at / source / url).
+                               🔴 LLM이 그 관계의 근거로 지목한 것만 온다.
+                                  배치 전체가 아니다(정책 7번).
+                               ⚠️ 비면 펼침 버튼 자체가 안 뜬다.
+                 🔴 **신뢰도 점수 칸이 없다. 만들지 말 것.** PM이 기각했다 —
+                    문턱 근거가 없고 점수가 판별선을 대체한다. 「관계 없음」의
+                    표현은 **배열에서 빼는 것**이라 이 목록에 없는 것이 곧 그 답이다.
+                 🔴 **이미 OrgRelation이 있는 쌍은 여기 오지 않는다.** 제안 생성
+                    시점에 코드가 거른다(정책 6번). 그 건수는 아래 output의
+                    relation_skipped_count가 요약 ③ 칸에서 말한다.
+
    report_items  🔴 2026-09-15 신설. 4, 5단계 보고서 초안이다. 주간과 월간이 이 한 목록을
                  같이 쓴다. 갈리는 것은 아래 세 조각뿐이고 템플릿에는 단계 분기가 없다.
                  🔴 한 편인데 목록으로 받는 이유가 있다. 설계 9-(a)가 "재실행 전에 그
@@ -507,6 +585,17 @@
    delete_ids    채택한 삭제 제안의 RunProposal.pk 목록
    retag_ids     채택한 태그 제안의 RunProposal.pk 목록
    insight_ids   채택한 이슈 초안의 RunDraft.pk 목록
+   relation_ids  🔴 2026-09-17 29차 신설. 채택한 관계 초안의 RunDraft.pk 목록.
+                 확정하면 OrgRelation을 만든다. content→description,
+                 news M2M→relation.news, created_relation 채우기다(변환 없음).
+                 🔴 insight_ids와 같은 테이블을 가리키지만 이름을 가른다. 27차가
+                    draft_ids를 가른 근거("같은 테이블을 가리켜도 확정이 만드는
+                    결과가 다르면 이름을 가른다")에 한 겹이 더 있다 — 보고서와
+                    달리 **관계 초안은 이슈 초안과 같은 화면에 동시에 온다.**
+                    섞으면 확정 뷰가 무엇을 만들지 고를 수단이 없다.
+                 🔴 확정 뷰가 이 이름을 안 읽으면 관계가 0건 만들어지고 **화면은
+                    정상으로 보인다.** 지식 그래프에 선이 안 늘어난 것으로만
+                    드러난다. 반드시 확인할 것.
    draft_ids     🔴 2026-09-15 신설. 채택한 보고서 초안의 RunDraft.pk 목록.
                  insight_ids와 같은 테이블을 가리키지만 이름을 따로 뒀다. 두 목록이
                  한 화면에 함께 오는 일은 없지만, 어떤 경로로든 섞여 오면 확정 뷰가
@@ -591,19 +680,23 @@
         "무조건 전체. 중간에 된 것 안 된 것 구분해서 다음 프로세스 태우지 말라는
         얘기야"이고, **부분 확정 경로는 화면 어디에도 없다.**
 
-  🔴 isDisabled()의 조건식에 손대지 않는다 (2026-09-14 PE 수정, PD 재확인).
+  🔴 isDisabled()의 조건식 — **keepCount를 빼지 않는다** (2026-09-14 PE 수정, PD 재확인).
      종전에는 :disabled="!delCount && !fixCount && !insCount"라 체크를 다 풀거나 LLM이
      전부 "유지"로 판정하면 버튼이 잠겼다. 그런데 "116건 전부 유지"는 정상적으로 일어나는
      결과이고, 그날도 확정을 눌러야 "남은 뉴스를 검증됨으로 전환"하는 일이 일어난다.
-     그래서 지금은 delCount/fixCount/insCount를 잠금 조건에서 빼고 라벨과 confirm 문구에만
-     쓴다. 잠금은 keepCount(체크박스가 없어 서버 값 그대로 고정)와 uncoveredCount만 본다.
-     이 조건식을 되돌리면 "전량 유지인 날 배치가 영영 확정되지 않는" 버그가 그대로 돌아온다.
+     그래서 keepCount(체크박스가 없어 서버 값 그대로 고정)가 조건식에 들어가 있고,
+     전량 유지인 날은 그 값이 버튼을 연다.
+     🔴 keepCount를 빼면 "전량 유지인 날 배치가 영영 확정되지 않는" 버그가 그대로 돌아온다.
+     🔴 반대로 **새 종류를 더하는 것은 막지 않는다.** 아래 isDisabled() 위 주석의 규칙이
+        정본이다 — 확정하면 DB가 바뀌는 수는 전부 여기 들어온다(29차 relCount, 30차 hideCount).
 
-  🔴 2026-09-15 재확인 — 3~5단계가 붙어도 isDisabled()를 고치지 않는다. 고칠 필요가 없다.
-     3단계에서는 delCount, fixCount, keepCount가 0이고 insCount만 값을 가지며,
-     uncoveredCount는 항상 0이다(docs/planning.md 3~5단계 설계 PD 인계 3번 — 대상 전량에
-     제안이 있어야 한다는 커버리지 개념이 이 단계들에 없다). 그러면 조건식은
+  🔴 2026-09-15 — 3~5단계가 붙어도 조건식을 고칠 일이 없었다. 3단계에서는 delCount,
+     fixCount, keepCount가 0이고 insCount만 값을 가지며, uncoveredCount는 항상
+     0이다(docs/planning.md 3~5단계 설계 PD 인계 3번 — 대상 전량에 제안이 있어야
+     한다는 커버리지 개념이 이 단계들에 없다). 그러면 조건식은
      "체크가 하나라도 남아 있으면 열린다"로 그대로 성립한다.
+     ⚠️ 이 문단은 "그때 마침 더할 것이 없었다"는 기록이지 "앞으로도 고치지 말라"가 아니다.
+        실제로 29차에 관계 초안(relCount)이 새 종류로 들어오면서 더할 것이 생겼다.
      🔴 그리고 3단계에서는 "전부 해제 → 잠금"이 옳은 동작이다. 2단계는 전량 유지인 날에도
         확정을 눌러야 "남은 뉴스를 검증됨으로 전환"하는 숨은 부수효과가 있었지만, 3단계
         확정이 하는 일은 채택된 초안으로 Insight를 만드는 것뿐이라 채택이 0이면 정말로
@@ -664,6 +757,23 @@
        hideCount: {{ review.output.dup_hide_count|default:0 }},
        fixCount: {{ review.output.retag_count|default:0 }},
        insCount: {{ review.output.insight_count|default:0 }},
+       {% comment %}
+         ══════════════════════════════════════════════════════════════════
+         🔴 2026-09-17 29차 신설. **insCount에 섞지 않는다.**
+         ══════════════════════════════════════════════════════════════════
+         7차와 8차가 세운 규칙은 "보고서 초안도 insCount에 들어간다 — 세는 것이
+         「채택된 RunDraft 수」로 같기 때문"이었다. 🔴 **그 규칙이 선 전제가
+         여기서만 무너진다.** 전제는 8차 ③번의 "두 카드가 같은 화면에 함께 뜨는
+         일이 없다, 한 배치는 한 단계다"인데, **3단계 한 번이 두 호출로 이슈와
+         관계를 함께 낸다**(docs/planning.md 관계 라벨링 절 3-1).
+
+           합치면   이슈 6 + 관계 2인 날 버튼이 「이슈 초안 8건 확정」이라고 말한다
+           🔴       8건짜리 이슈는 만들어지지 않는다. **버튼이 거짓말한다**
+           가르면   「이슈 초안 6건, 관계 초안 2건 확정」
+
+         ⚠️ 뷰가 relation_count를 안 내리면 0으로 떨어지고 화면이 28차와 같아진다.
+       {% endcomment %}
+       relCount: {{ review.output.relation_count|default:0 }},
        keepCount: {{ review.output.keep_count|default:0 }},
        uncoveredCount: {{ review.output.uncovered_count|default:0 }},
        {% comment %}
@@ -708,6 +818,14 @@
          if (this.hideCount) parts.push('중복 보도 ' + this.hideCount + '건 감춤');
          if (this.fixCount) parts.push('태그 ' + this.fixCount + '건 교정');
          if (this.insCount) parts.push(this.draftNoun + ' 초안 ' + this.insCount + '건');
+         {% comment %}
+           🔴 29차 — 관계 조각은 draftNoun을 쓰지 않는다. 고정으로 「관계 초안」이다.
+              draftNoun은 이슈 초안 카드가 3단계에서는 「이슈」, 4·5단계에서는
+              「주간 보고서」로 갈아 끼우는 낱말이고, 관계는 그 축과 무관하게
+              언제나 관계다. 🔴 뷰가 draft_noun을 「관계」로 바꿔 내리면 이슈
+              조각이 「관계 초안 6건」이 된다 — 그러지 말 것(PE 인계).
+         {% endcomment %}
+         if (this.relCount) parts.push('관계 초안 ' + this.relCount + '건');
          if (this.keepCount) parts.push('기사 ' + this.keepCount + '건 유지');
          return parts.length ? parts.join(', ') + ' 확정' : '확정할 항목이 없어요';
        },
@@ -736,9 +854,36 @@
          if (!this.delCount) return null;
          return '기사 ' + this.delCount + '건을 지워요';
        },
+       {% comment %}
+         ══════════════════════════════════════════════════════════════════
+         🔴 잠금 조건은 **확정 POST가 실어 보내는 모든 수**를 본다
+         ══════════════════════════════════════════════════════════════════
+         규칙 한 줄 — 확정하면 DB가 바뀌는 종류를 새로 만들면, 그 수를 여기에
+         **같은 라운드에** 더한다. 빠뜨리면 그 종류만 남은 날 버튼이 잠겨
+         화면에서 할 수 있는 일이 사라진다. 에러가 아니라 잠긴 버튼이라
+         코드를 읽어도 안 걸리고 그날이 와야 드러난다.
+
+         🔴 29차 — relCount를 더했다(docs/planning.md 관계 라벨링 절 13번 PD
+            인계 3번). 안 더하면 **이슈가 0건인데 관계만 2건 나온 날** 확정
+            버튼이 잠겨서 관계를 만들 길이 화면에서 사라진다.
+
+         🔴 30차 — hideCount를 더했다. **28차의 의도가 아니라 누락이었다**
+            (2026-09-17 확인). 28차가 hide_ids를 신설하면서 labelText,
+            confirmText, recountDisposal 세 곳에는 hideCount를 넣고 여기만
+            빠뜨렸다. 위 규칙에 그대로 걸린다 — 감춤은 확정하면
+            News.duplicate_of가 박히는, **DB가 바뀌는 종류**다.
+            🔴 조건이 오늘 실제가 됐다. RA가 손으로 채운 duplicate_of 13건을
+               되돌려 2단계 파이프라인으로 다시 받기로 했고(13 → 0), 다음
+               2단계는 중복 제안이 주로 나오는 배치가 된다. **삭제·교정·유지가
+               0이고 감춤만 남으면 확정이 잠겨 아무것도 못 한다.**
+            ⚠️ 확인창은 여전히 delCount만 본다(위 confirmText 주석). 잠금과
+               확인창은 지키는 것이 다르다 — 잠금은 「할 일이 있는가」를,
+               확인창은 「되돌릴 수 없는가」를 본다. 감춤은 앞에는 해당하고
+               뒤에는 해당하지 않으므로 여기에만 들어간다.
+       {% endcomment %}
        isDisabled() {
          if (this.uncoveredCount) return true;
-         return !this.delCount && !this.fixCount && !this.insCount && !this.keepCount;
+         return !this.delCount && !this.hideCount && !this.fixCount && !this.insCount && !this.relCount && !this.keepCount;
        },
        disabledReason() {
          if (this.uncoveredCount) return this.uncoveredCount + '건이 아직 판정되지 않았어요';
@@ -774,6 +919,17 @@
             정상적으로 있고 그때 $refs.dupList는 undefined다. 폼 id와 name은 언제나 있다.
          ⚠️ 27차의 「모두 해제로는 거절 사유 상자가 뜨지 않는다」는 그대로다. clearAll()이
             checked만 바꿔 @change가 돌지 않고, 이 함수는 kept를 건드리지 않는다.
+
+         🔴 29차 — **relCount를 여기 넣지 않았다. 판단이다.**
+            이 함수가 지키는 것은 **확인창** 하나다. 확인창을 움직이는 변수는
+            delCount와 hideCount 둘뿐이고(confirmText·confirmTitle), 관계 초안은
+            확인창을 띄우지 않는다(되돌릴 수 있다 — 만들어진 OrgRelation은 지식
+            그래프 엣지 패널에서 지우면 되돌아온다).
+            🔴 넣으면 하는 일 없이 **「이 함수는 확인창을 지키는 함수」라는 뜻만
+               흐려진다.** relCount의 최악은 「라벨이 실제보다 많이 말한다」이고
+               그건 확정 결과를 바꾸지 않는다.
+            ⚠️ 되돌림 조건 — 관계가 확인창을 갖게 되면 그 즉시 이 함수와 같은
+               형태(DOM을 다시 세기)로 바꾼다.
        {% endcomment %}
        recountDisposal() {
          const form = document.getElementById('review-form');
@@ -1050,6 +1206,44 @@
           값이 없으면 이슈로 떨어져 종전 화면과 한 글자도 다르지 않다.
         {% endcomment %}
         <p class="text-gray-700">새로 쓴 {{ review.output.draft_noun|default:"이슈" }} 초안 <strong class="text-primary">{{ review.output.insight_count }}</strong>건</p>
+        {% comment %}
+          ══════════════════════════════════════════════════════════════════
+          🔴 2026-09-17 29차 신설 — 관계 두 줄. 설계 정본은 docs/design.md 29차 ⑤번
+          ══════════════════════════════════════════════════════════════════
+          🔴 첫 줄은 **0이어도 찍는다.** 그래서 is not None 비교다.
+             docs/planning.md 관계 라벨링 절 14번이 「관계 초안 3배치 연속 0건」에
+             되돌림 조건을 걸었다. 줄이 사라지면 **그 조건을 볼 자리가 화면에 없다.**
+             바로 위 이슈 초안 줄이 같은 비교를 쓰는 근거("0이 뜻을 갖는다")와 같다.
+          🔴 「새로 낸」이다. 이슈는 글이라 「쓴」이고 관계는 잇는 것이라 쓸 수 없다.
+             ⚠️ 낱말만 다르고 문법은 같다. 두 줄이 한 리듬으로 읽혀야 한다.
+          🔴 이 수는 **전량**이고 아래 관계 초안 카드의 머리 숫자와 같다.
+             27차 계약 그대로다 — 「제안」이 붙은 수는 전부 전량이고, 확정하면
+             반영될 것을 말하는 자리는 확정 버튼 하나뿐이다.
+        {% endcomment %}
+        {% if review.output.relation_count is not None %}
+        <p class="text-gray-700">새로 낸 관계 초안 <strong class="text-primary">{{ review.output.relation_count }}</strong>건</p>
+        {% endif %}
+        {% comment %}
+          🔴 건너뛴 쌍. **이 자리가 아니면 보일 데가 없다.**
+             OrgRelation이 이미 있는 쌍은 제안 생성 시점에 코드가 거르므로
+             (docs/planning.md 같은 절 6번) 아래 카드에 행이 한 줄도 없다.
+             🔴 안 보이면 사람이 「LLM이 놓쳤다」고 오해한다. 그리고 그 오해가 가장
+                잘 나는 날은 **제안이 0건인 날**인데, 그날은 아래 카드가 통째로
+                안 뜬다. 그래서 카드 머리가 아니라 언제나 뜨는 이 칸이다.
+          🔴 「그중」을 쓰지 않는다. 28차의 「그중 사람이 판단할 것」과 27차의
+             「그중 삭제와 겹쳐 취소될 것」은 머리 숫자의 **부분집합**이지만,
+             건너뛴 쌍은 머리 숫자 **밖**이다.
+          🔴 회색으로 낮추고 한 칸 띄운다. 확정 대상이 아니라 알림이라,
+             위 두 줄과 같은 무게로 쓰면 확정 목록처럼 읽힌다(태그 후보 줄과 같은 처리).
+          🔴 뒤 조각(라벨이 다른 쌍)은 RA가 배치 보고서에 옮겨 적는 수다
+             (같은 절 6번 — 2회 누적되면 PM이 관계 변천 경로를 연다).
+             **화면에 없으면 RA가 DB를 직접 조회해야 하고, 그러면 안 적힌다.**
+          ⚠️ 둘 다 0이거나 없으면 줄과 조각이 각각 사라진다(17차 규칙).
+             건너뛴 것이 없는 날이 정상이고, 그날 「0건」을 쓰지 않는다.
+        {% endcomment %}
+        {% if review.output.relation_skipped_count %}
+        <p class="text-gray-400 pt-1">이미 있어서 제안하지 않은 쌍 {{ review.output.relation_skipped_count }}건{% if review.output.relation_conflict_count %}, 그중 라벨이 다른 쌍 {{ review.output.relation_conflict_count }}건{% endif %}</p>
+        {% endif %}
         {% else %}
         <p class="text-gray-700">삭제를 제안한 기사 <strong class="text-primary">{{ review.output.delete_count|default:0 }}</strong>건</p>
         {% comment %}
@@ -1209,8 +1403,12 @@
            조각을 전부 나열하지 않는다. 🔴 28차에 「중복 보도 감춤」 갈래 하나를
            더했다 — 삭제가 0이고 감춤만 있는 날 이 폴백이 감춤을 아예 말하지
            않으면, 그 화면에서 확정이 무엇을 하는지 아무 데서도 읽히지 않는다.
+        🔴 29차에 「관계 초안」 갈래 하나를 더했다. 같은 근거다 — 이슈가 0건이고
+           관계만 나온 날 확정이 무엇을 하는지 읽히지 않는 것을 막는다.
+           ⚠️ 이슈와 관계가 함께 있는 날은 이슈만 말한다. 근사치라 조각을 전부
+              나열하지 않는 것이 이 폴백의 규칙이고, 정확한 값은 Alpine이 말한다.
       {% endcomment %}
-      <span x-text="labelText()">{% if review.output.delete_count and review.output.retag_count %}기사 {{ review.output.delete_count }}건 삭제, 태그 {{ review.output.retag_count }}건 교정 확정{% elif review.output.delete_count %}기사 {{ review.output.delete_count }}건 삭제 확정{% elif review.output.dup_hide_count %}중복 보도 {{ review.output.dup_hide_count }}건 감춤 확정{% elif review.output.retag_count %}태그 {{ review.output.retag_count }}건 교정 확정{% elif review.output.insight_count %}{{ review.output.draft_noun|default:"이슈" }} 초안 {{ review.output.insight_count }}건 확정{% elif review.output.keep_count %}기사 {{ review.output.keep_count }}건 유지 확정{% else %}확정할 항목이 없어요{% endif %}</span>
+      <span x-text="labelText()">{% if review.output.delete_count and review.output.retag_count %}기사 {{ review.output.delete_count }}건 삭제, 태그 {{ review.output.retag_count }}건 교정 확정{% elif review.output.delete_count %}기사 {{ review.output.delete_count }}건 삭제 확정{% elif review.output.dup_hide_count %}중복 보도 {{ review.output.dup_hide_count }}건 감춤 확정{% elif review.output.retag_count %}태그 {{ review.output.retag_count }}건 교정 확정{% elif review.output.insight_count %}{{ review.output.draft_noun|default:"이슈" }} 초안 {{ review.output.insight_count }}건 확정{% elif review.output.relation_count %}관계 초안 {{ review.output.relation_count }}건 확정{% elif review.output.keep_count %}기사 {{ review.output.keep_count }}건 유지 확정{% else %}확정할 항목이 없어요{% endif %}</span>
     </button>
     {% else %}
     <button type="button" disabled
@@ -1448,6 +1646,243 @@
                 🔴 target="_blank"는 선택이 아니다. 같은 탭으로 나가면 이 화면의 체크와
                    등급이 전부 초기화된다(블록 머리 주석 참고).
                 ⚠️ url이 비면 링크 없이 글자만 남는다. 화면이 죽지 않는다.
+              {% endcomment %}
+              <ul x-show="openNews" x-cloak
+                  class="mt-2 p-3 rounded-[10px] bg-gray-50 space-y-1.5 max-h-64 overflow-y-auto">
+                {% for news in item.news_items %}
+                <li class="text-xs text-gray-600 flex items-start gap-2">
+                  <span class="text-gray-400 flex-shrink-0">{{ news.published_at|date:"m.d" }}</span>
+                  {% if news.url %}
+                  <a href="{{ news.url }}" target="_blank" rel="noopener"
+                     class="min-w-0 hover:text-primary transition-colors flex items-start gap-1">
+                    <span class="min-w-0">{{ news.title }}</span>
+                    <i data-lucide="external-link" class="w-3 h-3 flex-shrink-0 mt-0.5 text-gray-400"></i>
+                  </a>
+                  {% else %}
+                  <span class="min-w-0">{{ news.title }}</span>
+                  {% endif %}
+                  {% if news.source %}<span class="text-gray-400 flex-shrink-0">{{ news.source }}</span>{% endif %}
+                </li>
+                {% empty %}
+                <li class="text-xs text-gray-400">연결된 근거 기사가 없어요.</li>
+                {% endfor %}
+              </ul>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% comment %}
+      ── 🔴 관계 초안 (2026-09-17 29차 신설, 3단계 검토) ─────────────
+      설계 정본은 docs/design.md 「SET-010 · 실행」 29차 개정,
+      정책 정본은 docs/planning.md 「지식그래프 관계 라벨링을 3단계의 두 번째
+      LLM 호출로 옮긴다 (2026-09-16 확정)」이다.
+
+      ▣ 🔴 무엇을 확정하는가
+        확정하면 OrgRelation 한 건이 만들어지고 지식 그래프에 선이 하나 그려진다.
+        체크가 풀린 초안은 만들어지지 않는다. 3단계가 두 번째 LLM 호출로 낸 것이다.
+
+      ▣ 🔴 자리 — 이슈 초안 카드 바로 아래 형제다
+        같은 실행이 두 호출로 함께 낸 것이라 붙어 있어야 한다. 보고서 초안 카드와
+        같은 화면에 뜨는 일은 없다(한 배치는 한 단계다).
+        ⚠️ 2026-09-14 사용자 지시의 순서("1, 2, 7, 5, 6, 4, 3")에 없는 항목이다.
+           이슈 초안 카드가 같은 처지였고 같은 방식으로 예외를 적어 둔다.
+
+      ▣ 🔴 체크박스 이름이 relation_ids다. insight_ids에 섞지 않는다
+        확정이 만드는 결과가 다르면 이름을 가른다(27차가 draft_ids를 가른 근거).
+        🔴 여기서는 그 근거가 한 겹 더 강하다 — 보고서와 달리 관계 초안은
+           이슈 초안과 **같은 화면에 동시에 뜬다.** 섞으면 확정 뷰가 같은
+           RunDraft.pk 뭉치를 받아 Insight를 만들지 OrgRelation을 만들지 고를
+           수 없고, 그 사고는 조용히 엉뚱한 객체를 만든다.
+
+      ▣ 🔴 한 행이 담는 것 넷
+        기업 쌍   금융사 또는 보험사 한쪽과 AI 한쪽. ALLOWED_TYPE_PAIRS가 그 둘만
+                  허용하므로 읽는 순서가 언제나 정해진다. 뷰가 정렬해 내린다.
+        라벨      일곱 중 하나. 기술협업 공동개발 공급계약 지분투자 인수 업무협약
+                  파트너십. 🔴 「합병」은 없다 — 노드 정체성 문제라 RA 몫이다.
+        사유      한 문장. 🔴 본문의 서술어가 드러나야 한다. 이 카드의 알맹이다.
+        근거 기사 LLM이 그 관계의 근거로 지목한 것만. 배치 전체가 아니다.
+
+      ▣ 🔴 신뢰도 점수를 두지 않는다
+        PM이 기각했다 — "문턱 근거가 없고, 점수가 판별선을 대체해 「나열이지만
+        0.6」으로 빠져나간다". 🔴 「관계 없음」의 표현은 **배열에서 빼는 것**이라
+        이 화면에 뜨지 않는 것이 곧 그 표현이다. 점수 칸을 만들지 말 것.
+
+      ▣ 🔴 라벨을 이 화면에서 고치지 않는다
+        select를 만들지 않았다. 근거 셋은 설계 29차 ④-1에 있고 요지는 둘이다.
+          ① select는 값이 option에 없으면 첫 option이 골라진 것처럼 보이고,
+             그대로 확정하면 LLM이 낸 라벨이 조용히 다른 라벨로 바뀐다.
+             GRAPH-001 2차 개정 ①번이 실측으로 적은 사고 그대로다.
+          ② 🔴 되돌리는 길이 이미 열려 있다 — 확정한 뒤 지식 그래프 엣지 패널의
+             「수정」 한 번이면 라벨이 바뀐다. 후보 일곱도 거기 이미 맞춰 뒀다.
+        🔴 그 사실은 라벨 pill의 title 한 줄에만 둔다. 늘 떠 있는 안내 줄을
+           만들지 않는다(17차 규칙 — 늘 맞는 문장은 떴을 때 눈에 안 띈다).
+        🔴 되돌림 조건 — 「쌍은 맞는데 라벨만 틀려서 거절한 건」이 서로 다른
+           2배치에서 나오면 select를 연다. 형태는 등급 select와 같다.
+
+      ▣ 🔴 이미 있는 쌍은 여기 뜨지 않는다
+        OrgRelation이 있는 쌍은 제안 생성 시점에 코드가 거른다(정책 6번 —
+        update_or_create가 사람이 읽고 쓴 description을 갈아엎기 때문).
+        🔴 그래서 「이미 있어서 제안하지 않은 쌍 N건」은 이 카드가 아니라
+           위 요약 ③ 칸이 말한다. 이 카드는 제안이 0건이면 통째로 사라지는데,
+           **오해가 가장 잘 나는 날이 바로 그날**이기 때문이다.
+
+      ▣ 🔴 근거 기사 건수를 접힌 상태에서도 보인다
+        ① 판별선 검산의 재료다. 사유의 서술어가 실제로 어느 기사에 있는지는
+           열어 봐야 끝나고, 건수가 그 펼침의 예고다.
+        ② 🔴 삭제 금지가 늘어나는 대가를 그 자리에서 본다. OrgRelation.news는
+           삭제 금지 셋 중 하나라 **여기 적힌 N건이 앞으로 감출 수 없게 되는
+           기사 수**다. 오늘 신한카드에서 그 규칙이 실전 작동했다(News 3881이
+           OrgRelation pk71의 유일한 근거였다).
+        ③ 0건이면 주황이다. 근거 없는 관계는 만드는 순간 미노출 관계가 된다.
+        🔴 이 화면은 relation.news를 읽지도 쓰지도 않는다. 확정 전이라 OrgRelation이
+           아직 없기 때문이다. graph_edge_label_save의 .set() 통째 교체 동작에
+           기대는 자리가 하나도 없다.
+
+      ▣ 확정에 확인창을 걸지 않는다
+        만들어진 OrgRelation은 지우면 되돌아온다. confirmText와 confirmTitle이
+        delCount만 보므로 3단계에서는 창이 저절로 안 뜬다. 🔴 이 자리에 관계용
+        확인창을 새로 만들지 말 것 — 고칠 데가 없는 것이 아니라 고치면 안 된다.
+
+      ▣ ⚠️ 낱말 규약
+        🔴 「그룹화」를 쓰지 않는다. 24차가 그 낱말을 3단계의 이슈 묶기에
+           배정했고 두 카드가 같은 화면에 나란히 선다.
+        🔴 「묶음」·「묶다」를 화면 문자열에 한 번도 쓰지 않는다(title 포함).
+        🔴 가운뎃점과 줄표를 쓰지 않는다. 기업 쌍을 잇는 기호는 × 하나이고,
+           graph/_edge_panel.html이 이미 쓰는 기호다.
+      ⚠️ 새 arbitrary 클래스가 하나도 없다. 전부 이 파일에 이미 있던 것이라
+         npm run build:css를 돌릴 이유가 없다. break-words와 h-full은 쓰지 않았다.
+    {% endcomment %}
+    {% if review.relation_items %}
+    <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+        {% comment %}
+          🔴 머리 숫자 = 이 카드가 나열하는 행 수다. 27차 계약 그대로이고,
+             위 요약 ③ 칸의 「새로 낸 관계 초안 N건」과 같은 수라 화면 안에서
+             검산된다.
+        {% endcomment %}
+        <h3 class="text-sm font-semibold text-gray-900">
+          관계 초안 <span class="text-gray-400 font-normal">{{ review.output.relation_count|default:0 }}</span>
+        </h3>
+        {% comment %}
+          🔴 relCount를 직접 0으로 놓는다. 이슈 초안 카드와 같은 형태다.
+             28차가 고친 버그는 **확인창을 움직이는 변수**(delCount·hideCount)를
+             직접 놓아서 난 것이고, relCount는 버튼 라벨과 잠금만 움직인다.
+             ⚠️ 관계가 확인창을 갖게 되면 그때 recountDisposal()과 같은 형태로 바꾼다.
+        {% endcomment %}
+        <button type="button"
+                @click="clearAll('relationList'); relCount = 0"
+                class="text-xs text-gray-500 hover:text-primary transition-colors">모두 해제</button>
+      </div>
+
+      {% comment %}
+        🔴 표 머리(입력 / 판정 이유 / 출력)를 두지 않았다. 2단계 카드 셋이 그것을
+           쓰는 이유는 「한 행 = 한 기사 = 한 제안」이라 열이 맞기 때문인데,
+           여기는 한 행이 기사가 아니라 기업 쌍이고 사유가 한 문장이라 열에
+           가둘 수 없다. 형제인 이슈 초안 카드도 표 머리가 없다.
+      {% endcomment %}
+      <div x-ref="relationList" class="divide-y divide-gray-50">
+        {% for item in review.relation_items %}
+        <div class="px-5 py-4" x-data="{ openNews: false }">
+          <div class="flex items-start gap-3">
+            <input type="checkbox" name="relation_ids" value="{{ item.id }}" checked
+                   @change="relCount += $event.target.checked ? 1 : -1"
+                   class="mt-0.5 w-4 h-4 flex-shrink-0 accent-[#60269E]">
+            <div class="flex-1 min-w-0">
+
+              {% comment %}
+                기업 쌍과 라벨. 🔴 배지 색은 태그 교정 카드의 것과 같은 세트다.
+                금융사 파랑, 보험사 청록, AI 보라, 못 찾으면 회색.
+                🔴 순서는 뷰가 정렬해 내린다(금융사·보험사가 앞, AI가 뒤).
+                   템플릿에서 유형을 보고 자리를 바꾸면 같은 값이 화면마다
+                   다르게 보인다.
+                ⚠️ min-w-0을 빼지 말 것. flex 아이템의 min-width 기본값이 auto라
+                   긴 기업명이 행을 밀어낸다.
+              {% endcomment %}
+              <div class="flex items-center gap-2 flex-wrap min-w-0">
+                <span class="text-[10px] px-1.5 py-0.5 rounded-full
+                  {% if item.org_a.org_type == '금융사' %}bg-blue-100 text-blue-700
+                  {% elif item.org_a.org_type == '보험사' %}bg-[#E6F7F5] text-[#00AF9A]
+                  {% elif item.org_a.org_type == 'AI' %}bg-purple-100 text-primary
+                  {% else %}bg-gray-100 text-gray-600{% endif %}">{{ item.org_a.name|default:"이름이 비어 있어요" }}</span>
+                <span class="text-xs text-gray-400">&times;</span>
+                <span class="text-[10px] px-1.5 py-0.5 rounded-full
+                  {% if item.org_b.org_type == '금융사' %}bg-blue-100 text-blue-700
+                  {% elif item.org_b.org_type == '보험사' %}bg-[#E6F7F5] text-[#00AF9A]
+                  {% elif item.org_b.org_type == 'AI' %}bg-purple-100 text-primary
+                  {% else %}bg-gray-100 text-gray-600{% endif %}">{{ item.org_b.name|default:"이름이 비어 있어요" }}</span>
+
+                {% comment %}
+                  🔴 라벨 pill. 테두리형이라 위 두 채움형 배지와 무게가 갈린다.
+                     graph/_edge_panel.html의 관계 라벨 pill과 같은 형태다.
+                  🔴 title 한 줄이 「고칠 수 있다」를 말하는 유일한 자리다.
+                  🔴 비면 주황이다. 라벨이 없는 관계는 만들어져도 엣지 노출 규칙
+                     (라벨 있음 AND 공동언급)에 걸려 화면에 안 그려진다.
+                {% endcomment %}
+                {% if item.label %}
+                <span class="text-[10px] px-2 py-0.5 rounded-full border border-primary text-primary whitespace-nowrap"
+                      title="확정한 뒤 지식 그래프에서 고칠 수 있어요">{{ item.label }}</span>
+                {% else %}
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-orange-50 text-orange-600 whitespace-nowrap">라벨이 비어 있어요</span>
+                {% endif %}
+              </div>
+
+              {% comment %}
+                🔴 사유. 이 카드의 알맹이다. 접지 않는다.
+                   판별선 셋(서술어 / 나열 / 제3자)을 사람이 검사하는 재료가
+                   이 한 문장이고, 프롬프트가 「본문에 적힌 서술어가 드러나게」를
+                   요구한다(docs/planning.md 같은 절 4번).
+                ⚠️ 콜아웃 상자를 쓰지 않았다. 보라 콜아웃은 이슈 초안의 「시사점」
+                   전용이고, 같은 장치를 두 뜻에 쓰면 그 자리의 뜻이 흐려진다.
+                ⚠️ 아무 줄바꿈 클래스도 걸지 않는다. break-words는 빌드에 없어
+                   조용히 무시되고, 안 걸면 기본 줄바꿈으로 전량이 보인다.
+              {% endcomment %}
+              {% if item.reason %}
+              <p class="text-xs text-gray-600 leading-relaxed mt-2">{{ item.reason }}</p>
+              {% else %}
+              <p class="text-xs text-orange-600 mt-2">사유가 비어 있어요. 본문의 어느 서술이 근거인지 확인해 주세요.</p>
+              {% endif %}
+
+              {% comment %}
+                근거 기사 요약과 펼침 버튼. 이슈 초안 카드의 같은 자리와 한 형태다.
+                🔴 0건이면 주황 배지다. 근거 없는 관계는 출처 기반 원칙 위반이고,
+                   만드는 순간 전체 기간 공동언급이 0건이라 미노출 관계가 된다.
+              {% endcomment %}
+              <div class="flex items-center gap-3 mt-2 flex-wrap">
+                {% if item.news_count %}
+                <span class="text-xs text-gray-400 flex items-center gap-1.5">
+                  근거 기사 {{ item.news_count }}건
+                  {% if item.news_range %}<span class="text-gray-300">|</span>{{ item.news_range }}{% endif %}
+                </span>
+                {% else %}
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-orange-50 text-orange-600 whitespace-nowrap">
+                  근거 기사 없음
+                </span>
+                {% endif %}
+
+                {% if item.news_items %}
+                <button type="button" @click="openNews = !openNews"
+                        class="text-xs text-primary hover:underline flex items-center gap-1">
+                  <span x-text="openNews ? '근거 기사 접기' : '근거 기사 펼치기'">근거 기사 펼치기</span>
+                  <i data-lucide="chevron-down" class="w-3 h-3"></i>
+                </button>
+                {% endif %}
+              </div>
+
+              {% comment %}
+                근거 기사 목록. 이슈 초안 카드의 것과 클래스까지 같다.
+                🔴 x-show에는 x-cloak이 반드시 붙는다. 빠뜨리면 Alpine이 뜨기 전에
+                   브라우저가 목록을 전부 그려서 페이지가 열릴 때 잠깐 보였다
+                   사라진다(FOUC). 이 저장소가 이미 여러 곳에서 겪은 유형이고
+                   이 프로젝트의 최우선 점검 항목이다.
+                ⚠️ x-if로 지우지 않았다. 껐다 켤 때 상태가 사라진다.
+                🔴 target="_blank"는 선택이 아니다. 이 화면의 체크 상태는 DOM에만
+                   있고 서버에 없어서, 같은 탭으로 나갔다 돌아오면 통째로 초기화된다.
+                🔴 3단계 입력은 검증된 News라 NEWS-002가 열린다(2단계 삭제 목록과
+                   정반대다. 거기서는 미검증이라 404였다).
               {% endcomment %}
               <ul x-show="openNews" x-cloak
                   class="mt-2 p-3 rounded-[10px] bg-gray-50 space-y-1.5 max-h-64 overflow-y-auto">
@@ -2763,8 +3198,10 @@
       🔴 2026-09-17 28차 — 같은 이유로 dup_groups를 더했다. 중복 보도만 나온 날에
          「이번 실행에서 나온 제안이 없어요」가 중복 카드 아래에 함께 뜬다. 카드가
          늘 때마다 이 조건에 더하는 것을 빠뜨리지 말 것.
+      🔴 2026-09-17 29차 — 같은 이유로 relation_items를 더했다. 이슈는 0건인데
+         관계만 나온 날이 실제로 있다(두 호출이 서로 독립이다).
     {% endcomment %}
-    {% if not review.delete_items and not review.dup_groups and not review.retag_groups and not review.insight_items and not review.report_items and not review.output.keep_count and not review.tag_candidates %}
+    {% if not review.delete_items and not review.dup_groups and not review.retag_groups and not review.insight_items and not review.relation_items and not review.report_items and not review.output.keep_count and not review.tag_candidates %}
     <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm px-5 py-16 text-center">
       {% if review.run %}
       <i data-lucide="inbox" class="w-8 h-8 text-gray-300 mx-auto"></i>

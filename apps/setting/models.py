@@ -639,6 +639,12 @@ class RunDraft(models.Model):
     (docs/planning.md "3~5단계를 LLM으로 옮기는 설계" 3번 "산출물의 모양이 다르다,
     그래서 RunProposal에 담지 않는다").
 
+    🔴 2026-09-16 신설 — `draft_type="관계"`(`TYPE_RELATION`)는 새 단계가 아니라
+    **3단계 안의 두 번째 LLM 호출**의 산출물이다(docs/planning.md "지식그래프 관계
+    라벨링을 3단계의 두 번째 LLM 호출로 옮긴다" 3-1·3-3번). "이슈로 묶어라"와
+    "관계를 뽑아라"가 같은 배치를 보는 서로 다른 두 호출이라, `run_job`은
+    `job_key="insight"`인 것을 그대로 공유하고 `draft_type`만 갈라 구분한다.
+
     🔴 `RunProposal`을 늘리지 않고 새로 만든 이유는 선호가 아니라 구조다.
     `RunProposal.news`는 **단수 FK**인데 `Insight`와 `Report`의 근거 기사는 M2M이고,
     그 목록 자체가 산출물의 본체다(출처 기반 작성 원칙. `Insight.news`/`Report.news`에
@@ -665,16 +671,23 @@ class RunDraft(models.Model):
     TYPE_INSIGHT = "이슈"
     TYPE_WEEKLY = "주간 보고서"
     TYPE_MONTHLY = "월간 보고서"
+    # 🔴 4번째 draft_type(2026-09-17, docs/planning.md "지식그래프 관계 라벨링을
+    # 3단계의 두 번째 LLM 호출로 옮긴다" 3-3번 확정) — 3단계 두 번째 호출(관계
+    # 뽑기)의 산출물. `RunProposal`을 늘리지 않고 여기 늘린 이유는 클래스
+    # docstring의 판단과 같다 — `RunProposal.news`는 단수 FK인데 관계 하나의
+    # 근거는 여러 기사일 수 있다.
+    TYPE_RELATION = "관계"
     TYPE_CHOICES = [
         (TYPE_INSIGHT, "이슈"),
         (TYPE_WEEKLY, "주간 보고서"),
         (TYPE_MONTHLY, "월간 보고서"),
+        (TYPE_RELATION, "관계"),
     ]
 
     run_job = models.ForeignKey(RunJob, on_delete=models.CASCADE, related_name="drafts")
     draft_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
     title = models.CharField(max_length=500)
-    content = models.TextField(help_text="Insight.content 또는 Report.content.")
+    content = models.TextField(help_text="Insight.content, Report.content 또는 OrgRelation.description.")
     implication = models.TextField(blank=True, help_text="이슈 전용. Insight.implication.")
     overview = models.TextField(blank=True, help_text="보고서 전용. Report.overview.")
     # 🔴 자체 상수를 새로 만들지 않고 Insight.GRADE_CHOICES를 그대로 참조한다
@@ -695,6 +708,31 @@ class RunDraft(models.Model):
     date_from = models.DateField(null=True, blank=True, help_text="보고서 전용.")
     date_to = models.DateField(null=True, blank=True, help_text="보고서 전용.")
     news = models.ManyToManyField(News, related_name="run_drafts", help_text="근거 기사.")
+    # 🔴 관계 전용 필드 셋(TYPE_RELATION, docs/planning.md 같은 절 3-2·3-3번).
+    # FK인 이유 — 3-2번이 못박은 그대로다. "관계는 미등록 기업을 가리킬 수 없다"
+    # (이미 태깅된 기업 중에서만 고르므로 해석 실패가 구조적으로 없다), 그래서
+    # `RunProposal.target_name`이 문자열인 근거(해석 실패 가능성)가 여기엔
+    # 적용되지 않는다. on_delete=SET_NULL — 기업이 비활성화·삭제돼도 이 초안
+    # 행(감사 기록) 자체는 남아야 한다(created_insight·created_report와 같은 근거).
+    relation_org_a = models.ForeignKey(
+        Organization, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+        help_text="관계 전용. 관계의 한쪽 기업.",
+    )
+    relation_org_b = models.ForeignKey(
+        Organization, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+        help_text="관계 전용. 관계의 다른 쪽 기업.",
+    )
+    # 🔴 max_length=50 — OrgRelation.label과 반드시 같아야 한다. apps/graph/views.py의
+    # MAX_LABEL_LENGTH=50이 이미 같은 계약을 코드로 못박고 있고(주석 참고), 어긋나면
+    # 확정 시점에 사람이 읽을 수 없는 DataError로 500이 난다(같은 절 3-3번이 지목한
+    # 실제 재현 버그와 같은 자리). LLM에게는 enum으로 닫힌 7종
+    # (기술협업·공동개발·공급계약·지분투자·인수·업무협약·파트너십, 같은 절 5-(a)) 중
+    # 하나가 채워진다 — 이 필드 자체는 자유 문자열이다(엄격한 제약은 프롬프트
+    # 출력 검증이 진다, services/runner.py 몫).
+    relation_label = models.CharField(
+        max_length=50, blank=True, default="",
+        help_text="관계 전용. 7종 어휘(기술협업/공동개발/공급계약/지분투자/인수/업무협약/파트너십) 중 하나.",
+    )
     status = models.CharField(
         max_length=10, choices=RunProposal.STATUS_CHOICES, default=RunProposal.STATUS_PENDING,
     )
@@ -709,6 +747,12 @@ class RunDraft(models.Model):
     )
     created_report = models.ForeignKey(
         Report, on_delete=models.SET_NULL, null=True, blank=True, related_name="run_drafts",
+    )
+    # 🔴 네 번째 "확정으로 만들어진 대상" FK(관계 전용, 같은 절 3-3번). 기존 둘과
+    # 같은 근거 — 되돌리기(확정된 OrgRelation을 지움)가 일어나도 이 RunDraft 행은
+    # 남아야 한다.
+    created_relation = models.ForeignKey(
+        OrgRelation, on_delete=models.SET_NULL, null=True, blank=True, related_name="run_drafts",
     )
     created_at = models.DateTimeField(auto_now_add=True)
 

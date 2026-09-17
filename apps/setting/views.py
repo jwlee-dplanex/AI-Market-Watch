@@ -1908,6 +1908,70 @@ def _insight_items_context(run_jobs):
     return items
 
 
+def _relation_items_context(run_jobs):
+    """SET-010 3단계(주요 이슈) 검토 화면의 관계 초안 목록 — insight_items의 형제
+    블록(docs/planning.md "지식그래프 관계 라벨링을 3단계의 두 번째 LLM 호출로
+    옮긴다" 13번 PD 인계 1번 "insight_items 아래에 형제로 놓는다").
+
+    🔴 PD 계약(templates/setting/run_review.html 1807~1814행, 2026-09-17 코디네이터
+    실측 정정) — org_a/org_b는 문자열이 아니라 {name, org_type} 딕셔너리다.
+    org_type으로 배지 색을 가른다(금융사/보험사/AI). 🔴 정렬도 PD가 못박았다 —
+    "금융사·보험사가 org_a, AI가 org_b"다. RunDraft.relation_org_a/org_b는
+    services/runner.py가 어느 순서로 채울지 아직 정해져 있지 않으므로(이번
+    라운드는 그쪽을 건드리지 않는다), 이 함수가 매번 org_type으로 재정렬해
+    화면 계약을 지킨다 — 모델 필드 순서에 기대지 않는다.
+
+    🔴 id는 RunDraft.pk다(insight_items와 같은 계약) — 확정 POST의 relation_ids가
+    이 값을 그대로 되돌려 보낸다. news_range는 insight_items와 같은 형태(발행일
+    범위 "MM.DD ~ MM.DD" 또는 단일 "MM.DD")다.
+
+    🔴 news_items의 url은 News.uid로 만든다(insight_items와 같은 이유 — 3단계
+    입력은 이미 검증된 News라 실제로 열린다)."""
+    drafts = list(
+        RunDraft.objects.filter(
+            run_job__in=run_jobs, draft_type=RunDraft.TYPE_RELATION, status=RunProposal.STATUS_PENDING,
+        ).select_related("relation_org_a", "relation_org_b").prefetch_related("news").order_by("pk")
+    )
+    items = []
+    for draft in drafts:
+        news_list = list(draft.news.order_by("published_at"))
+        news_range = ""
+        if news_list:
+            first_date = timezone.localtime(news_list[0].published_at).date()
+            last_date = timezone.localtime(news_list[-1].published_at).date()
+            news_range = (
+                f"{first_date:%m.%d}" if first_date == last_date
+                else f"{first_date:%m.%d} ~ {last_date:%m.%d}"
+            )
+        # 금융사/보험사를 org_a, AI를 org_b 자리에 놓는다(PD 계약). 모델의
+        # relation_org_a/org_b는 순서를 보장하지 않으므로 org_type으로 가른다.
+        org_pair = [draft.relation_org_a, draft.relation_org_b]
+        org_a_obj = next((o for o in org_pair if o and o.org_type in ("금융사", "보험사")), None)
+        org_b_obj = next((o for o in org_pair if o and o is not org_a_obj), None)
+
+        def _org_dict(org):
+            return {"name": org.name, "org_type": org.org_type} if org else {"name": "", "org_type": ""}
+
+        items.append({
+            "id": draft.pk,
+            "title": draft.title,
+            "org_a": _org_dict(org_a_obj),
+            "org_b": _org_dict(org_b_obj),
+            "label": draft.relation_label,
+            "reason": draft.content,
+            "news_count": len(news_list),
+            "news_range": news_range,
+            "news_items": [
+                {
+                    "title": n.title, "published_at": n.published_at, "source": n.source_domain,
+                    "url": reverse("news_detail", args=[n.uid]),
+                }
+                for n in news_list
+            ],
+        })
+    return items
+
+
 def _report_items_context(run_jobs, job_key):
     """SET-010 4, 5단계(주간·월간 보고서) 검토 화면의 report_items 목록. 계약은
     templates/setting/run_review.html 상단 주석 "report_items" 절이 정본이다.
@@ -2052,8 +2116,14 @@ def _run_review_context(job_key):
 
     is_draft_based = job_key in ("insight", "weekly", "monthly")
     if is_draft_based:
+        # 🔴 2026-09-17 개정 — job_key=="insight"는 이제 draft_type 둘(이슈·관계)을
+        # 함께 본다(3단계 두 번째 호출의 산출물이 관계 초안이다, RunDraft docstring).
+        # 이 목록(pending_drafts)은 아래 "① 검토 대상" 집계(review.input)와
+        # review["cancel_count"]가 함께 쓰므로, 화면에 새로 뜨는 관계 블록 몫도
+        # "지금 대기 중인 것"에 반영된다 — insight_items/relation_items는 이 아래
+        # 별도 조회로 각자 센다(섞이지 않는다).
         draft_filter = (
-            {"draft_type": RunDraft.TYPE_INSIGHT} if job_key == "insight"
+            {"draft_type__in": (RunDraft.TYPE_INSIGHT, RunDraft.TYPE_RELATION)} if job_key == "insight"
             else {"draft_type__in": (RunDraft.TYPE_WEEKLY, RunDraft.TYPE_MONTHLY)}
         )
         pending_drafts = list(
@@ -2401,6 +2471,12 @@ def _run_review_context(job_key):
         review["insight_items"] = insight_items
         output["insight_count"] = len(insight_items)
         output["draft_noun"] = RunDraft.TYPE_INSIGHT
+        # 🔴 2026-09-17 신설 — 관계 초안(형제 블록, 13번 PD 인계 1·3번). 대기 중인
+        # 관계 제안이 없으면 relation_items는 빈 리스트, relation_count는 0이다
+        # (아직 서비스 쪽 생성 경로가 배선되지 않은 지금은 항상 0이 정상).
+        relation_items = _relation_items_context(run_jobs)
+        review["relation_items"] = relation_items
+        output["relation_count"] = len(relation_items)
     elif job_key in ("weekly", "monthly"):
         # 🔴 같은 날 뒤이은 라운드 — 4, 5단계 보고서 초안. insight와 같은 이유로
         # RunProposal이 아니라 RunDraft에서 온다. insight_count 키를 그대로 쓰는 이유는
@@ -2515,6 +2591,83 @@ def _confirm_insight_drafts(request, run_jobs) -> None:
         ).update(insight_dismissed_at=timezone.now())
 
 
+def _confirm_relation_drafts(request, run_jobs) -> None:
+    """SET-010 3단계(주요 이슈) 확정 — 관계 초안(RunDraft.TYPE_RELATION) 갈래.
+    채택된 초안마다 OrgRelation을 만들어 근거 News를 M2M으로 옮긴다(docs/planning.md
+    "지식그래프 관계 라벨링을 3단계의 두 번째 LLM 호출로 옮긴다" 3-3·7번 —
+    content→description, news M2M→relation.news, created_relation 채우기. 변환 없이
+    이름이 같은 칸끼리 옮긴다).
+
+    🔴 확정 POST가 받는 체크박스 이름은 "relation_ids"다("insight_ids"·"draft_ids"와
+    다르다 — 같은 이유로 27차가 그 둘을 갈랐다, 같은 RunDraft 테이블을 가리키지만
+    섞이면 확정 뷰가 이슈로 만들 것과 관계로 만들 것을 구분 못 한다). 🔴 PD 인계가
+    아직 없어 이 이름은 이 함수가 정했다 — 인계가 오면 그 이름으로 맞춘다.
+
+    🔴 `relation.news.set(...)`이 여기서는 안전하다 — 이 경로가 만드는 OrgRelation은
+    항상 새로 만든 것뿐이다. 이미 OrgRelation이 있는 쌍은 제안 생성 시점에 걸러
+    애초에 이 초안이 만들어지지 않는 것이 정책(같은 문서 6번) — 생성 쪽
+    (services/runner.py)은 이번 라운드 범위 밖이라 아직 그 방어가 배선돼 있지
+    않지만, 이 확정 경로 자체는 "생성"만 하지 기존 OrgRelation.news를 덮어쓰지
+    않는다. ⚠️ PE가 놀랄 자리(같은 문서 말미) — "relation.news.set()은 추가가
+    아니라 통째 교체"라는 함정은 GRAPH-001 편집 경로(graph_edge_label_save)의
+    얘기이고, 그 함정은 "기존 관계를 편집"할 때만 닿는다. 여기는 매번 새 객체를
+    만든 직후에 부르므로 지울 기존 근거 자체가 없다.
+
+    🔴 unique_together(org_a, org_b) 충돌은 방어한다 — 제안 생성과 확정 사이에
+    사람이 GRAPH-001에서 같은 쌍에 먼저 라벨을 붙였을 수 있는 레이스다. 그 경우
+    사람이 이미 쓴 description을 덮어쓰지 않고 그 초안 하나만 건너뛴다
+    (_confirm_report_drafts의 같은 방어와 형태를 맞췄다 — Report의
+    unique_together(period_type, date_from) 레이스와 같은 성질)."""
+    accepted_ids = set(request.POST.getlist("relation_ids"))
+    pending = list(
+        RunDraft.objects.filter(
+            run_job__in=run_jobs, draft_type=RunDraft.TYPE_RELATION, status=RunProposal.STATUS_PENDING,
+        ).select_related("relation_org_a", "relation_org_b").prefetch_related("news")
+    )
+
+    created_count = 0
+    for draft in pending:
+        if str(draft.pk) not in accepted_ids:
+            draft.status = RunProposal.STATUS_REJECTED
+            draft.save(update_fields=["status"])
+            continue
+
+        if not draft.relation_org_a_id or not draft.relation_org_b_id:
+            # 실제로 날 수 있는 경우다 — 생성 쪽(services/runner.py)이 이번
+            # 라운드에서 아직 배선되지 않아, 지금은 shell 등으로 직접 만든 행만
+            # 있을 수 있고 그때 기업 쌍이 비면 OrgRelation을 만들 수 없다.
+            logger.warning("RunDraft %s(관계) 확정 중 기업 쌍이 비어 있어 건너뛰었어요.", draft.pk)
+            messages.warning(request, f"'{draft.title}' 관계는 기업 쌍이 없어 만들지 못했어요.")
+            continue
+
+        try:
+            with transaction.atomic():
+                relation = OrgRelation.objects.create(
+                    org_a=draft.relation_org_a, org_b=draft.relation_org_b,
+                    label=draft.relation_label, description=draft.content,
+                )
+                relation.news.set(draft.news.all())
+                draft.created_relation = relation
+                draft.status = RunProposal.STATUS_ACCEPTED
+                draft.save(update_fields=["created_relation", "status"])
+        except IntegrityError:
+            logger.warning(
+                "RunDraft %s(관계) 확정 중 같은 기업 쌍에 이미 OrgRelation이 있어 건너뛰었어요.",
+                draft.pk,
+            )
+            messages.warning(
+                request,
+                f"'{draft.title}' 관계는 이미 다른 관계가 있어서 만들지 못했어요. "
+                "지식그래프 화면에서 확인해 주세요.",
+            )
+            continue
+        else:
+            created_count += 1
+
+    if created_count:
+        messages.success(request, "관계를 만들었어요. 지식그래프에서 확인해 주세요.")
+
+
 def _confirm_report_drafts(request, run_jobs, job_key) -> None:
     """SET-010 4, 5단계(주간·월간 보고서) 확정. 채택된 RunDraft마다 Report를 만들어
     근거 News를 M2M으로 옮긴다(설계 6번 표). 거절된 초안은 지우지 않고 상태만 남긴다
@@ -2623,7 +2776,11 @@ def setting_run_review_confirm(request, job):
     if job == "insight":
         # 🔴 3단계(주요 이슈)는 산출물의 모양이 달라(설계 3번) RunProposal이 아니라
         # RunDraft를 다룬다 — 아래 삭제/태그 교정 경로와 완전히 갈라진 별도 확정 경로다.
+        # 🔴 2026-09-17 — 같은 job_key 안에서 draft_type이 갈리는 두 번째 갈래(관계)를
+        # 이어 부른다. 순서는 무관하다 — 둘은 서로 다른 draft_type으로 완전히 분리된
+        # RunDraft 집합을 다루므로 겹치지 않는다.
         _confirm_insight_drafts(request, run_jobs)
+        _confirm_relation_drafts(request, run_jobs)
         RunJob.objects.filter(pk__in=[rj.pk for rj in run_jobs]).update(
             status=RunJob.STATUS_CONFIRMED, confirmed_at=confirmed_at,
         )

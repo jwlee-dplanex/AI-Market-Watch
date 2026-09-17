@@ -395,6 +395,250 @@ def classify_news(news) -> dict:
 
 
 # ============================================================================
+# 2단계 두 번째 호출 — 기준 2(동일 사건 중복 보도) 판정. docs/planning.md "기준
+# 2(동일 사건 중복 보도)를 2단계의 두 번째 LLM 호출로 옮긴다"(2026-09-17 확정), 그리고
+# 그 다음 라운드 "코드가 후보를 좁히고 LLM은 확인만 한다"(2-6)가 정본.
+#
+# 🔴 classify_news()와 다른 것 넷(같은 문서 2번·6번·7번·11번) — 복사해 오면 자동으로
+# 어긋나는 자리다.
+#   - 배치 전체가 아니라 코드가 좁힌 후보 묶음 단위로 호출된다(2-6). 실측(2026-09-17
+#     야간, 검증 통과 47건 전량을 한 번에 물은 결과 묶음 0개·input 88,892토큰·약
+#     124원)이 "찾아라"를 통짜로 시키면 성과 없이 비용만 든다는 것을 보여 줬다.
+#     services/dedup_candidates.py의 find_duplicate_candidates()가 사건 지문·숫자
+#     토큰으로 후보를 먼저 좁히고, 이 함수는 후보 묶음 하나를 받아 "이 중 실제로
+#     같은 사건인 것은?"만 확인한다(찾기에서 확인으로 — PM 확정). 후보 안에서도
+#     여러 사건이 섞여 있을 수 있으므로(25건 후보에 카카오 두 사건 + 무관 기사가
+#     섞였던 실측), 응답 스키마(groups 배열)는 그대로 유지해 한 호출이 여러 하위
+#     묶음을 낼 수 있게 둔다.
+#   - 호출 여부 자체가 후보 수에 달려 있다 — 후보가 0개면 이 함수를 아예 부르지
+#     않는다(호출부 services/runner.py._run_dedup()의 책임, 2-6-(d)).
+#   - 캐싱을 켜지 않는다 — 후보 묶음마다 입력(기사 목록)이 다르므로 시스템 프롬프트가
+#     고정이어도 캐시가 적중하지 않는다(같은 문서 7번).
+#   - 대표(어느 기사를 남길지)는 이 함수가 정하지 않는다. LLM은 "어느 기사들이 같은
+#     사건인가"만 내고, 대표 선정은 services/runner.py가 결정론적으로 한다(같은 문서
+#     5번 "틀리면 안 되는 것을 생성 모델에 맡기지 않는다").
+# ============================================================================
+
+# RunJob.prompt_version에 기존 cleanup 버전과 이어 붙는다(services/runner.py
+# _run_dedup() 참고) — 단계마다 따로 매긴다는 같은 문서 11번 근거.
+# 🔴 2026-09-17b — 후보 묶음 배선과 함께 프롬프트 내용 자체가 바뀌어서("찾아라"에서
+# "확인하라"로, 후보 전제·matched_signals·over_soft_cap 설명 추가) 버전을 올린다.
+PROMPT_VERSION_DEDUP = "dedup-2026-09-17b"
+
+# 🔴 본문 절단 길이 — PE 실측(2026-09-17, 검증 통과 News 260건 전수)으로 정했다.
+# "본문 전량을 보내지 않는다"(같은 문서 3번)면서도 "숫자 토큰을 잘라내지 않는다"·
+# "첫 직접인용문까지는 포함한다"(같은 문서 3번 2026-09-17 야간 추가) 두 요건을 함께
+# 만족해야 한다.
+#
+# 실측: News.body에서 첫 따옴표(중복 판정의 판별 신호, 3-1)가 나타나는 위치의 p95가
+# 1,919자, 첫 숫자 토큰(2-3-(a) 1순위 신호)이 나타나는 위치의 p95가 1,498자였다
+# (정규식 [\"'‘’“”] / \d[\d,.]*\s*(%|퍼센트|만|억|조|건|명|개), 260건 전수 스캔).
+# 2,000자는 그 위(p95)에 여유를 조금 더 얹은 값이다 — 이 문턱을 넘겨야 두 신호가
+# 다 잘리는 경우가 5% 미만으로 줄어든다.
+#
+# ⚠️ 그래도 전부 잡히지는 않는다 — 실측 표본에 첫 따옴표가 2,595자에 나온 기사가
+# 하나 있었다(News 4054, 헤드라인 여러 줄 뒤에 인용이 나오는 형태). "다 담을 수 없는
+# 기사가 나오면 조용히 한쪽을 버리지 말고 보고한다"(같은 문서 3번)는 요건에 따라
+# 여기 적어 둔다 — 되돌리는 조건(같은 문서 10번, "서로 다른 주에 2회")에 해당하는
+# 사례가 쌓이면 이 값부터 다시 본다.
+DEDUP_BODY_TRUNCATE_CHARS = 2000
+
+# 🔴 입력 상한 — 넘으면 조용히 좁히지 말고 보고한다(같은 문서 2-1-(d) ⚠️, 2-2-(b) ⚠️).
+# 지금 규모(3일 창, 신규분 15~40건 + 창 안 검증분 45~120건)의 합 상한(약 160건)에
+# 여유를 크게 둔 값이다 — "며칠 밀린 날"처럼 창이 앵커 때문에 자동으로 늘어나는
+# 경우를 오판하지 않기 위해서다(services/runner.py의 DEDUP_MAX_INPUT_COUNT가 이 값을
+# 실제로 검사한다. 여기 상수로 두지 않고 그쪽에 둔 이유는 검사 자리가 입력을 조립하는
+# runner.py이기 때문이다).
+
+DEDUP_OUTPUT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "groups": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "news_ids": {"type": "array", "items": {"type": "integer"}},
+                    "fingerprint": {"type": "string"},
+                },
+                "required": ["news_ids", "fingerprint"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["groups"],
+    "additionalProperties": False,
+}
+
+
+def _build_dedup_system_prompt() -> str:
+    """기준 2(동일 사건 중복 보도) 판정 시스템 프롬프트. 판정 문장·판별 신호는
+    재서술하지 않고 docs/planning.md에서 그대로 발췌한다(_build_system_prompt()의
+    CRITERIA_TEXT와 같은 원칙, 같은 문서 11번 "재서술하지 않고 발췌한다").
+
+    🔴 2026-09-17b — "찾아라"에서 "확인하라"로 물음이 바뀐다(PM 확정, 2-6). 이
+    함수가 받는 기사 목록은 이미 코드(services/dedup_candidates.py)가 사건 지문·
+    숫자 토큰 신호로 후보를 좁혀 놓은 것이라, LLM은 새로 후보를 찾는 것이 아니라
+    "이 후보가 실제로 같은 사건인지"만 확인한다. <후보_전제>가 그 사정을 알려
+    "후보로 묶였다는 사실 자체를 증거로 오인하지 말라"고 명시한다 — 실측(25건 후보에
+    카카오 모두의 AI 8건 + 카카오 인적분할 4건 + 무관 기사 13건이 반올림된 큰 수로
+    우연히 연쇄 연결됨)이 이 위험을 보여 줬다."""
+    return """당신은 AI Market Watch 프로젝트에서, 코드가 신호(사건 지문·숫자 토큰)로 미리 좁혀 놓은 뉴스 기사 후보 묶음 하나를 받아 확인합니다. 당신의 임무는 "찾기"가 아니라 "확인"입니다 — 어떤 기사들이 같은 사건일 수 있는지는 이미 후보로 좁혀져 있고, 그중 실제로 같은 사건인 것이 무엇인지만 가려내면 됩니다.
+
+<후보_전제>
+이 묶음은 코드가 사건 지문(복합명사)이나 숫자 토큰이 겹친다는 "신호"만으로 자동으로 모은 것입니다 — 사람이나 LLM이 "같은 사건이다"라고 이미 확인한 것이 아닙니다. 숫자가 "1조"·"500만"처럼 크게 반올림된 값이면 서로 무관한 기사끼리도 우연히 같은 신호로 연쇄 연결될 수 있습니다. 그러니 이 묶음 전체가 하나의 사건이라고 가정하지 마세요. 실제로는 다음 중 하나입니다.
+- 묶음 전체가 정말로 한 사건이다.
+- 묶음 안에 서로 다른 사건이 여럿 섞여 있다(예: 8건이 사건 A, 4건이 사건 B, 나머지는 둘 다 아니다) — 이 경우 각각 별도 하위 묶음(groups의 서로 다른 원소)으로 나누세요.
+- 묶음 안 어느 기사도 다른 기사와 같은 사건이 아니다 — 이 경우 groups를 빈 배열로 반환하세요.
+</후보_전제>
+
+<기준_원문>
+동일 사건 중복 보도 — 여러 매체가 같은 행사·사건을 각자 기사화한 경우, 사실상 같은 뉴스로 취급하고 대표 1건만 남기고 나머지는 삭제한다.
+</기준_원문>
+
+<오판_비대칭>
+오판의 방향이 비대칭입니다. 「같은 사건인데 안 묶음」은 화면에 중복이 남아 다음에 눈에 띄지만, 「다른 사건인데 묶음」은 아무도 그 존재를 모릅니다. 그래서 애매하면 묶지 않습니다.
+</오판_비대칭>
+
+<판별_신호>
+1. 제목만으로 판정하지 않습니다. 제목이 닮았다는 것은 후보 신호일 뿐이고, 판정 근거는 본문 도입부여야 합니다.
+2. 1순위 근거는 사건 지문(복합명사)과 숫자 토큰의 일치입니다. 둘 다 기자가 바꿔 쓰기 어려운 값이라 매체를 건너도 살아남습니다. 다만 이 묶음이 그 신호로 이미 모여 있다는 사실 자체는 증거가 아닙니다(위 <후보_전제>) — 본문을 직접 읽고 실제로 같은 사건인지 확인하세요.
+3. 같은 날 발행은 보조 신호일 뿐입니다. 그것만으로 묶지 마세요.
+4. 기술 주제가 같다는 것은 신호가 아닙니다. 이 배치의 기사는 전부 AI 관련입니다.
+5. 애매하면 묶지 않습니다.
+</판별_신호>
+
+<중복이_아닌_경우>
+따옴표 안 직접인용문이 기사마다 다르면 중복이 아닙니다(각자 취재한 인터뷰). 같으면(말을 바꿔 쓴 것 포함) 같은 보도자료를 받아쓴 중복입니다.
+
+⚠️ 다만 이 규칙을 기계적으로 믿지 마세요. 따옴표 안 인용문이 서로 달라도, 기사가 직접 같은 사건(같은 그룹인터뷰·같은 행사)이라고 명시하고 같은 날짜·장소·화자·사진 출처가 겹치면 같은 사건일 수 있습니다. 인용문 일치는 강한 신호이지 유일한 신호가 아닙니다 — 본문 전체 맥락으로 판단하세요.
+
+같은 연재물의 다른 회차도 이 기준으로 묶지 않습니다 — 연재 회차는 서로 다른 내용을 담으므로 중복이 아니다. 삭제 대상이 아니라 미승격 대상이며, 대표 1건만 남기는 처리도 하지 않는다.
+</중복이_아닌_경우>
+
+<입력_설명>
+기사 목록 앞에는 이 묶음을 후보로 모은 신호(코드가 뽑은 사건 지문·숫자 토큰)와, 이 묶음이 통상 크기(20건)를 넘는 경보 대상인지가 먼저 표시됩니다. 그 뒤 기사 목록에는 [기존]과 [신규] 두 갈래가 있습니다. [기존]은 이미 검증을 통과해 화면에 떠 있는 기사이고, [신규]는 이번에 새로 판정 중인 기사입니다. 어느 쪽을 대표로 남길지는 판단하지 마세요 — 그것은 이 프로젝트의 코드가 별도 규칙으로 결정합니다. 당신은 오직 "어느 기사들이 실제로 같은 사건인가"만 판정하세요.
+</입력_설명>
+
+임무: 위 후보 묶음 안에서 실제로 같은 사건인 기사들을 하위 묶음으로 나눠 아래 스키마로만 응답하세요. 같은 사건이 하나도 없으면 groups를 빈 배열로 반환하세요.
+
+- groups: 같은 사건으로 판단되는 기사 묶음의 배열입니다. 한 후보 안에 서로 다른 사건이 여럿 있으면 groups에 각각 별도 원소로 담으세요.
+  - news_ids: 그 사건을 다룬 기사들의 pk 배열(반드시 2개 이상).
+  - fingerprint: 이 묶음을 같은 사건으로 판단한 근거(사건 지문 복합명사·숫자 토큰 등)를 본문에서 그대로 뽑아 짧게 적으세요. 본문에 없는 내용을 지어내지 마세요.
+"""
+
+
+def _build_dedup_user_message(new_batch, window_news, matched_signals=None, over_soft_cap=False) -> str:
+    """비교 대상 기사 목록을 조립한다. [신규]/[기존] 표시는 3번 "기존 검증분과 신규분을
+    입력에서 갈라 표시한다"의 구현이다 — 다만 "어느 Insight에 묶였는지" 같은 추가
+    정보는 넣지 않는다(같은 문서 3번 ⚠️ "틀리면 안 되는 것을 생성 모델에 맡기지 않는다"
+    가 5번의 대표 선정에도 그대로 적용된다).
+
+    🔴 2026-09-17b — matched_signals/over_soft_cap을 맨 앞에 얹는다(2-6). LLM이
+    "이건 코드가 신호로 모은 후보일 뿐"이라는 사정을 알아야 후보를 곧이곧대로
+    믿지 않는다(_build_dedup_system_prompt()의 <후보_전제>가 이 정보를 어떻게
+    쓰라고 지시하는지 설명한다)."""
+    lines = []
+    signals_text = ", ".join(matched_signals) if matched_signals else "(신호 없음)"
+    over_soft_cap_text = (
+        "예 — 넘는다고 쪼개거나 버리지 마세요. 실제로 그만큼 큰 사건일 수 있습니다."
+        if over_soft_cap else "아니오"
+    )
+    lines.append(
+        f"[이 묶음을 후보로 모은 신호] {signals_text}\n"
+        f"[통상 크기(20건) 초과 여부] {over_soft_cap_text}"
+    )
+    for label, batch in (("신규", new_batch), ("기존", window_news)):
+        for news in batch:
+            published = timezone.localtime(news.published_at).strftime("%Y-%m-%d %H:%M")
+            body = news.body[:DEDUP_BODY_TRUNCATE_CHARS]
+            lines.append(
+                f"[{label}] pk={news.pk} 발행={published}\n제목: {news.title}\n본문: {body}"
+            )
+    return "\n---\n".join(lines)
+
+
+def _parse_dedup_response(response) -> dict:
+    """classify_news()의 _parse_response()와 같은 원칙(json.loads()만 쓴다, 문자열
+    매칭 금지)이지만 금지 기준 코드 방어가 없다 — 이 호출 자체가 기준 2 전용이라
+    막을 것이 없다."""
+    text_block = next((b for b in response.content if b.type == "text"), None)
+    if text_block is None:
+        raise LLMJudgmentError(
+            f"중복 판정: 응답에 text 블록이 없어요(stop_reason={response.stop_reason})."
+        )
+    try:
+        data = json.loads(text_block.text)
+    except json.JSONDecodeError as exc:
+        raise LLMJudgmentError(f"중복 판정: 응답 JSON 파싱에 실패했어요: {exc}") from exc
+
+    usage = response.usage
+    data["_usage"] = {
+        "input_tokens": usage.input_tokens,
+        "output_tokens": usage.output_tokens,
+        "cache_creation_input_tokens": getattr(usage, "cache_creation_input_tokens", 0) or 0,
+        "cache_read_input_tokens": getattr(usage, "cache_read_input_tokens", 0) or 0,
+    }
+    return data
+
+
+def find_duplicate_news(new_batch, window_news, matched_signals=None, over_soft_cap=False) -> dict:
+    """기준 2(동일 사건 중복 보도) 판정 — 코드가 좁힌 후보 묶음 하나를 확인한다
+    (2026-09-17b, 2-6 "찾아라"에서 "확인하라"로).
+
+    Args:
+        new_batch: 이 후보 묶음에 속한 News 중 이번 배치에서 "유지"로 제안된 것
+            (삭제 후보 — 대표가 아니면 지워질 수 있는 쪽).
+        window_news: 이 후보 묶음에 속한 News 중 비교 창 안의 검증 통과분(비교
+            대상 전용 — 이 호출로는 절대 삭제되지 않는다, 같은 문서 2-1-(b)).
+        matched_signals: 이 후보를 모은 신호 목록(services/dedup_candidates.py
+            CandidateGroup.matched_signals) — 프롬프트에 그대로 실어 LLM이 "신호가
+            겹쳤다는 사실 자체는 증거가 아니다"를 알게 한다.
+        over_soft_cap: 이 후보가 경보선(20건)을 넘었는지 — 넘어도 쪼개거나 버리지
+            말라는 지시를 프롬프트에 함께 싣는다(2-6-(c)).
+
+    Returns:
+        {"groups": [{"news_ids": [...], "fingerprint": "..."}]} + "_usage". 하나의
+        후보 안에 여러 사건이 섞여 있으면 groups에 여러 원소로 나뉘어 나올 수 있다.
+
+    Raises:
+        LLMStructuralError / LLMJudgmentError: classify_news()와 같은 분류.
+    """
+    client = _get_client()
+    try:
+        response = client.messages.create(
+            model=settings.BEDROCK_MODEL_FAST,
+            # 🔴 잠정치(PE 판단, 첫 실행 실측 전) — classify_news()의 2048(News 130
+            # 실패 사고로 올린 값)보다 크게 잡는다. 이 호출의 출력은 기사 하나의
+            # 사유 한 줄이 아니라 후보 묶음의 하위 묶음 목록 + 묶음마다 사건 지문이라
+            # 입력 건수가 늘수록 출력도 함께 는다 — 첫 실행의 RunJob 토큰 칸으로
+            # 실측해 교체한다(같은 문서 7번 "이 표도 추정이다").
+            max_tokens=4096,
+            system=[{"type": "text", "text": _build_dedup_system_prompt()}],
+            # 🔴 cache_control 없음 — 위 모듈독스트링 "캐싱을 켜지 않는다" 참고.
+            messages=[{
+                "role": "user",
+                "content": _build_dedup_user_message(new_batch, window_news, matched_signals, over_soft_cap),
+            }],
+            output_config={"format": {"type": "json_schema", "schema": DEDUP_OUTPUT_SCHEMA}},
+        )
+    except (anthropic.AuthenticationError, anthropic.PermissionDeniedError, anthropic.NotFoundError) as exc:
+        logger.error("중복 판정 중 구조적 오류(인증/권한/리소스): %s", exc)
+        raise LLMStructuralError(str(exc)) from exc
+    except anthropic.RateLimitError as exc:
+        logger.warning("중복 판정 중 rate limit에 걸렸어요: %s", exc)
+        raise LLMJudgmentError(str(exc)) from exc
+    except anthropic.APIConnectionError as exc:
+        logger.warning("중복 판정 중 네트워크 오류: %s", exc)
+        raise LLMJudgmentError(str(exc)) from exc
+    except anthropic.APIStatusError as exc:
+        logger.warning("중복 판정 중 API 오류(status=%s): %s", exc.status_code, exc)
+        raise LLMJudgmentError(str(exc)) from exc
+    else:
+        return _parse_dedup_response(response)
+
+
+# ============================================================================
 # 3단계(주요 이슈) 판정 — docs/planning.md "3~5단계를 LLM으로 옮기는 설계"가 정본.
 #
 # 🔴 2단계와 정반대인 것 둘(같은 문서 7-(a)(b)) — 복사해 오면 자동으로 어긋나는 자리다.
