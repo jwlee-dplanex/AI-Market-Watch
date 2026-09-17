@@ -75,7 +75,12 @@
               날짜 범위는 남긴다 — 연도 그룹 헤더가 연도를, 이 줄이 정확한 기간을 담당한다.
               ⚠️ report_title_period 필터는 계속 쓰인다(PDF 저장 파일명). 안 쓰인다고 지우지 말 것.
             {% endcomment %}
-            <span class="text-xs text-gray-400"><span class="font-medium text-gray-600">{{ report.get_period_type_display }}</span> · {{ report.date_from|date:"m.d" }} ~ {{ report.date_to|date:"m.d" }}</span>
+            {% comment %}
+              🔴 2026-09-16 — 가운뎃점을 걷었다(화면 문구 금지, docs/design.md 1.0.2·1.0.3).
+              띄어쓰기 하나로 충분하다. 앞 조각이 font-medium text-gray-600, 뒤가 text-gray-400이라
+              굵기와 명도가 이미 둘을 가른다.
+            {% endcomment %}
+            <span class="text-xs text-gray-400"><span class="font-medium text-gray-600">{{ report.get_period_type_display }}</span> {{ report.date_from|date:"m.d" }} ~ {{ report.date_to|date:"m.d" }}</span>
             {% comment %}
               "완료" 배지는 숨긴다(2026-08-04) — 목록에 상태 필터가 없어 모든 상태가 함께
               보이지만, 정상인 것까지 배지를 달면 매 행이 배지로 덮여 정작 이상한 건이 안 띈다.

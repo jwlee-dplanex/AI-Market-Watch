@@ -55,7 +55,12 @@ context:
       <li class="text-xs text-gray-600 leading-snug">
         <span class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-100
                      text-gray-500 text-[10px] font-semibold mr-1 align-text-top flex-shrink-0">{{ forloop.counter }}</span>
-        <span class="font-medium text-gray-800">{{ step.label }}</span> — {{ step.desc }}
+        {% comment %}
+          🔴 2026-09-16 — 라벨과 설명 사이의 줄표를 걷었다(화면 문구 금지,
+          docs/design.md 1.0.2·1.0.3). 가르는 몫은 앞 조각의 font-medium text-gray-800과
+          동그란 번호 배지가 이미 진다. 가운뎃점으로 갈아 끼우지 말 것 — 그쪽도 금지다.
+        {% endcomment %}
+        <span class="font-medium text-gray-800">{{ step.label }}</span> {{ step.desc }}
       </li>
       {% endfor %}
     </ol>

@@ -351,6 +351,14 @@ class RunJob(models.Model):
     # 만들었다 — 확정 시 이 집합에서 실제로 채택된 Insight의 news를 뺀 나머지가
     # News.insight_dismissed_at을 받는다. job_key="insight"가 아닌 RunJob은 채우지 않는다.
     insight_candidates = models.ManyToManyField("news.News", blank=True, related_name="+")
+    # 🔴 2026-09-16 23차 개정(docs/planning.md 「SET-010 실행 중단」 2번, 9-1) — 「사람이
+    # 언제 멈춰 달라고 했는가」를 적는 칸. STATUS_* 어휘는 늘리지 않는다 — 값을 늘리면
+    # 그 값을 읽는 분기가 전부 두 벌이 되고, 한 곳만 빠뜨리면 배치가 확정할 수 없는
+    # 상태로 갇힌다(같은 문서 2번). 이 칸 하나가 두 가지 일을 겸한다 — (a) 돌고 있는
+    # 루프가 매 경계에서 읽는 중단 신호(services/runner.py), (b) 끝난 뒤에는 「사고가
+    # 아니라 사람이 멈춘 것」이라는 증거(apps/setting/views.py 사고 배지 판정). 비어
+    # 있으면 하트비트 판정으로 끊긴 것이고, 차 있으면 사람이 멈춘 것이다.
+    stop_requested_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-started_at", "-pk"]

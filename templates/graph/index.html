@@ -52,7 +52,13 @@
     잘못된 신호를 준다. 검색 자체가 서버 왕복이 없는 것과 같은 결이다.
     ⚠️ 나중에 서버가 q로 실제 필터링을 하게 되면 그때는 뷰 컨텍스트로 옮긴다.
 {% endcomment %}
-<div class="mb-4 flex items-center justify-between gap-3" x-data="graphSearchBar()">
+{% comment %}
+  🔴 `@graph-iso.window`는 선 없는 기업 토글이 켜지거나 꺼질 때 d3 쪽이 쏘는
+     이벤트를 받는다(2026-09-17). 받은 값은 아래 periodHref가 기간 버튼 주소에
+     `iso=1`로 실어 보내는 데만 쓴다. 검색이 숨김을 켠 경우에도 같은 길로 들어온다.
+{% endcomment %}
+<div class="mb-4 flex items-center justify-between gap-3" x-data="graphSearchBar()"
+     @graph-iso.window="iso = $event.detail">
 
   <div class="relative w-80">
     <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
@@ -121,12 +127,72 @@
               class="flex items-center gap-1.5 text-xs text-gray-600 px-2 py-1 rounded-full hover:bg-gray-50 transition-all select-none">
         <span class="w-2.5 h-2.5 rounded-full bg-primary inline-block"></span>AI
       </button>
+
+      {% comment %}
+        ══ 🔴 선 없는 기업 토글 (2026-09-17). 기본값은 「숨김」이다 ═══════════
+        노드 120개에 엣지 56개, 그중 선이 하나도 없는 기업이 56개(47%)다. 고립
+        노드가 바깥으로 퍼져 전체 맞춤 배율이 그만큼 작아지고, 정작 볼 만한
+        중심부가 작게 보인다. 그래서 기본은 감추고 여기서 다시 띄운다.
+
+        ▣ 🔴 범례 안에 두되 구분선 뒤에 둔다
+          범례 세 버튼은 「무슨 종류인가」(타입)이고 이것은 「선이 있나」
+          (연결)라 축이 다르다. 그래서 색 점을 주지 않고 **테두리만 있는 빈 원**
+          을 쓴다 — 네 번째 타입으로 읽히지 않게 하는 장치다. 그렇다고 캔버스
+          다른 곳에 새 컨트롤을 세우면 「토글은 왼쪽 위에 있다」는 이 화면의
+          유일한 규칙이 깨진다. 자리는 같이, 생김새는 다르게가 답이다.
+
+        ▣ 🔴 이 버튼만 숫자를 단다 (`선 없는 기업 56개`)
+          기본이 숨김인데 그걸 말하는 자리가 없으면 「기업이 왜 안 보이지」가
+          된다. 흐린 버튼에 적힌 56개가 그 답이고, **문구를 새로 늘리지 않고
+          말하는 유일한 방법**이다. 타입 세 버튼에 숫자가 없는 것과 다른 이유가
+          여기 있다.
+
+        ▣ 흐림(opacity 0.35)은 범례와 같은 뜻이다 — 「지금 화면에 없다」.
+          기본이 숨김이므로 이 버튼은 처음부터 흐리다. 방향만 반대고 규칙은 같다.
+
+        ▣ 🔴 숨길 것이 없으면(고립 0개) 이 버튼 자체를 두지 않는다. 선이 하나도
+          없는 기간에도 두지 않는다 — 그때는 감출 이유가 없어 전부 보여준다.
+          아래 스크립트가 판단해 `display`를 푼다.
+
+        ⚠️ 폭이 1px인 구분선에 `w-px`를 쓰지 않았다. 빌드에 없다
+           (`static/css/tailwind.css` 실측). `border-l`과 `pl-2`도 없다.
+           빌드에 없는 클래스는 조용히 무시돼 화면이 고쳐지지 않은 채로 남으므로
+           인라인 `style`로 줬다 — 이 파일에 이미 있는 방식이다(아래 기업 패널).
+      {% endcomment %}
+      <span id="graph-iso-wrap" class="flex items-center" style="display: none;">
+        <span class="h-4 bg-gray-200 mx-1 inline-block" style="width: 1px;"></span>
+        {% comment %}
+          `title`은 스크립트가 켜짐/꺼짐에 맞춰 바꿔 쓴다(아래 paintIsoButton).
+          「누르면 함께 볼 수 있어요」가 이미 켜진 상태에서도 떠 있으면 거짓말이 된다.
+        {% endcomment %}
+        <button type="button" id="graph-iso-toggle" onclick="toggleIsolated()"
+                class="flex items-center gap-1.5 text-xs text-gray-600 px-2 py-1 rounded-full hover:bg-gray-50 transition-all select-none">
+          <span class="w-2.5 h-2.5 rounded-full border inline-block" style="border-color: #898A8D;"></span><span>선 없는 기업 <span id="graph-iso-count" class="tabular-nums"></span>개</span>
+        </button>
+      </span>
     </div>
 
-    {% comment %}통계 — org_count/edge_count는 뷰에서 선택된 기간으로 이미 필터된 값(기간 정합성 계약){% endcomment %}
-    <div class="absolute top-4 right-4 z-10 text-xs text-gray-400 bg-white/90 backdrop-blur-sm rounded-[10px] px-3 py-2 shadow-sm border border-[#E5E5E5]">
-      기업 {{ org_count }}개{% if edge_count %} · 연결 {{ edge_count }}개{% endif %}
-    </div>
+    {% comment %}
+      ══ 🔴 통계는 「화면에 그려진 수」를 말한다 (2026-09-17) ════════════════
+      종전에는 뷰가 준 `org_count`(= 노드 전량)를 그대로 찍었다. 기본이 숨김이
+      되면 **「기업 120개」라고 적혀 있는데 64개만 보이는** 상태가 되고, 그건
+      2026-08-04에 사용자가 두 번 거부한 것과 같은 유형(「엣지는 있는데 패널은
+      0건」)이다. 그래서 숫자를 스크립트가 쓴다.
+
+      🔴 서버 숫자를 먼저 찍고 나중에 고치지 않는다. 이 화면은 d3를 CDN에서
+         받아오므로 그 사이에 브라우저가 한 번 그릴 수 있고, 그러면 120이
+         보였다가 64로 바뀌는 것이 눈에 남는다. 처음부터 `display: none`으로
+         두고 스크립트가 값을 채운 뒤에 푼다 — d3가 오기 전에는 캔버스도 비어
+         있으니 빈 상태가 화면과 어긋나지 않는다.
+      🔴 그래서 이 숫자는 범례로 타입을 숨겨도 같이 줄어든다. 종전에는 AI를
+         숨겨도 숫자가 그대로였다. 같은 계약(적힌 수 = 보이는 수)을 한 함수로
+         지키므로 이쪽이 덤으로 맞는다.
+      ▣ 가운뎃점을 쉼표로 바꿨다(`기업 64개, 연결 56개`).
+      ▣ `org_count`/`edge_count`는 아래 빈 상태 분기에서 계속 쓴다.
+    {% endcomment %}
+    <div id="graph-stats"
+         class="absolute top-4 right-4 z-10 text-xs text-gray-400 bg-white/90 backdrop-blur-sm rounded-[10px] px-3 py-2 shadow-sm border border-[#E5E5E5]"
+         style="display: none;"></div>
 
     {% if not org_count %}
     <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-10">
@@ -149,10 +215,48 @@
     <svg id="graph-svg" class="w-full h-full"></svg>
   </div>
 
-  {% comment %}기업 패널{% endcomment %}
+  {% comment %}
+    기업 패널
+
+    ══════════════════════════════════════════════════════════════════════
+    🔴 2026-09-17 — 카드에 걸려 있던 h-full을 걷었다. 내용이 길면 카드가 깨졌다
+    ══════════════════════════════════════════════════════════════════════
+    사용자 지적이 출발점이다 — "오른쪽 사이드 바 글이 길어지면 근거 뉴스
+    영역에서 뭔가 깨지는 것 같은데".
+
+    🔴 무슨 일이 있었나
+      바깥 div  height가 확정돼 있다(위 flex 컨테이너가 calc(100vh - 9.5rem))
+      #org-panel  h-full = height: 100%  → **고정 높이**가 된다
+      내용       그보다 길어지면 상자 밖으로 흘러나온다
+    h-full은 min-height가 아니라 height라, 넘친 부분에는 **흰 배경도 테두리도
+    p-5 아래 여백도 따라가지 않는다.** 바깥이 overflow-y-auto라 스크롤은 되는데
+    내려가 보면 카드가 이미 끝나 있고 글자만 떠 있다. 그게 「깨짐」의 정체다.
+    🔴 근거 뉴스가 맨 아래 섹션이라 **넘치는 부분이 언제나 근거 뉴스다.**
+       사용자가 그 영역을 콕 집은 것이 우연이 아니다.
+    🔴 관계 설명이 300자까지 들어가면서 드러났다. 설명이 짧던 동안에는
+       내용이 상자 안에 들어가 보이지 않았을 뿐, 뉴스가 많은 기업 패널에서는
+       전부터 같은 일이 있었다.
+
+    🔴 고친 방법 — height를 min-height로 바꾼다
+      ① h-full을 걷고 인라인 style로 min-height: 100%를 준다.
+         🔴 Tailwind의 min-h-full을 쓰지 않은 이유는 **빌드에 없기 때문**이다
+            (static/css/tailwind.css 실측). 빌드에 없는 클래스는 조용히 무시돼
+            화면이 고쳐지지 않은 채로 남는다. 바로 위 컨테이너도 인라인 style로
+            height를 주고 있어 이 파일에 이미 있는 방식이다.
+      ② flex flex-col을 더하고 아래 빈 상태 div를 h-full에서 flex-1로 바꾼다.
+         🔴 min-height는 부모 높이를 auto로 만들기 때문에, 자식의 h-full
+            (height: 100%)이 기준을 잃어 **빈 상태의 세로 가운데 정렬이
+            깨진다.** flex-1은 남는 공간을 채우는 방식이라 기준이 필요 없다.
+         ⚠️ 스왑되는 프래그먼트(_org_panel.html, _edge_panel.html)의 최상위
+            블록들이 flex 아이템이 되지만, 세로로 쌓이는 것은 그대로이고
+            mb-4 / pb-4도 그대로 먹는다. 두 파일을 고칠 것이 없다.
+      ⚠️ 여기에 overflow-hidden을 걸어 푸는 안은 기각했다. 넘친 글이 잘려서
+         **근거 뉴스가 조용히 사라진다.** 스크롤은 바깥 div가 이미 맡고 있다.
+  {% endcomment %}
   <div class="w-72 flex-shrink-0 overflow-y-auto">
-    <div id="org-panel" class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-5 h-full">
-      <div class="flex flex-col items-center justify-center h-full text-center text-gray-400 gap-3">
+    <div id="org-panel" class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-5 flex flex-col"
+         style="min-height: 100%;">
+      <div class="flex-1 flex flex-col items-center justify-center text-center text-gray-400 gap-3">
         <i data-lucide="mouse-pointer-click" class="w-8 h-8 opacity-30"></i>
         <p class="text-sm leading-relaxed">기업 노드 또는 연결선을 클릭하면<br>관련 뉴스를 볼 수 있어요.</p>
       </div>
@@ -205,6 +309,28 @@ rawEdges.forEach(e => {
   neigh[e.source]?.add(e.target);
   neigh[e.target]?.add(e.source);
 });
+
+{% comment %}
+  ══ 🔴 선 없는 기업(고립 노드) 상태 (2026-09-17) ═══════════════════════════
+  ▣ 🔴 집계를 건드리지 않는다. 판정은 여기서 한다.
+    `apps/graph/views.py`의 노드 쿼리(`news_count > 0`)와 엣지 집계는 한 줄도
+    바뀌지 않았다. 2026-08-04 계약이 「엣지 공동언급 집계와 노드 news_count
+    집계가 완전히 같은 뉴스 집합을 써야 떠다니는 엣지가 안 생긴다」이고, 한쪽에만
+    조건을 더하면 에러 없이 D3 렌더만 깨진다. 노드 쿼리에 「선이 있는 것만」을
+    넣으면 대시보드 기업 랭킹과 노드 집합도 갈린다. 그래서 목록을 다 받은 뒤
+    **그리는 단계에서만** 가른다.
+  ▣ 판정 기준은 전체 엣지 집합이다. `neigh`는 D3가 edges를 변환하기 전의 원본
+    기준으로 만들어져 있어 그대로 쓴다.
+    🔴 범례로 타입을 숨겨서 이웃이 화면에서 사라진 노드는 고립으로 보지 않는다.
+       그렇게 하면 버튼에 적힌 수가 토글마다 흔들려 읽을 수 없게 된다.
+  ▣ 🔴 선이 하나도 없는 기간이면 기본을 「보임」으로 뒤집는다. 기본 숨김이
+    지우려는 것은 「중심부를 작게 만드는 주변」인데, 중심부가 아예 없으면 화면이
+    통째로 비어 버린다. 그 기간에는 위 토글 버튼도 두지 않는다.
+{% endcomment %}
+const isolatedIds = new Set(rawNodes.filter(n => neigh[n.id].size === 0).map(n => n.id));
+const hiddenCats = new Set();
+let showIsolated = new URLSearchParams(location.search).get('iso') === '1';
+if (!rawEdges.length) showIsolated = true;
 
 {% comment %}D3가 원본을 변경하므로 복사본 사용{% endcomment %}
 const nodes = rawNodes.map(n => ({ ...n }));
@@ -374,21 +500,116 @@ nodes.forEach(d => { d.fx0 = d.x; d.fy0 = d.y; });
 {% comment %}확정된 좌표를 DOM에 한 번 반영 (아래 한 줄){% endcomment %}
 sim.on('tick').call(sim);
 
-if (nodes.length) {
+{% comment %}
+  ══ 🔴 무엇을 그릴지 한곳에서 가른다 (2026-09-17) ═════════════════════════
+  종전에는 `toggleCategory`가 네 레이어의 `display`를 직접 썼다. 숨기는 축이
+  둘(타입, 선 없음)이 되면 두 곳에서 같은 속성을 쓰게 되어 나중에 누른 쪽이
+  앞의 판단을 지운다. 그래서 **판정(`nodeHidden`/`edgeHidden`)과 반영
+  (`applyVisibility`)을 한곳으로 모았다.** 두 토글은 상태만 바꾸고 이 함수를
+  부른다.
+
+  🔴 엣지는 선 없음 축과 무관하다. 고립 노드에는 애초에 붙은 엣지가 없다.
+  ⚠️ `display`를 쓰고 데이터에서 빼지 않는다. 힘 시뮬레이션은 노드 전량으로
+     돌린 그대로다 — 좌표가 바뀌지 않으므로 다시 띄웠을 때 노드가 제자리에
+     나타나고, 배치가 새로 계산되며 화면이 뒤집히는 일이 없다.
+{% endcomment %}
+function nodeHidden(d) {
+  if (hiddenCats.has(d.category)) return true;
+  return !showIsolated && isolatedIds.has(d.id);
+}
+
+function edgeHidden(l) {
+  return hiddenCats.has(l.source.category) || hiddenCats.has(l.target.category);
+}
+
+function applyVisibility() {
+  node.style('display',      d => nodeHidden(d) ? 'none' : null);
+  link.style('display',      l => edgeHidden(l) ? 'none' : null);
+  {% comment %}히트 영역과 라벨도 같이 숨긴다 — 안 보이는데 클릭은 되는 불일치를 막는다.{% endcomment %}
+  linkHit.style('display',   l => edgeHidden(l) ? 'none' : null);
+  linkLabel.style('display', l => edgeHidden(l) ? 'none' : null);
+  updateStats();
+}
+
+{% comment %}🔴 적힌 수 = 보이는 수. 이 함수가 그 계약의 유일한 자리다.{% endcomment %}
+function updateStats() {
+  const el = document.getElementById('graph-stats');
+  if (!el) return;
+  const shownNodes = nodes.filter(d => !nodeHidden(d)).length;
+  const shownEdges = edges.filter(l => !edgeHidden(l)).length;
+  el.textContent = shownEdges
+    ? `기업 ${shownNodes}개, 연결 ${shownEdges}개`
+    : `기업 ${shownNodes}개`;
+  {% comment %}
+    ▣ 노드가 아예 없는 기간이면 상자를 두지 않는다. 그 말은 캔버스 가운데
+      빈 상태 문구가 이미 하고 있어서 「기업 0개」가 겹친다(종전에는 겹쳤다).
+    ▣ 반대로 범례로 셋 다 꺼서 0이 된 경우에는 `기업 0개`를 그대로 보여준다.
+      토글할 때마다 상자가 사라졌다 나타나면 그쪽이 더 산만하다.
+  {% endcomment %}
+  el.style.display = nodes.length ? '' : 'none';
+}
+
+{% comment %}
+  🔴 전체 맞춤 — 보이는 노드만 담는다 (2026-09-17 변경).
+  종전에는 `nodes` 전량의 bounding box였다. 고립 노드가 바깥으로 퍼져 있어
+  boxW/boxH가 크게 잡히고, 배율이 그만큼 작아져 정작 볼 중심부가 작게 보였다.
+  숨긴 것을 상자에서 빼면 같은 계산식이 중심부를 꽉 채운다. 여백 60px과
+  0.1~4 범위는 그대로다.
+
+  ⚠️ transition을 쓰지 않는다. 배율은 그리기 전에 확정해야 "처음부터 전체"가
+     된다. 아래 안착 애니메이션은 배율이 아니라 노드 좌표만 움직인다.
+  🔴 그래서 토글로 다시 띄우면 배율이 바뀐다. 그 편이 맞다고 봤다 — 노드
+     집합 자체가 달라졌으므로 「전체 맞춤」의 대상도 달라진 것이고, 켰는데
+     새로 뜬 노드가 화면 밖에 있어 아무 변화가 없는 쪽이 더 나쁘다. 검색이
+     사용자 배율을 빼앗지 않는 규칙(아래 검색 절 1번)과 어긋나지 않는다 —
+     검색은 노드 집합을 바꾸지 않고 이 토글은 바꾼다.
+  ⚠️ 그 대신 애니메이션 없이 한 프레임에 끝낸다. 큰 면적이 천천히 확대나 축소되는
+     움직임을 만들지 않는다(이 프로젝트의 움직임 제약).
+  ▣ 왕복하면 원래 배율로 돌아온다. 좌표를 그때그때 읽어 다시 계산하기 때문이다.
+  ▣ 범례 토글은 배율을 다시 맞추지 않는다(종전 그대로). 배율을 다시 재는 자리는
+    첫 렌더와 선 없는 기업 토글 둘뿐이다.
+{% endcomment %}
+function fitView() {
+  const visible = nodes.filter(d => !nodeHidden(d));
+  if (!visible.length) return;
   const pad = 60;
-  const xs = nodes.map(d => d.x), ys = nodes.map(d => d.y);
+  const xs = visible.map(d => d.x), ys = visible.map(d => d.y);
   const x0 = Math.min(...xs) - pad, x1 = Math.max(...xs) + pad;
   const y0 = Math.min(...ys) - pad, y1 = Math.max(...ys) + pad;
   const boxW = x1 - x0, boxH = y1 - y0;
   const scale = Math.max(0.1, Math.min(4, 1 / Math.max(boxW / W, boxH / H)));
   const tx = W / 2 - scale * (x0 + x1) / 2;
   const ty = H / 2 - scale * (y0 + y1) / 2;
-  {% comment %}
-    ⚠️ transition을 쓰지 않는다. 배율은 그리기 전에 확정해야 "처음부터 전체"가 된다.
-       아래 안착 애니메이션은 배율이 아니라 노드 좌표만 움직인다.
-  {% endcomment %}
   svg.call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
 }
+
+{% comment %}
+  선 없는 기업 토글 버튼의 겉모습 — 흐림과 툴팁을 한곳에서 쓴다.
+  🔴 툴팁을 상태에 따라 바꾼다. 한 문구로 고정하면 이미 켠 상태에서
+     「누르면 함께 볼 수 있어요」가 거짓말이 된다.
+{% endcomment %}
+function paintIsoButton() {
+  const btn = document.getElementById('graph-iso-toggle');
+  if (!btn) return;
+  btn.style.opacity = showIsolated ? '1' : '0.35';
+  btn.title = showIsolated
+    ? '관계가 아직 없는 기업이에요. 누르면 다시 감춰요.'
+    : '관계가 아직 없는 기업이에요. 누르면 함께 볼 수 있어요.';
+}
+
+{% comment %}
+  🔴 토글 버튼은 숨길 것이 있을 때만 둔다. 고립이 0개면 아무 일도 하지 않는
+     버튼이고, 선이 하나도 없는 기간이면 누르는 순간 화면이 통째로 비는
+     버튼이다(그 기간은 위에서 기본을 「보임」으로 뒤집어 둔다).
+{% endcomment %}
+if (isolatedIds.size && rawEdges.length) {
+  document.getElementById('graph-iso-count').textContent = isolatedIds.size;
+  paintIsoButton();
+  document.getElementById('graph-iso-wrap').style.display = '';
+}
+
+applyVisibility();
+fitView();
 
 {% comment %}
   진입 안착 애니메이션 (2026-09-07 사용자 지시 — "너무 정적이라 처음에 좀 움직였으면
@@ -480,24 +701,48 @@ function selectEdge(d) {
   htmx.ajax('GET', `/graph/edges/${pkA}/${pkB}/panel/?period=${CURRENT_PERIOD}`, { target: '#org-panel', swap: 'innerHTML' });
 }
 
-{% comment %}범례 클릭 → 타입별 노드/엣지 토글{% endcomment %}
-const hiddenCats = new Set();
+{% comment %}
+  범례 클릭 → 타입별 노드/엣지 토글.
+  🔴 2026-09-17에 네 레이어의 `display` 쓰기를 `applyVisibility`로 옮겼다.
+     이 함수는 이제 상태(`hiddenCats`)와 버튼 흐림만 맡는다. 숨기는 축이 둘이
+     되면서 같은 속성을 두 곳에서 쓰면 나중에 누른 쪽이 앞의 판단을 지운다.
+{% endcomment %}
 function toggleCategory(cat, btn) {
   if (hiddenCats.has(cat)) { hiddenCats.delete(cat); btn.style.opacity = '1'; }
   else                      { hiddenCats.add(cat);    btn.style.opacity = '0.35'; }
+  applyVisibility();
+}
 
-  node.style('display', d => hiddenCats.has(d.category) ? 'none' : null);
-  link.style('display', l =>
-    (hiddenCats.has(l.source.category) || hiddenCats.has(l.target.category)) ? 'none' : null
-  );
-  {% comment %}linkHit(클릭 히트 영역)도 함께 숨겨야 시각적으로 사라진 엣지가 클릭은 되는 불일치가 없다.{% endcomment %}
-  linkHit.style('display', l =>
-    (hiddenCats.has(l.source.category) || hiddenCats.has(l.target.category)) ? 'none' : null
-  );
-  {% comment %}캔버스 라벨 텍스트도 함께 숨긴다 — 카테고리를 숨겼는데 그 라벨 텍스트만 남아있으면 불일치.{% endcomment %}
-  linkLabel.style('display', l =>
-    (hiddenCats.has(l.source.category) || hiddenCats.has(l.target.category)) ? 'none' : null
-  );
+{% comment %}
+  ══ 🔴 선 없는 기업 토글 (2026-09-17) ═════════════════════════════════════
+  ▣ 🔴 상태를 URL에 둔다 (`?iso=1`).
+    이 화면은 기간을 바꾸면 전체 페이지를 다시 읽는다. 그냥 두면 켜 둔 것이
+    날아가므로, 검색어(`q`)를 기간 버튼에 실어 보내는 이 파일의 기존 판단을
+    그대로 쓴다. 덕분에 새로고침에서도 살아남고(주소에 남아 있으므로) 주소를
+    그대로 주면 같은 화면이 뜬다. `localStorage`는 쓰지 않았다 — 이 저장소에
+    쓰는 자리가 없고, 다른 탭과 조용히 어긋난다.
+  ▣ 🔴 주소를 바꾸되 다시 읽지 않는다(`replaceState`). 이 토글은 서버에서 받아올
+    것이 없다. 뷰는 이 값을 모르고, 알 필요도 없다.
+  ▣ Alpine에는 이벤트로만 알린다. 기간 버튼 href를 Alpine이 만들고 있어서 값을
+    전해야 하는데, d3 쪽이 Alpine 내부를 직접 만지지 않는다는 이 파일의 경계를
+    지킨다(아래 검색 절의 같은 규칙).
+{% endcomment %}
+function toggleIsolated() { setIsolated(!showIsolated); }
+
+function setIsolated(on) {
+  if (showIsolated === on) return;
+  showIsolated = on;
+
+  paintIsoButton();
+  applyVisibility();
+  fitView();
+
+  const params = new URLSearchParams(location.search);
+  if (on) params.set('iso', '1');
+  else    params.delete('iso');
+  const qs = params.toString();
+  history.replaceState(null, '', qs ? `?${qs}` : location.pathname);
+  window.dispatchEvent(new CustomEvent('graph-iso', { detail: on }));
 }
 
 window.addEventListener('resize', () => {
@@ -596,6 +841,18 @@ function graphSearch(q) {
   );
   searchIndex = 0;
 
+  {% comment %}
+    🔴 선 없는 기업이 걸리면 감춰 둔 것을 켜 준다 (2026-09-17).
+    범례로 숨긴 타입과 반대로 다룬다. 타입 숨김은 사용자가 「이건 보고 싶지 않다」고
+    직접 고른 것이라 검색이 뒤집지 않는다. 선 없는 기업은 **사용자가 고른 적 없는
+    기본값**이라, 찾는 기업이 거기 있는데 0건으로 답하면 「그 기업이 없다」는
+    거짓말이 된다. 카메라만 옮기고 화면은 비는 상태도 여기서 막힌다.
+    ⚠️ 조용히 바뀌지 않는다 — 버튼이 밝아지고 통계 숫자가 같이 올라간다.
+    ▣ 켠 직후 전체 맞춤이 다시 걸려 대개 그 노드가 화면 안에 들어오므로,
+      아래 focusNode는 카메라를 옮기지 않고 강조 링만 그린다.
+  {% endcomment %}
+  if (!showIsolated && searchMatches.some(n => isolatedIds.has(n.id))) setIsolated(true);
+
   if (!searchMatches.length) { graphSearchReset(); return 0; }
 
   const ids = new Set(searchMatches.map(n => n.id));
@@ -622,6 +879,12 @@ function graphSearchClear() { graphSearch(''); }
 function graphSearchBar() {
   return {
     q: new URLSearchParams(location.search).get('q') || '',
+    {% comment %}
+      🔴 기간 버튼에 실어 보내려고만 들고 있는 값이다. 이 값을 바꿔서 그래프를
+         움직이지 않는다 — 정본은 d3 쪽 `showIsolated`이고, 여기로는
+         `graph-iso` 이벤트를 타고 결과만 내려온다(아래 x-data 속성).
+    {% endcomment %}
+    iso: new URLSearchParams(location.search).get('iso') === '1',
     total: 0,
     pos: 0,
     init() { if (this.q) this.run(); },
@@ -643,6 +906,7 @@ function graphSearchBar() {
       const s = new URLSearchParams();
       s.set('period', p);
       if (this.q.trim()) s.set('q', this.q.trim());
+      if (this.iso) s.set('iso', '1');
       return '?' + s.toString();
     },
   };

@@ -77,7 +77,7 @@ def _is_dead_link(url: str) -> bool:
         return False
 
 
-def collect_newsroom(newsroom, on_progress=None) -> dict:
+def collect_newsroom(newsroom, on_progress=None, should_stop=None, on_heartbeat=None) -> dict:
     """뉴스룸 전용 수집 파이프라인(docs/planning.md 뉴스룸 정책 3·4번 + 6번 표 코드 필터).
 
     본 수집 파이프라인(services/collector.py의 collect_naver())과 완전히 분리된 경로다 —
@@ -122,6 +122,14 @@ def collect_newsroom(newsroom, on_progress=None) -> dict:
     on_progress: services/collector.py의 collect_naver()와 같은 계약 — 키워드 1개
     처리를 마칠 때마다(성공/실패 무관) 인자 없이 호출된다. services/runner.py가
     RunJob 하트비트를 갱신하는 자리다.
+
+    should_stop: 🔴 2026-09-16 23차 개정(docs/planning.md 「SET-010 실행 중단」) —
+    collect_naver()와 같은 계약. 키워드 1개 처리를 마칠 때마다 호출되고, True를
+    반환하면 다음 키워드로 넘어가지 않고 멈춘다.
+
+    on_heartbeat: 🔴 2026-09-17 신설(collect_naver()와 같은 사고 배경) — 기사 한
+    건을 살필 때마다 호출된다. 키워드 하나 안에서 느린 크롤이 이어지는 동안에도
+    하트비트가 자주 올라가야, "죽었다"는 오판이 나지 않는다.
     """
     if not settings.NAVER_CLIENT_ID or not settings.NAVER_CLIENT_SECRET:
         return {"collected": 0, "skipped_dup": 0, "skipped_filter": 0, "skipped_excluded": 0,
@@ -153,12 +161,18 @@ def collect_newsroom(newsroom, on_progress=None) -> dict:
             stats["errors"].append(f"수집 실패 ({kw.keyword}): {e}")
             if on_progress:
                 on_progress()
+            if should_stop and should_stop():
+                break
             continue
         finally:
             if delay > 0:
                 time.sleep(delay)
 
         for item in items:
+            # 🔴 2026-09-17 신설 — collect_naver()와 같은 자리(services/collector.py
+            # 참고). continue로 일찍 건너뛰는 기사도 빠짐없이 부른다.
+            if on_heartbeat:
+                on_heartbeat()
             title = _strip_html(item.get("title", ""))
             desc = _strip_html(item.get("description", ""))
             original_url = item.get("originallink") or ""
@@ -233,5 +247,7 @@ def collect_newsroom(newsroom, on_progress=None) -> dict:
 
         if on_progress:
             on_progress()
+        if should_stop and should_stop():
+            break
 
     return stats

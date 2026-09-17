@@ -213,14 +213,33 @@ def _link_tech_topics(news: News, text: str, topics: list[TechTopic]) -> None:
     news.tech_topics.set(_find_matching_entities(text, topics))
 
 
-def collect_naver(on_progress=None) -> dict:
+def collect_naver(on_progress=None, should_stop=None, on_heartbeat=None) -> dict:
     """on_progress: 키워드 1개 처리(성공 또는 실패)를 마칠 때마다 인자 없이 호출되는
-    콜백. services/runner.py가 이 자리에 걸어 RunJob 하트비트와 처리 건수를 갱신한다
+    콜백. services/runner.py가 이 자리에 걸어 RunJob 처리 건수(및 하트비트)를 갱신한다
     (docs/planning.md "실행 모델" 3-(e)). 이번 라운드는 기사 건별이 아니라 키워드 건별
     이다 — collect_naver()의 기존 아이템 루프 안에는 진행 신호를 보낼 지점이 여러 개라
     (필터·중복·제외 등 continue 지점이 다섯 곳) 건드리면 동작 검증된 로직을 건드리는
     범위가 커진다. 키워드 개수(19개 실측, 2026-09-14)가 곧 대상 건수가 되는 이 단위로도
-    하트비트 목적(멈췄는지 판정)은 충분히 달성된다."""
+    진행 표시 목적은 충분히 달성된다. 🔴 다만 "멈췄는지 판정"(하트비트)까지는
+    이 간격만으로 충분하지 않다는 것이 아래 on_heartbeat가 생긴 이유다.
+
+    should_stop: 🔴 2026-09-16 23차 개정(docs/planning.md 「SET-010 실행 중단」) — 키워드
+    1개 처리를 마칠 때마다(on_progress와 같은 자리) 인자 없이 호출되는 콜백. True를
+    반환하면 다음 키워드로 넘어가지 않고 즉시 멈춘다 — "지금 하고 있는 키워드 한 개가
+    끝나면 멈춘다"는 계약이 이 자리에서 지켜진다.
+
+    on_heartbeat: 🔴 2026-09-17 신설(오늘 실측 사고, RunJob pk150) — **키워드가 아니라
+    기사 한 건**을 살필 때마다(느린 크롤 도중에도) 인자 없이 호출되는 콜백. 하트비트를
+    on_progress와 같은 자리(키워드 하나 끝)에서만 올리면, 한 키워드 안에서 기사 여러
+    건을 순차로 크롤하는 동안(건마다 최대 8+30+8=46초, `services/crawler.py`
+    `fetch_article_body()`의 세 단계 타임아웃 합) 하트비트가 오래 안 올라간다. 실제로
+    9번째 키워드까지 39초(키워드당 평균 4.3초)이던 배치가 10번째 키워드에서 185초를
+    넘겨 `HEARTBEAT_STALE_SECONDS`에 걸려 죽은 것으로 오판됐다 — 살아서 크롤하고
+    있었을 뿐이다. 아이템 루프 맨 앞에서 부르는 이유는 continue로 일찍 건너뛰는
+    기사(제외·중복 등)에서도 빠짐없이 불려야, 다음 기사의 느린 크롤이 시작되기
+    직전까지의 간격이 항상 좁게 유지되기 때문이다. 실제 DB 쓰기 빈도는
+    services/runner.py의 호출부가 초 단위로 묶어(스로틀) 낮춘다 — 이 함수는 그냥
+    부르기만 하면 된다."""
     if not settings.NAVER_CLIENT_ID or not settings.NAVER_CLIENT_SECRET:
         return {"collected": 0, "skipped_dup": 0, "skipped_filter": 0, "skipped_excluded": 0,
                 "crawled": 0, "crawl_failed": 0, "errors": ["Naver API key not configured"]}
@@ -253,12 +272,19 @@ def collect_naver(on_progress=None) -> dict:
             stats["errors"].append(f"수집 실패 ({kw.keyword}): {e}")
             if on_progress:
                 on_progress()
+            if should_stop and should_stop():
+                break
             continue
         finally:
             if delay > 0:
                 time.sleep(delay)
 
         for item in items:
+            # 🔴 2026-09-17 신설 — 기사 한 건을 살피기 시작할 때마다 부른다.
+            # continue로 일찍 건너뛰는 기사도 빠짐없이 부르므로, 다음에 오는 느린
+            # 크롤(최대 46초) 앞뒤로 하트비트 간격이 벌어지지 않는다.
+            if on_heartbeat:
+                on_heartbeat()
             title        = _strip_html(item.get("title", ""))
             desc         = _strip_html(item.get("description", ""))
             original_url = item.get("originallink") or ""
@@ -329,11 +355,13 @@ def collect_naver(on_progress=None) -> dict:
 
         if on_progress:
             on_progress()
+        if should_stop and should_stop():
+            break
 
     return stats
 
 
-def run_collection(actor: str, on_progress=None) -> dict:
+def run_collection(actor: str, on_progress=None, should_stop=None, on_heartbeat=None) -> dict:
     """수집 진입점 단일화 지점(docs/planning.md "수집 파이프라인 관측성 정책" 2번).
 
     collect_naver()를 부르는 모든 호출부는 반드시 이 함수를 거쳐야 한다. 호출부에 로그
@@ -368,7 +396,7 @@ def run_collection(actor: str, on_progress=None) -> dict:
     """
     started_at = timezone.now()
     try:
-        stats = collect_naver(on_progress=on_progress)
+        stats = collect_naver(on_progress=on_progress, should_stop=should_stop, on_heartbeat=on_heartbeat)
     except Exception as e:
         stats = {"collected": 0, "skipped_dup": 0, "skipped_filter": 0, "skipped_excluded": 0,
                   "crawled": 0, "crawl_failed": 0, "errors": [f"수집 중 처리되지 않은 예외: {e}"]}

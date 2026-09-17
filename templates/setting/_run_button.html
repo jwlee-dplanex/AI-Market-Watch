@@ -1,7 +1,10 @@
 {% comment %}
-  SET-010 실행 버튼 한 개 (docs/design.md "SET-010 · 실행" 19차 개정).
+  SET-010 노드 버튼 한 개 (docs/design.md "SET-010 · 실행" 19차·23차 개정).
   🔴 2026-09-16 18차 개정에서 _run_node.html의 버튼 markup을 이 파일로 빼냈고,
      같은 날 19차 개정에서 variant('secondary')를 걷어냈다.
+  🔴 2026-09-16 23차 개정에서 running 갈래가 잠긴 "실행 중"에서 **중단 버튼**이
+     됐다. 파일 이름은 그대로지만 이제 이 파일이 그리는 것은 「그 노드에서 지금
+     누를 수 있는 버튼 하나」다.
 
   ▣ 🔴 19차 — **이 파일은 이제 「실행 버튼」 하나만 그린다**
     18차는 review 노드에 [결과 검토하기]와 [실행]을 나란히 뒀는데, 그 공존이
@@ -26,10 +29,15 @@
                 않는다. 한 노드에서 둘을 그리게 고치면 id가 중복돼 hx-indicator가
                 엉뚱한 스피너를 돌린다.
     outline  True면 테두리 버튼(4, 5단계 가지 노드)
+             ⚠️ 🔴 23차 — **중단 갈래는 이 인자를 보지 않는다.** outline은 실행
+                버튼의 위계를 가르는 값이고, 중단은 어느 노드에서나 같은 무게다.
     dimmed   다른 노드가 실행 중이면 True — 버튼을 잠근다
+             ⚠️ 🔴 23차 — **중단 갈래도 이 인자를 보지 않는다.** dimmed는 "다른
+                노드가 돌고 있다"는 뜻이라 state=='running'인 본인 노드에서는
+                애초에 False다. 여기서 다시 보면 조건만 두 벌이 된다.
 
-  🔴 갈래 셋은 18차 이전과 한 글자도 다르지 않다
-       ① running          잠김 + "실행 중"
+  🔴 갈래 셋
+       ① running          🔴 23차 — **중단 버튼이 선다**(아래 블록)
        ② 실행 가능        hx-post 붙은 살아 있는 버튼
        ③ 그 밖           잠김 + block_reason을 title로
      🔴 **can_run을 그대로 쓴다. 이 파일에 새 조건을 만들지 말 것**
@@ -38,16 +46,103 @@
 
 {% if job.state == 'running' %}
 {% comment %}
-  실행 중인 본인 노드. 다른 노드가 막힌 이유("다른 작업이 실행 중이에요")와
-  말이 달라야 해서 분기를 따로 뒀다. 진행 상황은 노드의 진행 줄이 말한다.
+  ══════════════════════════════════════════════════════════════════════
+  🔴 2026-09-16 23차 개정 — **실행 중인 노드의 버튼이 「중단」이 된다**
+  ══════════════════════════════════════════════════════════════════════
+  정책 정본은 docs/planning.md 「SET-010 실행 중단」이다. 사용자가 여러 번
+  요구했다 — "중간에 실행 취소 혹은 중단은 어떻게 해? 버튼이 없는데?" /
+  "실행 취소 버튼을 만들어야지".
+
+  🔴 19차 「버튼은 노드당 하나」를 깨지 않는다. 자리를 늘린 것이 아니라 갈아 끼웠다
+    종전 이 자리에는 **잠긴 "실행 중" 버튼**이 있었다. 그 버튼은 아무 일도
+    하지 않으면서 32px을 차지했고, 하는 말("실행 중")은 같은 노드가 이미
+    세 곳에서 하고 있었다 — 노랑 배지, 도는 스피너, 보더 스네이크.
+    🔴 그래서 **네 번째로 같은 말을 하던 자리**를 실제로 누를 수 있는 것으로
+       바꾼 것이고, 노드의 버튼 수는 여전히 하나다.
+    ⚠️ 실행 버튼과 중단 버튼이 한 노드에 나란히 서는 갈래를 만들지 말 것.
+       running이면 실행은 정의상 불가능하고(전역 실행 잠금), 그 둘이 함께
+       서는 순간 19차가 없앤 공존이 다른 이름으로 돌아온다.
+
+  🔴 「취소」라고 쓰지 않는다. 이 앱에서 「취소됨」은 **제안을 확정하지 않고
+     버린 것**을 뜻한다(검토 화면의 「모두 취소」). 실행을 멈추는 일과 판정
+     결과를 버리는 일은 다른 사건이고, 같은 낱말을 주면 **멈추면 결과가
+     사라지는 줄로 읽힌다.** 실제로는 정반대다 — 멈춰도 그때까지 만든 제안은
+     그대로 남고, 다시 누르면 이어한다(planning 3번).
+
+  🔴 주 동작보다 약하게 보인다. 실행 버튼의 보라를 쓰지 않았다
+    이 자리는 사람이 평소에 누르는 곳이 아니다. 실행 버튼과 같은 무게로
+    칠하면 「실행 중일 때의 기본 동작이 중단」인 것처럼 읽힌다.
+    ⚠️ outline 인자를 여기서 보지 않는다. outline은 **실행 버튼의 위계**를
+       가르려고 만든 것이고(4, 5단계 가지 노드), 중단은 어느 노드에서나
+       같은 무게여야 한다. 잠긴 보라 버튼이 서면 그게 주 동작으로 보인다.
+    ⚠️ 빨강이나 주황으로 칠하지 않았다. 사람이 일부러 누르는 것이라 사고가
+       아니고(planning 2번 마지막 문단), 그 둘은 이 앱에서 사고 색이다.
+
+  🔴 확인 대화상자를 붙이지 않는다 (planning 4번)
+    확인이 지키는 것이 하나도 없다 — 이미 쓴 토큰은 못 막고(확인을 읽는
+    동안에도 쌓인다), 만들어 둔 제안은 사라지지 않으며, 중단은 DB에
+    아무것도 반영하지 않는다. 오눌림은 **누르면 즉시 잠기는 것**과
+    **다시 누르면 이어서 도는 것**으로 막는다. 복구 비용이 클릭 한 번이다.
+    ⚠️ 검토 화면의 「모두 취소」에는 확인이 붙어 있다. 정반대 결론이고 근거는
+       같다 — 그쪽은 이미 돈을 쓴 산출물을 되돌릴 수 없이 버린다.
+
+  🔴 갈래 셋. 순서를 바꾸지 말 것
+    ① stopping        잠김 + "멈추는 중"   이미 요청이 들어갔다
+    ② stop_url 있음   살아 있는 중단 버튼
+    ③ 그 밖           잠김 + "중단"        배치 1호출이라 멈출 자리가 없다
+    🔴 ③을 숨기지 않고 잠근 채 보이는 이유 셋(planning 1번)
+       ⓐ 숨기면 「아직 안 만들었나 보다」로 읽힌다. 교보 4단계에서 이미 같은
+          문제를 겪었다 — 안 만든 것과 만들 수 없는 것이 같은 모양이면
+          구분이 사라진다.
+       ⓑ 아홉 노드의 생김새가 같아야 훑을 수 있다. 어떤 노드에만 버튼이
+          없으면 눈이 그 자리에서 멈춘다.
+       ⓒ 막다른 길을 만들지 않는다. 잠긴 버튼은 "여기서 멈추는 길을 찾지
+          마세요"까지 말해 준다. 아무것도 없으면 사용자가 계속 찾는다.
+    ⚠️ ③은 「아직」이나 「준비 중」으로 읽히는 낱말을 쓰지 않는다. 만들 수
+       없는 것이지 안 만든 것이 아니다 — 배치 전체가 LLM 1호출이라 코드가
+       손댈 지점이 아예 없다.
+
+  🔴 두 번째 클릭을 강제 종료로 승격시키지 말 것 (planning 0번, 5-4)
+     돌고 있는 워커 스레드를 바깥에서 안전하게 죽이는 길이 없고, 억지로
+     잠금만 풀면 스레드 둘이 같은 대상을 동시에 처리한다. 잠긴 버튼은
+     잠긴 채로 둔다. 끝내 안 멈추면 하트비트가 정리한다.
+
+  ⚠️ 스피너 id는 실행 버튼과 같은 run-spinner-{{ key }}를 쓴다. 한 노드에서
+     이 파일은 한 번만 렌더되고 갈래도 하나만 그리므로 id가 겹치지 않는다.
 {% endcomment %}
+{% if job.stopping %}
 <button type="button" disabled
-        title="지금 실행하고 있어요"
-        class="w-full flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-medium rounded-[10px] opacity-40 cursor-not-allowed
-               {% if outline %}border border-primary text-primary bg-white
-               {% else %}bg-primary text-white{% endif %}">
-  실행 중
+        title="지금 하고 있는 한 건이 끝나면 멈춰요"
+        class="w-full flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-medium rounded-[10px] border border-[#E5E5E5] bg-white text-gray-500 opacity-40 cursor-not-allowed">
+  멈추는 중
 </button>
+
+{% elif job.stop_url %}
+<button type="button"
+        hx-post="{{ job.stop_url }}"
+        hx-target="#run-graph"
+        hx-swap="outerHTML"
+        hx-include="[name=csrfmiddlewaretoken]"
+        hx-indicator="#run-spinner-{{ key }}"
+        hx-disabled-elt="this"
+        title="지금 하고 있는 한 건이 끝나면 멈춰요. 여기까지 만든 결과는 그대로 남아요"
+        class="w-full flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-medium rounded-[10px] border border-[#E5E5E5] bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors">
+  <span id="run-spinner-{{ key }}" class="htmx-indicator items-center">
+    <svg class="animate-spin w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+    </svg>
+  </span>
+  중단
+</button>
+
+{% else %}
+<button type="button" disabled
+        title="{{ job.stop_block_reason|default:'이 단계는 한 번에 처리해서 중간에 멈출 수 없어요' }}"
+        class="w-full flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-medium rounded-[10px] border border-[#E5E5E5] bg-white text-gray-500 opacity-40 cursor-not-allowed">
+  중단
+</button>
+{% endif %}
 
 {% elif job.can_run and job.run_url and not dimmed %}
 {% comment %}

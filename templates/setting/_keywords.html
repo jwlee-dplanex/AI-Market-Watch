@@ -144,7 +144,13 @@
         <h2 class="text-sm font-semibold text-gray-900 flex items-center gap-2">
           <i data-lucide="ban" class="w-4 h-4 text-[#FF6C0E]"></i> 제외 키워드
         </h2>
-        <p class="text-xs text-gray-400 mt-0.5">제목이나 요약에 있으면 저장하기 전에 걸러내요</p>
+        {% comment %}
+          🔴 2026-09-16 문체 정리 — 「…저장하기 전에 걸러내요」에서 명사형으로 바꿨다.
+          카드 설명은 이름표에 가까운 자리라 문어체 명사형이 규약이다(docs/design.md 1.0.3).
+          위 수집 키워드 카드의 같은 자리가 이미 「네이버 뉴스에 직접 요청할 검색 쿼리」라
+          명사형이었고, 한 화면에서 같은 자리의 두 줄이 다른 문체로 서 있었다.
+        {% endcomment %}
+        <p class="text-xs text-gray-400 mt-0.5">저장하기 전에 제목이나 요약에서 걸러낼 낱말</p>
       </div>
     </div>
     <table class="w-full text-sm">

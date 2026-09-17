@@ -223,8 +223,23 @@ class NewsroomArticleQuerySet(models.QuerySet):
         1단계 내내 빈 화면이 된다. 뉴스룸마다 독립적으로 판정되며(전역 스위치 아님),
         첫 필터 실행으로 판정 이력이 한 건이라도 생기면 이 예외는 **코드 수정 없이**
         스스로 닫히고 게이트는 원래 형태(passed만)로 돌아간다.
+
+        중복 배제(2026-09-17, 사용자 결정 "목록이 대표만 보이게 한다"): `duplicate_of`가
+        채워진 기사(대표가 아니라 같은 사건의 나머지)는 여기서 제외한다. 행 자체는
+        지우지 않는다 — 교보 축에는 재수집 차단 장치(ExcludedURL 대응물)가 없어
+        지우면 다음 수집에 그대로 다시 들어오고, 뉴스룸은 애초에 사람 삭제 기능이
+        없다(정책 9번 결정 ⑧). 이 큐어리셋 하나가 ROOM-002 목록, `article_count`
+        캡션, ROOM-003 이전/다음(`_adjacent_article()`)을 전부 통과하므로 대표 하나만
+        보이는 것이 세 자리 모두에서 자동으로 같이 맞는다 — 손으로 세 곳을 따로
+        고치면 반드시 어긋난다(위 `article_count` docstring과 같은 이유).
+
+        SET-009 관리 화면은 이 메서드를 쓰지 않는다(예: `pending_count`,
+        `apps/setting/views.py`의 적체 줄) — 그 화면은 "무엇을 판정해야 하는가"를
+        보여주는 운영 화면이라 대표든 중복이든 실제로 쌓인 기사 전량이 근거가 돼야
+        한다. 여기서 중복을 걸러도 그 화면들은 원래 이 게이트를 거치지 않으므로
+        영향이 없다.
         """
-        base = self.filter(newsroom=newsroom)
+        base = self.filter(newsroom=newsroom, duplicate_of__isnull=True)
         if base.judged().exists():
             return base.filter(filter_status=NewsroomArticle.STATUS_PASSED)
         return base
@@ -420,7 +435,13 @@ class NewsroomMessage(models.Model):
     STATUS_FAILED = "failed"
     STATUS_CHOICES = [
         (STATUS_DRAFT, "초안"),
-        (STATUS_SENT_MANUAL, "수동 발송함"),
+        # 🔴 "수동 발송함"에서 "발송 표시"로 옮겼다(2026-09-16 PE 판단, docs/design.md
+        # SET-009 절 22차 정렬 항목). 실제로 Slack에 보낸 것이 아니라 사람이
+        # "보냈다"고 화면에 표시한 것이라, "발송함"이라고 하면 시스템이 보낸 것처럼
+        # 읽힌다. 시각 캡션이 이미 "09/16 11:14 발송 표시"로 정리돼 있어 같은
+        # 낱말로 맞췄다 — 배지도 이름표 자리라 문어체 명사형이어야 하는데(1.0.3),
+        # "표시"는 초안·실패처럼 순수 명사라 그 규칙에도 맞는다.
+        (STATUS_SENT_MANUAL, "발송 표시"),
         (STATUS_SENT_AUTO, "자동 발송함"),
         (STATUS_FAILED, "실패"),
     ]
@@ -460,7 +481,7 @@ class NewsroomMessage(models.Model):
 
     @property
     def status_label(self):
-        """SET-009 발송 섹션이 그대로 찍는 배지 문구("초안"/"수동 발송함"/"실패").
+        """SET-009 발송 섹션이 그대로 찍는 배지 문구("초안"/"발송 표시"/"실패").
         choices의 한국어 라벨을 그대로 쓴다 — 템플릿이 문자열을 하드코딩하지
         않는다."""
         return self.get_status_display()

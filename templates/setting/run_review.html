@@ -42,7 +42,9 @@
 
  review          dict. 아래 키를 가진다. 전부 없어도 화면은 빈 상태로 정상 렌더된다.
 
-   job_label     화면 제목. 예) "2단계 뉴스 정리"
+   job_label     화면 제목. 🔴 노드 라벨과 **글자 그대로 같아야 한다.**
+                 예) "2단계 관련성 판정"  (2026-09-16 22차에 "2단계 뉴스 정리"
+                 에서 바뀌었다. 정본은 _run_graph.html의 label= 인자다)
    back_url      실행 화면(SET-010)으로 돌아가는 URL 문자열.
    confirm_url   확정 POST URL 문자열. 비어 있으면 확정 버튼이 비활성이 된다.
    cancel_url    "모두 취소"(제안 폐기) POST URL 문자열. 비어 있으면 버튼을 감춘다.
@@ -125,7 +127,7 @@
      summary     🔴 2026-09-14 신설. 이 단계가 한 일을 한 줄로 말한다.
                  예) "기사마다 관련성을 판정했어요"  예) "같은 사건을 이슈로 묶었어요"
                  어미는 해요체, 낱말은 문어체 명사형이다(실행 화면 노드 설명과 같은 격).
-                 없으면 job_label("2단계 뉴스 정리")로 떨어지고 그것도 없으면 기본 문구다.
+                 없으면 job_label("2단계 관련성 판정")로 떨어지고 그것도 없으면 기본 문구다.
      prompt_version  RunJob.prompt_version 값 그대로. 예) "cleanup-2026-09-14b"
                  🔴 화면 본문에는 찍지 않는다. ② 칸 제목의 title 속성으로만 들어간다
                     (2026-09-14 사용자 지적 "사용자들이 보는거야"). 내부 버전 문자열이라
@@ -288,10 +290,43 @@
                      admin_url   그 축의 등록 화면 URL 문자열. 기업은 SET-007,
                                  기술 주제는 SET-008. 🔴 뷰가 축을 보고 이미 골라 담는다.
                                  비어 있으면 그 축 그룹의 링크만 사라진다.
+                     🔴 proposal_id   2026-09-16 23차 신설. RunProposal의 pk(int).
+                                 등록 컨트롤 묶음의 id와 hx-target·hx-include가 전부
+                                 이 값으로 만들어진다. ⚠️ **한 화면에서 유일해야 한다.**
+                                 비면 id가 tagcand-로 겹쳐 버튼이 남의 줄을 갈아끼운다.
+                     🔴 register_url  2026-09-16 23차 신설. 이 후보 하나를 등록하는
+                                 POST URL 문자열. 비면 그 줄의 등록 자리만 사라지고
+                                 화면은 23차 이전과 같아진다.
+                                 🔴 받는 값 — cand_org_type(기업 축만, 필수) /
+                                    cand_aliases(선택, 쉼표 구분).
+                                    **이름은 받지 않는다.** 뷰가 proposal에서 꺼낸다.
+                                 🔴 **remap을 부르지 않는다.** 새 기업을 등록해도 이미
+                                    수집한 기사에 소급 태깅하지 않는다 —
+                                    remap_organizations()는 사람이 손으로 고친 태그를
+                                    되돌린다. 화면에도 그 선택지를 두지 않았다.
+                                 🔴 돌려주는 것은 컨트롤 묶음을 대신할 **짧은 조각**이다.
+                                    성공하면 "등록했어요", 값이 모자라면 그 이유를 적은
+                                    줄과 함께 입력을 다시 그린다.
+                                    ⚠️ 조각에 <i data-lucide>를 넣지 말 것. swap 뒤에
+                                       createIcons를 다시 돌리지 않으면 빈 칸이 된다.
+                                 ⚠️ 이미 같은 이름이 등록돼 있으면 새로 만들지 말고
+                                    "이미 등록돼 있어요"로 답한다. 중복 생성은 태그
+                                    축을 지키려고 만든 이 종류의 목적과 반대다.
+   🔴 org_types     2026-09-16 23차 신설. (value, label) 쌍의 목록. 기업 후보 줄의
+                    유형 선택에 쓴다. **SET-007이 쓰는 것과 같은 출처여야 한다** —
+                    두 화면이 다른 목록을 보이면 여기서 고른 유형이 그쪽에 없다.
+                    비면 선택지가 "유형 선택" 하나뿐이 되고, 그 상태로 누르면 뷰가
+                    유형 없음으로 되돌려준다.
                    🔴 이 목록은 확정 대상이 아니다. 체크박스도 hidden input도 없다.
-                      확정을 눌러도 등록이 일어나지 않는다. 사람이 SET-007이나 SET-008에서
-                      직접 등록하라는 알림이다(docs/planning.md 4-(b) "미등록 태그는
-                      제안만 하고 등록하지 않는다").
+                      확정을 눌러도 등록이 일어나지 않는다. 🔴 **2026-09-16 23차에도
+                      이 사실은 그대로다** — 등록은 줄마다 붙은 「등록」 버튼을 눌러야
+                      일어나고, 확정과는 다른 동작이다(docs/planning.md 4-(b) "미등록
+                      태그는 제안만 하고 등록하지 않는다").
+                   🔴 23차 — 등록 입력의 name에 cand_ 접두를 붙였다. 확정 버튼이
+                      hx-include="#review-form"으로 이 카드까지 걷어 가므로 **확정
+                      요청에 이 값들이 함께 실려 간다.** 확정 뷰는 cand_로 시작하는
+                      키를 무시한다. 또한 이 입력들에 required를 붙이지 않는다 —
+                      비어 있는 required가 폼 안에 있으면 확정이 조용히 막힐 수 있다.
                    ⚠️ 정렬은 템플릿이 dictsort로 축에 맞춰 한 번 더 건다. 뷰가 제안 순서
                       (기사 발행일 역순)로 내려보내 축이 섞여 있어도 그룹 머리가 반복되지
                       않게 하려는 것이다. 뷰 쪽 정렬을 따로 요구하지 않는다.
@@ -740,7 +775,7 @@
     {% comment %} ② 무엇을 했나 {% endcomment %}
     <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-4">
       <p class="text-[10px] font-semibold text-gray-400 tracking-wide"
-         {% if review.step.prompt_version %}title="판정에 쓴 프롬프트 {{ review.step.prompt_version }}"{% endif %}>AI가 한 일</p>
+         {% if review.step.prompt_version %}title="판정에 쓴 프롬프트 {{ review.step.prompt_version }}"{% endif %}>AI 작업</p>
       <p class="text-sm font-semibold text-gray-900 mt-1.5">
         {{ review.step.summary|default:review.job_label|default:"AI가 기사를 판정했어요" }}
       </p>
@@ -796,7 +831,15 @@
 
     {% comment %} ③ 무엇이 나왔나 {% endcomment %}
     <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-4">
-      <p class="text-[10px] font-semibold text-gray-400 tracking-wide">AI가 낸 제안</p>
+      {% comment %}
+        🔴 2026-09-16 문체 정리 — 세 카드 이름표를 명사형 한 벌로 맞췄다.
+          검토 대상 / AI 작업 / AI 제안
+        종전은 「검토 대상 / AI가 한 일 / AI가 낸 제안」이라 둘만 관형절이었다.
+        이름표 자리는 문어체 명사형이 규약이다(docs/design.md 1.0.3).
+        ⚠️ 카드 안의 문장들(「새로 쓴 이슈 초안 6건」 등)은 이름표가 아니라 수치
+           문장이라 그대로 둔다. 같은 절의 예외 항목 참고.
+      {% endcomment %}
+      <p class="text-[10px] font-semibold text-gray-400 tracking-wide">AI 제안</p>
       <div class="mt-1.5 space-y-0.5 text-xs">
         {% comment %}
           🔴 2026-09-15 수정 — 여기도 None 비교로 바꿨다(위 "검토 대상" 칸과 같은 유형).
@@ -1094,8 +1137,14 @@
                   {% if item.news_range %}<span class="text-gray-300">|</span>{{ item.news_range }}{% endif %}
                 </span>
                 {% else %}
+                {% comment %}
+                  🔴 2026-09-16 문체 정리 — 배지는 명사형이다(docs/design.md 1.0.3).
+                  바로 위 갈래가 「근거 기사 3건」이라 없을 때도 같은 격으로 읽혀야 한다.
+                  「근거 기사가 없어요」로 되돌리지 말 것 — 주황이 말하는 경고는 색과
+                  낱말이 이미 지고 있고, 문장으로 늘리면 한 자리에 두 문체가 섞인다.
+                {% endcomment %}
                 <span class="text-[10px] px-2 py-0.5 rounded-full bg-orange-50 text-orange-600 whitespace-nowrap">
-                  근거 기사가 없어요
+                  근거 기사 없음
                 </span>
                 {% endif %}
               </div>
@@ -1331,16 +1380,18 @@
                 {% if item.date_from and item.date_to %}
                 <span class="text-xs text-gray-500 whitespace-nowrap">기간 {{ item.date_from|date:"Y.m.d" }} ~ {{ item.date_to|date:"Y.m.d" }}</span>
                 {% else %}
+                {% comment %}🔴 배지는 명사형이다(docs/design.md 1.0.3). 위 갈래 「기간 …」과 같은 격.{% endcomment %}
                 <span class="text-[10px] px-2 py-0.5 rounded-full bg-orange-50 text-orange-600 whitespace-nowrap">
-                  대상 기간을 받지 못했어요
+                  대상 기간 없음
                 </span>
                 {% endif %}
 
                 {% if item.news_count %}
                 <span class="text-xs text-gray-400 whitespace-nowrap">근거 기사 {{ item.news_count }}건</span>
                 {% else %}
+                {% comment %}🔴 배지는 명사형이다(docs/design.md 1.0.3). 위 갈래 「근거 기사 N건」과 같은 격.{% endcomment %}
                 <span class="text-[10px] px-2 py-0.5 rounded-full bg-orange-50 text-orange-600 whitespace-nowrap">
-                  근거 기사가 없어요
+                  근거 기사 없음
                 </span>
                 {% endif %}
               </div>
@@ -1507,8 +1558,14 @@
     {% if review.tag_candidates %}
     <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm">
       <div class="px-5 py-4 border-b border-gray-100">
+        {% comment %}
+          🔴 2026-09-16 문체 정리 — 「아직 등록되지 않은 태그」에서 명사형으로 줄였다.
+          카드 제목은 문어체 명사형이 규약이다(docs/design.md 1.0.3). 「아직」이 지던
+          몫은 바로 아래 두 문장이 그대로 진다("…목록에 없는 이름이에요. 확정을 눌러도
+          자동으로 등록되지 않아요"). 제목과 부제가 같은 말을 두 번 하지 않는다.
+        {% endcomment %}
         <h3 class="text-sm font-semibold text-gray-900 flex items-center gap-2">
-          아직 등록되지 않은 태그
+          미등록 태그
           <span class="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-normal">알림</span>
         </h3>
         {% comment %}
@@ -1518,9 +1575,29 @@
           🔴 "기업 목록에 없는"을 "기업이나 기술 주제 목록에 없는"으로 고쳤다. 축이 둘인데
              한쪽만 말하면 기술 주제 후보를 본 사람이 어디에 등록해야 하는지 알 수 없다.
         {% endcomment %}
+        {% comment %}
+          🔴 2026-09-16 23차 — 마지막 문장이 바뀌었다.
+             종전  "필요하면 직접 추가해 주세요"   → 화면 밖으로 내보내는 말이었다
+             현행  "여기서 바로 등록할 수 있어요"  → 이 화면 안에서 끝난다
+          🔴 앞 두 문장은 한 글자도 안 바꿨다. **확정을 눌러도 자동으로 등록되지
+             않는다는 사실은 그대로**이고, 등록은 아래 줄의 버튼을 눌러야 한다.
+             확정과 등록이 다른 동작이라는 것이 이 카드의 알맹이다.
+        {% endcomment %}
         <p class="text-xs text-gray-500 mt-1 leading-relaxed">
           기사에서 핵심 주체로 보였는데 기업이나 기술 주제 목록에 없는 이름이에요.
-          확정을 눌러도 자동으로 등록되지 않아요. 필요하면 직접 추가해 주세요.
+          확정을 눌러도 자동으로 등록되지 않아요. 여기서 바로 등록할 수 있어요.
+        </p>
+        {% comment %}
+          🔴 소급 적용을 하지 않는다는 사실을 카드 머리에서 한 번 말한다.
+             자리가 여기인 이유 — 줄마다 반복하면 열여섯 번 같은 문장이 뜨고,
+             반복되는 경고는 읽히지 않게 된다(축 그룹 머리를 만든 것과 같은 판단).
+          🔴 재매핑을 여기서 권하지 않는다. remap_organizations()는 **사람이 손으로
+             고친 태그를 되돌린다.** 그래서 기업을 새로 등록할 때 기본은 미실행이고,
+             이 화면은 그 규칙을 어길 수단 자체를 갖지 않는다(체크박스도 안 둔다).
+             재매핑이 필요한 날에는 SET-007의 「기업 재매핑」 버튼이 그 자리다.
+        {% endcomment %}
+        <p class="text-xs text-gray-400 mt-1 leading-relaxed">
+          등록해도 이미 수집한 기사에는 붙지 않아요. 다음에 수집하는 기사부터 반영돼요.
         </p>
       </div>
 
@@ -1563,6 +1640,58 @@
       </div>
 
       <div class="divide-y divide-gray-50">
+        {% comment %}
+          ══════════════════════════════════════════════════════════════════
+          🔴 2026-09-16 23차 개정 — **이 줄에서 바로 등록한다**
+          ══════════════════════════════════════════════════════════════════
+          종전에는 그룹 머리의 「기업 관리로 가기」 링크뿐이었다. 후보 열둘을
+          등록하려면 새 화면으로 가서 이름을 손으로 옮겨 적고 돌아오기를 열두 번
+          했고, **옮겨 적는 동안 오타가 나면 다음 실행에서 같은 후보가 또 뜬다.**
+          여기 이미 정확한 이름이 있으므로 그 이름을 그대로 쓴다.
+          🔴 그룹 머리의 링크는 **걷지 않았다.** 목록을 보거나 이미 등록된 것을
+             고치는 일은 여전히 그쪽에서 해야 하고, 이 줄은 「없는 것을 새로
+             만드는」 한 가지만 한다.
+
+          ▣ 🔴 폼 태그를 쓰지 않는다. 이 카드는 #review-form 안에 있다
+            중첩 <form>은 브라우저가 통째로 버린다. 그래서 버튼에 hx-post를 달고
+            hx-include로 옆 입력을 걷는다.
+            🔴 **required를 붙이지 말 것.** 확정 버튼이 hx-include="#review-form"으로
+               이 폼 전체를 걷어 가는데, 그 안에 비어 있는 required가 하나라도
+               있으면 **확정이 조용히 막힐 수 있다.** 유형이 비었는지는 서버가
+               보고 오류 문구를 돌려준다.
+            🔴 **입력 이름에 cand_ 접두를 붙였다.** 같은 이유로 확정 요청에 이
+               값들이 함께 실려 간다. 확정 뷰는 cand_로 시작하는 키를 무시한다.
+            ⚠️ hx-include에 [name=csrfmiddlewaretoken]을 반드시 함께 적는다.
+               이 앱의 HTMX POST 관례이고 빠뜨리면 403이다.
+
+          ▣ 🔴 축마다 받는 값이 다르다
+            기업      유형(필수) + 별칭(선택)   Organization.org_type이 필수라서
+            기술 주제  별칭(선택)              TechTopic에는 유형 칸이 없다
+            🔴 이름은 입력으로 받지 않는다. 왼쪽에 이미 있고, **고쳐 쓰게 하면
+               제안과 등록이 다른 이름이 되어 다음 실행에서 같은 후보가 또 뜬다.**
+               이름을 바꿔야 하는 경우라면 그건 이 줄이 아니라 SET-007·SET-008의
+               일이고, 그래서 관리 링크를 남겨 뒀다.
+            ⚠️ 축을 모르는 행(axis가 빈 문자열)에는 등록 자리를 그리지 않는다.
+               어느 표에 넣어야 할지 모르는 채로 만들면 틀린 곳에 들어간다.
+               그룹 머리의 링크를 감추는 조건과 같은 판단이다.
+
+          ▣ 🔴 remap을 여기서 부르지 않는다. 체크박스도 두지 않는다
+            remap_organizations()는 **사람이 손으로 고친 태그를 되돌린다.** 기업을
+            새로 등록할 때 기본이 미실행인 이유가 그것이다.
+            🔴 체크박스를 두지 않은 것이 판단이다 — 두면 "체크하면 편하겠지"로
+               매번 체크하게 되고 수동 교정이 조용히 되돌아간다. **선택지가 없으면
+               규칙을 어길 수 없다.** 재매핑이 실제로 필요한 날에는 SET-007의
+               「기업 재매핑」 버튼이 그 자리다.
+            ⚠️ 그래서 등록해도 이 기사에는 태그가 붙지 않는다. 그 사실은 카드
+               머리의 회색 한 줄이 말한다. 줄마다 되풀이하지 않는다.
+
+          ▣ 등록한 뒤
+            hx-target은 컨트롤 묶음 자신이고 swap은 outerHTML이다. 뷰가 짧은
+            상태 줄로 갈아 끼운다. 🔴 **후보 행 자체는 남는다** — 제안은 그대로
+            있고 확정해도 아무 동작이 없다는 사실이 바뀌지 않기 때문이다.
+            ⚠️ 응답 조각에 lucide 아이콘(<i data-lucide>)을 넣지 말 것. swap 뒤에
+               createIcons를 다시 돌리지 않으면 빈 칸으로 남는다. 글자만 돌려준다.
+        {% endcomment %}
         {% for cand in axis_group.list %}
         <div class="px-5 py-3 flex items-start gap-3">
           <span class="w-32 flex-shrink-0 text-xs font-semibold text-gray-900">{{ cand.name|default:"이름이 비어 있어요" }}</span>
@@ -1574,6 +1703,32 @@
               <span class="flex-shrink-0">{{ cand.source }}</span>
             </p>
           </div>
+
+          {% if cand.register_url and cand.axis_label %}
+          <div id="tagcand-{{ cand.proposal_id }}" class="flex-shrink-0 flex items-center gap-2">
+            {% if cand.axis == 'organization' %}
+            <select name="cand_org_type"
+                    class="w-28 text-xs border border-[#E5E5E5] rounded-[10px] px-2 py-1.5 focus:outline-none focus:border-primary">
+              <option value="">유형 선택</option>
+              {% for value, label in review.org_types %}
+              <option value="{{ value }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+            {% endif %}
+            <input type="text" name="cand_aliases"
+                   placeholder="별칭 (쉼표로 구분)"
+                   class="w-32 text-xs border border-[#E5E5E5] rounded-[10px] px-2 py-1.5 focus:outline-none focus:border-primary">
+            <button type="button"
+                    hx-post="{{ cand.register_url }}"
+                    hx-target="#tagcand-{{ cand.proposal_id }}"
+                    hx-swap="outerHTML"
+                    hx-include="#tagcand-{{ cand.proposal_id }} select, #tagcand-{{ cand.proposal_id }} input, [name=csrfmiddlewaretoken]"
+                    hx-disabled-elt="this"
+                    class="flex-shrink-0 px-3 py-1.5 text-xs font-medium text-white bg-primary rounded-[10px] hover:bg-primary-hover transition-colors">
+              등록
+            </button>
+          </div>
+          {% endif %}
         </div>
         {% endfor %}
       </div>
@@ -1654,8 +1809,13 @@
               </p>
             </div>
             {% if group.has_delete_proposal %}
+            {% comment %}
+              🔴 2026-09-16 문체 정리 — 배지는 명사형이다(docs/design.md 1.0.3).
+              「도」는 그대로 둔다. 이 배지가 말하는 것이 「삭제 제안이 있다」가 아니라
+              「태그 교정 말고 삭제 제안까지 걸려 있다」라서, 그 조사가 뜻의 절반이다.
+            {% endcomment %}
             <span class="flex-shrink-0 text-[10px] px-2 py-0.5 rounded-full bg-orange-50 text-orange-600 whitespace-nowrap">
-              이 기사는 삭제 제안도 받았어요
+              삭제 제안도 있음
             </span>
             {% endif %}
           </div>

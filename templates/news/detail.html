@@ -90,7 +90,12 @@
         <i data-lucide="lightbulb" class="w-4 h-4 text-accent"></i>
         <span class="text-sm font-semibold text-gray-900">이슈 시사점</span>
       </div>
-      <p class="text-xs text-gray-400 mb-3 ml-6">이 기사가 속한 이슈 &middot; <span class="text-gray-500">{{ insight.title }}</span></p>
+      {% comment %}
+        🔴 2026-09-16 — 가운뎃점을 걷었다(화면 문구 금지, docs/design.md 1.0.2·1.0.3).
+        여기는 열거가 아니라 이름표와 값을 가르던 자리라 「와/과」가 맞지 않는다.
+        띄어쓰기 하나로 바꾸고, 가름은 이미 있던 글자색 차이(gray-400 대 gray-500)가 진다.
+      {% endcomment %}
+      <p class="text-xs text-gray-400 mb-3 ml-6">이 기사가 속한 이슈 <span class="text-gray-500">{{ insight.title }}</span></p>
       <div class="bg-purple-50 border-l-4 border-primary rounded-r-[10px] p-3">
         <div class="text-sm text-gray-700 leading-[1.9] markdown-spacing">{{ insight.implication|markdown }}</div>
       </div>

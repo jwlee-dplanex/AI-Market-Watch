@@ -52,14 +52,27 @@
   {% endcomment %}
   <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">관계</h3>
 
-  {% comment %}보기 상태{% endcomment %}
+  {% comment %}
+    보기 상태
+
+    🔴 2026-09-17 — 왼쪽 칸에 min-w-0을 더했다. 라벨과 설명이 길면 넘쳤다
+      flex 아이템의 min-width 기본값이 auto라 **내용보다 작아지지 않는다.**
+      그래서 라벨(50자)이나 설명(300자)에 줄바꿈이 안 되는 덩어리가 들어오면
+      칸이 오른쪽 「수정」 버튼을 밀고 카드 밖으로 나간다. min-w-0이 그 바닥을
+      풀어 준다. ⚠️ 이 클래스는 빌드에 있다(static/css/tailwind.css 실측).
+    🔴 설명 문단에는 overflow-wrap을 인라인 style로 준다
+      한글은 글자 사이에서 꺾이지만 URL이나 긴 영문 한 덩어리는 안 꺾인다.
+      Tailwind의 break-words는 **빌드에 없어** 쓰면 조용히 무시된다.
+      ⚠️ 이 패널이 깨지던 진짜 원인은 따로 있었다(index.html의 h-full).
+         여기는 같은 종류의 다음 사고를 막는 자리다.
+  {% endcomment %}
   <div x-show="!editing" x-cloak>
     {% if relation %}
     <div class="flex items-start justify-between gap-2">
-      <div>
+      <div class="min-w-0">
         <span class="inline-block text-xs font-semibold px-2 py-0.5 rounded-full border border-primary text-primary">{{ relation.label }}</span>
         {% if relation.description %}
-        <p class="text-xs text-gray-500 mt-1.5 leading-relaxed">{{ relation.description }}</p>
+        <p class="text-xs text-gray-500 mt-1.5 leading-relaxed" style="overflow-wrap: anywhere;">{{ relation.description }}</p>
         {% endif %}
       </div>
       <button type="button" @click="editing = true"
@@ -71,7 +84,7 @@
     <div class="flex items-center justify-between gap-2">
       <span class="text-xs text-gray-400">관계 미분류</span>
       <button type="button" @click="editing = true"
-              class="text-xs text-primary hover:underline flex items-center gap-0.5">
+              class="text-xs text-primary hover:underline flex items-center gap-0.5 flex-shrink-0">
         <i data-lucide="plus" class="w-3 h-3"></i> 라벨 추가
       </button>
     </div>

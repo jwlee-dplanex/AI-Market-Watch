@@ -66,6 +66,15 @@ class News(models.Model):
     # 기준이 통과/탈락 이분법이라 탈락분은 재실행마다 같은 이유로 다시 탈락하므로,
     # 표식이 없으면 3단계가 "미배정 전체"를 대상으로 삼는 순간 영구히 할 일이 남는다.
     insight_dismissed_at = models.DateTimeField(null=True, blank=True)
+    # 🔴 2026-09-16 23차 개정(docs/planning.md 「SET-010 검토 단위」 9번, design.md 23차
+    # 개정 ②) — 2단계(cleanup) 관련성 판정 시도가 제안 없이 끝난 누적 횟수. SDK 내부
+    # 재시도는 한 번으로 센다(services/runner.py의 classify_news() 호출 실패 1건 =
+    # +1). 이 값이 3 이상이면서 아직 미검증인 News를 SET-010 화면이 "반복 실패
+    # 자료"로 지목한다 — B(미판정)가 0이 되어야 검토가 열리는데 같은 자료가 계속
+    # 실패하면 B가 영영 안 줄기 때문이다. 별도 모델 대신 News에 칸 하나를 더한
+    # 이유는 이 값이 오직 "그 News가 몇 번 실패했나"만 답하면 되고(집계·이력 조회가
+    # 필요 없다), 별도 테이블은 조인 하나를 더할 뿐 실익이 없기 때문이다.
+    classify_fail_count = models.IntegerField(default=0)
     organizations = models.ManyToManyField(
         "setting.Organization",
         blank=True,
@@ -180,7 +189,8 @@ class DeletedNewsRecord(models.Model):
             "권장 어휘(고정 choices 아님 — docs/planning.md '판정 기록 보존 정책' 1번 근거: "
             "관련성 판단 기준이 계속 개정되므로 enum으로 박지 않는다): "
             "1-a(배경 언급) / 1-b(부차 요소) / 2(중복 보도) / 3(키워드 오탐) / "
-            "4(증시 브리핑) / 5(AI 단독, 금융 연결 없음) / S-KLS(임시 스코프 제외) / 기타"
+            "4(증시 브리핑) / 5(AI 단독, 금융 연결 없음) / 6(묶음, 단신 브리핑 기사) / "
+            "S-KLS(임시 스코프 제외) / 기타"
         ),
     )
     reason = models.TextField(blank=True, help_text="삭제 사유 1~2문장 자유 서술")

@@ -16,6 +16,7 @@ import hashlib
 import logging
 import re
 import threading
+import time
 from datetime import timedelta
 
 from django.db import IntegrityError, connection, transaction
@@ -79,17 +80,43 @@ IMPLEMENTED_JOB_KEYS = (
 # trafilatura 시도)이므로 한 키워드가 전부 타임아웃에 걸리는 최악의 경우 수 분대까지
 # 늘어날 수 있다. 실측(초 단위)과 이 이론적 상한(분 단위) 사이에서, "진짜 죽은
 # 프로세스"를 상식적인 시간 안에 잡아내면서도 평범한 지연(느린 매체 몇 곳)을
-# 오판하지 않을 값으로 180초(3분)를 택한다 — 실측 최댓값의 약 50배 여유이자, 흔한
-# 헬스체크 타임아웃 관례(수 분)와도 맞는다.
-HEARTBEAT_STALE_SECONDS = 180
+# 오판하지 않을 값으로 180초(3분)를 택했다 — 실측 최댓값의 약 50배 여유이자, 흔한
+# 헬스체크 타임아웃 관례(수 분)와도 맞았다.
+#
+# 🔴 2026-09-17 재실측 — 180초가 실제로 오판을 냈다(RunJob pk150). 그날 9개
+# 키워드를 39초(키워드당 평균 4.3초)에 처리하다가 10번째 키워드 하나에서 최소
+# 185초를 넘겨 "죽은 것"으로 판정돼 중단됐다. 사용자는 중단 버튼을 누르지 않았다
+# (stop_requested_at이 비어 있었다) — 실제로는 크롤이 느렸을 뿐 죽지 않았다.
+#
+# 다른 collect/newsroom_collect 실행의 키워드당 평균(RunJob.target_count로 나눈
+# 값)은 1.13~9.19초로 전부 이 사고의 24.98초(pk150, 9개 완료분 평균)보다도
+# 훨씬 낮았다 — 이번 지연이 얼마나 예외적이었는지 보여 준다.
+#
+# 🔴 근본 처방은 위 on_heartbeat다(services/collector.py collect_naver() 참고) —
+# 하트비트를 키워드 단위가 아니라 **기사 단위**로 올리게 했다. 그러면 한 키워드
+# 안에서 값이 오래 안 올라가는 간격이 "느린 기사 1건이 걸리는 시간"(최악
+# 8+30+8=46초, 크롤 세 단계 타임아웃의 합)으로 줄어든다. 이 값(180초)은 그
+# 처방이 실패했을 때(정말로 프로세스가 죽었을 때)를 잡는 안전판이라, 처방
+# 이후에도 그대로 두면 안 된다 — 46초짜리 정상 지연에 여유를 주지 않으면
+# 이번과 같은 오판이 다시 난다.
+#
+# 300초(5분)를 택한다 — 위 46초 이론적 상한의 약 6.5배 여유(종전 180초가 종전
+# 이론적 상한 3.52초에 약 50배 여유를 뒀던 것과 같은 종류의 안전판이다), 실측
+# 정상 범위(1~9초/키워드)의 약 33~270배라 평범한 지연을 절대 죽이지 않으면서도,
+# 배치 1호출 단계의 900초(아래)보다는 짧게 유지해 "건별 단계가 더 빨리 잡혀야
+# 한다"는 구분이 무너지지 않는다.
+HEARTBEAT_STALE_SECONDS = 300
 
 # 🔴 3~5단계(주요 이슈, 주간 보고서, 월간 보고서) 전용 임계값(docs/planning.md
-# "3~5단계를 LLM으로 옮기는 설계" 9-(b)). 위 180초는 "건별 진행 간격"(키워드 1개
-# 처리마다 하트비트를 찍는 collect와 cleanup)의 실측으로 잡은 값인데, 3~5단계는 배치
-# 전체를 한 호출에 담아(같은 문서 7-(a)) **호출 하나가 통째로 걸리는 시간**이 그
+# "3~5단계를 LLM으로 옮기는 설계" 9-(b)). 위 300초는 "건별 진행 간격"(기사 1건마다
+# 하트비트를 찍는 collect·newsroom_collect·cleanup)의 실측으로 잡은 값인데, 3~5단계는
+# 배치 전체를 한 호출에 담아(같은 문서 7-(a)) **호출 하나가 통째로 걸리는 시간**이 그
 # 간격이다. 시작할 때 한 번 하트비트를 찍고 그 호출이 끝날 때까지 다시 찍을 자리가
-# 없으므로, 180초를 그대로 쓰면 호출이 3분을 넘기는 순간 살아있는 실행을 중단됨으로
-# 오판한다.
+# 없으므로, 300초를 그대로 쓰면 호출이 5분을 넘기는 순간 살아있는 실행을 중단됨으로
+# 오판한다. 🔴 2026-09-17 재확인 — 300초와 900초(3배)로 갈리는 구분 자체는 여전히
+# 유효하다(건별은 기사 1건 단위, 배치는 호출 전체 단위라는 서로 다른 근거 위에 있고,
+# 위 재실측이 건별 쪽 값만 바꿨다). 배치 쪽 900초는 아직 실측이 없다는 사실도
+# 그대로다(아래 문단).
 #
 # ⚠️ 3단계가 아직 구현되지 않아(services/llm.py에 3~5단계 함수가 없다) 실측이
 # 불가능하다. 그래서 실측이 아니라 **근거 있는 추정**이다. 첫 실행 후 PE가 실제
@@ -195,6 +222,15 @@ def run_now(job_key: str, actor: str, **kwargs) -> RunJob | None:
     return RunJob.objects.get(pk=run_job.pk)
 
 
+def _stop_requested(run_job_id: int) -> bool:
+    """SET-010 실행 중단(docs/planning.md 「SET-010 실행 중단」 0번, 9-3) — 지금
+    중단 요청이 들어와 있는지 DB에서 직접 다시 읽는다. 워커 스레드가 들고 있는
+    RunJob 인스턴스에는 다른 요청이 적은 stop_requested_at이 반영되지 않으므로
+    (서버가 재시작되면 스레드 자체가 죽는다), 루프 안에서 매 건마다 이 함수로
+    다시 조회해야 한다."""
+    return RunJob.objects.filter(pk=run_job_id, stop_requested_at__isnull=False).exists()
+
+
 def _progress_callback(run_job_id: int):
     """건(이번 라운드는 키워드) 하나 처리를 마칠 때마다 부를 콜백을 만든다.
     RunJob.objects.filter(...).update()로 쓴다 — 인스턴스를 불러 save()하지 않는 이유는
@@ -205,6 +241,36 @@ def _progress_callback(run_job_id: int):
             heartbeat_at=timezone.now(),
         )
     return on_progress
+
+
+# 🔴 2026-09-17 신설(오늘 실측 사고, RunJob pk150) — 기사 한 건을 살필 때마다 불러도
+# 되는 하트비트 전용 콜백. _progress_callback()과 다른 자리다 — 그쪽은 "건(키워드)
+# 하나 끝"에서 processed_count까지 함께 올리지만, 여기는 "기사 한 건을 살피기
+# 시작"할 때마다 하트비트만 올린다(services/collector.py collect_naver()의
+# on_heartbeat 계약).
+#
+# min_interval로 스로틀한다 — 기사 10건짜리 키워드라도 실제 DB 쓰기는 최대
+# HEARTBEAT_MIN_INTERVAL_SECONDS마다 한 번이다. 클로저 안에 마지막으로 쓴 시각을
+# 들고 있다가 그 간격 안이면 조용히 넘어간다. time.monotonic()을 쓰는 이유는
+# 시스템 시계가 도중에 바뀌어도(예: NTP 보정) 흐르지 않거나 거꾸로 가지 않는
+# 시계이기 때문이다 — timezone.now()는 DB에 쓸 값을 만들 때만 쓴다.
+HEARTBEAT_MIN_INTERVAL_SECONDS = 5.0
+
+
+def _heartbeat_callback(run_job_id: int, min_interval: float = HEARTBEAT_MIN_INTERVAL_SECONDS):
+    # 🔴 sentinel은 0.0이 아니라 None이다 — time.monotonic()의 기준점은 임의라
+    # 프로세스 갓 시작 직후처럼 실제로 작은 값을 돌려줄 수도 있다. 0.0을 "아직
+    # 안 썼다"의 표식으로 쓰면 그런 드문 경우 첫 호출이 스로틀에 걸려 최초
+    # 하트비트가 min_interval만큼 늦게 찍힌다 — None이면 그 경우가 아예 없다.
+    last_written = {"at": None}
+
+    def on_heartbeat():
+        now = time.monotonic()
+        if last_written["at"] is not None and now - last_written["at"] < min_interval:
+            return
+        last_written["at"] = now
+        RunJob.objects.filter(pk=run_job_id).update(heartbeat_at=timezone.now())
+    return on_heartbeat
 
 
 def _run_collect(run_job_id: int, actor: str) -> None:
@@ -218,7 +284,17 @@ def _run_collect(run_job_id: int, actor: str) -> None:
     # 거치는 모든 수집은 사람이 시킨 것이므로 기존 화면 버튼과 동일하게 ACTOR_MANUAL로
     # 남긴다. actor 인자를 그대로 두 번째 CollectionLog.actor 값으로 승격시키지 않는다
     # — 새 choices 값을 만드는 건 이번 라운드 범위 밖이다.
-    run_collection(actor=CollectionLog.ACTOR_MANUAL, on_progress=_progress_callback(run_job_id))
+    # 🔴 23차 개정 — should_stop이 「지금 하고 있는 키워드 한 개가 끝나면 멈춘다」는
+    # 계약을 만든다. collect_naver()가 키워드 하나를 다 처리한 자리(on_progress를
+    # 부른 바로 다음)에서만 이 콜백을 확인한다.
+    # 🔴 2026-09-17 신설 — on_heartbeat는 그보다 훨씬 자주(기사 한 건마다) 불려
+    # 한 키워드 안에서 느린 크롤이 이어져도 하트비트가 오래 안 멈춘다(오늘 실측
+    # 사고, RunJob pk150 — 위 HEARTBEAT_STALE_SECONDS 주석 참고).
+    run_collection(
+        actor=CollectionLog.ACTOR_MANUAL, on_progress=_progress_callback(run_job_id),
+        should_stop=lambda: _stop_requested(run_job_id),
+        on_heartbeat=_heartbeat_callback(run_job_id),
+    )
 
 
 def _save_proposals(run_job_id: int, news, result: dict) -> None:
@@ -316,43 +392,54 @@ def cleanup_today_flow():
     지금 어디에 있는지 네 갈래로 센다. docs/design.md "SET-010 · 실행" 20차
     개정 ⑨번 PE 인계가 정본이다.
 
-    모수(오늘 수집 건수)는 News 테이블이 아니라 CollectionLog.collected_count
-    합계로 잰다 — 삭제된 기사는 News 행 자체가 사라지므로(하드 삭제), 지금
-    존재하는 News를 오늘 날짜로 세면 이미 삭제된 것이 빠져 모수가 줄어든다.
-    CollectionLog는 수집 당시 실제로 저장한 건수를 기록해 두므로 이후에 몇 건이
-    지워지든 흔들리지 않는다.
+    🔴 2026-09-17 재정정(오늘 실측 사고) — 모수(오늘 수집 건수)를
+    CollectionLog.collected_count 합계로 재는 종전 방식을 걷어낸다. 그 값은
+    run_collection()이 **수집 호출이 끝나야만** 1건 기록하는데, 그날 아침 수집이
+    하트비트 오판으로 죽었을 때(위 HEARTBEAT_STALE_SECONDS 사고) 워커 스레드가
+    services/collector.py collect_naver() 안에 갇힌 채 끝내 돌아오지 못해
+    CollectionLog가 **한 건도** 안 남았다(실측: News 40건이 오늘 날짜로 이미
+    만들어져 있는데 오늘 CollectionLog는 0건). cleanup_today_flow()가 그 상태를
+    "오늘 수집 0건"으로 읽어 흐름 줄 자체가 사라졌고, 그 40건이 전부 backlog의
+    "이전 N건"으로 잘못 넘어갔다(_cleanup_backlog() 참고).
 
-    🔴 삭제 건수는 직접 쿼리하지 않고 뺄셈으로 구한다 — "오늘 수집됐다가 지금은
-    지워진 것"을 직접 찾으려면 ExcludedURL에 원래 수집일을 저장해야 하는데
-    없다(설계 논의에서 실측 확인). 대신 "모수 − (지금 남아 있는 오늘 수집분)"으로
-    구하면 항상 네 갈래의 합이 모수와 같아지는 것이 산술적으로 보장된다 —
-    별도의 무결성 검사가 필요 없는 구조다.
+    🔴 대신 News.collected_at과 DeletedNewsRecord.collected_at을 함께 센다.
+    News 행은 collect_naver()가 기사를 저장하는 그 순간 생기므로(수집 호출이
+    끝나기를 기다리지 않는다) 실행이 중단되든 유령 스레드로 걸려 있든 이미
+    들어온 기사는 즉시 잡힌다. 삭제된 기사가 모수에서 빠지는 문제(과거에
+    CollectionLog를 쓴 이유)는 DeletedNewsRecord로 메운다 —
+    delete_news_with_record()가 삭제 직전 News.collected_at을 그대로 복사해
+    두므로(apps/news/services.py), 하드 삭제(apps/news/services.py의
+    news.delete() 한 곳뿐 — News를 지우는 다른 경로가 저장소에 없다) 뒤에도
+    "오늘 수집이었다"는 사실이 남는다.
+
+    🔴 삭제 건수는 여전히 직접 쿼리하지 않고 뺄셈으로 구한다 — 다만 이제는 그
+    뺄셈이 항상 DeletedNewsRecord의 실제 오늘 수집분 건수와 정확히 같아진다
+    (모수 자체가 "현재 News" + "DeletedNewsRecord"의 합이므로). "모수 − (지금
+    남아 있는 오늘 수집분)"으로 구하면 네 갈래의 합이 모수와 같아지는 것이
+    산술적으로 보장되는 구조는 그대로다 — 별도의 무결성 검사가 필요 없다.
 
     반환값은 dict {"total", "deleted", "verified", "review", "waiting"} 또는
     오늘 수집이 0건이면 None(그날은 "오늘 흐름"이 없는 것이 사실이라 줄 자체를
     내리지 않는다, 20차 ④번)."""
-    from django.db.models import Sum
     from django.utils import timezone
 
-    from apps.news.models import News
-    from apps.setting.models import CollectionLog, RunProposal
+    from apps.news.models import DeletedNewsRecord, News
 
     today = timezone.localtime(timezone.now()).date()
-    total = CollectionLog.objects.filter(started_at__date=today).aggregate(
-        total=Sum("collected_count"),
-    )["total"] or 0
-    if total == 0:
-        return None
-
     today_news = News.objects.filter(collected_at__date=today)
+    today_deleted_count = DeletedNewsRecord.objects.filter(collected_at__date=today).count()
     verified = today_news.filter(status=News.STATUS_VERIFIED).count()
     unverified_today = today_news.filter(status=News.STATUS_UNVERIFIED)
     proposed_ids = _cleanup_proposed_news_ids()
     review = unverified_today.filter(pk__in=proposed_ids).count()
     waiting = unverified_today.exclude(pk__in=proposed_ids).count()
+    total = verified + review + waiting + today_deleted_count
+    if total == 0:
+        return None
+
     # 🔴 뺄셈 — 위 docstring 참고. max(..., 0)은 방어적 하한선이다(정상 경로에서는
-    # 항상 0 이상이지만, 실행 도중 폴링이 걸리는 등 순간적인 불일치까지 완전히
-    # 배제하지는 않는다).
+    # 항상 today_deleted_count와 같지만, 실행 도중 폴링이 걸리는 등 순간적인
+    # 불일치까지 완전히 배제하지는 않는다).
     deleted = max(total - (verified + review + waiting), 0)
     return {"total": total, "deleted": deleted, "verified": verified, "review": review, "waiting": waiting}
 
@@ -390,6 +477,7 @@ def insight_ab_split():
 
 
 def _run_cleanup(run_job_id: int) -> None:
+    from apps.news.models import News
     from apps.setting.models import RunProposal
     from services.cleanup_prefilter import CRITERION_CODE, REASON, should_prefilter_delete
     from services.llm import PROMPT_VERSION, classify_news
@@ -411,6 +499,13 @@ def _run_cleanup(run_job_id: int) -> None:
 
     consecutive_failures = 0
     for news in targets:
+        # 🔴 23차 개정(docs/planning.md 「SET-010 실행 중단」 9-3) — 「기사 하나가
+        # 끝난 자리」는 여기다. 지금 시작하려는 이 기사를 처리하기 전에 확인하므로,
+        # 이미 시작한 기사는 반드시 끝까지 처리하고 다음 기사로 넘어가려는 순간에만
+        # 멈춘다.
+        if _stop_requested(run_job_id):
+            break
+
         # 🔴 2026-09-16 "2단계 비용 절감 정책" A안 — 제목과 본문 어디에도 AI 계열
         # 낱말이 없으면 LLM을 부르지 않고 코드가 바로 삭제 제안을 낸다. ExcludedURL
         # 직행이 아니라 RunProposal(TYPE_DELETE)로 내 검토 화면을 그대로 거친다
@@ -434,6 +529,14 @@ def _run_cleanup(run_job_id: int) -> None:
             consecutive_failures += 1
             RunJob.objects.filter(pk=run_job_id).update(
                 failed_count=F("failed_count") + 1, heartbeat_at=timezone.now(),
+            )
+            # 🔴 23차 개정(docs/planning.md 「SET-010 검토 단위」 9번) — 이 News가
+            # 판정 시도에서 제안 없이 끝난 누적 횟수. SET-010 화면이 이 값이 3
+            # 이상인 자료를 "반복 실패"로 지목한다(apps/setting/views.py
+            # _stuck_items()). SDK 내부 재시도는 여기 닿기 전에 이미 소진돼 한
+            # 번으로 세어진다.
+            News.objects.filter(pk=news.pk).update(
+                classify_fail_count=F("classify_fail_count") + 1,
             )
             logger.warning(
                 "News %s 판정 실패(연속 %d/%d): %s",
@@ -660,7 +763,13 @@ def _run_newsroom_collect(run_job_id: int, newsroom_id: int) -> None:
     target = room.keywords.count()
     RunJob.objects.filter(pk=run_job_id).update(target_count=target)
 
-    collect_newsroom(room, on_progress=_progress_callback(run_job_id))
+    # 🔴 23차 개정 — collect_naver()와 같은 계약(키워드 하나가 끝난 자리에서만 확인).
+    # 🔴 2026-09-17 신설 — on_heartbeat도 collect_naver()와 같은 자리(기사 한 건마다).
+    collect_newsroom(
+        room, on_progress=_progress_callback(run_job_id),
+        should_stop=lambda: _stop_requested(run_job_id),
+        on_heartbeat=_heartbeat_callback(run_job_id),
+    )
 
 
 def _title_matches_newsroom_keywords(title: str, keywords) -> bool:
@@ -981,12 +1090,17 @@ def _execute(run_job_id: int, kwargs: dict) -> None:
                 )
             return
 
+        # 🔴 23차 개정(docs/planning.md 「SET-010 실행 중단」 2번, 9-4) — 여기 도달한
+        # 것은 예외 없이 정상적으로 루프가 끝났다는 뜻이고, 그것이 "끝까지 다 돌아서"인지
+        # "중단 요청을 받아 일찍 멈춰서"인지는 stop_requested_at 한 칸으로만 가른다.
+        # 새 STATUS_* 값을 만들지 않는다 — 사람이 멈춘 것도 STATUS_STOPPED다.
+        final_status = RunJob.STATUS_STOPPED if _stop_requested(run_job_id) else RunJob.STATUS_DONE
         updated = RunJob.objects.filter(pk=run_job_id, status=RunJob.STATUS_RUNNING).update(
-            status=RunJob.STATUS_DONE, finished_at=timezone.now(),
+            status=final_status, finished_at=timezone.now(),
         )
         if not updated:
             logger.warning(
-                "RunJob %s(%s) 완료 처리를 건너뛰었어요 — 이미 실행중 상태가 아니었어요. "
+                "RunJob %s(%s) 완료/중단 처리를 건너뛰었어요 — 이미 실행중 상태가 아니었어요. "
                 "하트비트 정지 판정으로 먼저 상태가 바뀐 뒤에도 이 스레드가 계속 돈"
                 "유령 스레드로 보여요.", run_job_id, run_job.job_key,
             )
