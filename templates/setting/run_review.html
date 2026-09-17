@@ -17,6 +17,9 @@
        27차(2026-09-17) 머리 숫자 = 카드가 나열하는 행 수. 체크를 풀면 「왜」를 묻는다.
        28차(2026-09-17) 중복 보도 카드. 처분이 삭제와 감춤으로 갈린다.
        29차(2026-09-17) 관계 초안 카드. 3단계가 두 번째 호출로 기업 관계를 낸다.
+       30차(2026-09-17) 확정 잠금 조건에 hideCount를 더한다.
+       31차(2026-09-17) 헤드라인 순위 카드. 3단계가 세 번째 호출로 순위를 낸다.
+                        그리고 축약본을 전문 위에 표시로 보인다(별도 블록 없음).
        ⚠️ 8차 ②번이 7차 ⑨번의 "같은 카드를 쓴다"는 예고를 실측으로 정정했다.
        ⚠️ 9차는 이 화면에 아무것도 더하지 않는다. 교보 소식 2, 3단계는 이 화면으로
           오지 않는다(확정할 것이 없다). 근거는 그 절.
@@ -238,6 +241,23 @@
                                        사고를 한 번 냈다 — 위 None 비교 주석 참고).
                                        ⚠️ 2단계는 insight_count가 없어서 이 갈래로
                                           아예 오지 않는다. 걱정할 자리가 아니다.
+                   headliner_count  🔴 31차 신설. 헤드라인 순위 제안 수(int).
+                                    쓰는 자리는 셋이다. 요약 ③ 칸, 헤드라인 순위
+                                    카드 머리 숫자, Alpine headCount 초기값.
+                                    🔴 **0을 내릴 것. 키를 비우지 말 것.** relation_count와
+                                       같은 근거다 — 헤드라이너 절 1번이 「1급이 0건인
+                                       배치가 연속 3회」에 되돌림 조건을 걸었고, 줄이
+                                       사라지면 그 조건을 볼 자리가 화면에 없다.
+                                       그래서 요약 칸이 is not None 비교를 쓴다.
+                                    🔴 **3단계에서만 내린다. 4, 5단계에서는 키를 비운다.**
+                                       relation_count와 같다.
+                                    ⚠️ 없으면 카드 머리가 0으로 떨어지고 요약 줄이 사라진다.
+                   headliner_dropped_count 🔴 31차 신설. **직전 지정 중 이번에 자리를
+                                    잃는 이슈 수.** 요약 ③ 칸 회색 줄이 이 값을 쓴다.
+                                    🔴 머리 숫자의 부분집합이 **아니다.** 그래서 「그중」을
+                                       쓰지 않는다(relation_skipped_count와 같은 처리).
+                                    ⚠️ 0이거나 없으면 줄이 통째로 사라진다. 직전 지정이
+                                       그대로 유지되는 날이 정상이고 「0건」을 쓰지 않는다.
                    relation_skipped_count 🔴 29차 신설. **이미 OrgRelation이 있어서
                                     제안을 만들지 않은 쌍 수.** 요약 ③ 칸 회색 줄이
                                     이 값을 쓴다.
@@ -427,6 +447,32 @@
                    implication   RunDraft.implication 전문. 🔴 접지 않고 항상 보인다.
                                  비면 그 자리에 주황 안내가 뜬다.
                    content       RunDraft.content 전문. 접어 둔다.
+                   content_sentences  🔴 2026-09-17 31차 신설. **선택.**
+                                 [{text, keep}, ...]. 코드가 content를 문장 단위로 쪼갠 것이고
+                                 keep이 False인 문장은 축약본(content_short)에서 빠진다.
+                                 🔴 **text는 뒤따르는 공백과 줄바꿈까지 포함한 원문 조각이다.**
+                                    전부 이어 붙이면 content와 **글자 그대로** 같아야 한다.
+                                    상자가 whitespace-pre-line이라 줄바꿈이 text 안에 있어야
+                                    원문 모양이 살아난다.
+                                 🔴 화면은 **빠진 문장을 회색 취소선**으로 보인다. 축약본을
+                                    따로 그리지 않는다 — 근거는 docs/design.md 31차 ⑨번이고
+                                    요지는 하나다. **코드가 원문을 그대로 이어 붙이므로
+                                    축약본에 새 글자가 한 자도 없고, 사람이 볼 것은
+                                    「무엇이 빠졌나」뿐인데 축약본 블록에는 그것이 없다.**
+                                 ⚠️ 없으면 아래 content 전문으로 조용히 떨어진다. 그날 화면은
+                                    30차와 한 픽셀도 다르지 않다. **맞는 폴백이다** — 빈
+                                    축약본은 「짧은 버전이 없다」가 아니라 「긴 버전이 보인다」로
+                                    끝난다(docs/planning.md 3-4).
+                   implication_sentences  🔴 31차 신설. 선택. 같은 모양. implication에 건다.
+                   content_short_length   🔴 31차 신설. 선택. 만들어질 축약본 글자 수(int).
+                                 🔴 **회색으로만 찍는다. 500자를 넘어도 주황을 쓰지 않는다.**
+                                    길이 규약은 목표치이지 상한이다(docs/planning.md 3-2 —
+                                    "글자 수를 게이트로 걸면 규칙끼리 부딪치고 그때 지는 쪽은
+                                    반드시 「삭제만 허용」이다"). ⚠️ 주요 동향의 500자 주황과
+                                    성질이 정반대다. 그쪽은 사람이 고쳐 쓸 수 있는 글이라
+                                    경고가 행동으로 이어지지만, 축약본은 문장을 뺄지 말지
+                                    말고는 손댈 수단이 없어 경고가 「고쳐 써라」로만 이어진다.
+                                 ⚠️ 없으면 그 조각만 사라진다.
                    grade         RunDraft.grade 값. select의 초기 선택이 된다.
                    news_count    근거 기사 수(int). 0이면 주황 경고 배지가 뜬다.
                    news_range    근거 기사 발행일 범위 한 줄. 예) "09.08 ~ 09.12"
@@ -493,6 +539,87 @@
                     시점에 코드가 거른다(정책 6번). 그 건수는 아래 output의
                     relation_skipped_count가 요약 ③ 칸에서 말한다.
 
+   headliner_items 🔴 2026-09-17 31차 신설. 3단계의 **세 번째 LLM 호출**이 낸 헤드라인
+                 순위 제안이다. 확정하면 Insight.headliner_order가 전량 교체되고
+                 ALL-001 상단의 헤드라인 영역이 바뀐다. 정책 정본은 docs/planning.md
+                 「RA 손 작업을 전부 단계 안으로 넣는다」 절 2번, 설계 정본은
+                 docs/design.md 「SET-010 · 실행」 31차 개정이다.
+                 🔴 **이 키가 안 오면 카드가 통째로 안 뜨고 화면은 30차와 한 픽셀도
+                    다르지 않다.** 조용히 실패하는 자리라 먼저 확인할 것.
+                 🔴 화면에 찍히는 낱말은 **「헤드라인」**이다. 「헤드라이너」는 코드
+                    식별자에만 남는다(2026-08-06 명칭 규약, docs/design.md 31차 ②번).
+                 각 항목은
+                   id          🔴 RunDraft.pk (Insight.pk가 아니다)
+                   rank        1 | 2 | 3. 순번 원에 찍힌다. 비면 「?」가 찍힐 뿐 안 죽는다
+                   title       그 자리에 서는 이슈 제목
+                   sector      업권 라벨 하나. 🔴 **Insight에 저장하지 않는다** —
+                               LLM이 라벨을 내고 코드가 셋을 셀 뿐이다(정책 2-1).
+                               「업권을 DB 필드로 만들지 않는다」는 그대로다.
+                               ⚠️ 없으면 pill만 사라진다.
+                   sector_unlisted bool. 5-1 업권 목록에 없는 이름이면 True.
+                               🔴 회색 「목록 밖」 글자가 붙는다. **주황으로 올리지
+                                  않는다** — 이상 신호가 아니라 RA가 배치 보고서에
+                                  옮겨 적을 관측값이다(2회 반복되면 PM이 목록에 넣는다).
+                               ⚠️ 안 오면 그 글자만 사라지고, 그러면 RA가 적을 수 없다.
+                   reason      순위 사유 한 문장. 1-A 사슬((ii) 변화의 구체성 →
+                               (i) 파급 범위 → 서사)의 결과가 드러나야 한다.
+                               🔴 비면 주황 한 줄이다. 이 카드의 알맹이다.
+                   change      'new' | 'moved' | 'same'. 배지 어휘를 가른다.
+                               없으면 배지가 사라질 뿐 화면은 죽지 않는다.
+                   prev_rank   int. change가 'moved'일 때만. 배지가 「직전 N위」가 된다
+                   change_reason 교체 사유 한 줄. 🔴 **만드는 주체가 둘이다**(정책 2-3) —
+                               창 밖 이탈·중복 제외·다양성 셋은 **코드**가 붙이고,
+                               넷째(판정자의 재적용)만 **LLM**이 낸다.
+                               🔴 change가 'same'이 아닌데 비면 **주황**이다. 2-3이
+                                  「새 사실을 대지 못하면 그 교체는 제안에서 빼고 직전
+                                  순서를 유지한다」고 못박았으므로, 사유 없는 교체가
+                                  화면에 도착한 것 자체가 규칙 위반 신호다.
+                               ⚠️ 화면은 알리기만 하고 막지 않는다. 막는 자리는 확정 뷰다.
+                   from_existing bool. 이번 배치 초안이 아니라 **창 안 기존 확정
+                               Insight**에서 온 자리면 True(정책 2-2 입력 ②).
+                               회색 「기존 이슈」 pill이 붙는다. 없으면 pill만 사라진다.
+                   insight_draft_id 🔴 그 자리가 가리키는 **이슈 초안의 RunDraft.pk**.
+                               from_existing이 True면 비운다(등급 select가 화면에 없다).
+                   qualifying_grade 🔴 **1급에 해당하는 등급 select의 value 문자열 그대로.**
+                               위 둘이 함께 있을 때만 등급 감시가 켜진다 —
+                               사람이 이슈 초안에서 등급을 1급이 아니게 바꾸면
+                               이 자리에 주황 한 줄이 뜬다(docs/design.md 31차 ⑥번).
+                               🔴 템플릿에 '1급'을 하드코딩하지 않는 이유가 이것이다.
+                                  Insight.GRADE_CHOICES의 실제 value를 화면이 모르고,
+                                  틀리면 **에러 없이** 경고가 영영 안 뜨거나 늘 뜬다.
+                               ⚠️ 둘 중 하나라도 없으면 속성 자체가 렌더되지 않는다.
+                                  감시가 꺼질 뿐 화면은 30차와 같다.
+                 🔴 **순위를 바꾸는 조작 수단을 만들지 않는다**(정책 2-5). 드래그도
+                    select도 없다. 동의하지 않으면 체크를 풀고, 그 거절이 수신자 붙은
+                    거절로 쌓인다. 바꿀 수 있게 하면 규칙이 아니라 그날의 기분이
+                    순서를 정하고, 5-2가 없애려던 「근거 없는 교체」가 **기록이 남지
+                    않는 형태로** 되돌아온다.
+                 🔴 **체크가 풀린 자리는 비운다. 다음 후보를 끌어올리지 않는다**(자동
+                    보충 금지). 1위와 3위만 채택되면 headliner_order는 1과 3이다.
+                 🔴 **상한 3을 이 화면이 강제하지 않는다.** 강제 자리는 다섯이고
+                    (LLM 출력 스키마 / 확정 뷰 / 대시보드 슬라이스 / docs/design.md /
+                    docs/planning.md) 검토 화면은 그중에 없다. 4건이 오면 받은 대로
+                    4행을 그린다 — **머리 숫자가 4가 되는 것 자체가 신호다.**
+                 🔴 **DB 제약을 새로 걸지 않는다**(헤드라이너 절 2번 "DB 제약으로 막을
+                    일은 아니다"). 이번 코드화가 그 판단을 뒤집을 새 사실을 만들지 않았다.
+
+   headliner_window 🔴 31차 신설. 선택. 창 판정을 적은 한 줄.
+                 예) "창 7일 · 기준점 09.16 · 후보 1급 9건"
+                 🔴 1-B의 창 기록 의무를 **코드가 적는 자리가 여기다**(정책 2-3 —
+                    "코드가 창을 계산하므로 코드가 적는다"). 종전에 RA가 배치 보고서에
+                    손으로 적던 줄이고, 손이 없어졌으므로 기록 자리도 함께 옮긴다.
+                 ⚠️ 없으면 줄이 통째로 사라진다.
+
+   headliner_dropped 🔴 31차 신설. 선택. **직전 지정 중 이번에 자리를 잃는 이슈** 목록.
+                 각 항목은 prev_rank(int) / title(str) / reason(str).
+                 🔴 5-2 교체 기록 의무의 **나머지 절반**이다. 자리 안의 배지는
+                    「무엇이 들어오는가」를 말하고 이 블록이 「무엇이 빠지는가」를 말한다.
+                    🔴 전량 교체라 자리별 1:1 대응이 깨지는 것이 정상이다 — 직전 1위가
+                       이번 2위로 내려오면 직전 2위였던 이슈는 **어느 자리에도 대응되지
+                       않은 채** 사라진다. 그래서 자리 안에만 그리면 못 보인다.
+                 ⚠️ 없거나 비면 블록이 통째로 사라진다. 직전 지정이 그대로 유지되는
+                    날이 정상이고 「빠지는 이슈 없음」을 쓰지 않는다.
+
    report_items  🔴 2026-09-15 신설. 4, 5단계 보고서 초안이다. 주간과 월간이 이 한 목록을
                  같이 쓴다. 갈리는 것은 아래 세 조각뿐이고 템플릿에는 단계 분기가 없다.
                  🔴 한 편인데 목록으로 받는 이유가 있다. 설계 9-(a)가 "재실행 전에 그
@@ -510,6 +637,18 @@
                    overview    RunDraft.overview 전문. 🔴 접지 않고 항상 보인다.
                                화면 소제목은 「주요 동향」이다(REPORT-002와 같은 낱말).
                    content     RunDraft.content 전문. 접어 둔다. 실측 5,826자다.
+                   content_sentences  🔴 31차 신설. 선택. 위 insight_items의 것과 같은
+                               계약이다(Report.content_short도 같은 방식으로 만들어진다 —
+                               docs/planning.md 4번). 🔴 보고서에 더 잘 맞는다: content가
+                               「### 이슈 제목」 블록 구조라 쪼개는 경계가 이미 문서에 있다.
+                               🔴 축약본 5-1(시사점을 축약본에 넣지 않는다)이 **프롬프트
+                                  부탁이 아니라 인덱스 선택**으로 지켜진다. 시사점 문단의
+                                  번호를 빼면 끝이다.
+                               ⚠️ 없으면 content 전문으로 조용히 떨어진다.
+                   content_short_length  🔴 31차 신설. 선택. 회색으로만 찍는다.
+                               ⚠️ **보고서에는 목표 글자 수가 없다**(같은 절 4번 — 짧은 쪽의
+                                  정의가 "부연을 다 뺀 것"이지 "N자 이내"가 아니다).
+                                  그래서 이 수에는 어떤 문턱도 걸지 않는다.
                    body_label  ⚠️ 선택. content의 화면 이름. 없으면 "주요 이슈"로 떨어진다.
                                월간은 "주요 이슈 요약"이다(REPORT-002가 그렇게 부른다).
                    date_from / date_to  date 객체 그대로 내린다. 🔴 서식은 템플릿이 건다.
@@ -596,6 +735,25 @@
                  🔴 확정 뷰가 이 이름을 안 읽으면 관계가 0건 만들어지고 **화면은
                     정상으로 보인다.** 지식 그래프에 선이 안 늘어난 것으로만
                     드러난다. 반드시 확인할 것.
+   headliner_ids 🔴 2026-09-17 31차 신설. 채택한 헤드라인 자리의 RunDraft.pk 목록.
+                 확정하면 **트랜잭션 안에서 기존 headliner_order를 전부 NULL로 만든 뒤**
+                 새로 1·2·3을 매긴다(정책 2-3 전량 교체. 「배치 단위 전량 교체」라는
+                 성질은 2026-08-06부터 그대로이고 주체만 바뀌었다).
+                 🔴 **순위를 POST하지 않는다.** 화면에서 순서를 바꿀 수 없으므로
+                    클라이언트가 보낼 rank는 서버가 이미 아는 값의 복사본이고,
+                    두 벌이 되면 어긋나도 아무 데서도 안 잡힌다. 확정 뷰가 pk로
+                    RunDraft를 찾아 그 안의 순위를 읽는다.
+                 🔴 **체크가 풀린 자리는 비운다. 다음 후보를 끌어올리지 않는다.**
+                    1위와 3위만 오면 headliner_order는 1과 3이다. 1과 2로 당기지 않는다.
+                 🔴 **저장 직전에 등급 자격을 다시 검사한다**(정책 2-2). 사람이 등급을
+                    1급이 아니게 바꾼 자리는 비운다. 1급 한정은 후보 **자격**이다.
+                 🔴 insight_ids, relation_ids, draft_ids와 **같은 테이블(RunDraft.pk)을
+                    가리키지만 이름을 가른다.** 27차 근거("확정이 만드는 결과가 다르면
+                    이름을 가른다")에 한 겹이 더 있다 — **셋이 같은 화면에 동시에 뜬다.**
+                    섞으면 확정 뷰가 Insight를 만들지 OrgRelation을 만들지 순위를 매길지
+                    고를 수단이 없다.
+                 🔴 확정 뷰가 이 이름을 안 읽으면 **순위가 0건 반영되고 화면은 정상으로
+                    보인다.** ALL-001 상단이 안 바뀐 것으로만 드러난다. 반드시 확인할 것.
    draft_ids     🔴 2026-09-15 신설. 채택한 보고서 초안의 RunDraft.pk 목록.
                  insight_ids와 같은 테이블을 가리키지만 이름을 따로 뒀다. 두 목록이
                  한 화면에 함께 오는 일은 없지만, 어떤 경로로든 섞여 오면 확정 뷰가
@@ -774,6 +932,21 @@
          ⚠️ 뷰가 relation_count를 안 내리면 0으로 떨어지고 화면이 28차와 같아진다.
        {% endcomment %}
        relCount: {{ review.output.relation_count|default:0 }},
+       {% comment %}
+         ══════════════════════════════════════════════════════════════════
+         🔴 2026-09-17 31차 신설. **insCount에도 relCount에도 섞지 않는다.**
+         ══════════════════════════════════════════════════════════════════
+         29차가 관계를 가른 근거가 그대로 한 겹 더 적용된다. 3단계 한 번이
+         **세 호출**로 이슈와 관계와 순위를 함께 낸다.
+
+           합치면   이슈 6 + 순위 3인 날 버튼이 「이슈 초안 9건 확정」이라고 말한다
+           🔴       9건짜리 이슈는 만들어지지 않는다. **버튼이 거짓말한다**
+           가르면   「이슈 초안 6건, 헤드라인 3건 지정」
+
+         🔴 화면 낱말은 **「헤드라인」**이다. 변수 이름만 head~다(명칭 규약).
+         ⚠️ 뷰가 headliner_count를 안 내리면 0으로 떨어지고 화면이 30차와 같아진다.
+       {% endcomment %}
+       headCount: {{ review.output.headliner_count|default:0 }},
        keepCount: {{ review.output.keep_count|default:0 }},
        uncoveredCount: {{ review.output.uncovered_count|default:0 }},
        {% comment %}
@@ -826,6 +999,15 @@
               조각이 「관계 초안 6건」이 된다 — 그러지 말 것(PE 인계).
          {% endcomment %}
          if (this.relCount) parts.push('관계 초안 ' + this.relCount + '건');
+         {% comment %}
+           🔴 31차 — 27차 문법({명사} N건 {동사}) 그대로 「헤드라인 N건 지정」이다.
+              세는 말을 「자리」로 쓰지 않았다. 조각 여섯이 전부 「N건」인데 하나만
+              「N자리」면 문법이 갈리고, 그 갈림이 뜻을 갖지 않는다.
+           🔴 낱말은 「헤드라인」이다. 「헤드라이너」로 쓰지 말 것 — ALL-001이 이미
+              「헤드라인」으로 찍고 있어서, 여기만 옛 이름이면 확정 전후로 같은 것이
+              다른 이름으로 불린다(2026-08-06 명칭 규약).
+         {% endcomment %}
+         if (this.headCount) parts.push('헤드라인 ' + this.headCount + '건 지정');
          if (this.keepCount) parts.push('기사 ' + this.keepCount + '건 유지');
          return parts.length ? parts.join(', ') + ' 확정' : '확정할 항목이 없어요';
        },
@@ -872,6 +1054,16 @@
             confirmText, recountDisposal 세 곳에는 hideCount를 넣고 여기만
             빠뜨렸다. 위 규칙에 그대로 걸린다 — 감춤은 확정하면
             News.duplicate_of가 박히는, **DB가 바뀌는 종류**다.
+
+         🔴 31차 — headCount를 더했다. 위 규칙의 **첫 이행**이다. 확정하면
+            Insight.headliner_order가 전량 교체되므로 DB가 바뀌는 종류가 맞다.
+            🔴 **이 조건은 가정이 아니라 실제로 열린다.** 헤드라인 후보는
+               「이번 배치 초안 중 1급」 + 「창 안 기존 확정 1급 Insight」 둘이라
+               (docs/planning.md 2-2), **이번 초안을 전부 거절해도 기존 이슈만으로
+               순위 제안이 남는 날**이 있다. 안 더하면 그날 확정이 잠겨 순위를
+               반영할 길이 화면에서 사라진다.
+            ⚠️ 확인창은 여전히 delCount만 본다. 순위는 **되돌릴 수 있다** — 다음
+               배치가 전량 교체하고, 그 전에도 headliner_order를 비우면 그만이다.
             🔴 조건이 오늘 실제가 됐다. RA가 손으로 채운 duplicate_of 13건을
                되돌려 2단계 파이프라인으로 다시 받기로 했고(13 → 0), 다음
                2단계는 중복 제안이 주로 나오는 배치가 된다. **삭제·교정·유지가
@@ -883,7 +1075,7 @@
        {% endcomment %}
        isDisabled() {
          if (this.uncoveredCount) return true;
-         return !this.delCount && !this.hideCount && !this.fixCount && !this.insCount && !this.relCount && !this.keepCount;
+         return !this.delCount && !this.hideCount && !this.fixCount && !this.insCount && !this.relCount && !this.headCount && !this.keepCount;
        },
        disabledReason() {
          if (this.uncoveredCount) return this.uncoveredCount + '건이 아직 판정되지 않았어요';
@@ -1224,6 +1416,23 @@
         <p class="text-gray-700">새로 낸 관계 초안 <strong class="text-primary">{{ review.output.relation_count }}</strong>건</p>
         {% endif %}
         {% comment %}
+          ══════════════════════════════════════════════════════════════════
+          🔴 2026-09-17 31차 신설 — 헤드라인 두 줄. 설계 정본은 docs/design.md 31차 ⑦번
+          ══════════════════════════════════════════════════════════════════
+          🔴 첫 줄은 **0이어도 찍는다.** 그래서 is not None 비교다.
+             헤드라이너 절 1번이 「1급이 0건인 배치가 연속 3회 나오면 후보를 2급까지
+             넓힐지 검토한다」는 되돌림 조건을 걸었다. **줄이 사라지면 그 조건을 볼
+             자리가 화면에 없다.** 바로 위 두 줄과 같은 근거다.
+          🔴 「새로 매긴」이다. 이슈는 글이라 「쓴」, 관계는 잇는 것이라 「낸」,
+             순위는 매기는 것이라 「매긴」이다. 낱말만 다르고 문법은 셋이 같다.
+          🔴 낱말은 「헤드라인」이다(2026-08-06 명칭 규약). ALL-001이 쓰는 말과 같다.
+          🔴 이 수는 **전량**이고 아래 헤드라인 순위 카드의 머리 숫자와 같다.
+             27차 계약 그대로 — 「제안」이 붙은 수는 전부 전량이다.
+        {% endcomment %}
+        {% if review.output.headliner_count is not None %}
+        <p class="text-gray-700">새로 매긴 헤드라인 순위 <strong class="text-primary">{{ review.output.headliner_count }}</strong>건</p>
+        {% endif %}
+        {% comment %}
           🔴 건너뛴 쌍. **이 자리가 아니면 보일 데가 없다.**
              OrgRelation이 이미 있는 쌍은 제안 생성 시점에 코드가 거르므로
              (docs/planning.md 같은 절 6번) 아래 카드에 행이 한 줄도 없다.
@@ -1243,6 +1452,17 @@
         {% endcomment %}
         {% if review.output.relation_skipped_count %}
         <p class="text-gray-400 pt-1">이미 있어서 제안하지 않은 쌍 {{ review.output.relation_skipped_count }}건{% if review.output.relation_conflict_count %}, 그중 라벨이 다른 쌍 {{ review.output.relation_conflict_count }}건{% endif %}</p>
+        {% endif %}
+        {% comment %}
+          🔴 31차 — 빠지는 이슈 줄. **머리 숫자의 부분집합이 아니라 밖이다.**
+             그래서 「그중」을 쓰지 않는다 — 바로 위 「이미 있어서 제안하지 않은 쌍」과
+             같은 처리이고, 27차·28차의 「그중 …」 두 줄과는 성질이 다르다.
+          🔴 회색으로 낮춘다. 확정 대상 목록이 아니라 **교체 기록**이다(5-2 의무).
+          ⚠️ 0이거나 없으면 줄이 통째로 사라진다. 직전 지정이 그대로 유지되는 날이
+             정상이고, 그날 「빠지는 이슈 0건」을 쓰지 않는다(17차 규칙).
+        {% endcomment %}
+        {% if review.output.headliner_dropped_count %}
+        <p class="text-gray-400 pt-1">직전 헤드라인에서 빠지는 이슈 {{ review.output.headliner_dropped_count }}건</p>
         {% endif %}
         {% else %}
         <p class="text-gray-700">삭제를 제안한 기사 <strong class="text-primary">{{ review.output.delete_count|default:0 }}</strong>건</p>
@@ -1407,8 +1627,11 @@
            관계만 나온 날 확정이 무엇을 하는지 읽히지 않는 것을 막는다.
            ⚠️ 이슈와 관계가 함께 있는 날은 이슈만 말한다. 근사치라 조각을 전부
               나열하지 않는 것이 이 폴백의 규칙이고, 정확한 값은 Alpine이 말한다.
+        🔴 31차에 「헤드라인」 갈래 하나를 더했다. 이슈도 관계도 0건인데 순위만
+           나온 날이 실제로 있다 — 후보에 **창 안 기존 확정 Insight**가 들어가므로
+           이번 초안을 전부 거절해도 순위 제안이 남는다.
       {% endcomment %}
-      <span x-text="labelText()">{% if review.output.delete_count and review.output.retag_count %}기사 {{ review.output.delete_count }}건 삭제, 태그 {{ review.output.retag_count }}건 교정 확정{% elif review.output.delete_count %}기사 {{ review.output.delete_count }}건 삭제 확정{% elif review.output.dup_hide_count %}중복 보도 {{ review.output.dup_hide_count }}건 감춤 확정{% elif review.output.retag_count %}태그 {{ review.output.retag_count }}건 교정 확정{% elif review.output.insight_count %}{{ review.output.draft_noun|default:"이슈" }} 초안 {{ review.output.insight_count }}건 확정{% elif review.output.relation_count %}관계 초안 {{ review.output.relation_count }}건 확정{% elif review.output.keep_count %}기사 {{ review.output.keep_count }}건 유지 확정{% else %}확정할 항목이 없어요{% endif %}</span>
+      <span x-text="labelText()">{% if review.output.delete_count and review.output.retag_count %}기사 {{ review.output.delete_count }}건 삭제, 태그 {{ review.output.retag_count }}건 교정 확정{% elif review.output.delete_count %}기사 {{ review.output.delete_count }}건 삭제 확정{% elif review.output.dup_hide_count %}중복 보도 {{ review.output.dup_hide_count }}건 감춤 확정{% elif review.output.retag_count %}태그 {{ review.output.retag_count }}건 교정 확정{% elif review.output.insight_count %}{{ review.output.draft_noun|default:"이슈" }} 초안 {{ review.output.insight_count }}건 확정{% elif review.output.relation_count %}관계 초안 {{ review.output.relation_count }}건 확정{% elif review.output.headliner_count %}헤드라인 {{ review.output.headliner_count }}건 지정{% elif review.output.keep_count %}기사 {{ review.output.keep_count }}건 유지 확정{% else %}확정할 항목이 없어요{% endif %}</span>
     </button>
     {% else %}
     <button type="button" disabled
@@ -1537,7 +1760,23 @@
                 {% if grade_choices %}
                 <label class="flex items-center gap-1.5 text-xs text-gray-500">
                   등급
-                  <select name="grade_{{ item.id }}" @change="touched = true"
+                  {% comment %}
+                    🔴 2026-09-17 31차 — $dispatch 한 줄을 더했다. 헤드라인 순위 카드가
+                       이 값을 듣는다.
+                    🔴 왜 필요한가 — 등급을 1급이 아니게 바꾸면 그 초안은 헤드라인 후보
+                       **자격**을 잃고 확정 뷰가 그 자리를 비운다(docs/planning.md 2-2).
+                       그런데 헤드라인 카드의 체크는 켜진 채로 남아 **「확정하면 이게
+                       1위가 된다」고 말하는데 실제로는 비워진다.** 27차 계약(화면에 찍힌
+                       것과 실제 일어날 일이 어긋나지 않는다)에 정면으로 걸린다.
+                    🔴 window까지 버블링한다. 헤드라인 카드는 이 카드의 **형제**라
+                       @grade-changed.window로 받는다.
+                    ⚠️ 헤드라인 카드가 없는 화면(2단계, 4·5단계)에서는 아무도 듣지
+                       않는다. 이벤트가 그냥 흘러갈 뿐 화면은 죽지 않는다.
+                    ⚠️ touched 갱신을 앞에 둔 것은 의도다. dispatch가 실패해도
+                       「직접 고쳤어요」 표식은 그대로 바뀐다.
+                  {% endcomment %}
+                  <select name="grade_{{ item.id }}"
+                          @change="touched = true; $dispatch('grade-changed', { id: {{ item.id }}, value: $event.target.value })"
                           class="text-xs border border-[#E5E5E5] rounded-[10px] px-2 py-1 focus:outline-none focus:border-primary">
                     {% if not item.grade %}
                     <option value="" selected>등급을 골라 주세요</option>
@@ -1596,9 +1835,50 @@
               <div class="mt-3">
                 <p class="text-[10px] font-semibold text-gray-400 tracking-wide mb-1.5">시사점</p>
                 {% if item.implication %}
+                {% comment %}
+                  ══════════════════════════════════════════════════════════
+                  🔴 2026-09-17 31차 — 축약본을 **전문 위에 표시**로 보인다
+                  ══════════════════════════════════════════════════════════
+                  implication_sentences가 오면 keep이 False인 문장을 회색 취소선으로
+                  그린다. 그것이 implication_short에서 빠지는 문장이다.
+
+                  🔴 축약본을 **따로 그리지 않는다.** 근거는 docs/design.md 31차 ⑨번이고
+                     요지는 둘이다.
+                     ① 코드가 원문을 그대로 이어 붙이므로 축약본에 **새 글자가 한 자도
+                        없다.** 사람이 볼 것은 「무엇이 빠졌나」 하나인데, 축약본 블록에는
+                        빠진 문장이 애초에 없어서 **검산 대상이 화면에 없다.**
+                     ② 「이 문장을 빼도 되나」는 앞뒤를 같이 봐야만 답할 수 있는 물음이다.
+                  🔴 LLM은 문자열을 내지 않는다. {"implication_keep": [1,3]} 같은 번호
+                     배열만 내고 코드가 이어 붙인다(docs/planning.md 3-1). **「삭제만
+                     허용」이 부탁이 아니라 구조다** — 고쳐 쓸 출력 칸 자체가 없다.
+                  ⚠️ 없으면 아래 else 갈래가 전문을 그대로 그린다. 그날 화면은 30차와
+                     한 픽셀도 다르지 않다. 조용한 폴백이 맞는 자리다.
+                  ⚠️ 상자가 whitespace-pre-line이라 **줄바꿈은 sentence.text 안에 있어야**
+                     원문 모양이 살아난다(계약 참고).
+                {% endcomment %}
                 <div class="bg-purple-50 border-l-4 border-primary rounded-r-[10px] px-3 py-2.5">
+                  {% if item.implication_sentences %}
+                  <p class="text-xs text-gray-700 leading-relaxed whitespace-pre-line">{% for s in item.implication_sentences %}<span {% if not s.keep %}class="text-gray-400 line-through"{% endif %}>{{ s.text }}</span>{% endfor %}</p>
+                  {% else %}
                   <p class="text-xs text-gray-700 leading-relaxed whitespace-pre-line">{{ item.implication }}</p>
+                  {% endif %}
                 </div>
+                {% comment %}
+                  🔴 범례 한 줄. **축약본 표시가 켜진 카드에만 뜬다.**
+                     취소선이 무슨 뜻인지 말해 주지 않으면 사람이 「LLM이 지우자고 한
+                     문장」으로 읽는다. 지우는 것이 아니라 **짧은 버전에서만 빠지는 것**이고,
+                     원문(정본)은 한 글자도 바뀌지 않는다. 이 오해는 그냥 두면 사람이
+                     멀쩡한 초안을 거절하게 만든다.
+                  🔴 17차 규칙(늘 맞는 문장을 띄우지 않는다)에 걸리지 않는다. 이 줄은
+                     **축약본이 만들어지는 카드에서만** 뜨고, 축약본이 없는 날에는
+                     통째로 사라진다. 한 문장도 안 빠진 날에도 뜨지만 그때도
+                     「이 카드는 축약본이 만들어진다」는 사실을 말하므로 빈 말이 아니다.
+                  ⚠️ 카드마다 한 번이면 충분하다. 아래 분석 전문 블록에 같은 줄을
+                     또 넣지 말 것 — 시사점은 항상 보이므로 이 자리가 먼저 읽힌다.
+                {% endcomment %}
+                {% if item.implication_sentences or item.content_sentences %}
+                <p class="text-[11px] text-gray-400 mt-1.5">취소선은 짧은 버전에서 빠지는 문장이에요. 원문은 그대로 남아요.</p>
+                {% endif %}
                 {% else %}
                 <p class="text-xs text-orange-600">시사점이 비어 있어요. 이대로 확정하면 빈 채로 만들어져요.</p>
                 {% endif %}
@@ -1616,6 +1896,22 @@
                   <span x-text="open ? '분석 접기' : '분석 전문 보기'">분석 전문 보기</span>
                   <i data-lucide="chevron-down" class="w-3 h-3"></i>
                 </button>
+                {% comment %}
+                  🔴 31차 — 축약본 글자 수. **회색으로만 찍는다. 주황을 쓰지 않는다.**
+                     길이 규약(content_short 500자, implication_short 300자)은
+                     **목표치이지 상한이다**(docs/planning.md 3-2).
+                  🔴 왜 주황이 안 되는가 — 삭제만 허용하는 규칙 아래에서 글자 수는
+                     **판정자가 제어할 수 없는 값**이다. 남겨야 할 문장 하나가 길면
+                     어떤 선택으로도 못 맞춘다. 그 자리에 경고를 띄우면 「고쳐 써라」로만
+                     이어지고, **그 압력이 정확히 이 규칙이 막으려던 것**이다.
+                  ⚠️ 바로 아래 보고서 카드의 「주요 동향 500자 주황」과 성질이 정반대다.
+                     그쪽은 사람이 고쳐 쓸 수 있는 글이라 경고가 행동으로 이어진다.
+                     🔴 두 자리를 같은 규칙으로 맞추지 말 것.
+                  ⚠️ 없으면 이 조각만 사라진다.
+                {% endcomment %}
+                {% if item.content_short_length %}
+                <span class="text-[10px] text-gray-400 whitespace-nowrap">짧은 버전 {{ item.content_short_length }}자</span>
+                {% endif %}
                 {% if item.news_items %}
                 <button type="button" @click="openNews = !openNews"
                         class="text-xs text-primary hover:underline flex items-center gap-1">
@@ -1633,9 +1929,14 @@
                    보고서는 읽으려고 펼치는 것이고, 가두면 상자 안에서 다시 스크롤하게 된다.
                    근거 기사 목록과 판단이 갈리는 이유는 그쪽 주석에 적었다.
               {% endcomment %}
+              {% comment %}
+                🔴 31차 — 여기도 축약본을 전문 위에 표시로 보인다. 위 시사점 블록과
+                   같은 규칙이고 범례는 카드마다 한 번이라 여기 다시 두지 않았다.
+                ⚠️ content_sentences가 없으면 종전처럼 전문 문자열을 그린다.
+              {% endcomment %}
               <div x-show="open" x-cloak
                    class="mt-2 p-3 rounded-[10px] bg-gray-50 text-xs text-gray-600 leading-relaxed whitespace-pre-line">
-                {{ item.content|default:"분석 본문이 비어 있어요." }}
+                {% if item.content_sentences %}{% for s in item.content_sentences %}<span {% if not s.keep %}class="text-gray-400 line-through"{% endif %}>{{ s.text }}</span>{% endfor %}{% else %}{{ item.content|default:"분석 본문이 비어 있어요." }}{% endif %}
               </div>
 
               {% comment %}
@@ -1913,6 +2214,306 @@
     {% endif %}
 
     {% comment %}
+      ── 🔴 헤드라인 순위 (2026-09-17 31차 신설, 3단계 검토) ─────────
+      설계 정본은 docs/design.md 「SET-010 · 실행」 31차 개정,
+      정책 정본은 docs/planning.md 「RA 손 작업을 전부 단계 안으로 넣는다
+      (2026-09-17 확정)」 절 2번이다.
+
+      ▣ 🔴 무엇을 확정하는가
+        확정하면 Insight.headliner_order가 **전량 교체**된다. 트랜잭션 안에서 기존
+        지정을 전부 NULL로 만든 뒤 새로 1·2·3을 매긴다. ALL-001 상단의 헤드라인
+        영역이 그 결과를 그린다.
+        🔴 「배치 단위 전량 교체」는 2026-08-06부터 그대로이고 **주체만** 바뀌었다.
+           RA 손 → 코드가 후보를 좁히고, LLM이 순위를 매기고, 사람이 확정한다.
+
+      ▣ 🔴 낱말 — 화면은 「헤드라인」이다
+        「헤드라이너」는 코드 식별자에만 남는다(headliner_order / headliner_items /
+        headCount / headliner_ids). 2026-08-06 명칭 규약이고 ALL-001이 이미 그 말을
+        쓴다. 🔴 여기만 옛 이름이면 **확정 전후로 같은 것이 다른 이름으로 불린다.**
+
+      ▣ 🔴 자리 — 관계 초안 카드 바로 아래 형제다
+        3단계 한 번이 세 호출로 이슈·관계·순위를 함께 낸다. 실행 순서(1→2→3) 그대로
+        놓았다. 헤드라인은 **이슈 초안의 결과물**이라 그 둘을 읽은 뒤에 온다.
+        ⚠️ 2026-09-14 사용자 지시의 순서("1, 2, 7, 5, 6, 4, 3")에 없는 항목이다.
+           이슈 초안·관계 초안 카드가 같은 처지였고 같은 방식으로 예외를 적어 둔다.
+
+      ▣ 🔴 체크박스 이름이 headliner_ids다
+        insight_ids·relation_ids·draft_ids와 **같은 테이블(RunDraft.pk)을 가리키지만**
+        확정이 만드는 결과가 다르므로 이름을 가른다(27차 근거).
+        🔴 여기서는 그 근거가 가장 세다 — **셋이 같은 화면에 동시에 뜬다.** 섞으면
+           확정 뷰가 Insight를 만들지 OrgRelation을 만들지 순위를 매길지 고를 수단이
+           없고, 그 사고는 조용히 엉뚱한 것을 만든다.
+
+      ▣ 🔴 순서를 이 화면에서 바꾸지 않는다 (정책 2-5)
+        드래그도 select도 만들지 않았다. 바꿀 수 있게 하면 규칙이 아니라 **그날의
+        기분**이 순서를 정하고, 5-2가 없애려던 「근거 없는 교체」가 **기록이 남지 않는
+        형태로** 되돌아온다. 동의하지 않으면 체크를 풀고, 그 거절이 수신자 붙은
+        거절로 쌓여 프롬프트 고도화 재료가 된다.
+        🔴 그래서 POST에 순위를 싣지 않는다. 화면이 보낼 rank는 서버가 이미 아는 값의
+           **복사본**이고, 두 벌이 되면 어긋나도 아무 데서도 안 잡힌다.
+
+      ▣ 🔴 교체를 두 자리로 나눠 보인다. 한 자리로는 성립하지 않는다
+        5-2는 「자리별 비교」를 요구하고 6번은 「전량 교체」를 요구한다. 🔴 **전량
+        교체라 자리별 1:1 대응이 깨지는 것이 정상이다** — 직전 1위가 이번 2위로
+        내려오면 직전 2위였던 이슈는 **어느 자리에도 대응되지 않은 채** 사라진다.
+          자리 안    배지(신규 / 직전 N위 / 유지) + 교체 사유  → 무엇이 들어오는가
+          카드 아래  「이번에 빠지는 이슈」 회색 블록           → 무엇이 빠지는가
+        🔴 교체 사유를 만드는 주체가 둘이다(정책 2-3). 창 밖 이탈·중복 제외·다양성
+           셋은 **코드**가 붙이고, 넷째(판정자의 재적용)만 **LLM**이 낸다.
+        🔴 change가 same이 아닌데 change_reason이 비면 **주황**이다. 2-3이 「새 사실을
+           대지 못하면 그 교체는 제안에서 빼고 직전 순서를 유지한다」고 못박았으므로,
+           **사유 없는 교체가 화면에 도착한 것 자체가 규칙 위반 신호**다.
+           ⚠️ 화면은 알리기만 하고 막지 않는다. 막는 자리는 확정 뷰다.
+
+      ▣ 🔴 자리가 비는 경우 — 두 갈래이고 처리가 다르다
+        후보가 셋이 안 된다   🔴 **행 자체가 없다. 빈 자리 placeholder를 그리지 않는다.**
+                              하한이 없고(정책 2-4), 빈 칸을 그리는 순간 **「칸을 채워라」는
+                              압력**이 화면에 생긴다. 2번이 정확히 그것을 막고 있다.
+                              🔴 LLM 프롬프트에도 「3개를 채워라」를 쓰지 않는다.
+        체크를 풀었다         순번 원이 회색으로 죽고 「이 자리는 비워 둬요」 한 줄이 뜬다.
+                              🔴 **다음 후보를 끌어올리지 않는다**(자동 보충 금지).
+                              채우는 순간 사람이 고른 것과 기계가 채운 것이 구분되지 않는다.
+        등급이 1급이 아니게 됐다  아래 ▣ 참고.
+        ⚠️ 「모두 해제」로는 「비워 둬요」 줄이 뜨지 않는다. clearAll()이 checked만 바꿔
+           @change가 돌지 않기 때문이고, **27차의 「모두 해제로는 거절 사유 상자가 뜨지
+           않는다」와 같은 성질의 알려진 동작**이다.
+
+      ▣ 🔴 등급을 바꾸면 자리가 조용히 비는 문제 — 화면이 먼저 말한다
+        1급 한정은 후보 **자격**이라(정책 1번), 사람이 이슈 초안에서 등급을 3급으로
+        바꾸면 확정 뷰가 그 자리를 비운다(2-2). 🔴 그대로 두면 **화면이 거짓말한다** —
+        체크는 켜진 채 남아 「확정하면 이게 1위가 된다」고 말하는데 실제로는 비워진다.
+        27차 계약에 정면으로 걸린다.
+          이슈 초안 select  @change에서 $dispatch('grade-changed', {id, value})
+          이 카드의 자리    @grade-changed.window 로 받아 gradeOk를 갱신
+        🔴 '1급' 문자열을 템플릿에 하드코딩하지 않는다. item.qualifying_grade가 그 값을
+           들고 온다. 하드코딩하면 값이 다를 때 **에러 없이** 경고가 영영 안 뜨거나 늘 뜬다.
+        🔴 화면은 알리기만 하고 자리를 지우지 않는다. 지우면 등급을 되돌렸을 때 자리가
+           안 돌아온다.
+        ⚠️ insight_draft_id나 qualifying_grade가 없으면 속성 자체가 렌더되지 않는다.
+           감시가 꺼질 뿐 화면은 죽지 않는다. **기존 확정 Insight에서 온 자리**는 이
+           화면에 등급 select가 없으므로 둘 다 비는 것이 정상이다.
+
+      ▣ 🔴 상한 3을 이 화면이 강제하지 않는다
+        강제 자리는 다섯이다(정책 2-4) — LLM 출력 스키마 배열 길이 / 확정 뷰 /
+        대시보드 슬라이스 / docs/design.md / docs/planning.md. **검토 화면은 그중에
+        없다.** 4건이 오면 받은 대로 4행을 그리고, **머리 숫자가 4가 되는 것 자체가
+        신호다.** 삭제 목록의 정렬 깨짐을 다루는 방식과 같다.
+        🔴 DB 제약을 새로 걸지 않는다(헤드라이너 절 2번 "DB 제약으로 막을 일은 아니다").
+
+      ▣ 🔴 근거 기사 목록을 여기 두지 않는다
+        그 자리에 서는 이슈는 바로 위 이슈 초안 카드에 근거 기사를 이미 달고 있고,
+        제목이 같은 글자라 사람이 잇는다. 같은 목록을 두 벌 그리면 스크롤만 길어진다.
+        ⚠️ **기존 확정 Insight에서 온 자리**는 위 카드에 없다. 그래서 그 자리에는
+           회색 「기존 이슈」 pill을 붙여 **왜 위에 없는지**를 말한다.
+
+      ▣ 확정에 확인창을 걸지 않는다
+        🔴 순위는 되돌릴 수 있다 — 다음 배치가 전량 교체하고, 그 전에도 headliner_order를
+        비우면 그만이다. confirmText와 confirmTitle이 delCount만 보므로 3단계에서는 창이
+        저절로 안 뜬다. 🔴 이 자리에 순위용 확인창을 새로 만들지 말 것.
+
+      ⚠️ 새 arbitrary 클래스가 하나도 없다. w-5 / h-5 / justify-center / line-through /
+         text-[11px]가 전부 static/css/tailwind.css에 이미 있다(실측). npm run build:css를
+         돌릴 이유가 없다. break-words와 h-full은 쓰지 않았다.
+    {% endcomment %}
+    {% if review.headliner_items %}
+    <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+        {% comment %}
+          🔴 머리 숫자 = 이 카드가 나열하는 행 수다. 27차 계약 그대로이고, 위 요약 ③
+             칸의 「새로 매긴 헤드라인 순위 N건」과 같은 수라 화면 안에서 검산된다.
+        {% endcomment %}
+        <h3 class="text-sm font-semibold text-gray-900">
+          헤드라인 순위 <span class="text-gray-400 font-normal">{{ review.output.headliner_count|default:0 }}</span>
+        </h3>
+        {% comment %}
+          🔴 headCount를 직접 0으로 놓는다. 관계 초안 카드와 같은 형태다.
+             28차가 고친 버그는 **확인창을 움직이는 변수**(delCount·hideCount)를
+             직접 놓아서 난 것이고, headCount는 버튼 라벨과 잠금만 움직인다.
+        {% endcomment %}
+        <button type="button"
+                @click="clearAll('headlinerList'); headCount = 0"
+                class="text-xs text-gray-500 hover:text-primary transition-colors">모두 해제</button>
+      </div>
+
+      {% comment %}
+        🔴 창 한 줄. 1-B의 창 기록 의무를 **코드가 적는 자리**다(정책 2-3 — "코드가
+           창을 계산하므로 코드가 적는다"). 종전에 RA가 배치 보고서에 손으로 적던
+           줄이고, 손이 없어졌으므로 기록 자리도 함께 옮긴다.
+        🔴 창 판정(7일 → 3건 미만이면 14일)은 **코드가 한다. LLM을 쓰지 않는다.**
+           1-B가 부등호를 ≤로 못박으며 없애려던 판정자 재량이 되살아나기 때문이다.
+        ⚠️ 없으면 줄이 통째로 사라진다.
+      {% endcomment %}
+      {% if review.headliner_window %}
+      <p class="px-5 py-2.5 border-b border-gray-100 text-[11px] text-gray-400">{{ review.headliner_window }}</p>
+      {% endif %}
+
+      <div x-ref="headlinerList" class="divide-y divide-gray-50">
+        {% for item in review.headliner_items %}
+        {% comment %}
+          카드마다 x-data 둘이다. kept는 체크 상태, gradeOk는 등급 자격이다.
+          🔴 둘 다 x-show를 움직이므로 그 두 줄에 x-cloak이 반드시 붙는다.
+          ⚠️ @grade-changed.window 속성은 두 값이 다 있을 때만 렌더된다. 없으면
+             감시가 꺼질 뿐이라 조용히 안전하게 실패한다.
+        {% endcomment %}
+        <div class="px-5 py-4" x-data="{ kept: true, gradeOk: true }"
+             {% if item.insight_draft_id and item.qualifying_grade %}@grade-changed.window="if ($event.detail.id == {{ item.insight_draft_id }}) gradeOk = ($event.detail.value === '{{ item.qualifying_grade|escapejs }}')"{% endif %}>
+          <div class="flex items-start gap-3">
+            <input type="checkbox" name="headliner_ids" value="{{ item.id }}" checked
+                   @change="kept = $event.target.checked; headCount += $event.target.checked ? 1 : -1"
+                   class="mt-0.5 w-4 h-4 flex-shrink-0 accent-[#60269E]">
+
+            {% comment %}
+              🔴 순번 원. **이 화면에서 순위가 뜻을 갖는 유일한 자리**라 숫자를
+                 글자가 아니라 도형으로 세운다. 체크를 풀면 회색으로 죽어서
+                 「이 자리가 비었다」가 훑을 때 보인다.
+              ⚠️ rank가 비면 「?」가 찍힌다. 화면은 죽지 않지만 뷰가 틀린 것이다.
+            {% endcomment %}
+            {% comment %}
+              ⚠️ :class는 **객체 문법**이다. 문자열 문법으로 쓰면 아래 정적 class의
+                 bg-primary가 남아 회색과 겹친다(Alpine은 정적 class를 지우지 않는다).
+                 객체 문법은 false인 키를 정적 class에서도 걷어낸다.
+              ⚠️ 정적 class에 기본 상태(보라)를 그대로 적어 뒀다. Alpine이 뜨기 전에도
+                 원이 제 색으로 보이고, 기본값이 kept=true라 두 값이 어긋나지 않는다.
+            {% endcomment %}
+            <span class="mt-0.5 w-5 h-5 rounded-full text-[10px] font-semibold flex items-center justify-center flex-shrink-0 bg-primary text-white"
+                  :class="{ 'bg-primary': kept, 'text-white': kept, 'bg-gray-100': !kept, 'text-gray-400': !kept }">{{ item.rank|default:"?" }}</span>
+
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold text-gray-900 leading-snug">{{ item.title|default:"제목이 비어 있어요" }}</p>
+
+              {% comment %}
+                배지 줄. 🔴 **한국어 텍스트가 정본이고 색은 보조다**(이 화면 전체 규약).
+                  신규 / 직전 N위   보라  — 자리가 바뀌었다
+                  유지              회색  — 그대로다
+                🔴 change가 없으면 배지가 사라질 뿐 화면은 죽지 않는다.
+                ⚠️ min-w-0을 빼지 말 것. flex 아이템의 min-width 기본값이 auto라
+                   긴 기업명이나 업권 이름이 행을 밀어낸다.
+              {% endcomment %}
+              <div class="flex items-center gap-2 mt-2 flex-wrap min-w-0">
+                {% if item.change == 'new' %}
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 text-primary whitespace-nowrap">신규</span>
+                {% elif item.change == 'moved' %}
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 text-primary whitespace-nowrap">직전 {{ item.prev_rank }}위</span>
+                {% elif item.change == 'same' %}
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 whitespace-nowrap">유지</span>
+                {% endif %}
+
+                {% comment %}
+                  🔴 업권 라벨. 5-1 다양성 규칙(같은 업권 2건까지)을 사람이 검산하는
+                     재료다. 셋이 나란히 서 있으므로 같은 말이 셋이면 그 자리에서 보인다.
+                  🔴 **Insight에 저장되지 않는다.** 5-1이 「업권을 DB 필드로 만들지
+                     않는다」고 못박았고 이번 코드화가 그 조항을 하나도 바꾸지 않았다.
+                     LLM이 라벨을 내고 코드가 셋을 셀 뿐이며 라벨은 RunDraft에만 남는다.
+                  🔴 「목록 밖」은 **회색이다. 주황으로 올리지 않는다.** 이상 신호가
+                     아니라 RA가 배치 보고서에 옮겨 적을 관측값이고(2회 반복되면 PM이
+                     목록에 넣는다), 코드도 그것을 「목록 밖」으로 세지 않고 통과시킨다.
+                     ⚠️ 이 글자가 없으면 RA가 적을 수 없다.
+                {% endcomment %}
+                {% if item.sector %}
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 whitespace-nowrap">{{ item.sector }}</span>
+                {% if item.sector_unlisted %}
+                <span class="text-[10px] text-gray-400 whitespace-nowrap" title="업권 목록에 없는 이름이에요. 배치 보고서에 적어 주세요.">목록 밖</span>
+                {% endif %}
+                {% endif %}
+
+                {% comment %}
+                  🔴 이번 배치 초안이 아니라 **창 안 기존 확정 Insight**에서 온 자리라는
+                     표시다. 그 자리는 위 이슈 초안 카드에 없어서 근거 기사를 펼쳐 볼 수
+                     없는데, 이 pill이 그 이유를 말한다.
+                  ⚠️ 없으면 pill만 사라진다(이번 초안인 것이 기본이라 늘 띄우지 않는다).
+                {% endcomment %}
+                {% if item.from_existing %}
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 whitespace-nowrap">기존 이슈</span>
+                {% endif %}
+              </div>
+
+              {% comment %}
+                🔴 순위 사유. 이 카드의 알맹이다. 접지 않는다.
+                   1-A 사슬((ii) 변화의 구체성 → (i) 파급 범위 → 서사)의 결과가
+                   드러나야 하고, 사람이 순위에 동의할지 판단하는 재료가 이 한 문장이다.
+                ⚠️ 콜아웃 상자를 쓰지 않았다. 보라 콜아웃은 이슈 초안의 「시사점」
+                   전용이고, 같은 장치를 두 뜻에 쓰면 그 자리의 뜻이 흐려진다.
+                ⚠️ 아무 줄바꿈 클래스도 걸지 않는다. break-words는 빌드에 없어 조용히
+                   무시되고, 안 걸면 기본 줄바꿈으로 전량이 보인다.
+              {% endcomment %}
+              {% if item.reason %}
+              <p class="text-xs text-gray-600 leading-relaxed mt-2">{{ item.reason }}</p>
+              {% else %}
+              <p class="text-xs text-orange-600 mt-2">순위 사유가 비어 있어요. 왜 이 자리인지 확인해 주세요.</p>
+              {% endif %}
+
+              {% comment %}
+                🔴 교체 사유. change가 same이 아닐 때만 뜬다.
+                   🔴 비어 있으면 주황이다. 2-3이 「새 사실을 대지 못하면 그 교체는
+                      제안에서 빼고 직전 순서를 유지한다」고 못박았으므로, 사유 없는
+                      교체가 여기 도착한 것 자체가 규칙 위반 신호다.
+                   ⚠️ 그래도 막지 않는다. 막는 자리는 확정 뷰다.
+                🔴 화살표는 ↳ 하나다. 가운뎃점과 줄표를 쓰지 않는다(29차 낱말 규약).
+              {% endcomment %}
+              {% if item.change and item.change != 'same' %}
+              {% if item.change_reason %}
+              <p class="text-[11px] text-gray-400 mt-1.5 leading-relaxed">&#8627; {{ item.change_reason }}</p>
+              {% else %}
+              <p class="text-[11px] text-orange-600 mt-1.5 leading-relaxed">&#8627; 교체 사유를 받지 못했어요. 사유 없는 교체는 직전 순서를 그대로 두는 것이 규칙이에요.</p>
+              {% endif %}
+              {% endif %}
+
+              {% comment %}
+                🔴 체크를 풀었을 때만 뜨는 줄. x-show에는 x-cloak이 반드시 붙는다.
+                   빠뜨리면 Alpine이 뜨기 전에 브라우저가 이 줄을 **모든 자리에**
+                   그렸다 지운다(FOUC). 이 프로젝트의 최우선 점검 항목이다.
+                ⚠️ x-if로 지우지 않았다. 껐다 켤 때 상태가 사라진다.
+              {% endcomment %}
+              <p x-show="!kept" x-cloak class="text-[11px] text-gray-400 mt-2">이 자리는 비워 둬요. 다음 후보를 올리지 않아요.</p>
+
+              {% comment %}
+                🔴 등급 자격 경고. 위와 같은 이유로 x-cloak이 필수다.
+                🔴 문구에 등급 값을 넣지 않았다. qualifying_grade가 무엇이든 뜻이
+                   같은 문장이라 값이 바뀌어도 이 줄은 안 틀린다.
+              {% endcomment %}
+              <p x-show="!gradeOk" x-cloak class="text-[11px] text-orange-600 mt-1.5">등급을 바꿨어요. 이대로 확정하면 이 자리는 비워져요.</p>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      {% comment %}
+        🔴 이번에 빠지는 이슈. **5-2 교체 기록의 나머지 절반이다.**
+           자리 안의 배지가 「무엇이 들어오는가」를 말하고 이 블록이 「무엇이 빠지는가」를
+           말한다. 🔴 전량 교체라 자리별 1:1 대응이 깨지는 것이 정상이므로, 자리 안에만
+           그리면 **어느 자리에도 대응되지 않은 채 사라지는 이슈**를 못 보인다.
+        🔴 취소선은 「N위」에만 건다. 제목에는 걸지 않는다 — 읽어야 할 글자가 읽기
+           어려워지고, 취소선이 말해야 하는 것은 「그 자리가 사라졌다」이지 「그 이슈가
+           틀렸다」가 아니다.
+        🔴 회색 배경으로 낮춘다. 확정 대상이 아니라 기록이라 자리 셋과 같은 무게로
+           쓰면 체크할 것처럼 읽힌다.
+        🔴 **체크박스를 두지 않는다.** 빠지는 것을 되살리는 길은 자리 쪽 체크를 푸는
+           것이 아니라 없다 — 자동 보충 금지와 같은 자리다.
+        ⚠️ 없거나 비면 블록이 통째로 사라진다. 직전 지정이 그대로인 날이 정상이고
+           「빠지는 이슈 없음」을 쓰지 않는다(17차 규칙).
+      {% endcomment %}
+      {% if review.headliner_dropped %}
+      {% comment %}
+        ⚠️ py-3이다. py-3.5는 **빌드에 없어 조용히 무시된다**(static/css/tailwind.css
+           실측). 이 저장소에서 반복되는 함정이라 실측하고 골랐다.
+      {% endcomment %}
+      <div class="px-5 py-3 bg-gray-50 border-t border-gray-100">
+        <p class="text-[10px] font-semibold text-gray-400 tracking-wide mb-2">이번에 빠지는 이슈 {{ review.headliner_dropped|length }}</p>
+        <ul class="space-y-1.5">
+          {% for drop in review.headliner_dropped %}
+          <li class="text-xs text-gray-500 flex items-start gap-2 min-w-0">
+            <span class="text-gray-400 flex-shrink-0 line-through">{{ drop.prev_rank }}위</span>
+            <span class="min-w-0">{{ drop.title|default:"제목이 비어 있어요" }}{% if drop.reason %} <span class="text-gray-400">&mdash; {{ drop.reason }}</span>{% endif %}</span>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% comment %}
       ── 보고서 초안 (4, 5단계 검토) ────────────────────────────────
       🔴 2026-09-15 신설. 주간과 월간이 이 한 블록을 같이 쓴다.
          정본 설명은 이 파일 맨 위 report_items 계약과 docs/design.md 8차 개정이다.
@@ -2095,6 +2696,16 @@
                   <span x-text="open ? bodyLabel + ' 접기' : bodyLabel + ' 전문 보기'">{{ item.body_label|default:"주요 이슈" }} 전문 보기</span>
                   <i data-lucide="chevron-down" class="w-3 h-3"></i>
                 </button>
+                {% comment %}
+                  🔴 31차 — 축약본 글자 수. 회색으로만 찍는다.
+                  ⚠️ **보고서에는 목표 글자 수가 아예 없다**(docs/planning.md 4번 —
+                     짧은 쪽의 정의가 "부연을 다 뺀 것"이지 "N자 이내"가 아니다).
+                     그래서 이 수에는 어떤 문턱도 걸지 않는다. 숫자를 넣으면
+                     「보고서 길이 버전」 절이 없앤 중간 눈금이 되살아난다.
+                {% endcomment %}
+                {% if item.content_short_length %}
+                <span class="text-[10px] text-gray-400 whitespace-nowrap">짧은 버전 {{ item.content_short_length }}자</span>
+                {% endif %}
                 {% if item.news_items %}
                 <button type="button" @click="openNews = !openNews"
                         class="text-xs text-primary hover:underline flex items-center gap-1">
@@ -2110,9 +2721,24 @@
                 ⚠️ max-h를 걸지 않는다. 보고서는 읽으려고 펼치는 것이고, 가두면 상자 안에서
                    다시 스크롤하게 된다. 아래 근거 기사 목록과 판단이 갈리는 자리다.
               {% endcomment %}
+              {% comment %}
+                🔴 31차 — 여기도 축약본을 전문 위에 표시로 보인다. 이슈 초안 카드와
+                   같은 규칙이다. 🔴 보고서에서는 이 표시가 **축약본 5-1(시사점을
+                   축약본에 넣지 않는다)이 지켜졌는지 보는 자리**이기도 하다 —
+                   시사점 문단이 취소선으로 빠져 있어야 맞다(docs/planning.md 4번).
+                🔴 범례 한 줄은 이 카드에 두지 않았다. 보고서 카드에는 시사점 블록이
+                   없어 범례가 설 자리가 여기뿐인데, 이 블록은 **접혀 있어서** 범례를
+                   펼치기 전에 보여 줄 수 없다. 대신 아래 조건으로 상자 안 첫 줄에 둔다.
+                ⚠️ content_sentences가 없으면 종전처럼 전문 문자열을 그린다.
+              {% endcomment %}
               <div x-show="open" x-cloak
-                   class="mt-2 p-3 rounded-[10px] bg-gray-50 text-xs text-gray-600 leading-relaxed whitespace-pre-line">
-                {{ item.content|default:"본문이 비어 있어요." }}
+                   class="mt-2 p-3 rounded-[10px] bg-gray-50 text-xs text-gray-600 leading-relaxed">
+                {% if item.content_sentences %}
+                <p class="text-[11px] text-gray-400 mb-2">취소선은 짧은 버전에서 빠지는 문장이에요. 원문은 그대로 남아요.</p>
+                <p class="whitespace-pre-line">{% for s in item.content_sentences %}<span {% if not s.keep %}class="text-gray-400 line-through"{% endif %}>{{ s.text }}</span>{% endfor %}</p>
+                {% else %}
+                <p class="whitespace-pre-line">{{ item.content|default:"본문이 비어 있어요." }}</p>
+                {% endif %}
               </div>
 
               {% comment %}
@@ -3200,8 +3826,11 @@
          늘 때마다 이 조건에 더하는 것을 빠뜨리지 말 것.
       🔴 2026-09-17 29차 — 같은 이유로 relation_items를 더했다. 이슈는 0건인데
          관계만 나온 날이 실제로 있다(두 호출이 서로 독립이다).
+      🔴 2026-09-17 31차 — 같은 이유로 headliner_items를 더했다. **세 호출이 서로
+         독립이고, 헤드라인 후보에는 기존 확정 Insight가 들어가므로 이번 초안이
+         전부 0건이어도 순위 제안만 뜨는 날이 실제로 있다.**
     {% endcomment %}
-    {% if not review.delete_items and not review.dup_groups and not review.retag_groups and not review.insight_items and not review.relation_items and not review.report_items and not review.output.keep_count and not review.tag_candidates %}
+    {% if not review.delete_items and not review.dup_groups and not review.retag_groups and not review.insight_items and not review.relation_items and not review.headliner_items and not review.report_items and not review.output.keep_count and not review.tag_candidates %}
     <div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm px-5 py-16 text-center">
       {% if review.run %}
       <i data-lucide="inbox" class="w-8 h-8 text-gray-300 mx-auto"></i>

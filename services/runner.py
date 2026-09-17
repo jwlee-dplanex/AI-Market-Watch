@@ -20,7 +20,7 @@ import time
 from datetime import timedelta
 
 from django.db import IntegrityError, connection, transaction
-from django.db.models import F
+from django.db.models import F, Max
 from django.utils import timezone
 
 from apps.setting.models import CollectionLog, Keyword, RunJob
@@ -1040,6 +1040,7 @@ def _run_insight(run_job_id: int) -> None:
 
     news_by_id = {news.pk: news for news in targets}
     issues = result.get("issues", [])
+    drafts = []
     with transaction.atomic():
         for issue in issues:
             draft = RunDraft.objects.create(
@@ -1050,15 +1051,363 @@ def _run_insight(run_job_id: int) -> None:
                 implication=issue["implication"],
                 grade=issue["grade"],
                 grade_reason=issue.get("grade_reason", ""),
+                # 🔴 2026-09-17 신설 — 축약본 문장 번호(RA 손 작업을 전부 단계 안으로
+                # 넣는다 3번). content_short/implication_short 자체는 여기서 만들지
+                # 않는다 — 확정 시점에 build_short_field()로 만든다(_confirm_insight_drafts()).
+                # 검토 화면은 이 인덱스로 content_sentences를 다시 만들어 취소선을 그린다.
+                content_keep=issue.get("content_keep", []),
+                implication_keep=issue.get("implication_keep", []),
             )
             # 응답의 news_ids 중 이번 배치 대상에 실제로 있는 것만 연결한다 — LLM이
             # 존재하지 않는 id를 냈을 가능성을 방어한다(응답은 신뢰하되 검증한다).
             matched = [news_by_id[nid] for nid in issue.get("news_ids", []) if nid in news_by_id]
             draft.news.set(matched)
+            drafts.append(draft)
 
     usage = result.get("_usage", {})
     RunJob.objects.filter(pk=run_job_id).update(
         processed_count=len(targets), heartbeat_at=timezone.now(),
+        input_tokens=F("input_tokens") + usage.get("input_tokens", 0),
+        output_tokens=F("output_tokens") + usage.get("output_tokens", 0),
+        cache_creation_input_tokens=(
+            F("cache_creation_input_tokens") + usage.get("cache_creation_input_tokens", 0)
+        ),
+        cache_read_input_tokens=(
+            F("cache_read_input_tokens") + usage.get("cache_read_input_tokens", 0)
+        ),
+    )
+
+    # 🔴 2026-09-17 신설 — 3단계 두 번째 호출(관계 추출, docs/planning.md "지식그래프
+    # 관계 라벨링을 3단계의 두 번째 LLM 호출로 옮긴다"). 이슈 초안 저장(위 트랜잭션)이
+    # 끝난 뒤에 둔다 — 이 호출은 이슈 초안과 데이터를 주고받지 않지만, 이슈 저장이
+    # 실패하면(예외가 올라가 _execute()가 RunJob을 실패로 남긴다) 여기까지 오지
+    # 않아야 순서가 맞다. 실패가 격리된다(services/llm.py extract_relations()
+    # docstring) — 관계 호출 실패는 여기서 잡아 로그만 남기고 이슈 초안·헤드라인
+    # 순위는 그대로 진행한다.
+    _run_relation_extraction(run_job_id, targets)
+
+    # 🔴 2026-09-17 신설 — 3단계 세 번째 호출(헤드라인 순위, docs/planning.md "RA 손
+    # 작업을 전부 단계 안으로 넣는다" 2번). 이번 배치 이슈 초안이 만들어진 뒤라야
+    # 후보(1급 초안)의 pk가 있다 — 그래서 순서상 여기다.
+    _run_insight_headliner(run_job_id, drafts)
+
+
+def _run_relation_extraction(run_job_id: int, targets) -> None:
+    """3단계 두 번째 호출 — 지식그래프 관계 추출(docs/planning.md "지식그래프 관계
+    라벨링을 3단계의 두 번째 LLM 호출로 옮긴다"가 정본). targets는 _run_insight()가
+    이슈 판정에 넣은 것과 같은 배치다(3-1 근거 3 "재료가 같다").
+
+    🔴 배치 전체를 한 번에 묻는다(건별·이슈별로 쪼개지 않는다) — PE 판단, 근거는
+    셋이다. ① planning.md 3번이 이미 이 자리를 "배치 전체 1회 호출"로 확정했고,
+    쪼개는 안은 그 결정을 뒤집는 것이라 반박 근거가 따로 있어야 한다(문서가 요구하는
+    수준). ② 관계는 "여러 기사에 걸친 근거"를 봐야 하는 경우가 있어(3번 "기사 A: 코리안리가
+    로민과 협업 / 기사 B: 로민이 다른 보험사와도 계약" 예시) 이슈별로 쪼개면 그 이슈에
+    없는 기사의 근거를 원리적으로 못 본다 — 건별 호출이 여러 기사에 걸친 관계를
+    "원리적으로 못 본다"는 문제를 되살린다. ③ 2단계 중복 판정이 47건 배치에서 놓친
+    사고(묶음 0개)는 "많은 후보 쌍을 서로 비교"해야 하는 조합적 과제였다 — 관계
+    추출은 그와 달리 기사 하나하나를 순서대로 읽으며 서술어를 찾는 과제이고, 3단계
+    이슈 판정(같은 크기의 배치)이 이미 안정적으로 배치 전체 1회로 돌고 있다(이번
+    라운드 이전부터 프로덕션 경로). 다만 이 판단은 실측 전이다 — 되돌림 조건은
+    14번 표의 "관계 초안이 3배치 연속 0건"과 이 함수가 남기는 malformed_rejected/
+    type_rejected 로그가 진다.
+
+    🔴 실패가 격리된다 — 이 함수 전체를 감싼다(아래 넓은 except가 그 경계다. 원인은
+    ①extract_relations()가 이미 좁게 잡은 뒤 LLMStructuralError/LLMJudgmentError로
+    좁혀 던지므로 여기서 다시 좁힐 실익이 없고, ②이슈 초안(위 트랜잭션)은 이미
+    커밋됐으므로 이 함수의 어떤 실패든 — LLM 호출이든 그 아래 코드 검증 버그든 —
+    3단계 전체를 실패(STATUS_FAILED)로 만들면 안 된다는 것이 설계 요구사항이기
+    때문이다(3-1 근거 4 "실패가 격리된다"). RunJob이 실패로 남으면 이미 만든 이슈
+    초안이 검토 화면에서 사라진다 — 그걸 막는 것이 이 경계의 존재 이유다. 삼키지
+    않는다 — logger.exception()이 traceback을 남긴다.
+
+    🔴 코드가 두 번 거른다(4번 "코드에서도 한 번 더 거른다. 프롬프트만 믿지 않는다").
+    ① 타입 제약(ALLOWED_TYPE_PAIRS) 밖의 쌍, ② 이미 OrgRelation이 있는 쌍(6번 —
+    확정 시점이 아니라 여기, 제안 생성 시점에 거른다) 은 제안 자체를 만들지 않는다.
+    ①은 "코드가 버린 건수"로 로그에 남기고(4번 말미), ②는 RunJob.relation_skipped_count/
+    relation_conflict_count로 남긴다(13번 PE 인계 5번) — 화면(run_review.html)이 이미
+    이 두 값을 읽게 그려져 있다."""
+    from apps.graph.views import ALLOWED_TYPE_PAIRS
+    from apps.setting.models import OrgRelation, RunDraft, normalize_org_pair
+    from services.llm import PROMPT_VERSION_RELATION, RELATION_LABELS, build_relation_org_index, extract_relations
+
+    try:
+        org_index = build_relation_org_index(targets)
+        result = extract_relations(targets, org_index)
+
+        news_by_id = {news.pk: news for news in targets}
+        org_count = len(org_index)
+
+        skipped_count = 0
+        conflict_count = 0
+        type_rejected = 0
+        malformed_rejected = 0
+
+        with transaction.atomic():
+            for item in result.get("relations", []):
+                a_idx, b_idx = item.get("org_a_index"), item.get("org_b_index")
+                label = item.get("label", "")
+                matched_news = [news_by_id[nid] for nid in item.get("news_ids", []) if nid in news_by_id]
+                valid_indices = (
+                    isinstance(a_idx, int) and isinstance(b_idx, int)
+                    and a_idx != b_idx and 1 <= a_idx <= org_count and 1 <= b_idx <= org_count
+                )
+                if not valid_indices or label not in RELATION_LABELS or not matched_news:
+                    # 응답은 신뢰하되 검증한다(_run_insight()의 news_ids 방어와 같은 원칙) —
+                    # 스키마가 이미 enum·정수를 강제하지만 인덱스 범위·자기 자신 쌍·근거
+                    # 기사 매칭은 스키마가 못 잡는다.
+                    malformed_rejected += 1
+                    continue
+
+                org_a, org_b = org_index[a_idx - 1], org_index[b_idx - 1]
+                if frozenset({org_a.org_type, org_b.org_type}) not in ALLOWED_TYPE_PAIRS:
+                    type_rejected += 1
+                    continue
+
+                lo_pk, hi_pk = normalize_org_pair(org_a.pk, org_b.pk)
+                existing = OrgRelation.objects.filter(org_a_id=lo_pk, org_b_id=hi_pk).first()
+                if existing is not None:
+                    skipped_count += 1
+                    if existing.label != label:
+                        conflict_count += 1
+                    continue
+
+                draft = RunDraft.objects.create(
+                    run_job_id=run_job_id,
+                    draft_type=RunDraft.TYPE_RELATION,
+                    title=f"{org_a.name} × {org_b.name} — {label}",
+                    content=item.get("reason", ""),
+                    relation_org_a=org_a,
+                    relation_org_b=org_b,
+                    relation_label=label,
+                )
+                draft.news.set(matched_news)
+
+        if type_rejected or malformed_rejected:
+            logger.warning(
+                "RunJob %s 관계 추출 — 코드가 버린 제안 %d건(타입 제약 위반 %d건, 형식 불량 %d건).",
+                run_job_id, type_rejected + malformed_rejected, type_rejected, malformed_rejected,
+            )
+
+        current_version = RunJob.objects.filter(pk=run_job_id).values_list(
+            "prompt_version", flat=True,
+        ).first() or ""
+        combined_version = (
+            f"{current_version}+{PROMPT_VERSION_RELATION}" if current_version else PROMPT_VERSION_RELATION
+        )
+        usage = result.get("_usage", {})
+        RunJob.objects.filter(pk=run_job_id).update(
+            prompt_version=combined_version,
+            relation_skipped_count=skipped_count,
+            relation_conflict_count=conflict_count,
+            heartbeat_at=timezone.now(),
+            input_tokens=F("input_tokens") + usage.get("input_tokens", 0),
+            output_tokens=F("output_tokens") + usage.get("output_tokens", 0),
+            cache_creation_input_tokens=(
+                F("cache_creation_input_tokens") + usage.get("cache_creation_input_tokens", 0)
+            ),
+            cache_read_input_tokens=(
+                F("cache_read_input_tokens") + usage.get("cache_read_input_tokens", 0)
+            ),
+        )
+    except Exception:
+        logger.exception(
+            "RunJob %s 관계 추출이 실패했어요 — 이슈 초안은 영향을 받지 않아요.", run_job_id,
+        )
+
+
+# 5-1 "업권을 가르는 기준" — 다양성 집계에서 항상 빼는 두 특수 sector 값.
+_HEADLINER_SECTOR_PASSTHROUGH = frozenset({
+    "여러 업권",  # services.llm.HEADLINER_SECTOR_MULTI와 같은 문자열(모듈 경계를 넘는
+    "업권 없음",  # 리터럴 비교라 드리프트 위험이 있지만, 순환 임포트를 피하려고 상수
+})                # 공유 대신 문자열을 그대로 복제했다 — 값은 5-1 원문 그대로 고정이다.
+
+HEADLINER_CAP = 3  # 2-4 상한 3 강제 자리 다섯 중 하나(② 확정 뷰가 아니라 여기 — 코드가
+# 만드는 picks 자체가 이 상한을 넘지 않는다. LLM 스키마 maxItems=3과 함께 이중으로 막는다).
+HEADLINER_SECTOR_CAP = 2  # 5-1 "3자리에 같은 업권은 2건까지".
+
+
+def _run_insight_headliner(run_job_id: int, issue_drafts) -> None:
+    """3단계 세 번째 LLM 호출 — 헤드라인 순위(docs/planning.md "RA 손 작업을 전부
+    단계 안으로 넣는다" 2번이 정본). issue_drafts는 이번 배치가 방금 만든 이슈
+    초안(RunDraft.TYPE_INSIGHT) 목록이다.
+
+    🔴 1-B 창 결정 규칙 6단계를 코드/LLM으로 그대로 쪼갠다(2-1) — 1~3단계(1급 집합,
+    기준점, 창)는 여기 코드가, 4~6단계((ii)→(i)→서사 사슬, 중복 제외, 다양성 라벨)는
+    services.llm.rank_headliners()가 맡는다. 다양성 최종 집계(같은 업권 2건 상한)는
+    LLM 출력을 받은 뒤 이 함수가 코드로 강제한다(2-1 "LLM이 업권 라벨을 내고 코드가
+    센다").
+
+    🔴 후보가 0건이면(창 안 1급이 하나도 없음) 조용히 끝낸다 — 4번 "지정 0건이면
+    영역을 통째로 그리지 않는다"의 입력 쪽이다. LLM 호출 자체를 만들지 않는다(비용)."""
+    from apps.news.models import Insight, News
+    from apps.setting.models import RunDraft
+    from services.llm import rank_headliners
+
+    batch_grade1 = [d for d in issue_drafts if d.grade == Insight.GRADE_1]
+    existing_grade1 = list(Insight.objects.filter(grade=Insight.GRADE_1))
+
+    # 기준점 — 그 시점 검증된 News 중 최신 발행일. "오늘"을 쓰지 않는다(1-B).
+    reference = News.objects.verified().aggregate(m=Max("published_at"))["m"]
+    if reference is None:
+        return  # 검증된 News가 아예 없다 — 후보 계산 자체가 성립하지 않는다.
+
+    def _latest_news_at(candidate):
+        dates = list(candidate.news.values_list("published_at", flat=True))
+        return max(dates) if dates else None
+
+    def _pool_at(days):
+        # 🔴 경계일은 창 안이다 — 부등호는 `<=`로 읽는다(1-B ⚠️ "하루 차이로
+        # 헤드라이너가 갈리는 자리에 판정자 재량을 남기지 않는다"). 근거뉴스가 하나도
+        # 없는 후보(이론상 나올 수 없지만 방어)는 창 판정 자체가 성립하지 않으므로
+        # 항상 제외한다.
+        result = []
+        for c in (batch_grade1 + existing_grade1):
+            latest = _latest_news_at(c)
+            if latest is not None and (reference - latest).days <= days:
+                result.append(c)
+        return result
+
+    # 2~3단계 — 7일 창, 미달(3건 미만)이면 14일로 한 단계만 확장(1-B "창 결정 규칙").
+    window = 7
+    pool = _pool_at(window)
+    if len(pool) < 3:
+        window = 14
+        pool = _pool_at(window)
+
+    # 직전 지정(전량 교체 전 스냅샷) — 5-2 판정 승계·기록 의무의 재료. 이 함수가
+    # 끝나기 전까지는 Insight.headliner_order가 아직 그대로다(확정 전이므로).
+    prev_qs = list(Insight.objects.filter(headliner_order__isnull=False).order_by("headliner_order"))
+    prev_by_pk = {i.pk: i.headliner_order for i in prev_qs}
+
+    window_label = (
+        f"창 {window}일 · 기준점 {timezone.localtime(reference):%m.%d} · 후보 1급 {len(pool)}건"
+    )
+    if not pool:
+        RunJob.objects.filter(pk=run_job_id).update(headliner_window_label=window_label)
+        return
+
+    # 후보 풀에 임시 id를 매긴다(LLM이 그 번호로 picks를 되돌려준다) — News.pk와
+    # RunDraft.pk가 같은 값 공간을 쓸 수 있어(둘 다 DB pk) 후보 자체의 pk를 그대로
+    # 쓰면 어느 테이블 것인지 섞일 위험이 있다. 1부터 다시 매긴 임시 id로 분리한다.
+    candidates = []
+    for temp_id, obj in enumerate(pool, start=1):
+        candidates.append({"temp_id": temp_id, "title": obj.title, "content": obj.content, "obj": obj})
+
+    prev_ranking = [
+        {"insight_pk": i.pk, "prev_rank": i.headliner_order, "title": i.title, "reason": ""}
+        for i in prev_qs
+    ]
+    result = rank_headliners(
+        [{"temp_id": c["temp_id"], "title": c["title"], "content": c["content"]} for c in candidates],
+        prev_ranking,
+    )
+
+    by_temp_id = {c["temp_id"]: c["obj"] for c in candidates}
+
+    picks = list(result.get("picks", []))[:HEADLINER_CAP]  # 방어적 재상한(스키마도 이미 막지만 이중 방어).
+    sector_counts: dict[str, int] = {}
+    accepted = []
+    rejected_by_diversity = []
+    for pick in picks:
+        obj = by_temp_id.get(pick.get("candidate_id"))
+        if obj is None:
+            continue  # LLM이 존재하지 않는 candidate_id를 냈다 — 응답은 신뢰하되 검증한다.
+        sector = pick.get("sector", "") or ""
+        if sector not in _HEADLINER_SECTOR_PASSTHROUGH:
+            count = sector_counts.get(sector, 0)
+            if count >= HEADLINER_SECTOR_CAP:
+                rejected_by_diversity.append((obj, sector))
+                continue
+            sector_counts[sector] = count + 1
+        accepted.append((obj, pick))
+        if len(accepted) >= HEADLINER_CAP:
+            break
+
+    # 🔴 5-2-(a) 판정 승계 되돌림 — "넷째 범주(1-A 재적용) 교체인데 새 사실(change_reason)을
+    # 대지 못하면 그 교체는 제안에서 빼고 직전 순서를 유지한다." 최대 3자리라 생존자
+    # (기존 확정 Insight로 직전에도 헤드라인이었던 것) 부분수열만 직전 상대 순서로
+    # 되돌리는 것으로 충분하다 — 새 후보의 자리(비생존자)는 그대로 둔다.
+    survivor_slots = [
+        idx for idx, (obj, _pick) in enumerate(accepted)
+        if isinstance(obj, Insight) and obj.pk in prev_by_pk
+    ]
+    if survivor_slots:
+        survivors = [accepted[idx] for idx in survivor_slots]
+        current_order = [obj.pk for obj, _pick in survivors]
+        prev_order = sorted(current_order, key=lambda pk: prev_by_pk[pk])
+        reordered = current_order != prev_order
+        # change_reason이 하나라도 없는 생존자가 있으면 "말없이 뒤집었다"로 본다
+        # (5-2-(a) — 뒤집는 것 자체가 아니라 사유 없이 뒤집는 것을 금지한다).
+        any_unexplained = any(not pick.get("change_reason") for _obj, pick in survivors)
+        if reordered and any_unexplained:
+            ordered = sorted(survivors, key=lambda pair: prev_by_pk[pair[0].pk])
+            for idx, pair in zip(survivor_slots, ordered):
+                accepted[idx] = pair
+
+    # 🔴 배치 단위 전량 교체(6번) — 새 RunDraft(TYPE_HEADLINER)를 만들 뿐, 기존
+    # Insight.headliner_order는 여기서 건드리지 않는다. 실제 교체는 확정 시점에
+    # 일어난다(2-3) — 이 함수는 어디까지나 "제안"이다.
+    dropped_reasons = {d["insight_pk"]: d for d in result.get("dropped_prev_headliners", [])}
+    accepted_insight_pks = {obj.pk for obj, _pick in accepted if isinstance(obj, Insight)}
+    diversity_dropped_pks = {obj.pk for obj, _sector in rejected_by_diversity if isinstance(obj, Insight)}
+
+    dropped_block = []
+    with transaction.atomic():
+        for rank, (obj, pick) in enumerate(accepted, start=1):
+            is_existing = isinstance(obj, Insight)
+            source_insight = obj if is_existing else None
+            source_draft = None if is_existing else obj
+            change = RunDraft.HEADLINER_CHANGE_NEW
+            prev_rank = None
+            change_reason = pick.get("change_reason", "") or ""
+            if is_existing and obj.pk in prev_by_pk:
+                prev_rank = prev_by_pk[obj.pk]
+                change = (
+                    RunDraft.HEADLINER_CHANGE_SAME if prev_rank == rank
+                    else RunDraft.HEADLINER_CHANGE_MOVED
+                )
+                if change == RunDraft.HEADLINER_CHANGE_SAME:
+                    change_reason = ""
+            RunDraft.objects.create(
+                run_job_id=run_job_id,
+                draft_type=RunDraft.TYPE_HEADLINER,
+                title=obj.title,
+                content=pick.get("reason", ""),
+                headliner_rank=rank,
+                headliner_sector=pick.get("sector", "") or "",
+                headliner_sector_unlisted=bool(pick.get("sector_unlisted", False)),
+                headliner_change=change,
+                headliner_prev_rank=prev_rank,
+                headliner_change_reason=change_reason,
+                headliner_source_draft=source_draft,
+                headliner_source_insight=source_insight,
+            )
+
+        # 5-2 기록 의무의 나머지 절반 — 직전에 있었는데 이번에 빠진 자리. 창 밖
+        # 이탈은 코드가(애초에 pool에 없었으므로 여기서 직접 판정), 중복 제외·1-A
+        # 재적용은 LLM이(dropped_reasons), 다양성은 코드가(rejected_by_diversity) 채운다.
+        pool_insight_pks = {c["obj"].pk for c in candidates if isinstance(c["obj"], Insight)}
+        for insight in prev_qs:
+            if insight.pk in accepted_insight_pks:
+                continue
+            if insight.pk in diversity_dropped_pks:
+                sector = next(s for o, s in rejected_by_diversity if isinstance(o, Insight) and o.pk == insight.pk)
+                reason = f"같은 업권({sector}) 후보가 이미 {HEADLINER_SECTOR_CAP}건이에요."
+            elif insight.pk not in pool_insight_pks:
+                reason = f"근거 기사가 창({window}일)을 벗어났어요." if insight.grade == Insight.GRADE_1 else "등급이 1급이 아니게 됐어요."
+            elif insight.pk in dropped_reasons:
+                reason = dropped_reasons[insight.pk]["reason"]
+            else:
+                reason = "이번 순위에서 밀려났어요."
+            dropped_block.append({"prev_rank": prev_by_pk[insight.pk], "title": insight.title, "reason": reason})
+
+    RunJob.objects.filter(pk=run_job_id).update(
+        headliner_window_label=window_label, headliner_dropped=dropped_block,
+    )
+
+    usage = result.get("_usage", {})
+    RunJob.objects.filter(pk=run_job_id).update(
+        heartbeat_at=timezone.now(),
         input_tokens=F("input_tokens") + usage.get("input_tokens", 0),
         output_tokens=F("output_tokens") + usage.get("output_tokens", 0),
         cache_creation_input_tokens=(
@@ -1136,6 +1485,10 @@ def _run_report(run_job_id: int, period_type: str) -> None:
             overview=result["overview"],
             date_from=date_from,
             date_to=date_to,
+            # 🔴 2026-09-17 신설 — 축약본 문장 번호("RA 손 작업을 전부 단계 안으로
+            # 넣는다" 4번, 3번과 같은 방식). Report.content_short는 확정 시점에
+            # build_short_field()로 만든다(_confirm_report_drafts()).
+            content_keep=result.get("content_keep", []),
         )
         news_uids = set()
         for issue in report_issues(result["content"])["issues"]:

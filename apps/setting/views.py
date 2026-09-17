@@ -17,6 +17,7 @@ from apps.news.models import DeletedNewsRecord, Insight, News, TagCorrectionReco
 from apps.news.services import correct_news_tag, delete_news_with_record
 from apps.reports.models import Report
 from services.cleanup_prefilter import AI_KEYWORDS, should_prefilter_delete
+from services.llm import build_short_field, split_into_sentences
 from services.pricing import PRICE_PER_MILLION_TOKENS_USD, USD_KRW, compute_cost_krw
 from .models import (
     DataSource, Keyword, CollectionLog, SlackConfig,
@@ -1857,6 +1858,23 @@ def _format_duration(seconds: int) -> str:
     return f"{seconds // 60}분 {seconds % 60}초" if seconds >= 60 else f"{seconds}초"
 
 
+def _sentences_context(text, keep_indices, *, always_keep_prefix=""):
+    """축약본 검토용 {text, keep} 목록과 축약본 글자 수를 함께 만든다(design.md 31차
+    ⑨ "전문 위에 표시" — 남은 문장이 아니라 빠진 문장을 검산할 수 있어야 한다).
+    services.llm.split_into_sentences()/build_short_field()와 같은 분할을 한 번 더
+    돌려 재구성한다 — RunDraft에는 인덱스만 저장돼 있고(모델 docstring), 화면이
+    필요할 때 그 인덱스로 문장 목록을 다시 만든다."""
+    sentences = split_into_sentences(text)
+    keep_set = {i for i in (keep_indices or []) if isinstance(i, int) and not isinstance(i, bool)}
+    if always_keep_prefix:
+        keep_set |= {
+            i for i, s in enumerate(sentences, start=1) if s.lstrip().startswith(always_keep_prefix)
+        }
+    items = [{"text": s, "keep": (i in keep_set)} for i, s in enumerate(sentences, start=1)]
+    short = build_short_field(text, keep_indices, always_keep_prefix=always_keep_prefix)
+    return items, len(short)
+
+
 def _insight_items_context(run_jobs):
     """SET-010 3단계(주요 이슈) 검토 화면의 insight_items 목록. 계약은
     templates/setting/run_review.html 상단 주석 "insight_items" 절이 정본이다.
@@ -1888,6 +1906,11 @@ def _insight_items_context(run_jobs):
                 f"{first_date:%m.%d}" if first_date == last_date
                 else f"{first_date:%m.%d} ~ {last_date:%m.%d}"
             )
+        # 🔴 2026-09-17 신설 — 축약본(design.md 31차 ⑨ "전문 위에 표시"). 남길 문장이
+        # 아니라 빠질 문장을 검산할 수 있어야 하므로, 정본 전체를 문장으로 쪼개
+        # keep 여부를 함께 내린다.
+        content_sentences, content_short_length = _sentences_context(draft.content, draft.content_keep)
+        implication_sentences, _ = _sentences_context(draft.implication, draft.implication_keep)
         items.append({
             "id": draft.pk,
             "title": draft.title,
@@ -1897,6 +1920,9 @@ def _insight_items_context(run_jobs):
             "grade_reason": draft.grade_reason,
             "news_count": len(news_list),
             "news_range": news_range,
+            "content_sentences": content_sentences,
+            "implication_sentences": implication_sentences,
+            "content_short_length": content_short_length,
             "news_items": [
                 {
                     "title": n.title, "published_at": n.published_at, "source": n.source_domain,
@@ -1972,6 +1998,44 @@ def _relation_items_context(run_jobs):
     return items
 
 
+def _headliner_items_context(run_jobs):
+    """SET-010 3단계(주요 이슈) 검토 화면의 헤드라인 순위 카드 — insight_items의
+    형제 블록(docs/design.md "SET-010 · 실행" 31차 ③ 와이어프레임 · ⑩ PE 인계 표).
+
+    🔴 id는 RunDraft.pk다(insight_items와 같은 계약) — 확정 POST의 headliner_ids가
+    이 값을 그대로 되돌려 보낸다(2-2).
+
+    🔴 insight_draft_id는 이 자리가 가리키는 "이번 배치 이슈 초안"의 RunDraft.pk다
+    (headliner_source_insight면, 즉 창 안 기존 확정 Insight가 후보면 비운다 —
+    from_existing이 True인 경우와 정확히 반대). 31차 ⑥번 등급-변경 경고
+    (`@grade-changed.window`)가 이 값으로 어느 이슈 초안 select를 감시할지 정한다.
+    qualifying_grade는 Insight.GRADE_1 문자열 그대로다 — insight_draft_id가 없으면
+    함께 비운다(감시 자체가 필요 없다, 기존 Insight에는 이 화면에 등급 select가
+    없으므로)."""
+    drafts = list(
+        RunDraft.objects.filter(
+            run_job__in=run_jobs, draft_type=RunDraft.TYPE_HEADLINER, status=RunProposal.STATUS_PENDING,
+        ).order_by("headliner_rank", "pk")
+    )
+    items = []
+    for draft in drafts:
+        items.append({
+            "id": draft.pk,
+            "rank": draft.headliner_rank,
+            "title": draft.title,
+            "sector": draft.headliner_sector,
+            "sector_unlisted": draft.headliner_sector_unlisted,
+            "reason": draft.content,
+            "change": draft.headliner_change,
+            "prev_rank": draft.headliner_prev_rank,
+            "change_reason": draft.headliner_change_reason,
+            "from_existing": draft.headliner_source_insight_id is not None,
+            "insight_draft_id": draft.headliner_source_draft_id,
+            "qualifying_grade": Insight.GRADE_1 if draft.headliner_source_draft_id else "",
+        })
+    return items
+
+
 def _report_items_context(run_jobs, job_key):
     """SET-010 4, 5단계(주간·월간 보고서) 검토 화면의 report_items 목록. 계약은
     templates/setting/run_review.html 상단 주석 "report_items" 절이 정본이다.
@@ -1999,6 +2063,11 @@ def _report_items_context(run_jobs, job_key):
     items = []
     for draft in drafts:
         news_list = list(draft.news.order_by("published_at"))
+        # 🔴 2026-09-17 신설 — 축약본(design.md 31차 ⑨). `참고:` 규약 줄은 always_keep_prefix로
+        # 강제 포함한다(3-1 ⚠️ "정본과 동일해야 하므로 선택 대상이 아니라 항상 따라간다").
+        content_sentences, content_short_length = _sentences_context(
+            draft.content, draft.content_keep, always_keep_prefix="참고:",
+        )
         items.append({
             "id": draft.pk,
             "title": draft.title,
@@ -2008,6 +2077,8 @@ def _report_items_context(run_jobs, job_key):
             "date_from": draft.date_from,
             "date_to": draft.date_to,
             "news_count": len(news_list),
+            "content_sentences": content_sentences,
+            "content_short_length": content_short_length,
             "news_items": [
                 {
                     "title": n.title, "published_at": n.published_at, "source": n.source_domain,
@@ -2472,11 +2543,31 @@ def _run_review_context(job_key):
         output["insight_count"] = len(insight_items)
         output["draft_noun"] = RunDraft.TYPE_INSIGHT
         # 🔴 2026-09-17 신설 — 관계 초안(형제 블록, 13번 PD 인계 1·3번). 대기 중인
-        # 관계 제안이 없으면 relation_items는 빈 리스트, relation_count는 0이다
-        # (아직 서비스 쪽 생성 경로가 배선되지 않은 지금은 항상 0이 정상).
+        # 관계 제안이 없으면 relation_items는 빈 리스트, relation_count는 0이다.
         relation_items = _relation_items_context(run_jobs)
         review["relation_items"] = relation_items
         output["relation_count"] = len(relation_items)
+        # 🔴 2026-09-17 배선 — services/runner.py _run_relation_extraction()이
+        # RunJob마다 채운 값(제안 생성 시점에 이미 OrgRelation이 있어 건너뛴 쌍 수,
+        # 그중 라벨이 갈린 쌍 수)을 run_jobs 전체에서 합산한다. relation_items와
+        # 같은 이유로 run_jobs__in 범위 전체를 봐야 한다 — 여러 배치가 한 검토
+        # 화면에 모일 수 있다(_relation_items_context와 같은 근거). 템플릿이 falsy
+        # (0 또는 없음)를 "줄 통째로 숨김"으로 이미 처리하므로 여기서 None 방어를
+        # 별도로 하지 않는다(run_review.html relation_skipped_count 계약).
+        output["relation_skipped_count"] = sum(rj.relation_skipped_count for rj in run_jobs)
+        output["relation_conflict_count"] = sum(rj.relation_conflict_count for rj in run_jobs)
+        # 🔴 2026-09-17 신설 — 헤드라인 순위(3단계 세 번째 호출, docs/planning.md
+        # "RA 손 작업을 전부 단계 안으로 넣는다" 2번 / docs/design.md 31차). window와
+        # dropped는 가장 최근 run_job에 적힌 값을 쓴다 — 여러 배치가 모여도 창·기준점
+        # 계산은 배치마다 다시 하지 않고 마지막 실행 시점 값 하나만 의미가 있다.
+        review["headliner_items"] = _headliner_items_context(run_jobs)
+        # 🔴 run_jobs는 started_at 오름차순(_pending_review_run_jobs) — 마지막 원소가
+        # 가장 최근 실행이고, 창·기준점 계산은 그 실행 시점 값이 정본이다.
+        latest_job = run_jobs[-1] if run_jobs else None
+        review["headliner_window"] = latest_job.headliner_window_label if latest_job else ""
+        review["headliner_dropped"] = latest_job.headliner_dropped if latest_job else []
+        output["headliner_count"] = len(review["headliner_items"])
+        output["headliner_dropped_count"] = len(review["headliner_dropped"])
     elif job_key in ("weekly", "monthly"):
         # 🔴 같은 날 뒤이은 라운드 — 4, 5단계 보고서 초안. insight와 같은 이유로
         # RunProposal이 아니라 RunDraft에서 온다. insight_count 키를 그대로 쓰는 이유는
@@ -2499,6 +2590,12 @@ def _run_review_context(job_key):
     # 화면이 보여주는 범위와 글자 그대로 같다(체크 상태와 무관하게 서버 값
     # 그대로다).
     review["cancel_count"] = len(proposals) if proposals else len(pending_drafts)
+    if job_key == "insight":
+        # 🔴 2026-09-17 신설 — setting_run_review_cancel()은 draft_type을 가리지 않고
+        # 대기 중인 RunDraft 전부를 취소한다(헤드라인 포함). pending_drafts는 이슈·
+        # 관계만 세므로(review["input"] 계약과 공유하는 변수라 여기서 건드리지 않는다)
+        # 헤드라인 몫을 따로 더해야 "모두 취소" 라벨이 실제로 취소될 건수와 같아진다.
+        review["cancel_count"] += output.get("headliner_count", 0)
     return review
 
 
@@ -2543,9 +2640,12 @@ def _confirm_insight_drafts(request, run_jobs) -> None:
     전제다. 표식이 없으면 같은 기준으로 반복 탈락하는 기사가 실행마다 다시
     대상이 되어 3단계가 영구히 "할 일 있음"이 된다.
 
-    🔴 축약본(content_short/implication_short)은 비워 둔다 — RA가 채운다(모델
-    default가 이미 빈 문자열이라 여기서 따로 손대지 않는다).
-    🔴 headliner_order도 건드리지 않는다 — RA가 배치 단위로 전량 교체한다."""
+    🔴 축약본(content_short/implication_short)은 build_short_field()로 채운다
+    (docs/planning.md "RA 손 작업을 전부 단계 안으로 넣는다" 3번, 2026-09-17 개정 —
+    종전에는 RA가 손으로 채웠으나 이제 3단계 첫 호출이 낸 content_keep/implication_keep
+    인덱스로 코드가 만든다). 🔴 headliner_order는 여기서 건드리지 않는다 —
+    _confirm_headliner_drafts()가 별도로 전량 교체한다(이 함수가 만든 Insight의 pk가
+    있어야 그 함수가 자리를 찾을 수 있어 반드시 이 함수 다음에 불린다)."""
     accepted_ids = set(request.POST.getlist("insight_ids"))
     candidate_ids = set()
     assigned_ids = set()
@@ -2577,6 +2677,8 @@ def _confirm_insight_drafts(request, run_jobs) -> None:
                 insight = Insight.objects.create(
                     title=draft.title, content=draft.content, implication=draft.implication,
                     grade=grade,
+                    content_short=build_short_field(draft.content, draft.content_keep),
+                    implication_short=build_short_field(draft.implication, draft.implication_keep),
                 )
                 insight.news.set(draft.news.all())
                 draft.created_insight = insight
@@ -2605,10 +2707,13 @@ def _confirm_relation_drafts(request, run_jobs) -> None:
 
     🔴 `relation.news.set(...)`이 여기서는 안전하다 — 이 경로가 만드는 OrgRelation은
     항상 새로 만든 것뿐이다. 이미 OrgRelation이 있는 쌍은 제안 생성 시점에 걸러
-    애초에 이 초안이 만들어지지 않는 것이 정책(같은 문서 6번) — 생성 쪽
-    (services/runner.py)은 이번 라운드 범위 밖이라 아직 그 방어가 배선돼 있지
-    않지만, 이 확정 경로 자체는 "생성"만 하지 기존 OrgRelation.news를 덮어쓰지
-    않는다. ⚠️ PE가 놀랄 자리(같은 문서 말미) — "relation.news.set()은 추가가
+    애초에 이 초안이 만들어지지 않는 것이 정책(같은 문서 6번) — 🔴 생성 쪽
+    (services/runner.py `_run_relation_extraction()`)이 2026-09-17 이 배선을
+    마쳤다(코드가 두 번 거른다: 타입 제약 + 이미 있는 쌍, RunJob.relation_skipped_count/
+    relation_conflict_count에 건수를 남긴다). 이 확정 경로 자체는 "생성"만 하지
+    기존 OrgRelation.news를 덮어쓰지 않는다 — 아래 unique_together 방어는 그
+    생성 쪽 필터를 신뢰하지 않는 이중 방어다(레이스는 필터링만으로 못 막는다).
+    ⚠️ PE가 놀랄 자리(같은 문서 말미) — "relation.news.set()은 추가가
     아니라 통째 교체"라는 함정은 GRAPH-001 편집 경로(graph_edge_label_save)의
     얘기이고, 그 함정은 "기존 관계를 편집"할 때만 닿는다. 여기는 매번 새 객체를
     만든 직후에 부르므로 지울 기존 근거 자체가 없다.
@@ -2668,6 +2773,60 @@ def _confirm_relation_drafts(request, run_jobs) -> None:
         messages.success(request, "관계를 만들었어요. 지식그래프에서 확인해 주세요.")
 
 
+def _confirm_headliner_drafts(request, run_jobs) -> None:
+    """SET-010 3단계(주요 이슈) 확정 — 헤드라인 순위 갈래(docs/planning.md "RA 손
+    작업을 전부 단계 안으로 넣는다" 2-3번). 배치 단위 전량 교체다 — 이 확정 회차에
+    헤드라인 순위가 한 번이라도 계산됐으면(대기 중인 헤드라인 초안이 있거나, 후보가
+    0건이라 초안 없이 window_label만 찍혔거나) 기존 Insight.headliner_order를 전부
+    비운 뒤, 채택된 자리만 새로 채운다.
+
+    🔴 반드시 _confirm_insight_drafts() 다음에 불려야 한다 — 이번 배치 이슈 초안이
+    가리키는 자리는 그 함수가 막 채운 created_insight 값을 봐야 찾을 수 있다.
+
+    🔴 자격 재검사(2-2) — 확정 직전에 다시 검사해, 다음 중 하나면 그 자리를 비운다
+    (다음 후보를 끌어올리지 않는다):
+    - 가리키는 이슈 초안이 이번에 거절돼 Insight가 아예 안 만들어졌다.
+    - 가리키는 Insight(초안이든 기존이든)의 최종 등급이 1급이 아니다 — 사람이 이슈
+      초안의 등급 select를 1급 아닌 값으로 바꿨을 수 있다(design.md 31차 ⑥)."""
+    accepted_ids = set(request.POST.getlist("headliner_ids"))
+    pending = list(
+        RunDraft.objects.filter(
+            run_job__in=run_jobs, draft_type=RunDraft.TYPE_HEADLINER, status=RunProposal.STATUS_PENDING,
+        ).select_related("headliner_source_draft__created_insight", "headliner_source_insight")
+    )
+    ran_headliner = bool(pending) or any(rj.headliner_window_label for rj in run_jobs)
+    if not ran_headliner:
+        return
+
+    # 🔴 일괄 update() 대신 건별로 비운다 — 상한이 3이라 비용이 작고, News 삭제처럼
+    # 감사 기록이 걸린 자리는 아니지만 이 프로젝트의 "건별 처리" 관행을 그대로 따른다.
+    for insight in Insight.objects.filter(headliner_order__isnull=False):
+        insight.headliner_order = None
+        insight.save(update_fields=["headliner_order"])
+
+    for draft in pending:
+        if str(draft.pk) not in accepted_ids:
+            draft.status = RunProposal.STATUS_REJECTED
+            draft.save(update_fields=["status"])
+            continue
+
+        target = (
+            draft.headliner_source_draft.created_insight if draft.headliner_source_draft_id
+            else draft.headliner_source_insight
+        )
+        if target is None or target.grade != Insight.GRADE_1:
+            # 자격을 잃었다(초안이 거절됐거나 등급이 1급이 아니게 됐다) — 이 자리는
+            # 비운다. 다음 후보를 끌어올리지 않는다(2-2 "자동 보충 금지").
+            draft.status = RunProposal.STATUS_REJECTED
+            draft.save(update_fields=["status"])
+            continue
+
+        target.headliner_order = draft.headliner_rank
+        target.save(update_fields=["headliner_order"])
+        draft.status = RunProposal.STATUS_ACCEPTED
+        draft.save(update_fields=["status"])
+
+
 def _confirm_report_drafts(request, run_jobs, job_key) -> None:
     """SET-010 4, 5단계(주간·월간 보고서) 확정. 채택된 RunDraft마다 Report를 만들어
     근거 News를 M2M으로 옮긴다(설계 6번 표). 거절된 초안은 지우지 않고 상태만 남긴다
@@ -2705,6 +2864,11 @@ def _confirm_report_drafts(request, run_jobs, job_key) -> None:
                 report = Report.objects.create(
                     period_type=period_type, date_from=draft.date_from, date_to=draft.date_to,
                     title=draft.title, overview=draft.overview, content=draft.content,
+                    # 🔴 2026-09-17 신설 — 축약본(4번, 3번과 같은 방식). `참고:` 줄은
+                    # 항상 포함한다(3-1 ⚠️, _sentences_context와 같은 이유).
+                    content_short=build_short_field(
+                        draft.content, draft.content_keep, always_keep_prefix="참고:",
+                    ),
                     status="generating",
                 )
                 report.news.set(draft.news.all())
@@ -2781,6 +2945,9 @@ def setting_run_review_confirm(request, job):
         # RunDraft 집합을 다루므로 겹치지 않는다.
         _confirm_insight_drafts(request, run_jobs)
         _confirm_relation_drafts(request, run_jobs)
+        # 🔴 반드시 _confirm_insight_drafts() 다음이다 — 이번 배치 초안이 가리키는
+        # 자리는 그 함수가 만든 created_insight를 봐야 찾을 수 있다(위 함수 docstring).
+        _confirm_headliner_drafts(request, run_jobs)
         RunJob.objects.filter(pk__in=[rj.pk for rj in run_jobs]).update(
             status=RunJob.STATUS_CONFIRMED, confirmed_at=confirmed_at,
         )

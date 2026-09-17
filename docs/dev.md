@@ -371,7 +371,7 @@ whitenoise         정적 파일 서빙
 
 ---
 
-**OrgRelation** — 지식그래프(GRAPH-001) 2단계, 기업 쌍(엣지)의 관계 라벨. research-analyst가 근거뉴스를 읽고 수동으로 채우며(LLM 자동 분류 아님), 엣지당 라벨은 정확히 1개(자유 텍스트, M2M 아님)입니다.
+**OrgRelation** — 지식그래프(GRAPH-001) 2단계, 기업 쌍(엣지)의 관계 라벨. 엣지당 라벨은 정확히 1개(자유 텍스트, M2M 아님)입니다. 🔴 **2026-09-17부터 생성 경로가 둘입니다** — GRAPH-001 화면에서 RA가 근거뉴스를 읽고 직접 채우는 수동 경로(합병 라벨과 노드 정체성 교정은 이 경로 전용)와, SET-010 3단계(주요 이슈)의 두 번째 LLM 호출(`services/llm.py` `extract_relations()`)이 초안(`RunDraft.TYPE_RELATION`)을 만들고 사람이 검토 화면에서 확정하는 경로(휴먼 인 더 루프, 어휘는 합병을 뺀 7종 닫힌 목록). 둘 다 `ALLOWED_TYPE_PAIRS`(금융사×AI, 보험사×AI)만 허용하고, LLM 경로는 이미 `OrgRelation`이 있는 쌍을 제안 생성 시점에 거릅니다(`RunJob.relation_skipped_count`/`relation_conflict_count`). 상세는 `docs/planning.md` "지식그래프 관계 라벨링을 3단계의 두 번째 LLM 호출로 옮긴다" 절.
 
 | 필드 | 타입 | 설명 |
 |------|------|------|

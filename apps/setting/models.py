@@ -359,6 +359,33 @@ class RunJob(models.Model):
     # 아니라 사람이 멈춘 것」이라는 증거(apps/setting/views.py 사고 배지 판정). 비어
     # 있으면 하트비트 판정으로 끊긴 것이고, 차 있으면 사람이 멈춘 것이다.
     stop_requested_at = models.DateTimeField(null=True, blank=True)
+    # 🔴 2026-09-17 신설(docs/planning.md "RA 손 작업을 전부 단계 안으로 넣는다" 2-3번,
+    # docs/design.md 31차 ⑩ "1-B 창 기록 의무를 코드가 적는 자리가 여기다") — job_key
+    # "insight"인 RunJob만 채운다. 창·기준점·후보 수는 3단계 세 번째 호출(헤드라인 순위)
+    # 시점에 코드가 계산한 값이라, 검토 화면이 다시 계산하지 않고 그때 적힌 값을 그대로
+    # 읽는다 — 재계산하면 "생성 시점의 창"과 "검토 시점에 다시 잰 창"이 어긋날 수 있다.
+    headliner_window_label = models.CharField(
+        max_length=200, blank=True, default="",
+        help_text='예: "창 7일 · 기준점 09.16 · 후보 1급 9건". job_key="insight"만 채운다.',
+    )
+    # 🔴 같은 절 — 직전 헤드라인 지정 중 이번에 빠진 것들. [{"prev_rank", "title", "reason"}].
+    # 5-2 교체 기록 의무의 절반(무엇이 빠졌는가)이 여기 남는다 — 남은 절반(무엇이
+    # 들어왔는가)은 RunDraft.headliner_change/headliner_change_reason이 진다.
+    headliner_dropped = models.JSONField(default=list, blank=True)
+    # 🔴 2026-09-17 PE 신설(docs/planning.md "지식그래프 관계 라벨링을 3단계의 두 번째
+    # LLM 호출로 옮긴다" 6번·13번 PE 인계 5번) — job_key="insight"만 채운다. 관계 제안
+    # 생성 시점에 이미 OrgRelation이 있는 쌍은 제안 자체를 만들지 않는다(정책 6번 —
+    # 확정 시점이 아니라 제안 생성 시점에 거른다, update_or_create가 사람이 쓴
+    # description을 갈아엎기 때문). 그 걸러낸 건수를 여기 남긴다 — 안 남기면 "LLM이
+    # 놓쳤다"는 오해가 생긴다(templates/setting/run_review.html relation_skipped_count
+    # 계약. PD가 이미 화면을 그려 뒀는데 생성 쪽이 이 값을 채운 적이 없어 항상 비어
+    # 있었다). services/runner.py가 채우고, 검토 화면은 조회만 한다
+    # (headliner_window_label과 같은 패턴).
+    relation_skipped_count = models.IntegerField(default=0)
+    # 🔴 같은 절 — 건너뛴 쌍 중 LLM이 기존과 다른 라벨을 본 쌍 수(선택 관측치, 정책
+    # 6번 "잃는 것을 관측으로 남긴다"). RA가 배치 보고서에 옮겨 적어 2회 누적되면
+    # PM이 관계 변천 경로를 연다(14번 되돌림 조건).
+    relation_conflict_count = models.IntegerField(default=0)
 
     class Meta:
         ordering = ["-started_at", "-pk"]
@@ -677,19 +704,40 @@ class RunDraft(models.Model):
     # docstring의 판단과 같다 — `RunProposal.news`는 단수 FK인데 관계 하나의
     # 근거는 여러 기사일 수 있다.
     TYPE_RELATION = "관계"
+    # 🔴 5번째 draft_type(2026-09-17, docs/planning.md "RA 손 작업을 전부 단계
+    # 안으로 넣는다" 2번 확정) — 3단계 세 번째 호출(헤드라인 순위)의 산출물. 확정
+    # 대상이 이슈 초안이나 기존 Insight 어느 쪽이든 헤드라인 자리 자체는 이 새
+    # draft_type 행 하나로 표현한다 — id(RunDraft.pk)가 확정 POST(headliner_ids)의
+    # 값이고, 그 자리가 가리키는 실제 이슈는 headliner_source_draft(이번 배치
+    # 초안)나 headliner_source_insight(기존 확정 Insight) 중 정확히 하나로 찾는다.
+    TYPE_HEADLINER = "헤드라인"
     TYPE_CHOICES = [
         (TYPE_INSIGHT, "이슈"),
         (TYPE_WEEKLY, "주간 보고서"),
         (TYPE_MONTHLY, "월간 보고서"),
         (TYPE_RELATION, "관계"),
+        (TYPE_HEADLINER, "헤드라인"),
     ]
 
     run_job = models.ForeignKey(RunJob, on_delete=models.CASCADE, related_name="drafts")
     draft_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
     title = models.CharField(max_length=500)
-    content = models.TextField(help_text="Insight.content, Report.content 또는 OrgRelation.description.")
+    content = models.TextField(
+        help_text="Insight.content, Report.content, OrgRelation.description 또는(헤드라인 전용) "
+                   "헤드라인 순위 사유(1-A 사슬 결과 한 문장).",
+    )
     implication = models.TextField(blank=True, help_text="이슈 전용. Insight.implication.")
     overview = models.TextField(blank=True, help_text="보고서 전용. Report.overview.")
+    # 🔴 2026-09-17 신설(docs/planning.md "RA 손 작업을 전부 단계 안으로 넣는다" 3·4번) —
+    # 축약본(content_short/implication_short) 문장 번호 배열. LLM이 문자열이 아니라
+    # 이 인덱스만 내고, services/llm.py의 build_short_field()가 원문 문장을 그대로
+    # 이어 붙여 만든다("삭제만 허용"이 구조로 보장된다). 이슈 초안(TYPE_INSIGHT)과
+    # 보고서 초안(TYPE_WEEKLY/TYPE_MONTHLY)만 채운다 — 관계·헤드라인 초안은 축약본
+    # 개념이 없다. implication_keep은 이슈 전용이다(보고서엔 implication 필드가 없다).
+    content_keep = models.JSONField(default=list, blank=True, help_text="축약본 content_short 문장 번호.")
+    implication_keep = models.JSONField(
+        default=list, blank=True, help_text="이슈 전용. 축약본 implication_short 문장 번호.",
+    )
     # 🔴 자체 상수를 새로 만들지 않고 Insight.GRADE_CHOICES를 그대로 참조한다
     # (RunProposal.axis가 TagCorrectionRecord.AXIS_CHOICES를 참조한 것과 같은 드리프트
     # 방지). 기본값은 빈 문자열이다. Insight.GRADE_UNSPECIFIED("미지정")는 "판정했으나
@@ -732,6 +780,54 @@ class RunDraft(models.Model):
     relation_label = models.CharField(
         max_length=50, blank=True, default="",
         help_text="관계 전용. 7종 어휘(기술협업/공동개발/공급계약/지분투자/인수/업무협약/파트너십) 중 하나.",
+    )
+
+    # 🔴 헤드라인 전용 필드 셋(TYPE_HEADLINER, docs/planning.md "RA 손 작업을 전부
+    # 단계 안으로 넣는다" 2번). content 필드가 순위 사유를 담는다(위 content 필드
+    # 정의 참고) — 여기는 그 사유가 설명하지 못하는 자리(순위·업권·교체 이력·근거
+    # 이슈 연결)만 담는다.
+    headliner_rank = models.PositiveSmallIntegerField(
+        null=True, blank=True, help_text="헤드라인 전용. 1~3(2-4 상한 3).",
+    )
+    # 🔴 업권을 DB 필드로 만들지 않는다는 5-1 조항은 Insight/Organization에 대한
+    # 것이다 — 여기는 그 판정 자체가 아니라 검토 화면이 배지로 보여줄 라벨을
+    # 잠깐 담아 두는 자리이고, 확정해도 Insight에 저장되지 않는다(2-1).
+    headliner_sector = models.CharField(
+        max_length=50, blank=True, default="", help_text="헤드라인 전용. 5-1 업권 라벨. Insight에 저장하지 않는다.",
+    )
+    headliner_sector_unlisted = models.BooleanField(
+        default=False, help_text="헤드라인 전용. 5-1 업권 목록에 없는 라벨이면 True.",
+    )
+    HEADLINER_CHANGE_NEW = "new"
+    HEADLINER_CHANGE_MOVED = "moved"
+    HEADLINER_CHANGE_SAME = "same"
+    HEADLINER_CHANGE_CHOICES = [
+        (HEADLINER_CHANGE_NEW, "신규"),
+        (HEADLINER_CHANGE_MOVED, "직전 순위에서 이동"),
+        (HEADLINER_CHANGE_SAME, "유지"),
+    ]
+    headliner_change = models.CharField(
+        max_length=10, choices=HEADLINER_CHANGE_CHOICES, blank=True, default="",
+        help_text="헤드라인 전용. 직전 지정과 견준 결과(5-2).",
+    )
+    headliner_prev_rank = models.PositiveSmallIntegerField(
+        null=True, blank=True, help_text="헤드라인 전용. headliner_change='moved'일 때만.",
+    )
+    headliner_change_reason = models.TextField(
+        blank=True, default="",
+        help_text="헤드라인 전용. 교체 사유(5-2). 창 밖 이탈·중복 제외·다양성은 코드가, 그 "
+                   "밖의 재적용은 LLM이 채운다.",
+    )
+    # 이 헤드라인 후보가 가리키는 실제 이슈 — 이번 배치 초안(이슈로 아직 Insight가 아님)
+    # 또는 창 안 기존 확정 Insight 중 정확히 하나만 채운다(2-2). 확정 뷰가 여기서
+    # Insight.headliner_order를 채울 대상을 찾는다.
+    headliner_source_draft = models.ForeignKey(
+        "self", null=True, blank=True, on_delete=models.SET_NULL, related_name="+",
+        help_text="헤드라인 전용. 이번 배치 이슈 초안(RunDraft, TYPE_INSIGHT)이 후보면 그 pk.",
+    )
+    headliner_source_insight = models.ForeignKey(
+        Insight, null=True, blank=True, on_delete=models.SET_NULL, related_name="+",
+        help_text="헤드라인 전용. 창 안 기존 확정 Insight가 후보면 그 pk(from_existing).",
     )
     status = models.CharField(
         max_length=10, choices=RunProposal.STATUS_CHOICES, default=RunProposal.STATUS_PENDING,

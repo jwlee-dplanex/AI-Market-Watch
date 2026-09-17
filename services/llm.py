@@ -21,6 +21,7 @@ docs/planning.md와 .claude/agents/research-analyst.md에서 그대로 발췌한
 
 import json
 import logging
+import re
 
 import anthropic
 from anthropic import AnthropicBedrock
@@ -639,6 +640,99 @@ def find_duplicate_news(new_batch, window_news, matched_signals=None, over_soft_
 
 
 # ============================================================================
+# 축약본(content_short/implication_short) 공용 유틸 — docs/planning.md "RA 손 작업을
+# 전부 단계 안으로 넣는다" 3번이 정본.
+#
+# 🔴 LLM에게 문장을 "쓰게" 하지 않는다. 코드가 정본을 문장 단위로 쪼개 번호를 매기고,
+# LLM은 남길 번호(content_keep/implication_keep) 배열만 낸다 — "삭제만 허용"이 부탁이
+# 아니라 구조가 되게 하기 위해서다(같은 절 3-1). 이 두 함수가 그 "코드가 쪼개고, 코드가
+# 이어 붙인다" 양쪽을 둘 다 맡는다 — 3단계(Insight)와 4·5단계(Report)가 함께 쓴다.
+# ============================================================================
+
+# 문장 중간에서 자르지 않을 줄 — 마크다운 제목·리스트 항목, 보고서의 `참고:` 규약 줄
+# (3-1 ⚠️ "마크다운 구조를 문장 중간에서 자르지 않는다", 4번 "축약본 5-1을 인덱스
+# 선택으로 지킨다"). 이런 줄은 통째로 문장 하나로 취급한다.
+_UNSPLITTABLE_LINE_RE = re.compile(r"^(#{1,6}\s|[-*]\s|\d+\.\s|참고:)")
+
+
+def _split_line_into_sentences(line: str) -> list[str]:
+    """줄 하나(끝에 줄바꿈이 붙어 있을 수 있다)를 마침표·물음표·느낌표 뒤에서 자른다.
+    각 조각은 뒤따르는 공백·줄바꿈을 그대로 포함한다 — "".join(결과) == line이 항상
+    성립한다(이어 붙인 결과가 원문과 글자 그대로 같아야 한다는 계약, design.md 31차
+    ⑩ item.content_sentences 행)."""
+    sentences = []
+    start = 0
+    i = 0
+    n = len(line)
+    while i < n:
+        if line[i] in ".!?":
+            j = i + 1
+            while j < n and line[j] in ".!?":
+                j += 1
+            while j < n and line[j] in " \t\n\r":
+                j += 1
+            sentences.append(line[start:j])
+            start = j
+            i = j
+        else:
+            i += 1
+    if start < n:
+        sentences.append(line[start:])
+    return sentences
+
+
+def split_into_sentences(text: str) -> list[str]:
+    """text를 문장 단위로 쪼갠다. "".join(split_into_sentences(text)) == text가 항상
+    성립한다 — 빼는 것만 허용하는 축약본 설계가 기대는 불변식이다. 마크다운 제목·
+    리스트 항목·`참고:` 규약 줄은 문장 중간에서 자르지 않고 줄 전체를 한 조각으로
+    묶는다(_UNSPLITTABLE_LINE_RE)."""
+    if not text:
+        return []
+    chunks = []
+    for line in text.splitlines(keepends=True):
+        stripped = line.strip()
+        if not stripped or _UNSPLITTABLE_LINE_RE.match(stripped):
+            chunks.append(line)
+        else:
+            chunks.extend(_split_line_into_sentences(line))
+    return chunks
+
+
+def build_short_field(text: str, keep_indices, *, always_keep_prefix: str = "") -> str:
+    """정본 text를 문장으로 쪼개 keep_indices(1부터 시작하는 번호, LLM 응답)가 가리키는
+    문장만 그대로 이어 붙인다. 범위를 벗어나거나 정수가 아닌 인덱스는 조용히 버린다 —
+    LLM이 정확히 우리 분할과 같은 번호를 맞힌다는 보장이 없어서다(모델이 스스로 쓰고
+    있는 content/implication을 실시간으로 세어 매기는 값이라 근사치다).
+
+    always_keep_prefix: 이 문자열로 시작하는 줄은 keep_indices에 없어도 항상 포함한다.
+    Report의 `참고:` 규약 줄 전용이다 — "축약본은 정본과 동일해야 한다"는 요건이라
+    LLM의 선택 대상이 아니라 항상 따라간다(docs/planning.md "RA 손 작업을 전부 단계
+    안으로 넣는다" 3-1 ⚠️).
+
+    🔴 안전망(같은 절 3-1 "확정 시 코드가 검사한다"): 결과는 sentences[i-1]들을
+    인덱스로 그대로 이어 붙여 만들므로 원문 문장이 아닌 글자가 섞일 길이 구조적으로
+    없다. 그래도 방어적으로 각 조각이 실제로 text 안에 있는지 다시 확인한다 — 하나라도
+    어긋나면 빈 문자열을 반환해 display_content/display_implication이 정본으로
+    조용히 폴백하게 한다(500 금지, 어긋난 축약본을 저장하는 것보다 없는 쪽이 낫다)."""
+    sentences = split_into_sentences(text)
+    valid = {
+        i for i in (keep_indices or [])
+        if isinstance(i, int) and not isinstance(i, bool) and 1 <= i <= len(sentences)
+    }
+    if always_keep_prefix:
+        valid |= {
+            i for i, s in enumerate(sentences, start=1) if s.lstrip().startswith(always_keep_prefix)
+        }
+    valid = sorted(valid)
+    if not valid:
+        return ""
+    picked = [sentences[i - 1] for i in valid]
+    if any(chunk not in text for chunk in picked):
+        return ""
+    return "".join(picked)
+
+
+# ============================================================================
 # 3단계(주요 이슈) 판정 — docs/planning.md "3~5단계를 LLM으로 옮기는 설계"가 정본.
 #
 # 🔴 2단계와 정반대인 것 둘(같은 문서 7-(a)(b)) — 복사해 오면 자동으로 어긋나는 자리다.
@@ -658,7 +752,9 @@ def find_duplicate_news(new_batch, window_news, matched_signals=None, over_soft_
 # — 어느 프롬프트가 낸 결과인지 단계별로 되짚을 수 있어야 한다.
 # 🔴 2026-09-15b — 이슈 제목의 명사형 종결 규칙(_CRITERIA_INSIGHT_TITLE_ENDING)을
 # 추가해 올렸다. 판정 기준 원문이 바뀌면 버전을 올린다(cleanup의 선례와 같은 규칙).
-PROMPT_VERSION_INSIGHT = "insight-2026-09-15b"
+# 🔴 2026-09-17a — 출력 스키마에 content_keep/implication_keep(축약본 문장 번호 배열)을
+# 추가해 올렸다(docs/planning.md "RA 손 작업을 전부 단계 안으로 넣는다" 3번).
+PROMPT_VERSION_INSIGHT = "insight-2026-09-17a"
 
 
 # docs/planning.md "주요 이슈(Insight) 승격 기준" 절 — 승격 기준·판별의 핵심 질문·
@@ -905,6 +1001,8 @@ def _build_insight_system_prompt() -> str:
 - grade: 위 승격 위계 등급 정의를 적용해 "1", "2", "3" 중 하나를 고르세요. 미지정은 없습니다 — 반드시 하나를 고르세요.
 - grade_reason: 그 등급을 고른 이유를 한 문장으로 적으세요.
 - news_ids: 이 이슈의 근거가 된 기사의 id(<입력_기사>의 각 기사 앞 [id=N])를 배열로 적으세요. 최소 1건입니다.
+- content_keep: 방금 쓴 content를 마침표(.)·물음표(?)·느낌표(!)로 끝나는 문장 단위로 순서대로 셀 때(1부터), 그 문장 중 축약본(목표 500자 이내)에 남길 문장의 번호만 배열로 적으세요. 문장을 고치거나 새로 쓰지 마세요 — 번호만 고릅니다. 부연·배경 설명을 먼저 빼고, 핵심 사실만 남기세요.
+- implication_keep: content_keep과 같은 방식으로, 방금 쓴 implication의 문장 번호 중 축약본(목표 300자 이내)에 남길 번호를 배열로 적으세요.
 """
 
 
@@ -926,8 +1024,16 @@ OUTPUT_SCHEMA_INSIGHT = {
                         "items": {"type": "integer"},
                         "minItems": 1,
                     },
+                    # 🔴 2026-09-17 신설 — 축약본 문장 번호 배열(build_short_field()가
+                    # 소비한다). LLM이 문자열을 내지 않으므로 "삭제만 허용"이 구조로
+                    # 보장된다(모듈 상단 "축약본 공용 유틸" 절).
+                    "content_keep": {"type": "array", "items": {"type": "integer"}},
+                    "implication_keep": {"type": "array", "items": {"type": "integer"}},
                 },
-                "required": ["title", "content", "implication", "grade", "grade_reason", "news_ids"],
+                "required": [
+                    "title", "content", "implication", "grade", "grade_reason", "news_ids",
+                    "content_keep", "implication_keep",
+                ],
                 "additionalProperties": False,
             },
         },
@@ -1018,6 +1124,387 @@ def generate_insights(news_list) -> dict:
 
 
 # ============================================================================
+# 3단계 두 번째 호출 — 지식그래프 관계 추출. docs/planning.md "지식그래프 관계
+# 라벨링을 3단계의 두 번째 LLM 호출로 옮긴다"(2026-09-16 확정, 2026-09-17 보강)가
+# 정본이며, 특히 3-1(형태)·3-2(인덱스)·4(판별선)·5(어휘)번이 이 절의 근거다.
+#
+# 🔴 OUTPUT_SCHEMA_INSIGHT를 건드리지 않는다 — "이슈로 묶어라"와 "관계를 뽑아라"는
+# 같은 배치를 보는 서로 다른 두 호출이다(3-1). 합치지 않는 근거 다섯 중 핵심은
+# 이슈 판정자에게 관계 어휘를, 관계 판정자에게 이슈 판정 기준(승격 위계·게이트
+# ①②·자격 경계)을 섞지 않는 것이다.
+#
+# 🔴 재료는 _build_insight_user_message()를 그대로 재사용한다(3-1 근거 3 "재료가
+# 같아서 나눠도 새로 만들 것이 없다") — 뒤에 기업 인덱스 부표만 덧붙인다.
+#
+# 🔴 cache_control을 달지 않는다(3-1 말미) — 두 호출의 시스템 프롬프트가 서로 달라
+# 캐시가 공유되지 않으므로 캐시 읽기가 어차피 0회다.
+#
+# 🔴 tool use는 쓰지 않는다 — output_config.format만 쓴다(모듈 docstring, 같은 이유).
+#
+# 🔴 신뢰도 점수를 두지 않는다(4번) — 문턱을 정할 근거가 없고, 점수가 판별선을
+# 대체해 "나열이지만 0.6"으로 빠져나가는 것을 막기 위함이다. "관계 없음"의 표현은
+# relations 배열에서 그 쌍을 빼는 것 하나다.
+# ============================================================================
+
+# 정본 어휘 7종(5-(a)). 🔴 "합병"은 여기 없다 — planning.md 5-(a) "이건 OrgRelation이
+# 아니라 Organization 노드 정체성 문제라 RA 몫으로 뺐다"(노드 병합·존속법인 기준
+# 태깅 교정이 함께 따라오는 판단이라 기사 한 건 판정으로 낼 것이 아니다).
+RELATION_LABELS = ["기술협업", "공동개발", "공급계약", "지분투자", "인수", "업무협약", "파트너십"]
+
+# RunJob.prompt_version에 PROMPT_VERSION_INSIGHT와 "+"로 이어 붙는다(services/runner.py
+# _run_relation_extraction() — dedup이 PROMPT_VERSION_DEDUP을 이어 붙이는 것과 같은
+# 패턴). 어휘·판별선이 바뀌면 이 값을 올린다.
+PROMPT_VERSION_RELATION = "relation-2026-09-17a"
+
+
+# 4번 판별선 원문. PE는 이 문장을 그대로 옮긴다(재서술 금지 — CRITERIA_TEXT/
+# CRITERIA_TEXT_INSIGHT와 같은 원칙, 모듈 docstring 참고).
+_CRITERIA_RELATION_JUDGMENT = """\
+관계는 「같은 기사에 나왔다」가 아니라 「두 법인이 서로에게 무엇을 했다」가 본문에 적혀 있을 때만 성립합니다.
+
+1. 두 당사자를 잇는 서술어가 본문에 있어야 합니다. A가 B에게 공급했다 / A가 B에 투자했다 / A와 B가 함께 개발했다 / A와 B가 협약을 맺었다. 주어와 상대가 그 두 법인이어야 합니다.
+2. 나열은 관계가 아닙니다. "A·B·C가 모두 AI를 도입하고 있다", "이번에 선발된 곳은 A, B, C다"처럼 같은 문장에 이름이 함께 있을 뿐이면 관계가 아닙니다.
+3. 제3자를 거친 것은 그 두 법인의 관계가 아닙니다. "A가 X와 협업했고 B도 X와 협업했다"에서 A×B는 관계가 아닙니다.
+
+관계는 금융사·보험사 한쪽과 AI 기업 한쪽 사이에서만 성립합니다. 금융사끼리, 보험사끼리, AI 기업끼리는 관계를 내지 마세요.
+
+애매한 것은 관계 없음으로 처리하세요. relations 배열에서 그 쌍을 빼는 것 자체가 "관계 없음"의 표현입니다. 신뢰도 점수는 받지 않습니다 — 애매해도 숫자로 얼버무리지 말고 배열에서 빼세요.
+
+과거 실측에서 관계 없음으로 판정된 유형입니다. 같은 성격의 경우를 만나면 똑같이 관계 없음으로 처리하세요.
+- 은행권 AI 전환(AX) 동향을 종합하는 기사에 여러 AI 기업과 여러 은행 이름이 함께 등장하지만, 그중 특정 기업과 특정 은행이 서로 무엇을 했다는 서술은 없는 경우.
+- 망분리 규제 등 정책·제도를 종합하는 기사에 여러 기업 이름이 나열되는 경우.
+- 스타트업 육성 프로그램에 여러 AI 기업이 "선발됐다"고만 나열되고, 그 프로그램을 운영하는 회사와 각 AI 기업 사이에 개별 서술어가 없는 경우.
+
+두 법인이 사실상 합병·흡수통합된 경우는 아래 라벨 7종 어느 것으로도 정확히 표현할 수 없으니 relations 배열에 넣지 마세요.
+"""
+
+
+def _build_relation_system_prompt() -> str:
+    """3단계 두 번째 시스템 프롬프트. cache_control을 달지 않는다(위 모듈 절 참고)."""
+    labels_text = "、".join(RELATION_LABELS)
+    return f"""당신은 AI Market Watch 프로젝트에서, 검증을 마친 뉴스 기사 배치를 읽고 그 안에 실제로 서술된 기업 간 관계를 찾아냅니다.
+
+프로젝트 관심사는 국내 금융권(은행·보험사)의 AI/AX 도입 동향, 그리고 그와 연결된 AI 기업 동향입니다. 아래 판정 기준을 원문 그대로 적용하세요. 기준을 요약하거나 바꾸지 마세요.
+
+<판정_기준>
+{_CRITERIA_RELATION_JUDGMENT}
+</판정_기준>
+
+임무: 아래 사용자 메시지로 주어지는 <입력_기사> 목록과 <기업_목록>(번호가 매겨진 기업 색인)을 읽고, 본문에 실제로 서술된 기업 쌍의 관계만 찾아내세요. <기업_목록>에 없는 기업이 관계 당사자인 경우는 다루지 마세요.
+
+찾은 관계마다 아래 스키마로 응답하세요.
+- org_a_index, org_b_index: <기업_목록>의 idx 번호(정수) 둘. 그 관계의 두 당사자입니다. 서로 달라야 합니다.
+- label: 다음 7종 중 정확히 하나 — {labels_text}
+- reason: 이 관계의 근거를 한 문장으로 적으세요. 본문에 실제로 적힌 서술어(두 법인이 서로 무엇을 했는지)가 드러나야 합니다.
+- news_ids: 이 관계를 실제로 서술하고 있는 기사의 id(<입력_기사>의 각 기사 앞 [id=N])만 배열로 적으세요. 배치 전체가 아니라 그 관계를 말하는 기사만 고르세요. 최소 1건입니다.
+
+찾은 관계가 하나도 없으면 relations를 빈 배열로 응답하세요.
+"""
+
+
+OUTPUT_SCHEMA_RELATION = {
+    "type": "object",
+    "properties": {
+        "relations": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "org_a_index": {"type": "integer"},
+                    "org_b_index": {"type": "integer"},
+                    "label": {"type": "string", "enum": RELATION_LABELS},
+                    "reason": {"type": "string"},
+                    "news_ids": {
+                        "type": "array",
+                        "items": {"type": "integer"},
+                        "minItems": 1,
+                    },
+                },
+                "required": ["org_a_index", "org_b_index", "label", "reason", "news_ids"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["relations"],
+    "additionalProperties": False,
+}
+
+
+def build_relation_org_index(news_list):
+    """관계 추출 호출의 기업 인덱스(1부터, 3-2 "기업은 이름이 아니라 인덱스로
+    받는다" — pk가 아니라 인덱스인 이유는 "범위가 닫혀 있어 검증이 자명하다").
+    배치(news_list)에 태깅된 활성 기업을 모아 정렬한다 — 반환 리스트의 i번째
+    원소(0-base)가 곧 idx=i+1이다.
+
+    services/runner.py가 이 반환값을 그대로 들고 있다가 응답의 org_a_index/
+    org_b_index를 Organization으로 되짚는다 — 이 함수를 두 번 호출하지 않는다
+    (호출마다 정렬 결과가 같아도, "생성한 인덱스"와 "되짚는 인덱스"가 서로 다른
+    조회에서 나오면 그 사이 데이터가 바뀔 때 어긋날 수 있다)."""
+    from apps.setting.models import Organization
+
+    return list(
+        Organization.objects.filter(news__in=news_list, is_active=True)
+        .distinct().order_by("org_type", "name")
+    )
+
+
+def _build_relation_user_message(news_list, org_index) -> str:
+    """_build_insight_user_message()를 그대로 재사용하고(3-1 근거 3, 재료가 같다)
+    기업 인덱스 부표만 덧붙인다."""
+    org_lines = [f"[idx={i}] {org.name} ({org.org_type})" for i, org in enumerate(org_index, start=1)]
+    return (
+        _build_insight_user_message(news_list)
+        + "\n\n<기업_목록>\n" + "\n".join(org_lines) + "\n</기업_목록>"
+    )
+
+
+def _parse_relation_response(response) -> dict:
+    """구조화 출력을 파싱한다. _parse_insight_response()와 같은 방식(json.loads()만
+    쓴다, 문자열 매칭 금지)."""
+    text_block = next((b for b in response.content if b.type == "text"), None)
+    if text_block is None:
+        raise LLMJudgmentError(
+            f"관계 추출 응답에 text 블록이 없어요(stop_reason={response.stop_reason})."
+        )
+    try:
+        data = json.loads(text_block.text)
+    except json.JSONDecodeError as exc:
+        raise LLMJudgmentError(f"관계 추출 응답 JSON 파싱에 실패했어요: {exc}") from exc
+
+    usage = response.usage
+    data["_usage"] = {
+        "input_tokens": usage.input_tokens,
+        "output_tokens": usage.output_tokens,
+        "cache_creation_input_tokens": getattr(usage, "cache_creation_input_tokens", 0) or 0,
+        "cache_read_input_tokens": getattr(usage, "cache_read_input_tokens", 0) or 0,
+    }
+    return data
+
+
+def extract_relations(news_list, org_index) -> dict:
+    """3단계 두 번째 호출 — 관계를 뽑는다. org_index는 build_relation_org_index()의
+    반환값을 그대로 받는다(호출부와 같은 인덱스를 공유해야 응답의 org_a_index/
+    org_b_index를 되짚을 수 있다).
+
+    🔴 기업 인덱스가 2개 미만이면(관계가 성립할 최소 쌍조차 없음) 호출 자체를
+    만들지 않는다 — 헤드라인 호출의 "후보 0건이면 조용히 끝낸다. LLM 호출 자체를
+    만들지 않는다(비용)"와 같은 판단.
+
+    Returns:
+        {"relations": [...], "_usage": {...}} — relations의 각 원소는
+        org_a_index/org_b_index/label/reason/news_ids. 호출 자체를 만들지 않은
+        경우 _usage는 빈 dict다(호출부가 usage.get(key, 0)으로 안전하게 합산한다).
+
+    Raises:
+        LLMStructuralError: 인증·권한·리소스 오류.
+        LLMJudgmentError: 그 밖의 실패(rate limit·네트워크·응답 형식 불량). 호출이
+            1회라 이어하기가 없다 — 실패하면 관계 추출만 이번 배치에서 빠진다
+            (3-1 근거 4 "실패가 격리된다" — 이슈 초안은 이미 별도 트랜잭션으로
+            저장돼 이 실패의 영향을 받지 않는다. services/runner.py가 이 예외를
+            잡아 로그만 남기고 넘어간다).
+    """
+    if len(org_index) < 2:
+        return {"relations": [], "_usage": {}}
+
+    client = _get_client()
+    try:
+        response = client.messages.create(
+            model=settings.BEDROCK_MODEL_SMART,
+            max_tokens=4096,
+            system=_build_relation_system_prompt(),
+            messages=[{"role": "user", "content": _build_relation_user_message(news_list, org_index)}],
+            output_config={"format": {"type": "json_schema", "schema": OUTPUT_SCHEMA_RELATION}},
+        )
+    except (anthropic.AuthenticationError, anthropic.PermissionDeniedError, anthropic.NotFoundError) as exc:
+        logger.error("관계 추출 중 구조적 오류(인증/권한/리소스): %s", exc)
+        raise LLMStructuralError(str(exc)) from exc
+    except anthropic.RateLimitError as exc:
+        logger.warning("관계 추출 중 rate limit에 걸렸어요: %s", exc)
+        raise LLMJudgmentError(str(exc)) from exc
+    except anthropic.APIConnectionError as exc:
+        logger.warning("관계 추출 중 네트워크 오류: %s", exc)
+        raise LLMJudgmentError(str(exc)) from exc
+    except anthropic.APIStatusError as exc:
+        logger.warning("관계 추출 중 API 오류(status=%s): %s", exc.status_code, exc)
+        raise LLMJudgmentError(str(exc)) from exc
+    else:
+        return _parse_relation_response(response)
+
+
+# ============================================================================
+# 3단계 세 번째 호출 — 헤드라인 순위. docs/planning.md "RA 손 작업을 전부 단계 안으로
+# 넣는다" 2번이 정본.
+#
+# 🔴 1-B "창 결정 규칙" 6단계 중 1~3(1급 집합·기준점·창)은 코드가 이미 끝내고, 이
+# 호출에는 그 결과(창 안 1급 후보 풀)만 들어온다(2-1) — 이 함수는 4~6단계
+# ((ii)→(i)→서사 사슬, 5번 중복 제외, 5-1 다양성)만 맡는다. 다양성은 LLM이 업권
+# 라벨을 내고, 최종 집계·상한 강제는 호출부(services/runner.py)가 한다(2-1 "LLM이
+# 업권 라벨을 내고 코드가 센다").
+#
+# 🔴 창·1급 판정에는 절대 쓰지 않는다 — 이 호출이 받는 candidates는 이미 그 조건을
+# 통과한 것만이다(1-B ⚠️ "하루 차이로 헤드라이너가 갈리는 자리에 판정자 재량을
+# 남기지 않는다").
+# ============================================================================
+
+PROMPT_VERSION_HEADLINER = "headliner-2026-09-17a"
+
+# 5-1 "업권 목록 (확장형, 폐쇄 아님)" 원문 그대로.
+HEADLINER_SECTORS = [
+    "인터넷전문은행", "시중은행", "국책은행과 특수은행", "금융지주", "증권",
+    "카드와 캐피탈", "핀테크", "생명보험", "손해보험", "재보험", "금융 인프라 기관",
+]
+# 5-1 "여러 업권에 걸치는 이슈는 다양성 계산에서 빼고 항상 통과" / "(d) 제도 경로로
+# 1급이 된 건은 업권 없음으로 적고 항상 통과". 목록에 없는 sector 문자열과 구분되는
+# 두 특수값이다 — services/runner.py가 다양성 집계에서 이 둘을 제외한다.
+HEADLINER_SECTOR_MULTI = "여러 업권"
+HEADLINER_SECTOR_NONE = "업권 없음"
+
+
+def _build_headliner_system_prompt() -> str:
+    sector_list = ", ".join(HEADLINER_SECTORS)
+    return f"""당신은 AI Market Watch 프로젝트에서, 이번 주 1급 이슈 후보 중 대시보드 최상단(헤드라인)에 올릴 최대 3건을 고릅니다.
+
+<판정_기준>
+## 순위를 매기는 사슬 — (ii) 변화의 구체성 → (i) 파급 범위 → 서사
+(ii) 변화의 구체성 — 그 건이 "무엇을 도입했다"에서 멈추는가, "무엇이 무엇으로 달라졌다"까지 사실로 특정되는가. 특정된 쪽이 앞이고, 특정된 변화가 클수록 앞입니다.
+(i) 파급 범위 — 한 회사에서 끝나는가, 여러 회사·업계 관행에 걸치는가. 근거 기사 수가 아니라 사건 자체의 파급력을 봅니다. 참여자가 여럿인 사건, 금융권 AI 도입 조건 자체를 바꾸는 규제 변경은 회사 수가 적어도(0이어도) 파급 범위가 최상일 수 있습니다.
+앞 물음에서 갈리지 않으면 다음 물음으로, 그래도 갈리지 않으면 서사(더 선명하게 읽히는 쪽)로 정하세요.
+
+## 중복 제외
+이미 뽑기로 한 후보와 같은 사실(같은 사건)을 말하는 후보는 뽑지 마세요. 판별선은 "같은 사실"입니다 — 주제가 닮았거나 서술이 겹치는 것만으로는 중복이 아닙니다. 회사·시스템·업무 영역이 다르면 같은 사실이 아닙니다.
+
+## 다양성 — 3자리에 같은 업권은 2건까지
+업권 목록(확장형, 폐쇄 아님): {sector_list}. 목록에 없는 업권이면 그 이름을 그대로 적고 sector_unlisted를 true로 하세요 — 비슷한 업권에 억지로 밀어 넣지 마세요.
+여러 업권에 걸친 후보(예: 여러 보험사가 함께 참여)는 sector에 "{HEADLINER_SECTOR_MULTI}"를 적으세요 — 다양성 계산에서 빠지고 항상 통과합니다.
+개별 금융사 당사자 없이 규제기관이 금융권 AI 규율 자체를 바꾼 건은 sector에 "{HEADLINER_SECTOR_NONE}"을 적으세요 — 역시 다양성 계산에서 빠집니다.
+업권은 후보 안의 금융/보험 측 당사자를 기준으로 판정하세요(상대 AI 기업의 업종은 보지 않습니다).
+
+## 판정 승계 — 새 사실 없이 뒤집지 않는다
+<직전_헤드라인>은 지난 배치에서 이미 순위가 갈린 결과입니다. 새 사실(새 근거뉴스, 다른 후보의 등장·이탈, 이슈 내용 개정)이 없다면 그 순서를 그대로 유지하세요. 판단을 다시 적용해 순서를 뒤집었다면, picks의 해당 후보 change_reason에 무엇이 새로 달라졌는지 한 문장으로 적으세요. 근거 없이 느낌으로 순서를 바꾸지 마세요. change_reason이 필요 없으면 빈 문자열로 두세요.
+<직전_헤드라인>의 후보가 <입력_후보>에 있는데 이번 picks에 포함하지 않기로 했다면, dropped_prev_headliners에 그 이유를 적으세요 — "중복 제외"(어느 후보와 같은 사실인지 reason에 적으세요) 또는 "1-A 재적용"(사슬의 어느 마디에서 밀렸는지 reason에 적으세요) 중 하나로 분류하세요. <직전_헤드라인>의 후보인데 <입력_후보>에 아예 없는 것은 이미 창 밖으로 나갔거나 등급이 바뀐 것이라 여기서 다룰 대상이 아닙니다 — dropped_prev_headliners에 적지 마세요.
+</판정_기준>
+
+임무: <입력_후보> 중에서 최대 3건을 순위대로 고르세요(0~2건도 가능합니다 — 억지로 채우지 마세요). 아래 스키마로 응답하세요.
+- picks: 순위 1위부터 순서대로. candidate_id는 <입력_후보>의 [id=N] 그대로, sector/sector_unlisted는 위 "다양성" 기준, reason은 위 사슬로 이 순위를 정한 이유 한 문장, change_reason은 위 "판정 승계" 기준(필요 없으면 빈 문자열).
+- dropped_prev_headliners: 위 "판정 승계" 두 번째 문단 기준.
+"""
+
+
+OUTPUT_SCHEMA_HEADLINER = {
+    "type": "object",
+    "properties": {
+        "picks": {
+            "type": "array",
+            "maxItems": 3,  # 🔴 상한 3 강제 자리 다섯 중 하나(2-4 ①). 나머지 넷은
+            # 확정 뷰·대시보드 슬라이스·이 문서(docs/planning.md)·docs/design.md.
+            "items": {
+                "type": "object",
+                "properties": {
+                    "candidate_id": {"type": "integer"},
+                    "sector": {"type": "string"},
+                    "sector_unlisted": {"type": "boolean"},
+                    "reason": {"type": "string"},
+                    "change_reason": {"type": "string"},
+                },
+                "required": ["candidate_id", "sector", "sector_unlisted", "reason", "change_reason"],
+                "additionalProperties": False,
+            },
+        },
+        "dropped_prev_headliners": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "insight_pk": {"type": "integer"},
+                    "reason_category": {"type": "string", "enum": ["중복 제외", "1-A 재적용"]},
+                    "reason": {"type": "string"},
+                },
+                "required": ["insight_pk", "reason_category", "reason"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["picks", "dropped_prev_headliners"],
+    "additionalProperties": False,
+}
+
+
+def _build_headliner_user_message(candidates, prev_ranking) -> str:
+    """candidates: [{"temp_id", "title", "content"}] — 코드가 이미 1급+창으로 좁힌
+    후보 풀(services/runner.py가 만든다). prev_ranking: [{"insight_pk", "prev_rank",
+    "title", "reason"}] — 직전 배치 지정 스냅샷."""
+    cand_blocks = [
+        f"[id={c['temp_id']}] {c['title']}\n{c['content']}" for c in candidates
+    ]
+    prev_lines = (
+        "\n".join(
+            f"{p['prev_rank']}위 [insight_pk={p['insight_pk']}] {p['title']} — {p['reason'] or '(사유 없음)'}"
+            for p in prev_ranking
+        )
+        or "없음(이번이 첫 지정입니다)"
+    )
+    return (
+        "<입력_후보>\n" + "\n\n---\n\n".join(cand_blocks) + "\n</입력_후보>\n\n"
+        f"<직전_헤드라인>\n{prev_lines}\n</직전_헤드라인>"
+    )
+
+
+def _parse_headliner_response(response) -> dict:
+    text_block = next((b for b in response.content if b.type == "text"), None)
+    if text_block is None:
+        raise LLMJudgmentError(
+            f"헤드라인 순위 응답에 text 블록이 없어요(stop_reason={response.stop_reason})."
+        )
+    try:
+        data = json.loads(text_block.text)
+    except json.JSONDecodeError as exc:
+        raise LLMJudgmentError(f"헤드라인 순위 응답 JSON 파싱에 실패했어요: {exc}") from exc
+
+    usage = response.usage
+    data["_usage"] = {
+        "input_tokens": usage.input_tokens,
+        "output_tokens": usage.output_tokens,
+        "cache_creation_input_tokens": getattr(usage, "cache_creation_input_tokens", 0) or 0,
+        "cache_read_input_tokens": getattr(usage, "cache_read_input_tokens", 0) or 0,
+    }
+    return data
+
+
+def rank_headliners(candidates, prev_ranking) -> dict:
+    """1급+창 후보 풀에서 헤드라인 순위를 매긴다(3단계 세 번째 호출).
+
+    Returns:
+        {"picks": [...], "dropped_prev_headliners": [...], "_usage": {...}}
+    Raises:
+        LLMStructuralError, LLMJudgmentError — generate_insights()와 같다. 호출이
+        1회라 이어하기가 없다.
+    """
+    client = _get_client()
+    try:
+        response = client.messages.create(
+            model=settings.BEDROCK_MODEL_SMART,
+            max_tokens=4096,
+            system=_build_headliner_system_prompt(),
+            messages=[{"role": "user", "content": _build_headliner_user_message(candidates, prev_ranking)}],
+            output_config={"format": {"type": "json_schema", "schema": OUTPUT_SCHEMA_HEADLINER}},
+        )
+    except (anthropic.AuthenticationError, anthropic.PermissionDeniedError, anthropic.NotFoundError) as exc:
+        logger.error("헤드라인 순위 중 구조적 오류(인증/권한/리소스): %s", exc)
+        raise LLMStructuralError(str(exc)) from exc
+    except anthropic.RateLimitError as exc:
+        logger.warning("헤드라인 순위 중 rate limit에 걸렸어요: %s", exc)
+        raise LLMJudgmentError(str(exc)) from exc
+    except anthropic.APIConnectionError as exc:
+        logger.warning("헤드라인 순위 중 네트워크 오류: %s", exc)
+        raise LLMJudgmentError(str(exc)) from exc
+    except anthropic.APIStatusError as exc:
+        logger.warning("헤드라인 순위 중 API 오류(status=%s): %s", exc.status_code, exc)
+        raise LLMJudgmentError(str(exc)) from exc
+    else:
+        return _parse_headliner_response(response)
+
+
+# ============================================================================
 # 4, 5단계(주간·월간 보고서) 판정 — docs/planning.md "3~5단계를 LLM으로 옮기는 설계"가
 # 정본. 3단계와 같은 구조를 그대로 물려받는다(같은 문서 7-(a)(b)) — 배치 전체 1호출,
 # 캐싱 없음, 모델은 BEDROCK_MODEL_SMART.
@@ -1041,8 +1528,10 @@ def generate_insights(news_list) -> dict:
 # (설계 6번).
 # ============================================================================
 
-PROMPT_VERSION_WEEKLY = "weekly-2026-09-15a"
-PROMPT_VERSION_MONTHLY = "monthly-2026-09-15a"
+# 🔴 2026-09-17a — 출력 스키마에 content_keep(축약본 문장 번호 배열)을 추가해 올렸다
+# (docs/planning.md "RA 손 작업을 전부 단계 안으로 넣는다" 4번, 3번과 같은 방식).
+PROMPT_VERSION_WEEKLY = "weekly-2026-09-17a"
+PROMPT_VERSION_MONTHLY = "monthly-2026-09-17a"
 
 
 # docs/planning.md 「주간 보고서(Report) 표준 구조」 2~7번. 1번(제목 고정 서식)은
@@ -1349,6 +1838,7 @@ def _build_report_system_prompt(period_label: str, criteria_text: str) -> str:
 아래 스키마로 응답하세요.
 - overview: 「주요 동향」. 위 "주요 동향 작성 규칙"을 그대로 따르세요.
 - content: 「주요 이슈」. 이슈 블록을 상한 5건, 하한 없이 담으세요. 각 블록은 `### 이슈 제목` + 흐름 분석 + 시사점 + `참고: <uid>, ...` 규약 줄로 구성합니다. 이슈 제목은 위 "이슈 제목 규칙"을 그대로 따르세요. 참고 줄의 uid는 반드시 <입력_이슈>에 주어진 그 이슈의 근거 기사 uid만 쓰세요.
+- content_keep: 방금 쓴 content 전체를 줄 단위로(제목 줄, 문장, `참고:` 줄) 순서대로 셀 때(1부터), 축약본(부연 설명을 뺀 핵심만 남긴 버전)에 남길 번호를 배열로 적으세요. 시사점 문단(각 이슈 블록의 마지막 문단)의 번호는 넣지 마세요 — 축약본에는 흐름 분석의 핵심 사실만 남깁니다. `### 이슈 제목` 줄과 `참고:` 줄은 번호를 안 넣어도 코드가 자동으로 포함하니 신경 쓰지 마세요.
 
 🔴 보고서 제목은 여기서 만들지 않습니다. 응답에 제목을 포함하지 마세요.
 """
@@ -1359,8 +1849,12 @@ OUTPUT_SCHEMA_REPORT = {
     "properties": {
         "overview": {"type": "string"},
         "content": {"type": "string"},
+        # 🔴 2026-09-17 신설 — 축약본 문장 번호 배열. 3단계와 같은 방식(모듈 상단
+        # "축약본 공용 유틸" 절) — build_short_field()가 `참고:` 줄을 always_keep_prefix로
+        # 강제 포함하므로 여기 번호가 안 들어가도 안전하다.
+        "content_keep": {"type": "array", "items": {"type": "integer"}},
     },
-    "required": ["overview", "content"],
+    "required": ["overview", "content", "content_keep"],
     "additionalProperties": False,
 }
 
