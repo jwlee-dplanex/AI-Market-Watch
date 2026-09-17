@@ -506,10 +506,25 @@
 
         8) 새로 쓴 Tailwind 클래스 네 개. npm run build:css를 돌려야 보인다.
            bg-green-50, border-green-200, bg-[#F9F5FF], border-primary/20
+
+        9) no-print — 인쇄물에서 뺀다 (2026-09-17 추가).
+           이 블록은 main 안이라 감춰진 적이 없고 처음부터 인쇄 대상이었다.
+           사용자가 REPORT-002에서 PDF를 뽑았더니 확인 대화상자와 함께
+           알림 배너도 같이 찍혔다. 알림은 방금 누른 동작의 결과이지
+           보고서 내용이 아니므로 종이에 남을 이유가 없다.
+           ⚠️ .no-print는 지금 templates/reports/detail.html의 @media print
+              안에서만 정의돼 있다. 저장소 전체에 그 한 자리뿐이다.
+              그래서 REPORT-002 밖에서는 이 클래스가 아무 일도 하지 않는다.
+              🔴 빠뜨린 것이 아니라 의도한 것이다. 인쇄를 지원하는 화면이
+                 REPORT-002 하나뿐이라, 전역 @media print를 base.html에
+                 새로 만들면 인쇄를 염두에 두지 않은 나머지 화면들까지
+                 검증해야 할 대상이 된다. 인쇄 지원 화면이 늘어나는 날
+                 그때 .no-print를 공용 CSS로 올리면 이 자리는 그대로 산다.
+           화면은 한 픽셀도 바뀌지 않는다. @media print 안에만 있는 규칙이다.
       {% endcomment %}
       {% if messages %}
       <div role="status" aria-label="알림"
-           class="mb-4 space-y-2 max-h-52 overflow-y-auto pr-1">
+           class="no-print mb-4 space-y-2 max-h-52 overflow-y-auto pr-1">
         {% for message in messages %}
         <div x-data="{ shown: true }" x-show="shown"
              class="flex items-start gap-2 rounded-[10px] border px-4 py-3

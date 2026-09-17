@@ -99,7 +99,19 @@ def news_detail(request, uid):
     from apps.setting.models import Organization
     # 검증 게이트: 미검증 뉴스는 URL 직접 접근 시 404. 목록에서 숨기는 의미가 없어지므로
     # 상세도 반드시 게이트를 공유한다.
-    news = get_object_or_404(News.objects.verified(), uid=uid)
+    #
+    # 🔴 2026-09-17 — .verified()를 그대로 쓰지 않는다. verified()는 (E) 조건으로
+    # duplicate_of가 채워진 News(중복 묶음의 대표 아닌 나머지)까지 함께 제외하는데,
+    # 그 News는 Insight.news/Report.news 근거 목록·report_extras의 "참고: <uid>"
+    # 해석 경로((B) 예외, verified()를 안 거침)에서는 그대로 링크로 노출된다. 즉
+    # "근거로는 보여주면서 클릭하면 404"가 되는 모순이 생긴다. 미검증(status)은 계속
+    # 404여야 하지만, 중복은 이미 검증을 마친 정당한 근거이므로 상세는 열어 준다 —
+    # 상태 게이트만 걸고 duplicate_of 조건은 걸지 않는다.
+    news = get_object_or_404(
+        News.objects.select_related("duplicate_of"),
+        uid=uid,
+        status=News.STATUS_VERIFIED,
+    )
 
     insights = news.insights.all()
 

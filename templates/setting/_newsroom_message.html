@@ -47,6 +47,15 @@
                             이 조각의 본체이고, 사람이 여기서 복사한다.
      .created_at         datetime. 🔴 서식은 템플릿이 건다.
      .article_count      int. 포함 기사 수.
+     .new_article_count  🔴 2026-09-17 신설. 그 초안에 **처음 실린** 기사 수(int).
+                            None이면 그 칸을 비워 둔다 — 0으로 대신하지 않는다.
+                            「0건이었다」와 「셀 수 없다」는 다른 사실이다.
+   room.past_messages    🔴 2026-09-17 신설. latest_message를 **뺀** 나머지 초안,
+                         최신순. 비면 「전체 보기」 자체가 뜨지 않는다.
+                         각 항목은 위 latest_message와 같은 계약을 따른다
+                         (.body / .created_at / .article_count /
+                          .new_article_count / .sent_at / .status_label / .error).
+                         🔴 실패 초안도 빼지 않는다 — 다음 회차의 기준점이다.
      .sent_at            🔴 사람이 「보냈다고 표시한」 시각 또는 None.
                             ⚠️ 자동 발송 시각과 같은 칸을 쓰지 않는다(정책 12-3 (d)).
                                4단계를 나중에 열 때 두 값이 한 칸에 섞이면 기존 행의
@@ -215,10 +224,32 @@
             aria-label="브리핑 본문"
             class="w-full text-xs font-mono bg-gray-50 border border-[#E5E5E5] rounded-[10px] p-3 max-h-64 overflow-y-auto resize-none leading-relaxed text-gray-700 focus:outline-none focus:border-primary">{{ room.latest_message.body }}</textarea>
 
+  {% comment %}
+    ── 🔴 수 두 개를 나란히 둔다 (2026-09-17) ─────────────────────────────
+    종전은 「기사 14건이 담겨 있어요」 한 줄이었다. 🔴 사용자가 화면에서
+    먼저 발견한 문제가 바로 이 줄이다 — "지금 14건이 담겨져 있는데 이전 것
+    까지 다 포함이 된 것 같아". 한 수만 있으면 그 14건이 이 회차에 새로
+    들어온 것인지 전 회차 것까지 다시 담긴 것인지 화면이 답하지 못한다.
+
+    회차 경계가 증분으로 서면(한 번 실린 기사는 다시 싣지 않는다) 새 초안에서는
+    두 수가 늘 같아진다. 🔴 그래도 두 수를 계속 둔다 — 같다는 것이 눈에 보이는
+    것이 "누적이 다시 생기지 않았다"는 유일한 화면 증거이기 때문이다.
+    ⚠️ 문장으로 「같아요 / 달라요」를 쓰지 않는다. 같은 수가 두 번 적히면
+       그 자체로 읽히고, 조건문 문구는 경계에서 거짓이 되기 쉽다.
+    ⚠️ 이름표 자리라 명사형이다(design.md 1.0.3). 수치 문장 예외를 그대로 따라
+       「포함 기사 N건」 형태로 두고 해요체로 되돌리지 않는다.
+    🔴 truthy 검사에서 `is not None`으로 바꿨다. 종전 `{% templatetag openblock %} if article_count %}`은
+       0건을 숨겼는데, 실패 초안은 0건인 것이 중요한 사실이다.
+  {% endcomment %}
   <div class="mt-2 space-y-0.5">
-    {% if room.latest_message.article_count %}
-    <p class="text-[10px] text-gray-400">기사 {{ room.latest_message.article_count }}건이 담겨 있어요</p>
-    {% endif %}
+    <div class="flex items-center gap-3 text-[10px] text-gray-400">
+      {% if room.latest_message.article_count is not None %}
+      <span>포함 기사 <span class="tabular-nums">{{ room.latest_message.article_count }}</span>건</span>
+      {% endif %}
+      {% if room.latest_message.new_article_count is not None %}
+      <span>이 회차 새 기사 <span class="tabular-nums">{{ room.latest_message.new_article_count }}</span>건</span>
+      {% endif %}
+    </div>
     <p class="text-[10px] text-gray-400">여기서는 고치지 않아요. 고칠 게 있으면 복사한 뒤 Slack에서 고쳐 주세요.</p>
   </div>
 
@@ -302,6 +333,142 @@
     {% endif %}
   </div>
 </div>
+
+{% comment %}
+==============================================================================
+ 🔴 이전 초안 목록 (2026-09-17 신설, PD)
+ 설계: docs/design.md SET-009 「이전 초안 전체 보기」 절
+ 정책: docs/planning.md 「뉴스룸」 브리핑 회차 정책 (c)
+==============================================================================
+ 사용자 원문 — "이전에 생성했던 것은 전체보기와 같은 버튼 만들어서 리스트로
+ 볼 수 있게 해줘". 🔴 새 화면을 만들지 않는다. PM이 SET-009 안으로 확정했다
+ (초안 열람과 발송 표시가 이미 여기 있고, ROOM 축은 구성원이 읽는 자리다).
+
+ ▣ 왜 모달이 아니라 이 자리에서 펼치나
+   ① 새 URL과 뷰가 필요 없다. 뷰가 past_messages만 더 내리면 된다.
+   ② 큰 면적이 덮이고 걷히는 움직임을 만들지 않는다(사용자 확정 제약).
+   ③ 위 카드가 최신 초안이고 아래가 그 이전이라 시간 순서가 그대로 읽힌다.
+      모달은 최신 카드를 가려서 둘을 견주지 못하게 한다.
+   ⚠️ 그래서 아래 채널 설정이 밀려 내려간다. 사람이 눌러서 생기는 변화이고
+      배경이 움직이는 것이 아니라 괜찮다고 판단했다.
+
+ ▣ 표로 둔 이유
+   보여야 할 것이 넷이고(작성 시각, 상태, 포함 기사 수, 본문) 그중 둘이
+   숫자다. 🔴 「포함 기사」와 「이 회차 새 기사」가 같은 값인지 다른 값인지가
+   분명해야 한다는 것이 이 화면의 요구였고, 열 머리가 있는 표가 그 둘을
+   가장 짧게 가른다. SET-006 로그 표의 마크업 관례를 그대로 쓴다.
+
+ ▣ 여기서 하지 않는 것 셋
+   복사 버튼      🔴 최신 초안 카드에만 둔다. 이전 초안을 복사해 보내면
+                  발송 표시할 자리가 없어 같은 브리핑이 두 번 나갈 길이 생긴다.
+   발송 표시      🔴 같은 이유로 최신 초안만 표시한다.
+   삭제           실패 초안도 남긴다. 다음 회차의 기준점이라 지우면 경계가 틀어진다.
+
+ ▣ x-cloak
+   본문 행(x-show="open")에 반드시 붙인다. 기본값이 숨김이라 Alpine이 뜨기 전에
+   모든 초안 본문이 한꺼번에 보였다 사라진다 — 이 조각에서 FOUC가 가장 큰 자리다.
+   ⚠️ 여는 버튼과 꺾쇠에는 붙이지 않는다. 기본으로 보여야 할 상태다.
+   ⚠️ 상태 낱말을 x-text로 갈아 끼우지 않고 꺾쇠 회전에만 맡긴다. 초기 HTML에
+      적힌 라벨이 그대로 옳아서 x-cloak이 필요 없는 쪽을 고른 것이다.
+   🔴 x-if를 쓰지 않는다. 껐다 켤 때 안의 상태가 사라진다.
+
+ ⚠️ 「보냈다고 표시하기」 POST가 이 조각을 통째로 갈아 끼우므로 펼쳐 둔 상태가
+    닫힌다. 표시는 하루에 한 번 누르는 동작이고, 상태를 유지하려면 URL이나
+    별도 저장이 필요해 비용이 훨씬 크다. 그대로 둔다.
+{% endcomment %}
+{% if room.past_messages %}
+<div class="mt-3" x-data="{ open: false }">
+  <button type="button" @click="open = !open"
+          class="flex items-center gap-1 text-xs text-primary font-medium hover:underline">
+    <i data-lucide="chevron-down" class="w-3.5 h-3.5 transition-transform" :class="open && 'rotate-180'"></i>
+    이전 초안 {{ room.past_messages|length }}건 전체 보기
+  </button>
+
+  <div x-show="open" x-cloak class="mt-2 rounded-[10px] border border-[#E5E5E5] overflow-hidden">
+    {% comment %}
+      🔴 두 수가 갈리는 이유를 여기 한 줄로만 적는다. 표의 모든 행에 붙이면
+         같은 말이 행마다 되풀이되고, 최신 카드에도 적으면 세 곳이 된다.
+      ⚠️ 말을 거는 자리라 해요체다(design.md 1.0.3).
+    {% endcomment %}
+    <p class="text-[10px] text-gray-500 bg-gray-50 px-4 py-2 border-b border-[#E5E5E5] leading-relaxed">
+      두 수가 다르면 이전 회차에 실렸던 기사가 함께 담긴 초안이에요.
+    </p>
+    <table class="w-full text-xs">
+      <thead>
+        <tr class="border-b border-gray-100">
+          <th class="text-left font-semibold text-gray-500 px-4 py-3 w-28">작성 시각</th>
+          <th class="text-left font-semibold text-gray-500 py-3 w-24">상태</th>
+          <th class="text-right font-semibold text-gray-500 py-3 w-20">포함 기사</th>
+          <th class="text-right font-semibold text-gray-500 py-3 w-28">이 회차 새 기사</th>
+          <th class="text-right font-semibold text-gray-500 pr-4 py-3 w-20">본문</th>
+        </tr>
+      </thead>
+      {% comment %}
+        🔴 초안 하나가 tbody 하나다. 요약 행과 본문 행이 형제라서 앞 행에 x-data를
+           걸면 뒤 행이 그 범위 밖에 있다. tbody로 감싸면 두 행이 한 범위에 든다
+           (tbody 여럿은 정상 HTML이고, 이 방식이 tr 두 개를 잇는 가장 얕은 길이다).
+        ⚠️ 그래서 divide-y를 쓰지 않는다. tbody 안에서만 선이 그어져 초안 사이가
+           갈리지 않는다. 대신 요약 행마다 border-t를 준다(로그 표와 같은 관례).
+        🔴 상태 이름을 바깥과 다르게 둔다(open / bodyOpen). 같은 이름이면 안쪽이
+           바깥을 가려서, 나중에 이 행에서 목록 전체를 접으려 할 때 엉뚱한 값을
+           건드린다. 지금 동작에는 문제가 없고 다음 사람을 위한 방어다.
+      {% endcomment %}
+      {% for m in room.past_messages %}
+      <tbody x-data="{ bodyOpen: false }">
+        <tr class="border-t border-gray-100 hover:bg-gray-50 transition-colors">
+          <td class="px-4 py-3 text-gray-500 tabular-nums whitespace-nowrap">{{ m.created_at|date:"m/d H:i" }}</td>
+          <td class="py-3">
+            {% if m.status_label %}
+            <span class="text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap
+              {% if m.sent_at %}bg-[#E6F7F5] text-[#00AF9A]
+              {% elif m.error %}bg-red-100 text-red-600
+              {% else %}bg-gray-100 text-gray-500{% endif %}">{{ m.status_label }}</span>
+            {% endif %}
+          </td>
+          {% comment %}
+            🔴 값이 없으면 칸을 비운다. 0으로 대신하지 않는다 —
+               「0건이었다」와 「셀 수 없다」는 다른 사실이고, 옛 초안에는
+               이 회차 수를 되짚을 근거가 없을 수 있다.
+          {% endcomment %}
+          <td class="py-3 text-right text-gray-700 tabular-nums">{% if m.article_count is not None %}{{ m.article_count }}건{% endif %}</td>
+          <td class="py-3 text-right text-gray-700 tabular-nums">{% if m.new_article_count is not None %}{{ m.new_article_count }}건{% endif %}</td>
+          <td class="pr-4 py-3 text-right">
+            <button type="button" @click="bodyOpen = !bodyOpen"
+                    class="inline-flex items-center gap-1 text-primary hover:underline">
+              <span>본문</span>
+              <i data-lucide="chevron-down" class="w-3 h-3 transition-transform" :class="bodyOpen && 'rotate-180'"></i>
+            </button>
+          </td>
+        </tr>
+        <tr x-show="bodyOpen" x-cloak>
+          <td colspan="5" class="px-4 pb-4">
+            {% if m.error %}
+            <div class="mb-2 flex items-start gap-2 rounded-[10px] border border-orange-200 bg-orange-50 px-3 py-2">
+              <i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-orange-500 flex-shrink-0 mt-0.5"></i>
+              <p class="text-[10px] text-orange-700 leading-relaxed">검증에서 걸렸어요. {{ m.error }}</p>
+            </div>
+            {% endif %}
+            {% comment %}
+              🔴 최신 초안과 같은 readonly textarea다. pre로 바꾸지 않는다 —
+                 이유 셋은 이 파일 맨 위 주석에 있다(복사 폴백, 드래그 경계,
+                 Slack 문법 원문 노출). 여기에 복사 버튼을 두지 않는 것과는
+                 별개로, 사람이 직접 선택해 복사하는 길은 열려 있어야 한다.
+              ⚠️ 상한은 max-h-64다. 빌드에 있는 값이다(실측).
+            {% endcomment %}
+            <textarea readonly rows="6"
+                      aria-label="{{ m.created_at|date:'m/d H:i' }} 브리핑 본문"
+                      class="w-full text-xs font-mono bg-gray-50 border border-[#E5E5E5] rounded-[10px] p-3 max-h-64 overflow-y-auto resize-none leading-relaxed text-gray-700 focus:outline-none focus:border-primary">{{ m.body }}</textarea>
+            {% if m.sent_at %}
+            <p class="mt-1.5 text-[10px] text-gray-400 tabular-nums">{{ m.sent_at|date:"m/d H:i" }} 발송 표시</p>
+            {% endif %}
+          </td>
+        </tr>
+      </tbody>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+{% endif %}
 
 {% else %}
 {% comment %}

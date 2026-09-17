@@ -29,8 +29,33 @@ class NewsQuerySet(models.QuerySet):
         미검증만 뽑는 별도 이름 있는 조회를 따로 쓴다. NEWS-002는 미검증이면 여전히
         404이며, ALL-001·NEWS-001·GRAPH-001의 어떤 숫자에도 이 예외로 노출된 뉴스가
         섞이지 않는다.
+
+        🔴 (E) 다섯 번째 조건(2026-09-17, 사용자 제안 "`NewsroomArticle.duplicate_of`와
+        같게 구현" · docs/planning.md 4-A) — `duplicate_of`가 채워진 News(대표가 아니라
+        같은 사건의 나머지)는 status와 무관하게 함께 제외한다. **행은 지우지 않는다.**
+        형태는 `NewsroomArticleQuerySet.for_newsroom_display()`(`apps/newsroom/models.py:242`,
+        `duplicate_of__isnull=True`)와 같지만 근거는 다르므로 갈라 적는다:
+          - 교보(뉴스룸) 축이 지우지 않는 이유 — 재수집 차단 장치(`ExcludedURL` 대응물)가
+            없어 지우면 다시 들어오고, 뉴스룸엔 사람 삭제 기능 자체가 없다(정책 9번 ⑧).
+            이 근거는 조사 축에 해당하지 않는다 — 조사 축에는 `ExcludedURL`이 있다.
+          - 🔴 조사 축이 지우지 않는 이유 — 위 (B)의 삭제 금지 셋에 걸리면 대표 외
+            나머지를 지울 수 없다. 실측(2026-09-17): 그날 수집분 23건 전수가 이미
+            `Insight`에 연결돼 있어 "대표만 남기고 나머지를 삭제"가 산술적으로
+            공집합이었다 — 삭제 기반 설계 자체가 이미 성립하지 않는다.
+          같은 결론(행을 지우지 않는다)이지만 근거가 다르므로, 한쪽이 나중에 무너져도
+          (예: 뉴스룸에 삭제 기능이 생기거나, 조사 축의 삭제 금지 셋이 바뀌더라도)
+          다른 쪽은 흔들리지 않는다.
+
+        ⚠️ 대표는 절대 `duplicate_of`가 채워지지 않는다(자기 자신을 가리키지 않음,
+        교보 축과 동일 계약) — 지식그래프 엣지 임계(라벨 AND 기간 내 검증 뉴스
+        공동언급 ≥ 1건)가 이 성질에 기대어 "묶음마다 대표 1건은 반드시 남으므로
+        공동언급이 0으로 떨어지는 경로가 없다"를 보장한다.
+
+        (B)의 예외 셋(`Insight.news`/`Report.news`/`OrgRelation.news`, `report_extras`의
+        `참고: <uid>` 해석 경로)은 이 (E) 조건도 함께 우회한다 — `verified()`를 거치지
+        않으므로 감춘 기사도 시사점·보고서·관계의 근거 목록에서는 그대로 보인다.
         """
-        return self.filter(status=News.STATUS_VERIFIED)
+        return self.filter(status=News.STATUS_VERIFIED, duplicate_of__isnull=True)
 
 
 class News(models.Model):
@@ -98,6 +123,31 @@ class News(models.Model):
         help_text="수집 시 매칭된 Keyword.keyword 문자열 목록. 2026-08-06 이전 수집분은 "
                    "이 필드 도입 전이라 빈 리스트(소급 채움 없음).",
     )
+    # 🔴 2026-09-17 신설(사용자 제안 "NewsroomArticle.duplicate_of와 같게 구현" ·
+    # docs/planning.md 4-A) — self-FK로 "같은 사건의 대표가 무엇인가" 하나의 질문에
+    # 묶음을 담는다. `NewsroomArticle.duplicate_of`(apps/newsroom/models.py:382)와
+    # 정확히 같은 형태다. 대표 기사 자신은 반드시 None이다(자기 자신을 가리키지
+    # 않음) — NewsQuerySet.verified() (E)가 이 계약에 기대어 지식그래프 엣지
+    # 임계(공동언급 ≥ 1건)를 지킨다.
+    #
+    # 게이트는 NewsQuerySet.verified()에 조건 한 줄(duplicate_of__isnull=True)로만
+    # 건다 — 새 게이트를 세우지 않는다. 이 필드로 감춘 News는 삭제하지 않는다:
+    # Insight.news/Report.news/OrgRelation.news(삭제 금지 셋)가 걸려 있으면 애초에
+    # 삭제할 수 없기 때문이다(실측: 2026-09-17 수집분 23건 전수가 Insight에 연결돼
+    # 있어 삭제 기반 설계가 성립하지 않았다) — 교보 축(재수집 차단 장치 부재·삭제
+    # 기능 부재)과는 근거가 다르다.
+    #
+    # on_delete=SET_NULL — 교보 축과 같은 선택이되 근거는 조사 축에 맞게 다시
+    # 확인했다: 대표 News가 (아직 명시 연결이 붙기 전에) 삭제되더라도 그 대표를
+    # 가리키던 나머지들까지 함께 사라지면 "행을 지우지 않는다"는 이 필드의 존재
+    # 이유가 깨진다. SET_NULL이면 대표를 잃은 나머지는 duplicate_of가 비면서
+    # verified()에 다시 드러나 독립 기사로 남는다 — CASCADE였다면 조용히 함께
+    # 삭제됐을 것이다.
+    duplicate_of = models.ForeignKey(
+        "self", null=True, blank=True, on_delete=models.SET_NULL, related_name="duplicates",
+        help_text="같은 사건을 다루는 대표 News. 대표 기사 자신은 None이다. status는 "
+                   "두 기사 모두 그대로 둔다 — 이 필드로만 묶고 삭제하지 않는다.",
+    )
 
     objects = NewsQuerySet.as_manager()
 
@@ -106,6 +156,14 @@ class News(models.Model):
         """템플릿에서 게이트 통과 여부를 물을 때 쓴다. 상태 문자열('검증됨')을 템플릿에
         하드코딩하면 나중에 값이 바뀔 때 조용히 깨지므로, 비교는 항상 여기로 모은다."""
         return self.status == self.STATUS_VERIFIED
+
+    @property
+    def is_duplicate(self):
+        """이 News가 대표가 아니라 같은 사건의 나머지(duplicate_of가 채워짐)인지.
+        is_verified와 같은 이유로 둔다 — 템플릿이 `news.duplicate_of`를 직접 None
+        비교하는 대신 이 프로퍼티로 물어보게 한다(2026-09-17, NEWS-002 상세 게이트
+        수정: 미검증은 여전히 404지만 중복은 검증된 근거이므로 상세를 열어 준다)."""
+        return self.duplicate_of_id is not None
 
     @property
     def source_domain(self):

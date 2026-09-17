@@ -1,0 +1,183 @@
+{% extends "setting/base_setting.html" %}
+
+{% comment %}
+==============================================================================
+ 로그인 화면 (SET 번호 없음)
+ 설계: docs/design.md 「로그인 화면 (번호 없음)」 절. 2026-09-17 신설.
+
+ 🔴 화면 ID를 주지 않는다. 설정 메뉴 여덟 항목 중 하나가 아니고, 사이드바에도
+    목록에도 서지 않는다. 설정 앞에 한 번 서는 관문이라 번호를 붙이면 아홉 번째
+    설정 화면처럼 읽힌다.
+
+ ▣ 🔴 base.html이 아니라 base_setting.html을 상속한다. 이 한 줄이 이 화면의 전부다
+   사용자 지시가 **"사이드바는 남겨둬야 하고 설정을 눌렀을 때 설정 메인컨텐츠
+   영역의 센터에 아이디 비밀번호를 입력하게 해줘"**였다.
+     base.html 상속        사이드바만 남는다. 요구의 절반이다
+     🔴 base_setting.html   사이드바 + 설정 메뉴가 남고, 그 오른쪽 콘텐츠 칸의
+                           한가운데에 폼이 선다. **지시한 그 자리다**
+   ⚠️ 종전에는 단독 페이지였다(자체 <html>, 보라 머리 박스, 「설정 관리자 로그인」).
+      사이드바가 통째로 사라져 **로그인하지 않으면 대시보드로 갈 길도 화면에 없었다.**
+      그것이 이번에 고친 것이다.
+
+ ▣ 🔴 주소는 /login/이다. 그 한 가지만 다르다
+   미들웨어가 그 자리에서 폼을 렌더하는 안(주소가 /setting/run/ 그대로)은 접었다.
+   근거 셋이고 셋째가 결정적이다.
+     ① HTMX 프래그먼트도 같은 미들웨어를 지난다. /setting/run/graph/는 3초마다
+        도는 조각인데 거기에 로그인 폼이 swap되면 화면이 깨진다.
+     ② next 복귀를 폼에 숨은 값으로 직접 실어야 한다(여기서는 LoginView가 한다).
+     🔴 ③ **미들웨어가 인증 뷰가 된다.** 비밀번호가 틀렸을 때 POST를 받을 곳이
+        없어 미들웨어가 POST까지 가로채야 하고, 그 순간 AuthenticationForm과 에러
+        렌더와 **open redirect 방어(url_has_allowed_host_and_scheme)까지 직접 다시
+        만드는** 일이 된다. 디자인 문제가 아니라 보안 표면이다.
+     ④ 같은 URL이 두 화면을 렌더하면 새로고침과 뒤로가기의 뜻이 애매해진다.
+   🔴 화면은 접은 안과 똑같이 보인다. 대가는 주소 하나뿐이다.
+
+ ▣ 🔴 나무라지 않는다. 처음 들어온 사람에게 이 화면은 잘못이 아니라 안내다
+   제목   설정은 로그인이 필요해요
+   실패   아이디나 비밀번호가 맞지 않아요. 다시 한번 확인해 주세요
+   ⚠️ 「권한이 없습니다」류를 쓰지 않는다. 계정이 하나뿐이라 권한 문제가 아니고,
+      그 말은 사람을 막는 말이지 안내하는 말이 아니다.
+
+ ▣ 🔴 2026-09-17 — 문구 둘을 걷었다 (사용자가 화면을 직접 보고 지시)
+   걷은 것   보조 「수집과 발송을 다루는 화면이라 한 번만 확인할게요」
+             하단 「대시보드와 뉴스, 보고서는 로그인 없이 볼 수 있어요」
+   🔴 하단 줄의 근거였던 「막다른 길이 아님을 말한다」는 지금도 맞다. 다만 그 일을
+      **왼쪽 사이드바가 이미 하고 있다.** 대시보드도 뉴스도 보고서도 화면에 서
+      있으므로 문장이 없어도 길이 보인다. 글로 또 말하면 같은 말이 두 번이다.
+   🔴 되살릴 조건 — **사이드바를 감추는 결정이 나오면 하단 줄을 되살린다.** 그때는
+      가리킬 자리가 화면에서 사라져 문장 말고는 길을 보여줄 수단이 없다.
+   ⚠️ 보조 문구는 되살릴 조건이 없다. 제목이 이미 「설정은 로그인이 필요해요」라
+      무엇을 지키는지 말하고 있어 한 줄이 더 붙으면 설명이 겹친다.
+
+ ▣ 🔴 실패 안내가 빨강이 아니라 주황이다
+   이 앱에서 빨강은 **시스템 실패**다(수집 실패, 실행 실패). 로그인 실패는 시스템이
+   실패한 것이 아니라 **다시 하면 되는 일**이라 이상 신호 쪽인 주황이 맞다.
+   ⚠️ 색이 아니라 문구가 톤을 정한다. 색만 낮추고 문장이 꾸짖으면 소용이 없다.
+
+ ▣ ⚠️ 아이디를 지우지 않는다
+   실패해도 form.username.value를 다시 채운다. 비밀번호만 틀린 사람에게 아이디를
+   다시 치게 하는 것은 그 자체가 나무라는 동작이다. 비밀번호는 채우지 않는다.
+
+ ══════════════════════════════════════════════════════════════════════
+ ▣ PE 인계 — 이 템플릿이 기대하는 컨텍스트
+ ══════════════════════════════════════════════════════════════════════
+
+ 🔴 setting_menu   _setting_menu(...) 결과. **LoginView가 내려 줘야 한다.**
+                   base_setting.html이 이 값으로 좌측 설정 메뉴를 그린다.
+                   활성 항목은 없어도 된다.
+                   ⚠️ 없으면 메뉴가 **통째로 사라진다.** base_setting.html에 방어를
+                      걸어 뒀다 — 빈 흰 상자가 남는 것보다 낫다는 판단이고,
+                      **없어도 되는 값이라는 뜻이 아니다.** 사용자가 승인한 모습은
+                      메뉴가 있는 쪽이다.
+
+ 🔴 next_label은 쓰지 않는다 (2026-09-17, 사용자 지시로 걷어냄)
+                   「로그인하면 ○○로 이어서 갈게요」 한 줄을 제목 아래에 뒀다가
+                   사용자가 화면을 보고 제거를 지시했다. 되살리지 않는다.
+                   ⚠️ 되살리려면 조사 문제를 먼저 풀어야 한다 — 설정 화면 이름
+                      여덟 중 「실행」·「소식」·「로그」는 받침이 없어 「으로」가 붙고
+                      「키워드」·「기업」은 갈린다. 실제로 「실행로」로 나갔다.
+                      화면 이름을 조사와 함께 문장에 끼우는 방식 자체가 이 오류를
+                      구조적으로 만든다.
+                   ⚠️ next 파라미터 자체는 그대로 쓴다. 로그인 뒤 원래 가려던
+                      화면으로 돌아가는 동작은 살아 있고, 글자로 보여주지만 않는다.
+
+ form              AuthenticationForm. username / password / non_field_errors를 쓴다.
+ next              LoginView가 넣어 주는 리다이렉트 경로. hidden으로 되싣는다.
+
+ 🔴 미들웨어에 한 가지 — HX-Request 헤더가 있으면 302 대신 **HX-Redirect 헤더**를
+    내려 준다. 세션이 끊긴 채 HTMX 폴링이 돌면 로그인 페이지 HTML이 폴링 영역에
+    그대로 swap된다. 세션 90일이라 드물지만 일어나면 화면이 깨진 채로 남는다.
+    ⚠️ 이건 이 템플릿이 고칠 수 있는 종류가 아니다.
+
+ ▣ ⚠️ 로그아웃은 이번 범위 밖이다
+   계정이 하나이고 세션이 90일이라 당장 접속에 지장이 없다. 만들 때는 사이드바가
+   아니라 **설정 화면 안**에 두는 것이 이 화면과 짝이 맞는다 — 로그인을 요구하는
+   범위가 설정이므로, 푸는 자리도 같은 범위에 있어야 한다.
+
+ ▣ ⚠️ 빌드 실측 (static/css/tailwind.css, 2026-09-17)
+   쓴 클래스가 전부 빌드에 있다. npm run build:css를 돌릴 이유가 없다.
+     max-w-sm  mx-auto  w-full  py-16  text-center  space-y-4  flex-col
+     items-center  justify-center  rounded-[10px]  border-[#E5E5E5]
+     focus:outline-none  focus:border-primary  focus:ring-2
+     focus:ring-[rgba(96,38,158,0.14)]  bg-orange-50  text-orange-600
+   🔴 max-w-[360px]와 min-h-[420px]는 **빌드에 없다.** 쓰면 조용히 무시된다.
+      폭은 max-w-sm으로 잡았고 세로 가운데 정렬은 py-16으로 충분해서
+      인라인 style을 쓸 자리가 없었다.
+   ⚠️ h-full을 쓰지 않았다. flexbox의 h-full은 height라 내용이 길면 카드 밖으로
+      흘러나온다.
+   ⚠️ 입력과 버튼은 SET-007 기업 관리의 것과 같은 클래스 세트다. 로그인만 다른
+      모양을 갖지 않게 했다.
+==============================================================================
+{% endcomment %}
+
+{% block setting_content %}
+<div class="bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm px-5 py-16">
+  <div class="w-full max-w-sm mx-auto">
+
+    {% comment %}
+      안내. 제목 한 줄뿐이다.
+      ⚠️ 보조 문구를 이 자리에 되돌리지 않는다(위 주석 「문구 둘을 걷었다」).
+      ⚠️ next_label 줄도 되돌리지 않는다(위 주석, 2026-09-17 사용자 지시).
+    {% endcomment %}
+    <div class="text-center">
+      <i data-lucide="lock" class="w-8 h-8 text-gray-300 mx-auto"></i>
+      <h2 class="text-sm font-semibold text-gray-900 mt-3">설정은 로그인이 필요해요</h2>
+    </div>
+
+    {% comment %}
+      실패 안내. 🔴 주황이다(위 주석). 0건이면 줄이 통째로 사라진다 —
+      「아직 로그인하지 않았어요」 같은 평상시 문구를 이 자리에 두지 않는다.
+    {% endcomment %}
+    {% if form.non_field_errors %}
+    <p class="mt-4 px-3 py-2 rounded-[10px] bg-orange-50 text-orange-600 text-xs leading-relaxed">
+      아이디나 비밀번호가 맞지 않아요. 다시 한번 확인해 주세요.
+    </p>
+    {% endif %}
+
+    {% comment %}
+      🔴 action을 비워 둔다. 현재 주소(/login/?next=...)로 그대로 POST되므로
+         쿼리의 next가 보존되고, url 템플릿태그 역참조로 화면이 죽을 일도 없다.
+      ⚠️ hidden next는 그대로 둔다. LoginView는 POST 본문의 next를 먼저 읽는다.
+    {% endcomment %}
+    <form method="post" class="mt-6 space-y-4">
+      {% csrf_token %}
+
+      <div>
+        <label for="{{ form.username.id_for_label }}"
+               class="block text-xs font-medium text-gray-500 mb-1">아이디</label>
+        <input type="text"
+               name="{{ form.username.html_name }}"
+               id="{{ form.username.id_for_label }}"
+               value="{{ form.username.value|default:'' }}"
+               autofocus autocapitalize="none" autocomplete="username"
+               class="w-full text-sm border border-[#E5E5E5] rounded-[10px] px-3 py-2 focus:outline-none focus:border-primary focus:ring-2 focus:ring-[rgba(96,38,158,0.14)]">
+      </div>
+
+      <div>
+        <label for="{{ form.password.id_for_label }}"
+               class="block text-xs font-medium text-gray-500 mb-1">비밀번호</label>
+        {% comment %} ⚠️ 실패해도 비밀번호는 다시 채우지 않는다. {% endcomment %}
+        <input type="password"
+               name="{{ form.password.html_name }}"
+               id="{{ form.password.id_for_label }}"
+               autocomplete="current-password"
+               class="w-full text-sm border border-[#E5E5E5] rounded-[10px] px-3 py-2 focus:outline-none focus:border-primary focus:ring-2 focus:ring-[rgba(96,38,158,0.14)]">
+      </div>
+
+      <input type="hidden" name="next" value="{{ next }}">
+
+      <button type="submit"
+              class="w-full px-4 py-2 bg-primary text-white text-sm font-medium rounded-[10px] hover:bg-primary-hover transition-colors">
+        로그인
+      </button>
+    </form>
+
+    {% comment %}
+      🔴 여기 있던 하단 한 줄(「대시보드와 뉴스, 보고서는 로그인 없이 볼 수 있어요」)은
+         2026-09-17에 걷었다. 그 줄이 하던 일을 왼쪽 사이드바가 이미 하고 있다.
+         🔴 사이드바를 감추는 결정이 나오면 이 자리에 그 줄을 되살린다.
+    {% endcomment %}
+
+  </div>
+</div>
+{% endblock %}

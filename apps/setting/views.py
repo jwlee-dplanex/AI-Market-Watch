@@ -1,8 +1,10 @@
 import logging
+from collections import Counter
 from datetime import timedelta
 
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth import views as auth_views
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Min, Max, Exists, OuterRef, Sum
@@ -50,6 +52,29 @@ def _setting_menu(active):
         item["url"] = reverse(item["name"])
         item["active"] = item["key"] == active
     return items
+
+
+class SettingLoginView(auth_views.LoginView):
+    """`/login/` (config/urls.py) — templates/registration/login.html PE 인계 절 구현.
+
+    base_setting.html을 상속하는 화면이라 좌측 설정 메뉴(setting_menu)가 없으면
+    빈 흰 상자만 남는다(같은 템플릿 주석 🔴 참고) — 그래서 여기서 반드시 내려 준다.
+    활성 항목은 없다(`_setting_menu(None)`) — 로그인 화면 자체는 메뉴 여덟 항목
+    중 하나가 아니다.
+
+    🔴 2026-09-17 PE 정리 — `next_label`을 계산하던 코드를 걷어냈다. 사용자가
+    로그인 화면의 그 안내 줄을 빼라고 지시해 템플릿에서 먼저 뺐고(PD), 뷰만 계속
+    계산해 아무도 읽지 않는 죽은 코드로 남아 있었다. `next` 파라미터 자체(로그인
+    뒤 복귀 동작)는 그대로 쓴다 — `AuthenticationForm`/`LoginView`가 표준으로
+    처리하므로 여기서 따로 다룰 것이 없다.
+    """
+
+    template_name = "registration/login.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["setting_menu"] = _setting_menu(None)
+        return context
 
 
 def _source_context():
@@ -164,6 +189,20 @@ PROGRESS_UNIT_BY_JOB = {
     "collect": "키워드",
     "cleanup": "자료",
     "newsroom_collect": "키워드",
+}
+
+# 🔴 2026-09-17 신설(docs/design.md "SET-010 · 실행" 26차 개정 "① 1호출 단계의 진행
+# 표시" ②-2) — RESUME_FROM_SCRATCH_JOB_KEYS(1호출 다섯)가 실행 중일 때 progress_note에
+# 채우는 문장. 사용자 물음("3단계는 왜 실행하고 있어요 이것만 뜨는거야?")에 대한 답이
+# "셀 수 있는 진행률이 없다"는 사실 자체다 — 그래서 "N/M" 대신 "무엇을 쥐고 있나"만
+# 말한다. {count}에 RunJob.target_count를 끼운다. 낱말은 노드 이름과 맞춘다(②-2 표
+# "24차 ③번이 '그룹화'에서 겪은 어긋남을 여기서 만들지 말 것").
+PROGRESS_NOTE_TEMPLATE_BY_JOB = {
+    "insight": "기사 {count}건을 한꺼번에 읽고 있어요",
+    "weekly": "주요 이슈 {count}건을 보고서로 쓰고 있어요",
+    "monthly": "주요 이슈 {count}건을 보고서로 쓰고 있어요",
+    "newsroom_filter": "기사 {count}건을 한꺼번에 선별하고 있어요",
+    "newsroom_compose": "기사 {count}건을 브리핑으로 쓰고 있어요",
 }
 
 # 중단 요약(state=='stopped')의 세 갈래(PD 확정, 2026-09-15) — "다시 누르면 어디서부터인가"가
@@ -504,6 +543,30 @@ def _representative_run_job(job_key):
     return latest_confirmed
 
 
+# 🔴 2026-09-17 신설(docs/design.md 26차 개정 "①-3 예상 시간을 말하지 않는다.
+# 지난 실행의 기록만 말한다") — 1호출 다섯(RESUME_FROM_SCRATCH_JOB_KEYS) 실행 중
+# 화면의 보조 줄. 초 단위 정밀 기록(_format_duration())을 재사용하지 않는다 —
+# 그 함수는 검토 화면·로그가 쓰는 "지나간 배치의 정밀한 기록"이고, 여기는 "실행
+# 중" 화면이라 사용자 지시("실행 시 초는 노출하지마")의 문면에 걸린다.
+def _last_run_duration_note(job_key: str) -> str:
+    """같은 job_key의 가장 최근 "성공한"(완료 또는 확정됨) 실행 소요 시간을 분
+    단위 문자열로 반환한다. 이력이 없으면 빈 문자열 — 호출부가 그러면 키 자체를
+    내리지 않는다."""
+    last = (
+        RunJob.objects.filter(
+            job_key=job_key, status__in=(RunJob.STATUS_DONE, RunJob.STATUS_CONFIRMED),
+            started_at__isnull=False, finished_at__isnull=False,
+        )
+        .order_by("-finished_at", "-pk").first()
+    )
+    if not last:
+        return ""
+    seconds = (last.finished_at - last.started_at).total_seconds()
+    if seconds < 60:
+        return "1분 안쪽"
+    return f"약 {round(seconds / 60)}분"
+
+
 def _run_job_display(job_key, has_work):
     """job_key의 최신 RunJob과 "할 일이 있나" 축 판정(has_work)으로 노드
     표시값(state/state_label/summary/elapsed)을 만든다. 그 job_key로 RunJob이 한
@@ -565,6 +628,24 @@ def _run_job_display(job_key, has_work):
             display["progress_current"] = run_job.processed_count + run_job.failed_count
             display["progress_total"] = run_job.target_count
             display["progress_unit"] = PROGRESS_UNIT_BY_JOB.get(job_key, "")
+        else:
+            # 🔴 2026-09-17 신설(docs/design.md 26차 개정 "① 1호출 단계의 진행 표시",
+            # 사용자 물음 "3단계는 왜 실행하고 있어요 이것만 뜨는거야? 진행 현황
+            # 안보여줘?") — 1호출 다섯은 셀 수 있는 진행률이 없다(호출이 끝나야
+            # 안이 보인다). 말할 수 있는 것은 "무엇을 쥐고 있나"뿐이라 문장으로
+            # 채운다. target_count가 아직 0이면(RunJob이 막 만들어져 대상을 세기
+            # 전 구간) 이 문장을 만들지 않는다 — "기사 0건을 한꺼번에 읽고
+            # 있어요"는 거짓이다(②-5). 그때는 _run_node.html이 기존 셋째 갈래
+            # ("실행하고 있어요")로 떨어진다.
+            if run_job.target_count:
+                template = PROGRESS_NOTE_TEMPLATE_BY_JOB.get(job_key)
+                if template:
+                    display["progress_note"] = template.format(count=run_job.target_count)
+            last_duration = _last_run_duration_note(job_key)
+            if last_duration:
+                # 🔴 ②-3 — 예측이 아니라 지난 성공 실행의 기록이다. 이력이 없으면
+                # (첫 실행) 키 자체를 안 내린다 — 그 줄만 사라진다.
+                display["last_duration"] = last_duration
         if run_job.failed_count:
             display["progress_failed"] = run_job.failed_count
         # 🔴 2026-09-16 23차 개정(docs/planning.md 「SET-010 실행 중단」 9-7) —
@@ -1444,23 +1525,19 @@ def _newsroom_compose_has_new_material(room) -> bool:
     틀려 있었다.
 
     마지막 발송문이 한 번도 없으면(첫 실행) 지금 대상이 하나라도 있으면 새
-    재료로 친다."""
-    from apps.newsroom.models import NewsroomArticle
+    재료로 친다.
 
+    🔴 2026-09-17 PE 수정 — 판정 로직을 여기서 다시 계산하지 않고
+    `Newsroom.compose_targets`(apps/newsroom/models.py)를 그대로 부른다.
+    이 함수(배지)만 위 정의로 고쳐지고 실제 실행(`services/runner.py`의
+    `_run_newsroom_compose()`)은 "통과 + 비중복" 전량을 그대로 쓰는 채로
+    남아 있던 것이 갈라진 두 벌 — 그 결과 배지가 "새 재료 없음"이라 말해도
+    실행하면 이미 보낸 기사까지 다시 담겼다(사용자가 화면에서 발견한 "14건에
+    이전 회차까지 담김" 사고). 이제 이 함수와 `_run_newsroom_compose()` 둘 다
+    같은 프로퍼티 하나를 부른다(PM 지시 "두 벌로 짜지 말 것")."""
     if room.pending_count > 0:
         return False
-
-    current_targets = room.articles.filter(
-        filter_status=NewsroomArticle.STATUS_PASSED, duplicate_of__isnull=True,
-    )
-    if not room.messages.exists():
-        return current_targets.exists()
-    # NewsroomMessage.articles의 related_name이 "messages"라 역방향은
-    # article.messages(단수 메시지가 아니라 그 기사를 담은 메시지들)다.
-    sent_article_ids = NewsroomArticle.objects.filter(
-        messages__in=room.messages.all(),
-    ).values_list("pk", flat=True)
-    return current_targets.exclude(pk__in=sent_article_ids).exists()
+    return room.compose_targets.exists()
 
 
 def _newsroom_jobs_context():
@@ -1761,6 +1838,17 @@ def _body_preview(body: str) -> str:
     return body[:BODY_PREVIEW_CHARS] + "..."
 
 
+def _dup_group_label(representative_news, member_count: int) -> str:
+    """중복 보도 묶음 이름표(design.md "SET-010 · 실행" 28차 ①-2 실측 예시
+    "DB손해보험 3건", "카카오 9건"). 대표 기사에 태깅된 첫 기업 이름 + 묶음 전체
+    건수(대표 포함)를 쓴다. 태그가 없으면 이름을 지어내지 않고 "중복 보도"로
+    떨어진다(「무조건 팩트 기반」) — 이 값은 DB로 넘어가는 보존 자산이 아니라
+    화면 표시 전용이라 뷰가 매번 계산한다(dup_pick_reason과 같은 판단)."""
+    org = representative_news.organizations.first()
+    name = org.name if org else "중복 보도"
+    return f"{name} {member_count}건"
+
+
 def _format_duration(seconds: int) -> str:
     """review.step.duration 등에 쓰는 소요 시간 문자열. _run_job_display()의 elapsed
     포맷("1분 12초째")과 같은 자리수 규칙을 쓰되 접미사 "째"는 붙이지 않는다 — elapsed는
@@ -1867,6 +1955,53 @@ def _report_items_context(run_jobs, job_key):
     return items
 
 
+# 🔴 2026-09-17 신설(docs/planning.md "검토 결과를 고도화 재료로 쓴다" 4-(가)) —
+# 검토 화면 요약 ② 칸 맨 아래 한 줄이 읽는 값. "cleanup"만 뜻이 있다 — RunProposal에
+# 거절 코드가 붙는 것이 삭제 제안뿐이고(위 RunProposal.reject_code docstring), 그
+# 종류를 내는 job_key가 지금 "cleanup" 하나다(3단계는 문서 7번 "이번에 손대지
+# 않는다", 4·5단계는 RunDraft라 애초에 대상이 아니다).
+def _reject_stats_context(job_key):
+    """지난 확정들의 거절·뒤집기 집계. 모수는 언제나 RunProposal 행 수다(docs/planning.md
+    "검토 결과를 고도화 재료로 쓴다" 5번 — 화면의 "기사 N건"을 이 산식에 넣지 않는다).
+
+    집계 범위는 이 job_key로 확정된 RunJob 전체다(같은 문서 "집계 범위는 뷰가
+    정한다") — 월 단위로 자르지 않는다. 자르면 월 경계에 걸린 배치가 두 번 다른
+    수로 보이고, 지금 규모(누적 이력 1,024건에 뒤집기 14건)에서는 전체를 보는
+    것과 비용 차이가 없다.
+
+    rejected와 reversed가 둘 다 0이면 None을 반환한다 — 호출부가 그러면 키
+    자체를 내리지 않는다(줄째 사라지게 하는 것이 이 화면의 기존 규칙, 17차)."""
+    confirmed_run_ids = list(
+        RunJob.objects.filter(job_key=job_key, status=RunJob.STATUS_CONFIRMED).values_list("pk", flat=True)
+    )
+    if not confirmed_run_ids:
+        return None
+
+    proposals = RunProposal.objects.filter(run_job_id__in=confirmed_run_ids)
+    rejected = proposals.filter(status=RunProposal.STATUS_REJECTED).count()
+    reversed_count = proposals.filter(reversed_at__isnull=False).count()
+    if not rejected and not reversed_count:
+        return None
+
+    # 🔴 빈 문자열(이 칸을 만들기 전에 거절된 과거 행)도 "미기입"으로 묶는다 —
+    # 확정 뷰가 이번 라운드부터는 항상 "미기입"을 명시적으로 쓰지만, 마이그레이션
+    # 이전 행은 기본값 그대로 빈 문자열이다.
+    code_counts = Counter(
+        code or RunProposal.REJECT_CODE_UNSPECIFIED
+        for code in proposals.filter(status=RunProposal.STATUS_REJECTED).values_list("reject_code", flat=True)
+    )
+    codes = [
+        {"label": label, "count": count}
+        for label, count in sorted(code_counts.items(), key=lambda item: (-item[1], item[0]))
+    ]
+    return {
+        "runs": len(confirmed_run_ids),
+        "rejected": rejected,
+        "reversed": reversed_count,
+        "codes": codes,
+    }
+
+
 def _run_review_context(job_key):
     """SET-010 검토 화면(run_review.html)의 review dict를 만든다. 계약은
     templates/setting/run_review.html 상단 주석과 docs/design.md "4차 개정" ⑩번 표가
@@ -1930,7 +2065,7 @@ def _run_review_context(job_key):
     else:
         proposals = list(
             RunProposal.objects.filter(run_job__in=run_jobs, status=RunProposal.STATUS_PENDING)
-            .select_related("news")
+            .select_related("news", "duplicate_representative")
             .order_by("-news__published_at", "news_id", "pk")
         )
         pending_drafts = []
@@ -2015,12 +2150,26 @@ def _run_review_context(job_key):
         if total_tokens:
             step["tokens"] = f"{total_tokens:,}"
     review["step"] = step
+
+    # 🔴 2026-09-17 신설(docs/planning.md "검토 결과를 고도화 재료로 쓴다" 4-(가)) —
+    # "cleanup"만 뜻이 있다(위 _reject_stats_context() docstring 참고). 둘 다 0이면
+    # None이 와 review에 키를 만들지 않는다 — 화면이 그 줄을 통째로 접는다.
+    if job_key == "cleanup":
+        reject_stats = _reject_stats_context(job_key)
+        if reject_stats:
+            review["reject_stats"] = reject_stats
+
     # 태그 제안의 target_type(기업 배지 색) 조회 — 제안마다 쿼리하지 않게 한 번에 모은다.
     org_type_by_name = dict(Organization.objects.values_list("name", "org_type"))
 
     delete_items = []
     retag_by_news = {}  # news_id 순서 보존(dict, 3.7+) — "같은 기사 행이 흩어지지 않게"
     tag_candidates = []
+    # 🔴 2026-09-17 28차 정정 신설(docs/design.md "SET-010 · 실행" 28차 정정) — 중복
+    # 보도(TYPE_DUPLICATE) 제안을 대표 News.pk로 묶는다. dict 키 순서 보존(3.7+)으로
+    # published_at 내림차순 정렬(위 쿼리)이 그대로 유지된다 — 각 묶음의 첫 등장
+    # 순서가 그 묶음의 위치가 된다.
+    dup_by_rep = {}
     keep_count = 0
     delete_news_ids = set()
 
@@ -2039,6 +2188,8 @@ def _run_review_context(job_key):
                 "title": p.news.title,
                 "published_at": p.news.published_at,
                 "source": p.news.source_domain,
+                # 🔴 2026-09-17 26차 신설(design.md ①-7) — 원문 링크. News.url 그대로다.
+                "url": p.news.url,
                 "body_preview": _body_preview(p.news.body),
                 "by_rule": by_rule,
                 "criterion_code": "" if by_rule else p.criterion_code,
@@ -2054,6 +2205,9 @@ def _run_review_context(job_key):
                     "title": p.news.title,
                     "published_at": p.news.published_at,
                     "source": p.news.source_domain,
+                    # 🔴 2026-09-17 26차 신설(design.md ①-7) — group에 붙는다. items에는
+                    # 붙이지 않는다(원문은 기사의 것이지 제안의 것이 아니다, ①-4).
+                    "url": p.news.url,
                     "has_delete_proposal": False,
                     "items": [],
                 }
@@ -2085,6 +2239,8 @@ def _run_review_context(job_key):
                 "title": p.news.title,
                 "published_at": p.news.published_at,
                 "source": p.news.source_domain,
+                # 🔴 2026-09-17 26차 신설(design.md ①-7) — 후보가 나온 기사의 원문 링크.
+                "url": p.news.url,
                 # 🔴 2026-09-16 23차 개정(design.md 23차 ③) — 인라인 등록 컨트롤이
                 # 쓰는 두 값. proposal_id는 한 화면에서 유일해야 한다(RunProposal.pk라
                 # 보장된다). register_url이 비면(있을 수 없지만) 그 줄의 등록 자리만
@@ -2092,11 +2248,83 @@ def _run_review_context(job_key):
                 "proposal_id": p.pk,
                 "register_url": reverse("setting_run_tag_candidate_register", args=[p.pk]),
             })
+        elif p.proposal_type == RunProposal.TYPE_DUPLICATE:
+            # 🔴 2026-09-17 28차 정정(docs/design.md "SET-010 · 실행" 28차 정정) —
+            # 삭제가 아니라 감추기다. 이 행은 삭제 제안 카드(delete_items)에 절대
+            # 섞이지 않는다 — proposal_type이 TYPE_DELETE와 다른 값이라 위
+            # `if p.proposal_type == RunProposal.TYPE_DELETE:` 분기를 애초에 타지
+            # 않는다(⚠️ "delete_items에서 중복 행을 제외한다"는 요구가 이 분기 구조
+            # 자체로 충족된다).
+            #
+            # 대표에는 RunProposal 행이 없다(모델 docstring 참고) — 그래서 대표
+            # 정보(title/published_at/source/url/pick_reason)는 p.duplicate_representative
+            # (News, select_related로 이미 가져와 있다)에서 얻는다. 보류(hold) 묶음은
+            # 이번 라운드에서 RunProposal 자체를 만들지 않으므로(services/runner.py가
+            # 아직 그 경로를 배선하지 않았다 — "다음 라운드" 몫, services/dedup_candidates.py
+            # 독스트링 참고) 여기서 만드는 묶음은 전부 hold=False다.
+            rep_id = p.duplicate_representative_id
+            group = dup_by_rep.get(rep_id)
+            if group is None:
+                group = {"representative_news": p.duplicate_representative, "items": []}
+                dup_by_rep[rep_id] = group
+            group["items"].append({
+                "id": p.pk,
+                "title": p.news.title,
+                "published_at": p.news.published_at,
+                "source": p.news.source_domain,
+                "url": p.news.url,
+                "reason": p.reason,
+                # 🔴 Insight.news/Report.news/OrgRelation.news 역참조 수(design.md
+                # ⑩-1) — 감출 행에 이 배지가 뜨면 그 자체가 규칙 위반 신호다(대표
+                # 선정이 "명시 연결 있는 것 우선"이라 정상적으로는 0이어야 한다).
+                "insight_count": p.news.insights.count(),
+                "report_count": p.news.reports.count(),
+                "relation_count": p.news.org_relations.count(),
+            })
+            # 같은 묶음의 모든 행이 같은 값을 갖는다(모델 필드 docstring 참고) — 마지막에
+            # 본 행 값으로 채워도 결과가 같지만, 매번 그대로 덮어써 둔다.
+            group["fingerprint"] = p.dup_fingerprint
+            group["pick_reason"] = p.dup_pick_reason
 
     for news_id, group in retag_by_news.items():
         group["has_delete_proposal"] = news_id in delete_news_ids
 
     retag_groups = list(retag_by_news.values())
+
+    # 🔴 2026-09-17 28차 정정 — dup_by_rep(대표 pk별로 모은 dict)를 화면 계약
+    # (docs/design.md 28차 개정 ⑩-1)이 요구하는 review.dup_groups 형태로 바꾼다.
+    # 🔴 "보류(hold=True)" 갈래는 이번 라운드에 만들지 않는다 — 그 갈래는 애초에
+    # RunProposal이 생기지 않는 경우라(모델 필드 docstring, design.md 28차 ④-1
+    # "RunProposal 자체가 만들어지지 않았다") 여기서 조립할 데이터 원천이 없다.
+    # 그래서 dup_hold_count는 항상 0이고, "대기 중인 중복 제안이 없으면 0건이
+    # 정상"인 지금 상태와 화면이 27차와 한 픽셀도 다르지 않다.
+    dup_groups = []
+    for group in dup_by_rep.values():
+        rep_news = group["representative_news"]
+        items = group["items"]
+        if not items:
+            continue
+        dup_groups.append({
+            "hold": False,
+            "label": _dup_group_label(rep_news, len(items) + 1) if rep_news else "",
+            "fingerprint": group["fingerprint"],
+            "representative": {
+                "title": rep_news.title,
+                "published_at": rep_news.published_at,
+                "source": rep_news.source_domain,
+                "url": rep_news.url,
+                "pick_reason": group["pick_reason"],
+            } if rep_news else None,
+            "items": items,
+        })
+    # 🔴 정렬 — hold=True 묶음이 앞에 모여야 한다(design.md ⑩-1). 지금은 hold=True가
+    # 생기지 않지만, 뷰가 정렬을 맡는다는 계약을 미리 지켜 둔다 — 나중에 hold 갈래가
+    # 생겨도 이 자리를 다시 고칠 필요가 없다. sort()는 stable이라 dup_by_rep 삽입
+    # 순서(News.published_at 내림차순, 위 쿼리)가 hold 값이 같은 묶음끼리는 그대로
+    # 보존된다.
+    dup_groups.sort(key=lambda g: not g["hold"])
+    dup_hide_count = sum(len(g["items"]) for g in dup_groups if not g["hold"])
+    dup_hold_count = sum(len(g["items"]) for g in dup_groups if g["hold"])
 
     # 🔴 2026-09-16 — 코드 규칙 제안(by_rule=True)을 앞에 모은다(design.md 21차 개정
     # ⑤번). 반증("이건 남았어야 했다")이 코드 그룹 안에 모여 있어야 발견되고, 5건뿐인
@@ -2112,6 +2340,10 @@ def _run_review_context(job_key):
     # 🔴 2026-09-15 개정 — org_candidates에서 tag_candidates로 이름을 바꿨다(축 일반화).
     # 화면 쪽(templates/setting/run_review.html)도 함께 바뀌어야 한다 — PD 인계 사항.
     review["tag_candidates"] = tag_candidates
+    # 🔴 2026-09-17 28차 정정 신설 — 빈 리스트여도 그대로 내린다. 템플릿의
+    # `{% if review.dup_groups %}`가 빈 리스트를 거짓으로 보므로 카드가 조용히
+    # 사라진다(대기 중인 중복 제안이 없는 평소 상태와 같은 렌더 결과).
+    review["dup_groups"] = dup_groups
 
     # 🔴 2026-09-15 PE 신설 — 3단계(주요 이슈) 초안. RunProposal이 아니라 RunDraft에서
     # 온다(설계 3번 "산출물의 모양이 다르다"). insight_count는 None과 0을 구분해 내린다
@@ -2134,6 +2366,23 @@ def _run_review_context(job_key):
         # 라벨과 실제 채택 결과가 어긋난다(실측: RunJob pk186 — 태그 제거
         # 129건 중 105건이 삭제와 겹쳐 취소됨, 라벨은 130건 그대로 표시).
         "retag_count": sum(len(g["items"]) for g in retag_groups if not g["has_delete_proposal"]),
+        # 🔴 2026-09-17 27차 신설(design.md 27차 개정) — 카드 머리 숫자는 이제 대기
+        # 태그 제안 행 수 전량(retag_total_count)을 쓴다. 확정 시 반영될 행 수만
+        # 보이던 종전 retag_count는 나열된 130행과 어긋났다(실측: RunJob pk186).
+        # retag_canceled_count는 그 차이(has_delete_proposal 그룹의 행 수 합)를
+        # 뷰가 직접 더해 내린다 — 템플릿에서 뺄셈하지 않는다(21차 llm_delete_count와
+        # 같은 근거). total = count + canceled가 항상 맞는다.
+        "retag_total_count": sum(len(g["items"]) for g in retag_groups),
+        "retag_canceled_count": sum(len(g["items"]) for g in retag_groups if g["has_delete_proposal"]),
+        # 🔴 2026-09-17 28차 정정 신설(docs/design.md "SET-010 · 실행" 28차 정정 ④번) —
+        # 중복 보도 카드가 쓰는 건수 셋. dup_hide_count + dup_hold_count = dup_row_count가
+        # 화면 안에서 검산된다(뷰가 보장한다 — 템플릿에서 더하지 않는다).
+        # ⚠️ delete_count(위)는 이미 TYPE_DUPLICATE 행을 포함하지 않는다 —
+        # delete_items가 proposal_type == TYPE_DELETE인 행만 모으므로(다른 elif
+        # 분기), "중복분 제외"라는 28차 정정 계약이 타입을 가른 시점에 이미 충족된다.
+        "dup_hide_count": dup_hide_count,
+        "dup_hold_count": dup_hold_count,
+        "dup_row_count": dup_hide_count + dup_hold_count,
         "keep_count": keep_count,
         # 🔴 커버리지·잠금 조건에 세지 않는다(run_review.html 상단 계약, design.md 4차
         # 개정 ⑩번) — OUTPUT 칸에만 별도로 찍는다. 이제 기업 후보뿐 아니라 기술 주제
@@ -2333,18 +2582,25 @@ def setting_run_review_confirm(request, job):
     제안은 거절로 남긴다 — 그 거절 분포가 프롬프트 정확도를 잴 유일한 정답지다
     (docs/planning.md 4-(b), run_review.html 상단 계약).
 
-    처리 순서가 중요하다 — 삭제를 먼저 반영한 뒤 태그 교정을 처리한다. 같은 기사에
-    삭제 제안과 태그 제안이 함께 있고 삭제가 채택되면, News 자체가 사라져 태그 교정의
-    대상이 없어진다(run_review.html 상단 계약 "삭제가 채택되면 그 기사의 태그 교정은
-    저절로 대상이 사라진다") — 그 경우 거절이 아니라 취소로 남긴다. 전제가 사라진
-    것이지 사람이 틀렸다고 판단한 게 아니라서, 거절 분포(프롬프트 정확도 지표)를
-    오염시키면 안 되기 때문이다.
+    처리 순서가 중요하다 — 삭제(①) → 중복 보도(②) → 태그 교정(③) → 태그 후보(④).
+    같은 기사에 삭제 제안과 태그 제안이 함께 있고 삭제가 채택되면, News 자체가
+    사라져 태그 교정의 대상이 없어진다(run_review.html 상단 계약 "삭제가 채택되면
+    그 기사의 태그 교정은 저절로 대상이 사라진다") — 그 경우 거절이 아니라 취소로
+    남긴다. 전제가 사라진 것이지 사람이 틀렸다고 판단한 게 아니라서, 거절 분포
+    (프롬프트 정확도 지표)를 오염시키면 안 되기 때문이다. 🔴 중복 보도(②)를 삭제
+    바로 뒤, 태그 교정보다 앞에 두는 이유도 같다 — deleted_news_ids가 ①에서 채워진
+    뒤라야 ②가 같은 방어를 쓸 수 있다.
 
     🔴 개별 삭제(delete_news_with_record), 태그 교정(correct_news_tag)은 각자 내부에서
     이미 트랜잭션으로 묶여 있다 — 이 뷰를 통째로 하나의 트랜잭션으로 다시 감싸지
     않는다. 감싸면 한 건이 실패했을 때 그 실패를 잡아도 같은 트랜잭션 안의 나머지
     쓰기까지 함께 위험해진다(Django가 트랜잭션을 "깨짐"으로 표시). 건별로 이미 원자적인
-    헬퍼를 그대로 믿고, 건별 실패는 개별 try/except로만 잡아 건수를 센다."""
+    헬퍼를 그대로 믿고, 건별 실패는 개별 try/except로만 잡아 건수를 센다.
+
+    🔴 중복 보도(②)는 삭제가 아니라 News.duplicate_of를 채우는 단순 필드 갱신이라
+    실패할 일이 사실상 없다(대상을 찾지 못하는 경우 하나만 방어한다, 아래 hide_ids
+    분기) — 그래서 delete_news_with_record()와 달리 try/except로 감싸지 않았다.
+    이는 위 ①의 TYPE_KEEP 분기(단순 필드 갱신이라 그대로 저장)와 같은 판단이다."""
     if job not in RUN_JOB_KEYS:
         raise Http404
 
@@ -2388,6 +2644,11 @@ def setting_run_review_confirm(request, job):
 
     accepted_delete_ids = set(request.POST.getlist("delete_ids"))
     accepted_retag_ids = set(request.POST.getlist("retag_ids"))
+    # 🔴 2026-09-17 28차 정정 신설(docs/design.md "SET-010 · 실행" 28차 정정 ⑤번) —
+    # 중복 보도 카드의 체크박스 이름. delete_ids와 다른 이름이다 — 같은 이름으로
+    # 오면 확정 뷰가 "지울 것"과 "감출 것"을 구분할 수단이 없어진다(모델 필드
+    # docstring, 같은 이유로 27차가 insight_ids/draft_ids를 갈랐다).
+    accepted_hide_ids = set(request.POST.getlist("hide_ids"))
 
     pending = list(
         RunProposal.objects.filter(run_job__in=run_jobs, status=RunProposal.STATUS_PENDING)
@@ -2396,6 +2657,7 @@ def setting_run_review_confirm(request, job):
     relevance_proposals = [p for p in pending if p.proposal_type in (RunProposal.TYPE_DELETE, RunProposal.TYPE_KEEP)]
     tag_proposals = [p for p in pending if p.proposal_type in (RunProposal.TYPE_TAG_ADD, RunProposal.TYPE_TAG_REMOVE)]
     candidate_proposals = [p for p in pending if p.proposal_type == RunProposal.TYPE_TAG_CANDIDATE]
+    dup_proposals = [p for p in pending if p.proposal_type == RunProposal.TYPE_DUPLICATE]
 
     delete_failed = 0
     tag_not_found = 0  # 대상 이름을 이름/별칭 어느 쪽으로도 찾지 못한 경우
@@ -2416,8 +2678,24 @@ def setting_run_review_confirm(request, job):
             continue
 
         if str(p.pk) not in accepted_delete_ids:
+            # 🔴 2026-09-17 신설(docs/planning.md "검토 결과를 고도화 재료로 쓴다" 2·3·9번,
+            # run_review.html 상단 계약 "확정 POST가 받는 값") — 거절 사유 수신자.
+            # 삭제 제안(TYPE_DELETE)이 거절되는 자리는 이 분기뿐이다(TYPE_KEEP은
+            # 항상 채택). required가 아니므로 안 왔거나 빈 문자열이면 "미기입"으로
+            # 저장하고 확정을 그대로 진행한다 — 막으면 사람이 거절을 피해 정답지가
+            # 줄어든다(같은 문서 "필수로 만들지 않는다"). "기타"일 때만 서술을 받는다
+            # — 그 외 값에 서술이 실려 와도 버린다(값이 오적용/기준재검토인데 서술만
+            # 채워지는 것은 어휘가 요구하지 않는 조합이다).
+            reject_code = request.POST.get(f"reject_code_{p.pk}", "").strip()
+            reject_code = reject_code or RunProposal.REJECT_CODE_UNSPECIFIED
+            reject_note = (
+                request.POST.get(f"reject_note_{p.pk}", "").strip()
+                if reject_code == RunProposal.REJECT_CODE_OTHER else ""
+            )
             p.status = RunProposal.STATUS_REJECTED
-            p.save(update_fields=["status"])
+            p.reject_code = reject_code
+            p.reject_note = reject_note
+            p.save(update_fields=["status", "reject_code", "reject_note"])
             continue
 
         try:
@@ -2481,7 +2759,71 @@ def setting_run_review_confirm(request, job):
                 f"AI 관련 낱말을 넓혀야 해요.",
             )
 
-    # ② 태그 교정. 대상 조회는 collector의 별칭 매칭과 이름/별칭 비교 규칙을 그대로
+    # ② 중복 보도 — 2026-09-17 28차 정정(docs/design.md "SET-010 · 실행" 28차 정정)
+    # 신설. 채택하면 삭제하지 않고 News.duplicate_of에 그 묶음의 대표 pk를 넣어
+    # 감춘다(NewsQuerySet.verified()가 duplicate_of__isnull=True로 걸러낸다).
+    # RunProposal.duplicate_representative가 대표 News를 이미 들고 있으므로(모델
+    # docstring) 화면이 대표 pk를 폼으로 보낼 필요가 없다.
+    #
+    # 🔴 삭제(①)보다 뒤, 태그 교정(③)보다 앞에 둔다 — deleted_news_ids가 위 ①에서
+    # 이미 채워져 있어야 "이 기사가 이번에 삭제됐으면 감출 것도 없다"를 판단할 수
+    # 있고(같은 기사에 삭제 제안과 중복 제안이 함께 걸리는 일은 구조상 없지만 방어는
+    # 태그 교정과 같은 논리로 넣는다), 이 블록의 결과(hide_rep_missing 등)는 태그
+    # 교정의 판단에 영향을 주지 않는다.
+    hide_rep_missing = 0
+    for p in dup_proposals:
+        if p.news_id in deleted_news_ids:
+            # 삭제 제안과 동시에 걸릴 구조가 아니지만(서로 다른 proposal_type이라
+            # LLM이 같은 기사에 둘 다 내는 경우가 없다), 태그 교정과 같은 방어를
+            # 넣어 둔다 — 감출 기사 자체가 사라지면 감출 것이 없다.
+            p.status = RunProposal.STATUS_CANCELED
+            p.save(update_fields=["status"])
+            continue
+
+        if str(p.pk) not in accepted_hide_ids:
+            # 🔴 체크를 푸는 것이 「거절」인 자리라 삭제 제안과 같은 거절 사유
+            # 칸을 그대로 쓴다(design.md 28차 정정 ⑤번 "중복 카드의 감출 행에도
+            # 그대로 붙는다"). required가 아니므로 안 왔거나 빈 문자열이면
+            # "미기입"으로 저장하고 확정을 그대로 진행한다.
+            reject_code = request.POST.get(f"reject_code_{p.pk}", "").strip()
+            reject_code = reject_code or RunProposal.REJECT_CODE_UNSPECIFIED
+            reject_note = (
+                request.POST.get(f"reject_note_{p.pk}", "").strip()
+                if reject_code == RunProposal.REJECT_CODE_OTHER else ""
+            )
+            p.status = RunProposal.STATUS_REJECTED
+            p.reject_code = reject_code
+            p.reject_note = reject_note
+            p.save(update_fields=["status", "reject_code", "reject_note"])
+            continue
+
+        if p.duplicate_representative_id is None:
+            # 대표 News가 그사이 사라졌다(on_delete=SET_NULL) — 감출 곳이 없다.
+            # 사람의 거절 판단이 아니므로 취소로 남긴다(아래 태그 교정의 "대상을
+            # 못 찾음" 처리와 같은 논리 — 전제가 사라진 것이지 사람이 틀렸다고
+            # 판단한 게 아니다).
+            logger.warning(
+                "RunProposal %s(중복 보도) 확정을 건너뛰었어요 — 대표 News가 사라졌어요.",
+                p.pk,
+            )
+            hide_rep_missing += 1
+            p.status = RunProposal.STATUS_CANCELED
+            p.save(update_fields=["status"])
+            continue
+
+        # 🔴 삭제하지 않는다. News.duplicate_of만 채운다(설계 정본 "「삭제」가
+        # 아니라 「감추기」입니다"). p.save()가 아니라 pk로 좁힌 update()를 쓴다 —
+        # 대상 News가 이 요청 안에서 이미 불러온 인스턴스가 아니라 저장된 관계
+        # 캐시에 얽매일 이유가 없는 단순 필드 갱신이다.
+        News.objects.filter(pk=p.news_id).update(duplicate_of_id=p.duplicate_representative_id)
+        RunProposal.objects.filter(pk=p.pk).update(status=RunProposal.STATUS_ACCEPTED)
+
+    if hide_rep_missing:
+        messages.warning(
+            request, f"대표 기사가 사라져서 {hide_rep_missing}건은 감추지 못했어요.",
+        )
+
+    # ③ 태그 교정. 대상 조회는 collector의 별칭 매칭과 이름/별칭 비교 규칙을 그대로
     # 공유한다(services/collector.resolve_entity_by_name) — 수집 쪽 태깅은 이미 별칭을
     # 보는데 이 확정 경로만 name만 보고 있어서 같은 판정 규칙이 두 곳에서 갈리는 게
     # 근본 원인이었다(2026-09-15 실측: "KB금융" 등 3건이 별칭 미조회로 조용히 실패).
@@ -2550,7 +2892,7 @@ def setting_run_review_confirm(request, job):
             p.status = RunProposal.STATUS_ACCEPTED
             p.save(update_fields=["status"])
 
-    # ③ 태그 후보(기업 또는 기술 주제) — 아무 것도 실행하지 않는다(Organization·
+    # ④ 태그 후보(기업 또는 기술 주제) — 아무 것도 실행하지 않는다(Organization·
     # TechTopic을 만들지 않는다). 채택도 거절도 아니라서 취소로 남긴다(design.md 4차
     # 개정 ⑩번 "후보 종류는 아무 것도 하지 않는다", 2026-09-15 축 일반화 이후에도
     # 그대로 상속되는 성질 — docs/planning.md 4-(b) 개정).
@@ -2567,11 +2909,12 @@ def setting_run_review_confirm(request, job):
         regression_flag_count=regression_flagged_count,
     )
 
-    if delete_failed or tag_not_found or tag_error:
+    if delete_failed or tag_not_found or tag_error or hide_rep_missing:
         logger.warning(
-            "RunJob %s(%s) 확정 중 삭제 실패 %d건, 태그 교정 대상 못 찾음 %d건, "
-            "태그 교정 실행 실패 %d건이었어요.",
-            [rj.pk for rj in run_jobs], job, delete_failed, tag_not_found, tag_error,
+            "RunJob %s(%s) 확정 중 삭제 실패 %d건, 중복 보도 대표 없음 %d건, "
+            "태그 교정 대상 못 찾음 %d건, 태그 교정 실행 실패 %d건이었어요.",
+            [rj.pk for rj in run_jobs], job, delete_failed, hide_rep_missing,
+            tag_not_found, tag_error,
         )
 
     response = HttpResponse()

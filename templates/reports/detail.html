@@ -103,6 +103,39 @@
     body { background: white !important; }
 
     {% comment %}
+       🔴 바로 위 규칙이 되살리면 안 되는 것 — body 직계의 전역 오버레이 (2026-09-17)
+
+       사용자가 PDF 다운로드를 눌렀더니 인쇄물에 확인 대화상자가 통째로 찍히고
+       「그만두기」 버튼까지 보였다. 원인은 이렇다.
+         base.html 맨 아래가 components/_confirm_dialog.html을 <body> 직계로 include한다.
+         그 루트가 <div class="fixed inset-0 …">라서 위의 body > div에 정확히 걸린다.
+         평소에는 Alpine이 style="display: none"을 인라인으로 걸어 감추는데,
+         🔴 그 인라인에는 !important가 없고 위 규칙에는 있다. CSS 우선순위에서
+            !important가 붙은 스타일시트 규칙이 !important 없는 인라인을 이긴다.
+         그래서 감춰져 있던 전체 화면 오버레이가 인쇄에서만 되살아났다.
+
+       ⚠️ x-cloak은 방어가 되지 못한다. [x-cloak]{display:none !important}는 있지만
+          Alpine이 초기화하면서 x-cloak 속성을 떼어 버리므로 그 뒤로는 남지 않는다.
+
+       고른 방법 — position:fixed 오버레이를 인쇄에서 통째로 제외한다.
+       ▣ 왜 이 형태인가
+         ⑴ 선택자 특정도가 (0,1,2)라 body > div (0,0,2)를 이긴다. 순서와 무관하다.
+         ⑵ 🔴 사람이 기억할 일이 남지 않는다. 확인 대화상자에만 no-print를 붙이는
+            안은 body 직계 오버레이가 하나 늘 때마다 그걸 다시 기억해야 한다.
+            여기 한 줄이면 앞으로 추가되는 오버레이가 자동으로 제외된다.
+         ⑶ 🔴 꼼수가 아니라 원칙에 맞다. position:fixed는 페이지 매체에서
+            "모든 페이지에 반복"이 규격상 동작이다. 화면에 고정되는 요소는
+            애초에 문서의 일부가 아니다.
+         ⑷ base.html을 건드리지 않는다. 위 주석의 "REPORT-002 범위 밖" 전제가
+            그대로 유지된다.
+       ⚠️ 이 화면에서 인쇄돼야 하는 것 중 position:fixed인 것은 하나도 없다.
+          보고서 본문은 전부 <main> 안의 일반 흐름이다.
+       ⚠️ 사이드바 안의 서비스 소개 모달은 이 규칙이 없어도 안전하다 —
+          <aside>가 display:none이라 그 하위가 통째로 렌더되지 않는다.
+    {% endcomment %}
+    body > div.fixed { display: none !important; }
+
+    {% comment %}
        배경 그래픽이 꺼져 있어도 보라 그라디언트 헤더가 찍히도록 시도 — 브라우저 "배경
        그래픽" 체크박스가 우선하는 환경도 있어 100% 보장은 못 하지만 해가 되지 않는다.
     {% endcomment %}

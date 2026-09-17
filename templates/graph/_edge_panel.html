@@ -104,28 +104,56 @@
         class="space-y-2">
     {% csrf_token %}
     <div>
+      {% comment %}
+        ══════════════════════════════════════════════════════════════════
+        🔴 2026-09-17 — 라벨 후보를 정책 일곱에 맞췄다 (종전 다섯)
+           정책: docs/planning.md 관계 매핑 라벨 enum (2026-09-16 확정)
+           설계: docs/design.md GRAPH-001 2차 개정
+        ══════════════════════════════════════════════════════════════════
+          투자      → 지분투자        화면만 짧게 부르고 있었다
+          인수합병  → 인수
+          없음      → 공동개발, 파트너십 신설
+        🔴 「합병」은 넣지 않는다. PM이 일부러 뺀 것이고 근거는 노드 정체성이다.
+           합병하면 두 기업이 한 기업이 되므로 선에 붙는 라벨이 아니라 노드를
+           어떻게 할지의 문제이고, 그 판단은 RA 몫이다.
+
+        🔴 후보를 hints 문자열 한 곳에 두고 datalist와 칩을 같은 값으로 돌린다.
+           종전에는 option 다섯과 버튼 다섯을 손으로 맞춰 두었고, 이번에 고친
+           어긋남이 정확히 그 두 자리에서 났다. 앞으로 후보가 바뀌면 hints 한
+           줄만 고친다 — 두 자리가 갈릴 여지를 구조에서 없앤다.
+        ⚠️ 순서는 정책 문서의 순서 그대로다. 두 곳을 같은 순서로 읽게 둔다.
+        ⚠️ hints.split은 공백으로 끊는다. 후보에 공백이 들어가면 한 낱말이
+           둘로 쪼개진다. 띄어 쓰는 라벨이 생기면 이 구조를 다시 봐야 한다.
+
+        🔴 select로 바꾸지 않았다. 판단 근거 셋
+          ① 지금 DB에 사람이 손으로 붙인 라벨 56건이 있고 일부가 일곱 밖일 수
+             있다. select는 값이 option에 없으면 그 값을 표시할 자리가 없어서
+             첫 option이 골라진 것처럼 보이고, 그 상태로 저장하면 사람이 붙인
+             라벨이 조용히 다른 라벨로 바뀐다. 무엇이었는지 화면에 남지 않아
+             되돌릴 근거도 사라진다. 이 저장소가 가장 비싸게 치러 온 종류의
+             사고다(조용히 어긋나고 사용자가 화면에서 먼저 발견하는 것).
+          ② 모델은 CharField(max_length=50)이고 choices가 없다. 화면만 먼저
+             닫으면 모델은 담을 수 있는데 화면은 표현할 수 없는 값이 생긴다.
+          ③ 일곱으로 닫힌 것은 LLM에게 묻는 목록이다. 사람이 쓸 낱말까지 닫으려면
+             기존 56건을 먼저 일곱으로 정규화해야 하고, 그건 마이그레이션이라
+             PD 권한 밖이다.
+        ✅ 그래서 이 라운드는 후보를 정책과 맞추는 것까지만 한다. select 전환은
+           ①의 정규화와 ②의 choices가 먼저 서야 안전하다(design.md 2차 개정 ③).
+      {% endcomment %}
+      {% with hints="기술협업 공동개발 공급계약 지분투자 인수 업무협약 파트너십" %}
       <input type="text" name="label" x-model="label" list="relation-label-hints"
-             placeholder="예: 기술협업, 투자, 공급계약" required maxlength="50"
+             placeholder="예: 기술협업, 공급계약, 지분투자" required maxlength="50"
              class="w-full text-xs border border-[#E5E5E5] rounded-[10px] px-2.5 py-1.5 focus:outline-none focus:border-primary focus:ring-2 focus:ring-[rgba(96,38,158,0.14)]">
       <datalist id="relation-label-hints">
-        <option value="기술협업"></option>
-        <option value="투자"></option>
-        <option value="공급계약"></option>
-        <option value="인수합병"></option>
-        <option value="업무협약"></option>
+        {% for hint in hints.split %}<option value="{{ hint }}"></option>{% endfor %}
       </datalist>
       <div class="flex flex-wrap gap-1 mt-1.5">
-        <button type="button" @click="label = '기술협업'"
-                class="text-xs px-2 py-0.5 rounded-full border border-[#E5E5E5] text-gray-500 hover:border-primary hover:text-primary transition-colors">기술협업</button>
-        <button type="button" @click="label = '투자'"
-                class="text-xs px-2 py-0.5 rounded-full border border-[#E5E5E5] text-gray-500 hover:border-primary hover:text-primary transition-colors">투자</button>
-        <button type="button" @click="label = '공급계약'"
-                class="text-xs px-2 py-0.5 rounded-full border border-[#E5E5E5] text-gray-500 hover:border-primary hover:text-primary transition-colors">공급계약</button>
-        <button type="button" @click="label = '인수합병'"
-                class="text-xs px-2 py-0.5 rounded-full border border-[#E5E5E5] text-gray-500 hover:border-primary hover:text-primary transition-colors">인수합병</button>
-        <button type="button" @click="label = '업무협약'"
-                class="text-xs px-2 py-0.5 rounded-full border border-[#E5E5E5] text-gray-500 hover:border-primary hover:text-primary transition-colors">업무협약</button>
+        {% for hint in hints.split %}
+        <button type="button" @click="label = '{{ hint }}'"
+                class="text-xs px-2 py-0.5 rounded-full border border-[#E5E5E5] text-gray-500 hover:border-primary hover:text-primary transition-colors">{{ hint }}</button>
+        {% endfor %}
       </div>
+      {% endwith %}
     </div>
     <textarea name="description" x-model="description" rows="2" maxlength="300"
               placeholder="관계를 설명해주세요 (선택)"

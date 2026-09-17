@@ -2,6 +2,7 @@ import uuid
 from urllib.parse import urlparse
 
 from django.db import models
+from django.db.models import Q
 from django.utils import timezone
 
 
@@ -119,6 +120,38 @@ class Newsroom(models.Model):
                 "count": todays.filter(filter_status=NewsroomArticle.STATUS_PASSED).count(),
             }
         return {"label": "오늘 수집", "count": todays.count()}
+
+    @property
+    def compose_targets(self):
+        """3단계(발송문) 새 재료 — docs/planning.md 뉴스룸 정책 "회차 경계는
+        증분이다"(PM 확정, 2026-09-17 사고 조사): passed 이고 duplicate_of가
+        없고 **기존 모든 NewsroomMessage(실패 포함)의 포함 기사 합집합에 없는**
+        기사만 대상이다. 「한 번 실린 기사는 다시 싣지 않는다」의 실행부다.
+
+        🔴 SET-010 배지(`apps/setting/views.py`
+        `_newsroom_compose_has_new_material()`)와 실제 실행
+        (`services/runner.py` `_run_newsroom_compose()`)이 반드시 같은 것을
+        봐야 한다(PM 지시 "배지와 두 벌로 짜지 말고 한 군데로 뽑아 양쪽이 같은
+        것을 부르게 할 것") — 09-16에 배지만 이 조건으로 고쳐지고 실행은
+        고쳐지지 않아 갈렸던 것이 2026-09-17 "14건에 이전 회차까지 담김"
+        사고의 원인이었다. 이 프로퍼티 하나를 양쪽이 그대로 부른다."""
+        already_sent = self.messages.all().article_ids()
+        return self.articles.filter(
+            filter_status=NewsroomArticle.STATUS_PASSED, duplicate_of__isnull=True,
+        ).exclude(pk__in=already_sent)
+
+    @property
+    def past_messages(self):
+        """SET-009 발송 섹션 "이전 초안 전체 보기" 목록(docs/design.md
+        "SET-009 · 발송 섹션" ⑩ PE 인계) — `latest_message`를 뺀 나머지
+        초안, 최신순. 실패 초안도 빼지 않는다(다음 회차의 기준점이라 지우면
+        경계가 틀어진다는 정책 때문에 목록에서도 빼면 안 된다). DOM에 한꺼번에
+        실리는 것을 막으려 최근 20건으로 끊는다(같은 절 "목록 상한")."""
+        latest = self.latest_message
+        qs = self.messages.all()
+        if latest:
+            qs = qs.exclude(pk=latest.pk)
+        return list(qs[:20])
 
 
 class NewsroomKeyword(models.Model):
@@ -410,6 +443,18 @@ class NewsroomArticle(models.Model):
             return ""
 
 
+class NewsroomMessageQuerySet(models.QuerySet):
+    def article_ids(self):
+        """이 쿼리셋에 속한 메시지들이 담았던 기사 pk 집합(합집합, 실패 초안도
+        포함 — status로 거르지 않는다). `Newsroom.compose_targets`와
+        `NewsroomMessage.new_article_count`가 "이미 어느 발송문에 실렸는가"를
+        묻는 유일한 자리로 이 메서드를 함께 쓴다(회차 경계 정의를 두 벌로
+        나누지 않는다, 2026-09-17 PM 지시)."""
+        return set(
+            NewsroomArticle.objects.filter(messages__in=self).values_list("pk", flat=True)
+        )
+
+
 class NewsroomMessage(models.Model):
     """뉴스룸 3단계(발송문) 산출물 — 발송 레코드 1건(docs/planning.md 뉴스룸 정책
     12-3 (b) "담을 자리가 없다(실측). 발송 레코드를 별도 모델로 신설한다"). 기사별
@@ -467,6 +512,8 @@ class NewsroomMessage(models.Model):
     # 코드 검증(정책 12-3 (e)) 실패 사유. status가 실패일 때만 채워진다.
     error = models.TextField(blank=True)
 
+    objects = NewsroomMessageQuerySet.as_manager()
+
     class Meta:
         ordering = ["-created_at", "-pk"]
 
@@ -485,3 +532,19 @@ class NewsroomMessage(models.Model):
         choices의 한국어 라벨을 그대로 쓴다 — 템플릿이 문자열을 하드코딩하지
         않는다."""
         return self.get_status_display()
+
+    @property
+    def new_article_count(self):
+        """SET-009 "이전 초안 전체 보기" 목록·최신 카드가 함께 쓰는 "이 회차 새
+        기사" 수(docs/design.md "SET-009 · 발송 섹션" ④번) — 이 메시지에
+        담긴 기사 가운데 이 메시지보다 **먼저 생성된** 메시지에는 한 번도
+        담긴 적 없는 것의 개수다. "먼저"는 created_at, 동률이면 pk로 가른다
+        (Meta.ordering과 같은 tie-breaker).
+
+        `Newsroom.compose_targets`와 같은 정의(`NewsroomMessageQuerySet.
+        article_ids()`)를 그대로 쓴다 — 회차 경계를 두 벌로 나누지 않는다."""
+        earlier = self.newsroom.messages.filter(
+            Q(created_at__lt=self.created_at)
+            | Q(created_at=self.created_at, pk__lt=self.pk)
+        ).article_ids()
+        return self.articles.exclude(pk__in=earlier).count()

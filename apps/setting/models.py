@@ -443,12 +443,23 @@ class RunProposal(models.Model):
     # 갈리지 않는다. 확정해도 아무 동작이 없고, 확정 버튼이 열리는 커버리지 조건에서
     # 빠지는 성질은 그대로 상속된다.
     TYPE_TAG_CANDIDATE = "태그 후보"
+    # 🔴 6번째 종류(2026-09-17 28차 정정 신설, docs/design.md "SET-010 · 실행" 28차
+    # 정정 ⑤번) — 기준 2(동일 사건 중복 보도)로 판정된 기사. services/runner.py의
+    # _run_dedup()이 만든다(다음 라운드 배선 — 이번 라운드는 화면·모델·확정 뷰
+    # 플러밍만 세운다). TYPE_DELETE와 다른 종류로 가른 이유는 처분이 다르기
+    # 때문이다 — 확정하면 대상 News를 지우지 않고 News.duplicate_of에
+    # duplicate_representative를 채워 감춘다(아래 필드 정의 참고). 같은 처분이라도
+    # TYPE_DELETE로 두면 확정 뷰가 "지울 것"과 "감출 것"을 DB에서 되짚어 구분해야
+    # 하는데, 27차가 insight_ids/draft_ids를 가른 것과 같은 이유로 이름(=타입)을
+    # 가르는 쪽을 택했다.
+    TYPE_DUPLICATE = "중복 보도"
     TYPE_CHOICES = [
         (TYPE_DELETE, "삭제"),
         (TYPE_KEEP, "유지"),
         (TYPE_TAG_REMOVE, "태그 제거"),
         (TYPE_TAG_ADD, "태그 추가"),
         (TYPE_TAG_CANDIDATE, "태그 후보"),
+        (TYPE_DUPLICATE, "중복 보도"),
     ]
 
     STATUS_PENDING = "대기"
@@ -488,6 +499,47 @@ class RunProposal(models.Model):
         help_text="태그 제거/추가/후보 제안의 축(기업/기술 주제). 삭제/유지 제안은 비워 둔다. "
                    "FK가 아니라 문자열인 이유는 클래스 docstring 참고.",
     )
+
+    # 🔴 TYPE_DUPLICATE 전용 필드 셋(2026-09-17 28차 정정 신설, docs/design.md
+    # "SET-010 · 실행" 28차 정정 ⑤번 "대표 pk를 화면이 보내지 않는다 ... RunProposal이
+    # 자기 묶음의 대표 News.pk를 들고 있어야 한다. 이 값이 없으면 duplicate_of에 넣을
+    # 것이 없다 — 모델 쪽에서 먼저 확인할 자리다").
+    #
+    # 대표 기사 자신에게는 RunProposal 행이 없다 — 대표는 "지울/감출 제안"이 아니라
+    # "이 묶음에서 남을 기사"이기 때문이다(검토 화면이 폼으로 보낼 대표 pk가 없는 이유,
+    # 같은 절 ⑤-1). 그래서 감출 각 행이 자기 묶음의 대표를 직접 들고 있어야 확정 뷰가
+    # News.duplicate_of에 채울 값을 얻는다 — 별도 그룹 테이블을 두지 않는 대신, 같은
+    # 묶음의 행은 아래 세 필드에 같은 값을 중복해 담는다(criterion_code/reason처럼
+    # 행마다 자기 완결적으로 담는 이 모델의 기존 패턴을 그대로 따른다).
+    duplicate_representative = models.ForeignKey(
+        News, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+        help_text="TYPE_DUPLICATE 제안이 속한 묶음의 대표 News. 확정하면 대상 News.duplicate_of에 "
+                   "이 값이 들어간다(삭제하지 않는다). 삭제/유지/태그 제안은 비워 둔다.",
+    )
+    # 검토 화면 「공통 표현」 배지(design.md 28차 ①-2 — "사람이 '왜 이 셋이 같은
+    # 보도인가'에 답하는 유일한 근거"). 대표 포함 같은 묶음의 모든 행이 같은 값을 갖는다.
+    dup_fingerprint = models.JSONField(
+        default=list, blank=True,
+        help_text="TYPE_DUPLICATE 제안이 속한 묶음의 공통 표현 토큰 목록(예: ['ADAS', '이미지 "
+                   "판독']). 같은 묶음의 행은 같은 값을 중복해 담는다. 그 외 제안은 빈 리스트다.",
+    )
+    DUP_PICK_REASON_EXISTING = "existing"
+    DUP_PICK_REASON_LONGEST = "longest"
+    DUP_PICK_REASON_LINKED = "linked"
+    DUP_PICK_REASON_CHOICES = [
+        (DUP_PICK_REASON_EXISTING, "기존분"),
+        (DUP_PICK_REASON_LONGEST, "본문 최장"),
+        (DUP_PICK_REASON_LINKED, "근거 있음"),
+    ]
+    # 대표를 고른 이유(design.md 28차 ③-3 "대표 선정 이유를 한 낱말로 찍는다").
+    # 🔴 화면 배지 낱말("기존분"/"본문 최장"/"근거 있음")은 템플릿이 가진다 — 여기는
+    # 코드값만 담는다(reason과 달리 이 낱말 자체는 DB로 넘어가는 보존 자산이 아니라
+    # 화면 표시라는 판단, 같은 절).
+    dup_pick_reason = models.CharField(
+        max_length=20, choices=DUP_PICK_REASON_CHOICES, blank=True, default="",
+        help_text="duplicate_representative를 고른 이유. TYPE_DUPLICATE 제안에만 채운다.",
+    )
+
     # 🔴 2026-09-16 PE 신설(docs/planning.md "2단계 비용 절감 정책" 4-3번, 형식 요건
     # 3번) — 이 삭제/유지 제안을 낸 주체가 LLM인지 코드(사전 차단 규칙)인지 남긴다.
     # 빈 값(기본값)은 지금까지처럼 LLM(classify_news()) 판정이라는 뜻이다 — 이번에
@@ -535,6 +587,44 @@ class RunProposal(models.Model):
         help_text="뒤집은 주체. DeletedNewsRecord 판정 주체 어휘를 그대로 쓴다(RA / "
                    "사용자(화면 삭제) / 소급 정비 / 자동 판정) — delete_news_with_record() "
                    "호출 시 넘긴 judged_by 값이 그대로 들어온다.",
+    )
+
+    # 🔴 2026-09-17 신설(docs/planning.md "검토 결과를 고도화 재료로 쓴다" 2·3번,
+    # 2026-09-17 사용자 확정) — 거절(status=STATUS_REJECTED)에 "누가 받는가"를
+    # 한 번 고르게 하는 칸 둘. 삭제 제안에만 붙는다(태그 교정 행에는 오지 않는다,
+    # 같은 문서 2번 "삭제 기준 코드 어휘를 재사용하지 않는다"와 짝을 이루는 별도
+    # 어휘). 자유 문자열이다("판정 기록 보존 정책" 1번과 같은 근거 — choices로
+    # 박으면 어휘 개정마다 마이그레이션이 필요해진다).
+    #
+    # 🔴 28차 정정(2026-09-17, docs/design.md "SET-010 · 실행" 28차 정정 ⑤번) —
+    # TYPE_DUPLICATE(중복 보도)의 감출 행에도 그대로 붙는다. 체크를 푸는 것이
+    # 「거절」인 자리라 형태가 같다 — "삭제 제안에만"이라는 아래 help_text는 확정
+    # 대상 종류가 삭제/유지에서 삭제/유지/중복 보도로 늘어난 지금도 "체크박스를 가진
+    # 종류"라는 뜻으로는 그대로다(태그 교정 행에는 여전히 오지 않는다).
+    #
+    # 어휘 넷 — 오적용(PE가 프롬프트를 고친다) / 기준재검토(PM이 이 문서의 판정
+    # 기준을 먼저 고친다) / 기타(자유 서술 필수) / 미기입(안 고름). 넷 다 이
+    # CharField 안의 값일 뿐 choices 제약은 걸지 않는다.
+    #
+    # 🔴 required가 아니다 — 안 고르면 확정 뷰가 "미기입"으로 저장하고 확정을
+    # 그대로 진행한다(같은 문서 "체크를 푸는 일이 비싸지면 사람은 거절을 피하고
+    # 그냥 확정을 누른다"). 값을 쓰는 것은 status=STATUS_REJECTED가 된 행뿐이다 —
+    # 채택되거나 취소된 행에는 이 칸을 채우지 않는다(x-show가 감추기만 해서 DOM에
+    # 남은 값이 그대로 실려 오는 것을 확정 뷰가 걸러낸다).
+    REJECT_CODE_MISAPPLIED = "오적용"
+    REJECT_CODE_CRITERIA_REVIEW = "기준재검토"
+    REJECT_CODE_OTHER = "기타"
+    REJECT_CODE_UNSPECIFIED = "미기입"
+    reject_code = models.CharField(
+        max_length=20, blank=True, default="",
+        help_text=f"거절(status='{STATUS_REJECTED}')을 받을 사람. "
+                   f"'{REJECT_CODE_MISAPPLIED}'(PE) / '{REJECT_CODE_CRITERIA_REVIEW}'(PM) / "
+                   f"'{REJECT_CODE_OTHER}'(자유 서술 필수) / '{REJECT_CODE_UNSPECIFIED}'(안 고름). "
+                   "자유 문자열이다. 삭제/중복 보도 제안에만 채운다 — 태그 교정 행은 항상 빈 값이다.",
+    )
+    reject_note = models.TextField(
+        blank=True, default="",
+        help_text=f"reject_code가 '{REJECT_CODE_OTHER}'일 때만 채우는 자유 서술.",
     )
 
     class Meta:

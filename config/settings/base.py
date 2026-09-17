@@ -34,11 +34,25 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # /setting/ 전체를 로그인 필수로 잠근다(2026-09-17). AuthenticationMiddleware
+    # 뒤에 와야 request.user가 채워진 상태에서 판단할 수 있다.
+    "apps.setting.middleware.SettingLoginRequiredMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
+
+# /setting/ 로그인 화면(config/urls.py의 "login") — SET 번호가 없다(메뉴 밖).
+LOGIN_URL = "login"
+# next 파라미터 없이 /login/에 직접 들어온 경우의 기본 도착지. "실행"이 매일 쓰는
+# 화면이라 그리로 보낸다(apps/setting/views.py _setting_menu 최상단 항목과 동일 판단).
+LOGIN_REDIRECT_URL = "/setting/run/"
+
+# 세션 수명을 길게 둔다(2026-09-17) — 계정이 1명뿐이고 EC2는 동결 중이라 지금
+# 로그인을 매번 다시 타는 마찰을 감수할 이유가 없다. dev/prd 동일값(PE 판단).
+# 90일 — SESSION_EXPIRE_AT_BROWSER_CLOSE 기본값(False)과 함께 브라우저를 꺼도 유지된다.
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 90
 
 TEMPLATES = [
     {

@@ -22,6 +22,17 @@
     <i data-lucide="chevron-right" class="w-3 h-3 flex-shrink-0"></i>
     <span class="text-gray-600 truncate max-w-xs">{{ news.title }}</span>
   </nav>
+  {% comment %}
+    🔴 2026-09-17 PD — 중복 보도로 감춘 기사에서는 이전/다음을 그리지 않는다.
+       이 화면에서 「이전」과 「다음」은 **목록의 차례**를 뜻하고, 감춘 기사는 그
+       목록에 없다. 자기가 없는 줄에서 앞뒤를 가리키면 ① 「다음」을 눌러 나간 뒤
+       되돌아올 길이 화면에 없고 ② 양쪽이 다 비활성으로 떠서 고장처럼 보인다.
+    ⚠️ 비활성 회색(text-gray-300)으로 남기는 안을 접은 이유가 ②다. 그 표시는
+       「목록의 끝에 왔다」는 뜻으로 이미 쓰이고 있어 뜻이 겹친다.
+    ⚠️ 오른쪽이 비면 브레드크럼이 왼쪽에 홀로 서지만 justify-between이라
+       자리가 흐트러지지 않는다.
+  {% endcomment %}
+  {% if not news.is_duplicate %}
   <div class="flex items-center gap-2 flex-shrink-0">
     {% if prev_news %}
     <a href="{% url 'news_detail' prev_news.uid %}"
@@ -45,6 +56,7 @@
     </span>
     {% endif %}
   </div>
+  {% endif %}
 </div>
 
 <div class="flex gap-6 items-start">
@@ -70,6 +82,113 @@
         </a>
       </div>
       <h1 class="text-xl font-bold text-gray-900 font-serif leading-snug">{{ news.title }}</h1>
+
+      {% comment %}
+        ══════════════════════════════════════════════════════════════════
+         🔴 중복 보도 안내 (2026-09-17 신설, PD)
+         설계 정본은 docs/design.md 「NEWS-002」 절의 같은 날짜 항목이다.
+
+         ▣ 🔴 이 자리는 오류 화면이 아니다
+           사람은 **정상적인 근거 추적** 중에 여기 도착한다. 시사점이나 보고서,
+           지식 그래프의 근거 목록에서 제목을 누른 것이고, 그 기사는 실재하고
+           검증도 끝난 정당한 근거다. 목록에서 대표 1건만 보이게 했을 뿐이다.
+           🔴 그래서 「없는 페이지」·「잘못된 접근」으로 읽힐 말을 쓰지 않는다.
+
+         ▣ 🔴 색이 주황도 빨강도 아니다. 회색이다
+           이 앱에서 빨강은 시스템 실패, 주황은 이상 신호(크롤 실패, 기간 불일치,
+           중단됨)에 배정돼 있다. **여기는 실패도 이상도 아니다.** 규칙대로 감춘
+           정상 상태라 조용한 색이 맞는다.
+           ⚠️ 앞 라운드 로그인 실패 안내가 빨강 대신 주황이었던 것과 같은 계산을
+              한 칸 더 내린 것이다. 거기는 「다시 하면 되는 일」이었고 여기는
+              「아무 일도 일어나지 않은 일」이다.
+           🔴 보라 pill(bg-purple-100 text-primary)을 쓰지 않았다. SET-010 검토
+              화면에서 그 모양이 **대표**라는 뜻으로 이미 쓰이고 있어, 같은 모양에
+              정반대 뜻을 실으면 두 화면이 서로를 무너뜨린다.
+           ⚠️ 시사점 콜아웃(bg-purple-50 + border-l-4)도 쓰지 않았다. 그 장치는
+              이 앱에서 「시사점」 한 가지 뜻으로 굳어 있다.
+
+         ▣ 🔴 자리는 제목 아래, 헤더 카드 안이다
+           ① **본문을 한 글자도 가리지 않는다.** 본문 카드 위쪽에 띠를 두면 긴
+              안내가 본문을 아래로 밀고, 페이지 머리에 두면 띠가 먼저 읽혀
+              사람이 오류로 받아들인다.
+           ② 이 안내가 한정하는 대상이 **기사 자체**라 기사 제목에 붙어야 뜻이
+              맞는다. 제목을 먼저 읽고 그 기사가 어떤 상태인지를 다음에 읽는다.
+           ③ 헤더 카드는 이미 발행일과 원문 보기를 가진 메타 자리다. 새 카드를
+              만들지 않아 화면에 상자가 하나 늘지 않는다.
+
+         ▣ 🔴 세 가지를 말한다. 그 이상 말하지 않는다
+           ① 이름표 「중복 보도」   ② 왜 목록에 없는지   ③ 대표 기사로 가는 길
+           🔴 두 번째 문장이 **「그래도 정당한 근거다」**를 말한다. 이것이 빠지면
+              사람은 자기가 방금 누른 근거를 의심하게 된다.
+           ⚠️ 감춘 이유를 더 설명하지 않는다(판정 기준, 실행 회차 등). 여기는
+              운영 화면이 아니라 읽는 화면이다.
+
+         ▣ ⚠️ 낱말 규약 (SET-010 28차와 같다)
+           🔴 이름은 「중복 보도」다. 「그룹화」는 3단계에 배정돼 있어 쓰지 않고,
+              「묶음」·「묶다」는 화면 문자열에 한 번도 쓰지 않는다. 세는 말은 「건」.
+           ⚠️ 가운뎃점과 줄표를 쓰지 않는다. 이름표 자리는 명사형, 말 거는 자리는
+              해요체다.
+
+         ══════════════════════════════════════════════════════════════════
+         ▣ 🔴 PE 인계 — 이 블록이 기대하는 컨텍스트
+         ══════════════════════════════════════════════════════════════════
+         🔴 새 컨텍스트 키를 쓰지 않는다. news 객체에 이미 다 실려 있다.
+
+         🔴 news.is_duplicate   이 기사가 대표가 아닌 중복인가. News 프로퍼티.
+                               ⚠️ 이 값 하나로 위쪽 이전/다음 표시도 함께 갈린다.
+         🔴 news.duplicate_of   대표 News 객체. 뷰가 select_related로 실어 보내
+                               추가 쿼리가 없다.
+         🔴 링크는 {% url 'news_detail' news.duplicate_of.uid %}로 만든다.
+                               ⚠️ **{{ news.duplicate_of.url }}을 쓰지 말 것.**
+                                  News.url은 언론사 원문 주소다. 그걸 실으면 사람이
+                                  앱 밖으로 나가고 근거 추적이 그 자리에서 끊긴다.
+                                  원문으로 보내야 한다면 라벨이 「원문 보기」로 바뀌고
+                                  target="_blank" rel="noopener"가 붙어야 하므로
+                                  **PD에게 되물을 것.**
+
+         🔴 2026-09-17 — 이 계약이 한 번 어긋나 안내가 통째로 안 떴다.
+            PD가 최상위 `duplicate_of`를 기대해 썼고 PE는 news 객체 안에 실어 보냈다.
+            {% if duplicate_of %}가 언제나 거짓이라 **에러 없이 조용히 사라졌고**,
+            이전/다음도 감춘 기사에서 그대로 그려졌다. 화면을 직접 렌더해 보기
+            전에는 드러나지 않는다. 🔴 이름을 바꾸면 렌더 결과를 확인할 것.
+            ⚠️ 그때 `duplicate_of.url`을 그대로 이어 붙였으면 대표 기사 링크가
+               조선비즈 원문으로 나갔을 것이다 — 위 경고가 실제 상황이었다.
+
+         🔴 대표 기사는 **절대 감춰지지 않는다**(정의상 duplicate_of가 비어 있다).
+            그래서 이 링크가 또 감춘 기사로 이어지는 일이 없다.
+
+         ⚠️ 빌드 실측 (static/css/tailwind.css, 2026-09-17): 쓴 클래스가 전부
+            빌드에 있다. npm run build:css를 돌릴 이유가 없다.
+            border-t border-gray-100 mt-4 pt-3 items-start gap-2 flex-wrap
+            min-w-0 flex-shrink-0 whitespace-nowrap rounded-full bg-gray-100
+            text-gray-500 text-gray-400 text-[10px] px-1.5 py-0.5 mt-1
+            leading-relaxed text-primary hover:underline
+            🔴 pb-3와 bg-[#F9F5FF]는 빌드에 없다. 쓰면 조용히 무시된다.
+         ⚠️ h-full을 쓰지 않았다. Alpine도 쓰지 않아 x-show도 x-cloak도 없다.
+        ══════════════════════════════════════════════════════════════════
+      {% endcomment %}
+      {% if news.is_duplicate %}
+      <div class="border-t border-gray-100 mt-4 pt-3">
+        <div class="flex items-start gap-2">
+          <span class="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 whitespace-nowrap">중복 보도</span>
+          <div class="min-w-0">
+            <p class="text-xs text-gray-500 leading-relaxed">같은 내용을 전한 기사가 여럿이라 목록에는 대표 기사 1건만 보여요. 이 기사는 그대로 남아 있어서 시사점과 보고서의 근거로 계속 쓰여요.</p>
+            {% comment %}
+              대표 기사 줄. 🔴 제목에 truncate를 걸지 않는다. 어느 기사가 대표인지
+              고르는 것이 아니라 확인하는 자리라 제목이 다 보여야 한다(SET-010
+              28차와 같은 판단). min-w-0을 빼지 말 것 — flex 아이템의 min-width
+              기본값이 auto라 긴 제목이 줄을 밀어낸다.
+            {% endcomment %}
+            {% if news.duplicate_of %}
+            <p class="mt-1 text-xs text-gray-400 flex items-start gap-2 flex-wrap">
+              <span class="flex-shrink-0">대표 기사</span>
+              <a href="{% url 'news_detail' news.duplicate_of.uid %}" class="min-w-0 text-primary hover:underline">{{ news.duplicate_of.title }}</a>
+            </p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
     </div>
 
     {% if news.image_url %}

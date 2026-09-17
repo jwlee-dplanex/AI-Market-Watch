@@ -115,6 +115,25 @@ def delete_news_with_record(
     return record
 
 
+def has_explicit_link(news: News) -> bool:
+    """이 News가 명시 연결(M2M) 중 어디에라도 걸려 있는지 하나로 묻는다.
+
+    docs/planning.md "기준 2(동일 사건 중복 보도)를 2단계의 두 번째 LLM 호출로 옮긴다"
+    5-1-(b) — CLAUDE.md 검증 게이트 예외 셋(`Insight.news`·`Report.news`·
+    `OrgRelation.news`)을 호출부마다 각각 `if`로 나열하지 않고 이 헬퍼 하나를 통과시킨다.
+    네 번째 명시 연결이 생기는 날 고칠 자리를 한 곳으로 묶어 두기 위함이다(같은 절
+    "열거가 늘어날 때마다 갈릴 자리가 늘어난다").
+
+    🔴 이 헬퍼가 True를 반환하는 News는 어떤 삭제 경로에서도 지워지면 안 된다(5-1-(a)
+    "대표로 뽑히지 않았어도 남는다") — services/runner.py의 중복 판정이 이 함수로
+    삭제 대상에서 방어한다.
+
+    `Embedding`은 여기 넣지 않는다(5-1-(b) ⚠️) — 그것은 산출물이 아니라 파생 데이터라
+    기사가 지워지면 함께 지워져야 하는 쪽이다.
+    """
+    return news.insights.exists() or news.reports.exists() or news.org_relations.exists()
+
+
 def correct_news_tag(
     news: News,
     target,

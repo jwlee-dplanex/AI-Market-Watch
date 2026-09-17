@@ -13,7 +13,19 @@
     메뉴가 콘텐츠보다 24px(=top-6) 아래로 밀려 보였다 — sticky는 스크롤이 있어야 작동하므로
     짧은 페이지(데이터소스·프롬프트·스케줄)에서는 증상이 안 나타나 원인을 찾기 어려웠다.
     main이 p-6을 갖고 있어 top-0이어도 붙었을 때 헤더와 24px 간격이 유지된다.
+
+    🔴 2026-09-17 — setting_menu가 비면 nav를 아예 그리지 않는다.
+       계기는 로그인 화면(templates/registration/login.html)이다. 그 화면도 이
+       레이아웃을 상속하는데 LoginView가 setting_menu를 안 내리면 for가 0회 돌아
+       **글자 없는 흰 상자 하나가 왼쪽에 남는다.** 빈 상자는 「메뉴가 없다」가
+       아니라 「무언가 깨졌다」로 읽힌다.
+    ⚠️ 정상 화면에서는 이 조건이 거짓이 되는 일이 없다. 여덟 화면의 모습은
+       한 픽셀도 바뀌지 않는다.
+    🔴 **이 방어는 setting_menu를 안 내려도 된다는 뜻이 아니다.** 사용자가 승인한
+       모습은 로그인 화면에도 설정 메뉴가 서 있는 쪽이고, 그 값은 뷰가 내린다
+       (login.html의 PE 인계 참고).
   {% endcomment %}
+  {% if setting_menu %}
   <nav class="w-44 flex-shrink-0 bg-white rounded-[10px] border border-[#E5E5E5] shadow-sm p-2 sticky top-0">
     {% for item in setting_menu %}
     <a href="{{ item.url }}"
@@ -30,6 +42,7 @@
     </a>
     {% endfor %}
   </nav>
+  {% endif %}
 
   {% comment %}설정 콘텐츠{% endcomment %}
   <div class="flex-1 min-w-0">

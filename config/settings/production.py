@@ -6,6 +6,15 @@ from .base import *
 # 그 결과 이 파일에는 통상적인 Django 프로덕션 체크리스트 중 일부러 넣지 않은
 # 항목이 있다 — 아래 각 항목에 이유를 남긴다("나중에 켜야 할 것 같은데" 하고
 # 무심코 켜면 서비스가 깨지는 지점들이라 이유를 지우지 않는다).
+#
+# 🔴 「인증 없음」은 2026-09-17 결정으로 바뀌었다. 로그인을 먼저 붙이고 그 뒤
+# 도메인·HTTPS, 사내 오픈은 HTTPS 뒤 순서로 간다. HTTPS 전환 시 켤 다섯 자리는
+# 아래 SECURE_SSL_REDIRECT/SESSION_COOKIE_SECURE/CSRF_COOKIE_SECURE 블록,
+# CSRF_TRUSTED_ORIGINS(스킴을 https로 — 빠뜨리면 모든 POST가 CSRF에서 거절돼
+# 버튼이 전부 안 듣는다), ALLOWED_HOSTS와 deploy/nginx.conf의 server_name(도메인
+# 반영)이다. 실패 방식이 다르다는 것도 함께 적어 둔다 — SECURE_SSL_REDIRECT를
+# 안 켜면 조용히 안전하지 않은 상태로 남고, COOKIE_SECURE 둘은 HTTPS가 없으면
+# 조용히 깨진다(로그인 유지·폼 제출 실패).
 
 DEBUG = False
 
