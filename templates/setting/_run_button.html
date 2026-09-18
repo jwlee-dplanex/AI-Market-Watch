@@ -106,11 +106,16 @@
       중단(②) 건별 루프를 멈춘다. **한 것이 남고** 다시 누르면 이어서 한다.
       취소(④) 배치가 LLM 1호출이라 멈출 자리가 없다. **응답이 온 뒤 그 결과를
               쓰지 않는 것**이 취소다. 이미 저장한 대기 산출물도 닫는다.
-    ⚠️ **토큰은 이미 쓰인 뒤다.** 호출은 나갔고 되돌릴 수 없다 — 취소가 아끼는 것은
-       돈이 아니라 사람이 검토 화면에서 쓸모없는 제안을 지우는 일이다.
-       🔴 title이 이 사실을 숨기지 않는다. 「취소하면 없던 일이 돼요」라고 쓰지 말 것.
-    ⚠️ 화면이 즉시 바뀌지 않는다. 돌고 있는 호출이 끝나야 그 자리에서 결과를
-       버리므로, ③의 문구가 「응답을 기다린 뒤」를 말한다.
+    🔴 **문구는 짧게 쓴다**(2026-09-18 사용자 지시). 종전에 title이 「응답이 온 뒤
+       쓰지 않는 방식이에요. 쓴 토큰은 돌려받지 못해요」까지 적고 있었고, 사용자가
+       걷어냈다 — *"너무 상세하기 말하지 마"*, *"취소하고 있어요. 뭐 이렇게만 말하면
+       되지"*, *"결과를 버려요. 토큰을 돌려받지 못해요 이런거 하지마"*,
+       *"정상적으로 취소만 되면 돼"*.
+    ⚠️ **왜 그렇게 적었던 것을 버리는가** — 토큰이 이미 쓰였다는 것과 호출이 끝나야
+       화면이 바뀐다는 것은 **구현 사정**이고, 취소를 누르는 사람이 판단에 쓸 정보가
+       아니다. 그 사실은 여기 주석과 services/runner.py _cancel_if_requested()에
+       남기고 **화면에는 올리지 않는다.**
+       🔴 **새 문구에 이 내용을 다시 넣지 말 것.**
     ⚠️ 취소가 서는 곳은 3·4·5단계 셋이다(apps/setting/views.py CANCELABLE_JOB_KEYS).
        뉴스룸 1호출 둘은 runner에 취소가 배선되지 않아 ⑤에 남는다 — **버튼을
        내리는 범위는 runner가 실제로 지키는 범위와 같아야 한다.**
@@ -162,7 +167,7 @@
 
 {% elif job.canceling %}
 <button type="button" disabled
-        title="돌고 있는 호출이 끝나면 그 결과를 버려요. 응답을 기다리는 중이에요"
+        title="취소하고 있어요"
         class="w-full flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-medium rounded-[10px] border border-[#E5E5E5] bg-white text-gray-500 opacity-40 cursor-not-allowed">
   취소하는 중
 </button>
@@ -175,7 +180,7 @@
         hx-include="[name=csrfmiddlewaretoken]"
         hx-indicator="#run-spinner-{{ key }}"
         hx-disabled-elt="this"
-        title="이 실행의 결과를 버려요. 한 번에 처리하는 단계라 도중에 멈출 수는 없어서, 응답이 온 뒤 쓰지 않는 방식이에요. 쓴 토큰은 돌려받지 못해요"
+        title="이 실행을 취소해요"
         class="w-full flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-medium rounded-[10px] border border-[#E5E5E5] bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors">
   <span id="run-spinner-{{ key }}" class="htmx-indicator items-center">
     <svg class="animate-spin w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
