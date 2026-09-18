@@ -546,9 +546,9 @@
         {% endcomment %}
         <div class="flex justify-center mt-6 pt-6">
           <div class="w-[616px] flex">
-            {% include "setting/_run_node.html" with job=research_jobs.weekly key="weekly" label="4단계 주간 보고서" description="한 주의 주요 동향 정리" icon="sparkles" outline=True dimmed=running_job %}
+            {% include "setting/_run_node.html" with job=research_jobs.weekly key="weekly" label="4단계 주간 보고서" description="한 주의 주요 동향 정리" icon="sparkles" outline=False dimmed=running_job %}
             <div class="w-16"></div>
-            {% include "setting/_run_node.html" with job=research_jobs.monthly key="monthly" label="5단계 월간 보고서" description="한 달의 주요 동향 정리" icon="sparkles" outline=True dimmed=running_job %}
+            {% include "setting/_run_node.html" with job=research_jobs.monthly key="monthly" label="5단계 월간 보고서" description="한 달의 주요 동향 정리" icon="sparkles" outline=False dimmed=running_job %}
           </div>
         </div>
 

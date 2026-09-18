@@ -1299,6 +1299,10 @@ def _weekly_job_context():
     date_from, date_to = target_week(today)
 
     can_run, block_reason = True, ""
+    # 🔴 세 갈래 중 「그 주 Report가 이미 있고 다듬는 중」에서만 채워진다. 빈 dict로
+    # 먼저 두는 것이 계약이다 — 아래 job.update(**job_redo)가 모든 갈래를 지나므로
+    # 초기화를 빼면 나머지 두 갈래에서 NameError가 난다.
+    job_redo = {}
     if not insights_in_period(date_from, date_to).exists():
         can_run, block_reason = False, "이번 주에 만들어진 이슈가 없어요"
         summary_override = "3단계 이슈를 확정하면 열려요"
@@ -1314,6 +1318,31 @@ def _weekly_job_context():
                 f"{next_to.month}월 {next_week_no}주차 보고서는 {next_to.month}/{next_to.day}부터 "
                 "작성할 수 있어요"
             )
+            # 🔴 2026-09-18 신설 — 「지우고 다시 만들기」 경로(사용자 확정).
+            #
+            # 계기 — 4단계가 만든 9월 3주차 보고서에 기간 밖 기사가 들어가고 이슈가
+            # 상한을 넘겨, 다시 만들어야 했다. 그런데 이 갈래(그 주 Report가 이미
+            # 있음)가 버튼을 잠그기만 하고 **푸는 방법을 말하지 않았다.** 지우는
+            # 경로도 화면에 없어서(admin에도 Report 미등록) 실행과 검토로 끝나야 할
+            # 일이 보고서 하나에 막혀 멈췄다.
+            #
+            # 🔴 자리를 여기로 고른 이유 — 처음에는 보고서 상세(REPORT-002)에 버튼을
+            # 달았는데 사용자가 정정했다: *"보고서 지우기는 설정에 있어야 하는거
+            # 아니야? 로그인이 필요하니까"*. /reports/는 공개 화면이고 /setting/만
+            # 로그인으로 잠긴다 — 삭제는 운영 동작이므로 설정 쪽에 있어야 그 구분이
+            # 흐려지지 않는다. 그리고 **잠긴 이유와 푸는 방법이 한 자리에** 모인다.
+            #
+            # 🔴 「다듬는 중」(generating)일 때만 내린다. 완료(done)로 바꾼 보고서는
+            # 이미 공유됐거나 Slack으로 나갔을 수 있어 지우면 받은 사람의 링크가
+            # 깨진다(apps/reports/views.py report_delete가 같은 조건을 다시 검사한다 —
+            # 화면에서 감추는 것만으로는 주소를 아는 호출을 막지 못한다).
+            if existing.status == "generating":
+                job_redo = {
+                    "redo_url": reverse("report_delete", args=[existing.uid]),
+                    "redo_label": f"{date_to.month}월 {week_no}주차 지우고 다시 만들기",
+                }
+            else:
+                job_redo = {}
         else:
             week_no = _week_number_in_month(date_to)
             summary_override = f"{date_to.month}월 {week_no}주차 보고서를 지금 작성할 수 있어요"
@@ -1331,6 +1360,9 @@ def _weekly_job_context():
         "confirm_text": "",
         "run_url": reverse("setting_run_start", args=["weekly"]),
         "review_url": reverse("setting_run_review", args=["weekly"]),
+        # 🔴 2026-09-18 — 「지우고 다시 만들기」. 조건에 안 맞으면 빈 dict라 키가
+        # 아예 생기지 않고, 템플릿의 {% if job.redo_url %}가 그 자리를 접는다.
+        **job_redo,
     })
     return job
 
@@ -3259,7 +3291,34 @@ def setting_run_review_confirm(request, job):
         # 아니라 「감추기」입니다"). p.save()가 아니라 pk로 좁힌 update()를 쓴다 —
         # 대상 News가 이 요청 안에서 이미 불러온 인스턴스가 아니라 저장된 관계
         # 캐시에 얽매일 이유가 없는 단순 필드 갱신이다.
-        News.objects.filter(pk=p.news_id).update(duplicate_of_id=p.duplicate_representative_id)
+        #
+        # 🔴 2026-09-18 버그 수정 — status도 함께 올린다. 종전에는 duplicate_of만
+        # 채우고 status를 미검증으로 남겨 뒀는데, 그러면 **처분이 끝난 기사가
+        # 「아직 판정하지 않은 기사」로 계속 세어진다.** 실측(2026-09-18, 91건
+        # 배치): 삭제 78 + 통과 10 + 감춤 3 으로 처분이 전부 끝났는데 화면은
+        # "판정할 자료 3건"을 띄웠고, _insight_block_reason()의 첫 조건
+        # (미검증 News가 하나라도 있으면 잠근다)에 걸려 **3단계가 영구히 열리지
+        # 않았다.** 게다가 그 3건은 대기 제안이 없어 cleanup_ab_split()의 B(미판정)로
+        # 돌아가므로, 2단계를 다시 돌리면 같은 기사를 또 LLM에 보내 같은 감춤
+        # 제안을 받는 자리를 맴돈다.
+        #
+        # 🔴 VERIFIED가 맞는 근거 — 중복 판정의 입력은 "이번 배치에서 유지로
+        # 제안된 것"뿐이다(services/runner.py _run_dedup() 독스트링, llm.py
+        # find_duplicate_news() Args). 삭제 제안을 받은 기사는 애초에 중복 후보에
+        # 들어가지 않는다. 즉 여기까지 온 News는 관련성 판정을 통과한 기사이고,
+        # 대표가 아니라는 이유로 감추는 것이지 판정이 덜 끝난 것이 아니다.
+        # NewsQuerySet.verified()가 status와 duplicate_of를 **둘 다** 보는 것도
+        # 같은 전제다 — 감춘 기사가 미검증이면 앞 조건에서 이미 걸러져
+        # duplicate_of__isnull=True 조건이 할 일이 없어진다.
+        #
+        # ⚠️ 화면 노출은 달라지지 않는다. verified()가 duplicate_of로 한 번 더
+        # 거르므로 목록·대시보드·그래프에서 감춰지는 것은 그대로다. 바뀌는 것은
+        # "이 기사는 판정이 끝났다"가 기록되는 것 하나뿐이다.
+        News.objects.filter(pk=p.news_id).update(
+            duplicate_of_id=p.duplicate_representative_id,
+            status=News.STATUS_VERIFIED,
+            verified_at=timezone.now(),
+        )
         RunProposal.objects.filter(pk=p.pk).update(status=RunProposal.STATUS_ACCEPTED)
 
     if hide_rep_missing:

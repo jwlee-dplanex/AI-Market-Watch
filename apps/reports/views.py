@@ -1,4 +1,9 @@
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.http import HttpResponse
 from django.shortcuts import render, get_object_or_404
+from django.urls import reverse
+from django.views.decorators.http import require_POST
 from .models import Report
 
 #: pill 필터가 받아들이는 값. daily는 실사용 데이터가 없어 pill 자체를 만들지 않았으므로
@@ -31,3 +36,45 @@ def report_list(request):
 def report_detail(request, uid):
     report = get_object_or_404(Report, uid=uid)
     return render(request, "reports/detail.html", {"report": report})
+
+
+# 🔴 2026-09-18 신설 — 「다듬는 중」 보고서 삭제(사용자 확정: "다듬는 중인 것만").
+#
+# 계기 — 4단계가 만든 9월 3주차 보고서에 기간 밖 기사(8월 18일)가 들어가고 이슈가
+# 상한 5건을 넘겨 9건이 실렸다. 다시 만들어야 하는데 **지우는 경로가 아예 없었다** —
+# 화면에도 없고 admin에도 Report가 등록돼 있지 않았다. 게다가
+# apps/setting/views.py _job_has_work("weekly")가 `Report.objects.filter(period_type,
+# date_from).exists()`로 4단계 버튼을 잠그므로, **같은 주 보고서가 하나 있으면 다시
+# 만들 길이 막힌다.** 실행과 검토로 끝나야 하는 일이 보고서 하나에 걸려 멈췄다.
+#
+# 🔴 왜 「다듬는 중」만인가 — 완료(done)로 바꾼 보고서는 이미 공유됐거나 Slack으로
+# 나갔을 수 있다. 지우면 받은 사람의 링크가 깨지고 그것은 되돌릴 수 없다. 반면
+# generating은 "아직 검토 중"이라는 뜻이라 버려도 잃는 것이 없다.
+#
+# 🔴 왜 로그인을 거는가 — /reports/는 **로그인 없이 보는 공개 화면**이다
+# (apps/setting/middleware.py는 "/setting/" 접두사만 잠근다). 삭제는 운영 동작이므로
+# 공개 화면에 그냥 달면 사내 오픈 뒤 누구나 지울 수 있다.
+# ⚠️ 템플릿에서 버튼을 감추는 것만으로는 부족하다 — 주소를 알면 직접 호출할 수 있어서
+# 뷰에서 다시 막는다. 상태 검사도 같은 이유로 여기서 한 번 더 한다.
+@login_required
+@require_POST
+def report_delete(request, uid):
+    report = get_object_or_404(Report, uid=uid)
+    if report.status != "generating":
+        messages.error(
+            request,
+            "다듬기를 마친 보고서는 지울 수 없어요. 이미 공유됐을 수 있어서예요.",
+        )
+        response = HttpResponse()
+        response["HX-Redirect"] = reverse("report_detail", args=[report.uid])
+        return response
+
+    # 🔴 ReportNews는 through 모델이라 Report가 지워지면 함께 지워진다(CASCADE).
+    # News 자체는 건드리지 않는다 — 보고서를 버리는 것이 기사를 버리는 일이 되면
+    # 안 된다(apps/news/services.py has_explicit_link()가 지키는 것과 같은 선).
+    title = report.title
+    report.delete()
+    messages.success(request, f"「{title}」을 지웠어요. 4단계에서 다시 만들 수 있어요.")
+    response = HttpResponse()
+    response["HX-Redirect"] = reverse("report_list")
+    return response

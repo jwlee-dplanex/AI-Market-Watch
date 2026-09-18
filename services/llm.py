@@ -42,6 +42,35 @@ class LLMJudgmentError(Exception):
     실패로 남기고 다음 건으로 진행해도 되는 오류다."""
 
 
+def _guard_truncated(response, label: str) -> None:
+    """🔴 응답이 max_tokens에 닿아 중간에 잘렸으면 그 사실을 그대로 말한다
+    (2026-09-18 신설). 이 파일의 파서 여덟 곳이 전부 맨 앞에서 부른다.
+
+    🔴 왜 필요한가 — 잘린 응답은 **에러가 아니라 불완전한 JSON**으로 도착한다.
+    모델은 쓰던 문장 한가운데서 그냥 멈추므로 닫는 따옴표도 괄호도 없다. 그걸
+    json.loads()에 넣으면 `Unterminated string`이 나고, 받는 쪽은 "JSON 파싱에
+    실패했어요"라고만 말한다 — **진짜 원인(길이 초과)이 그 메시지에 안 나온다.**
+
+    실측 두 번, 같은 함정이다:
+      - News 130(2026-09-15) — classify_news가 Unterminated string으로 실패.
+        재현 호출의 stop_reason이 "max_tokens"였고 값을 올려 풀었다. 🔴 그때
+        값만 올리고 이 방어를 안 만들어서 같은 자리를 다시 밟았다.
+      - RunJob 268(2026-09-18) — generate_insights가 8,192 상한에 닿아 8,905자
+        지점에서 잘렸다. 화면은 "실행이 실패했어요"만 띄웠고 로그의 파싱 오류로는
+        길이 문제인 줄 알 수 없었다.
+
+    🔴 output_tokens를 메시지에 함께 싣는다. 그 수가 곧 "상한에 닿았다"는 증거이고,
+    다음에 max_tokens를 얼마로 올릴지 정하는 유일한 실측 근거다.
+    """
+    if getattr(response, "stop_reason", None) != "max_tokens":
+        return
+    used = getattr(getattr(response, "usage", None), "output_tokens", 0) or 0
+    raise LLMJudgmentError(
+        f"{label} 응답이 길이 제한에 걸려 잘렸어요"
+        f"(출력 {used:,}토큰에서 멈췄어요). max_tokens를 올려야 해요."
+    )
+
+
 # RunJob.prompt_version에 그대로 기록된다(docs/planning.md 5번 "DB에 남기는 것은
 # 프롬프트 버전 식별자 하나"). 판정 기준(CRITERIA_TEXT)이나 지시문이 바뀌면 이 값을
 # 올린다 — 어느 프롬프트로 판정한 결과인지 나중에 재현할 수 있어야 한다.
@@ -308,6 +337,7 @@ def _build_user_message(news) -> str:
 def _parse_response(news, response) -> dict:
     """구조화 출력을 파싱하고 금지된 criterion_code를 방어한다. 실패하면 그 건만
     LLMJudgmentError로 남긴다 — json.loads()로만 파싱한다(문자열 매칭 금지, SDK 권고)."""
+    _guard_truncated(response, f"News {news.pk} 관련성 판정")
     text_block = next((b for b in response.content if b.type == "text"), None)
     if text_block is None:
         raise LLMJudgmentError(
@@ -570,6 +600,7 @@ def _parse_dedup_response(response) -> dict:
     """classify_news()의 _parse_response()와 같은 원칙(json.loads()만 쓴다, 문자열
     매칭 금지)이지만 금지 기준 코드 방어가 없다 — 이 호출 자체가 기준 2 전용이라
     막을 것이 없다."""
+    _guard_truncated(response, "중복 판정")
     text_block = next((b for b in response.content if b.type == "text"), None)
     if text_block is None:
         raise LLMJudgmentError(
@@ -767,7 +798,10 @@ def build_short_field(text: str, keep_indices, *, always_keep_prefix: str = "") 
 # 추가해 올렸다. 판정 기준 원문이 바뀌면 버전을 올린다(cleanup의 선례와 같은 규칙).
 # 🔴 2026-09-17a — 출력 스키마에 content_keep/implication_keep(축약본 문장 번호 배열)을
 # 추가해 올렸다(docs/planning.md "RA 손 작업을 전부 단계 안으로 넣는다" 3번).
-PROMPT_VERSION_INSIGHT = "insight-2026-09-17a"
+# 🔴 2026-09-18a — 이슈 제목 규칙(_CRITERIA_INSIGHT_TITLE_FORM)에 「사실 요약에
+# 머물지 않는다」 조항이 들어갔다. 3단계와 보고서가 그 상수를 공유하므로 양쪽 버전이
+# 함께 오른다(이 파일 1641행 "두 벌로 베끼면 한쪽만 고치는" 주석의 그 공유다).
+PROMPT_VERSION_INSIGHT = "insight-2026-09-18a"
 
 
 # docs/planning.md "주요 이슈(Insight) 승격 기준" 절 — 승격 기준·판별의 핵심 질문·
@@ -932,6 +966,24 @@ _CRITERIA_INSIGHT_TITLE_FORM = """\
 - **길어도 된다.** 짧게 만들려다 추상 어구로 닫는 것이 이 조항이 막으려는 것이다.
 - **고유명사나 숫자를 하나쯤 넣으면 훨씬 선다** — 단, 본문에 있는 사실이어야 한다. 제목을 세우려고 본문에 없는 단정을 넣지 않는다.
 
+**🔴 사실 요약에 머물지 않는다 — 무엇이 갈렸는지를 담는다**
+
+같은 사건도 두 가지로 쓸 수 있고, 위 권장 형태 셋은 전부 **갈림**을 담는 형태다.
+
+```
+△ 은행권, 신입 채용 체계를 AI·보안·자산관리 등 전문 직무로 재편
+  → 무슨 일이 있었는지는 알 수 있다. 그런데 그래서 무엇이 달라졌는지가 없다.
+
+✅ 금융권 AI 교육의 첫 대상, 실무자가 아니라 임원과 부서장
+  → 「첫 대상이 누구였는가」라는 갈림이 제목 안에 있다. 명사형 종결도 지켰다.
+```
+
+> **판별법: 제목에서 「무엇 대신 무엇」·「어디서 어디까지」·「무엇이 아니라 무엇」 같은 갈림이 읽히는가.**
+> 당사자와 행위를 나열하기만 했으면 아직 사실 요약이다.
+
+- ⚠️ **갈림을 만들려고 본문에 없는 대비를 지어내지 않는다.** 본문에 대비가 없는 이슈라면 사실 요약으로 두는 것이 맞다 — **틀린 제목보다 평범한 제목이 낫다.** 이 조항은 위 「본문의 구체적 사실로 쓴다」를 이기지 못한다.
+- ⚠️ 이 조항은 **명사형 종결 규칙과 충돌하지 않는다.** 위 ✅ 예시가 그 증거다 — 갈림은 종결어미가 아니라 제목의 구조가 만든다.
+
 **당사자 이름을 반드시 넣는다 — 최대 두 자리**
 - **(a)** 필수와 선택을 가른다. 당사자 이름은 **반드시 넣는다.** 행위·숫자는 **있으면 쓴다.**
 - **(b)** 상한은 두 자리다. 세는 단위는 법인 수가 아니라 **역할 자리**다. 제목에서 서로 다른 역할을 맡은 편이 몇 개인가로 센다. 같은 역할의 복수 주체는 한 자리를 나눠 갖는다. ⚠️ 한 자리 안의 나열이 3개를 넘으면 집합 표현(`3사`·`벤더 3곳`)으로 줄인다.
@@ -1079,6 +1131,7 @@ def _parse_insight_response(response) -> dict:
     """구조화 출력을 파싱한다. classify_news용 _parse_response()와 같은 방식으로
     json.loads()만 쓴다(문자열 매칭 금지, SDK 권고) — 배치 판정이라 news.pk가 없어
     오류 메시지에 그 대신 stop_reason을 남긴다."""
+    _guard_truncated(response, "이슈 판정")
     text_block = next((b for b in response.content if b.type == "text"), None)
     if text_block is None:
         raise LLMJudgmentError(
@@ -1115,7 +1168,19 @@ def generate_insights(news_list) -> dict:
     try:
         response = client.messages.create(
             model=settings.BEDROCK_MODEL_SMART,
-            max_tokens=8192,
+            # 🔴 2026-09-18 — 8192에서 올렸다. RunJob 268이 8,192 상한에 닿아
+            # 8,905자 지점에서 잘렸다(_guard_truncated() 독스트링).
+            # 실측 근거(성공한 insight RunJob의 output_tokens):
+            #   기사 10건 → 6,659 / 기사 23건 → 7,633 / 기사 24건 → 7,351
+            # 🔴 출력을 정하는 것은 기사 수가 아니라 이슈 수다 — 기사가 2.3배로
+            # 늘어도 출력은 15%만 늘었다. 그래서 배치가 커져도 선형으로 불지 않는다.
+            # 다만 관측 최대 7,633이 이미 상한의 93%였고, 어제 축약본 두 칸
+            # (content_keep·implication_keep)이 늘면서 그 여유가 사라졌다.
+            # 16,384는 관측 최대의 2.1배이고, 축약본 증가분을 30~50%로 잡아도
+            # 40% 이상 남는다.
+            # ⚠️ max_tokens는 상한이지 청구 기준이 아니다 — 올려도 비용은 늘지
+            # 않는다(위 실측에서 상한 8,192에 6,659만 쓴 실행이 그 증거다).
+            max_tokens=16384,
             system=_build_insight_system_prompt(),
             messages=[{"role": "user", "content": _build_insight_user_message(news_list)}],
             output_config={"format": {"type": "json_schema", "schema": OUTPUT_SCHEMA_INSIGHT}},
@@ -1311,6 +1376,7 @@ def _build_relation_user_message(news_list, org_index) -> str:
 def _parse_relation_response(response) -> dict:
     """구조화 출력을 파싱한다. _parse_insight_response()와 같은 방식(json.loads()만
     쓴다, 문자열 매칭 금지)."""
+    _guard_truncated(response, "관계 추출")
     text_block = next((b for b in response.content if b.type == "text"), None)
     if text_block is None:
         raise LLMJudgmentError(
@@ -1360,7 +1426,13 @@ def extract_relations(news_list, org_index) -> dict:
     try:
         response = client.messages.create(
             model=settings.BEDROCK_MODEL_SMART,
-            max_tokens=4096,
+            # 🔴 2026-09-18 — 4096에서 올렸다(사용자 지시, 3단계 세 호출을 같은
+            # 값으로 맞춘다). 이 호출은 실측상 4,096으로 통과한 적이 있다
+            # (RunJob 269에서 ①이슈 다음으로 성공했다) — 지금 부족해서가 아니라,
+            # 세 호출 중 하나만 상한이 다르면 나중에 이슈가 늘었을 때 여기서 먼저
+            # 잘리고 그 이유를 또 찾아야 하기 때문이다.
+            # ⚠️ 비용은 늘지 않는다. max_tokens는 상한이지 청구 기준이 아니다.
+            max_tokens=16384,
             system=_build_relation_system_prompt(),
             messages=[{"role": "user", "content": _build_relation_user_message(news_list, org_index)}],
             output_config={"format": {"type": "json_schema", "schema": OUTPUT_SCHEMA_RELATION}},
@@ -1445,8 +1517,21 @@ OUTPUT_SCHEMA_HEADLINER = {
     "properties": {
         "picks": {
             "type": "array",
-            "maxItems": 3,  # 🔴 상한 3 강제 자리 다섯 중 하나(2-4 ①). 나머지 넷은
-            # 확정 뷰·대시보드 슬라이스·이 문서(docs/planning.md)·docs/design.md.
+            # 🔴 2026-09-18 — "maxItems": 3 을 뺐다. 구조화 출력이 이 키를 받지
+            # 않는다. 실측(RunJob 269): 호출이 400으로 거부됐다 —
+            #   output_config.format.schema: For 'array' type,
+            #   property 'maxItems' is not supported
+            # ⚠️ 길이 문제가 아니라 **요청이 아예 반려된 것**이라 토큰도 안 썼다.
+            # 🔴 minItems는 지원된다 — 같은 실행에서 이슈(OUTPUT_SCHEMA_INSIGHT)와
+            # 관계(OUTPUT_SCHEMA_RELATION)가 minItems를 쓰고 그대로 통과했다.
+            # 상한만 안 되고 하한은 된다.
+            #
+            # 🔴 상한 3이 사라지는 것은 아니다. 종전 주석이 적어 둔 대로 강제 자리가
+            # 다섯이고 스키마는 그중 하나였다 — 나머지 넷(확정 뷰·대시보드 슬라이스·
+            # docs/planning.md·docs/design.md)은 그대로다. 게다가 이 호출의 프롬프트가
+            # 「최대 3건」을 두 번 말한다(_build_headliner_system_prompt 도입부와
+            # 임무 줄). 스키마가 막던 것은 "모델이 규칙을 어기고 4건을 냈을 때"뿐이고,
+            # 그 경우도 확정 뷰에서 걸러진다.
             "items": {
                 "type": "object",
                 "properties": {
@@ -1500,6 +1585,7 @@ def _build_headliner_user_message(candidates, prev_ranking) -> str:
 
 
 def _parse_headliner_response(response) -> dict:
+    _guard_truncated(response, "헤드라인 순위")
     text_block = next((b for b in response.content if b.type == "text"), None)
     if text_block is None:
         raise LLMJudgmentError(
@@ -1533,7 +1619,11 @@ def rank_headliners(candidates, prev_ranking) -> dict:
     try:
         response = client.messages.create(
             model=settings.BEDROCK_MODEL_SMART,
-            max_tokens=4096,
+            # 🔴 2026-09-18 — 4096에서 올렸다(위 관계 호출과 같은 이유).
+            # ⚠️ 이 호출은 아직 성공한 적이 없어 실측이 없다 — RunJob 268은 ①에서,
+            # 269는 여기 스키마 400으로 죽었다. 첫 성공의 output_tokens가 나오면
+            # 그 값으로 다시 본다.
+            max_tokens=16384,
             system=_build_headliner_system_prompt(),
             messages=[{"role": "user", "content": _build_headliner_user_message(candidates, prev_ranking)}],
             output_config={"format": {"type": "json_schema", "schema": OUTPUT_SCHEMA_HEADLINER}},
@@ -1580,8 +1670,13 @@ def rank_headliners(candidates, prev_ranking) -> dict:
 
 # 🔴 2026-09-17a — 출력 스키마에 content_keep(축약본 문장 번호 배열)을 추가해 올렸다
 # (docs/planning.md "RA 손 작업을 전부 단계 안으로 넣는다" 4번, 3번과 같은 방식).
-PROMPT_VERSION_WEEKLY = "weekly-2026-09-17a"
-PROMPT_VERSION_MONTHLY = "monthly-2026-09-17a"
+# 🔴 2026-09-18a — 네 곳이 바뀌었다(전부 2026-09-18 사용자 확정).
+#   ① 배치 순서 (i-0) 금융당국이 당사자인 이슈를 파급 범위 축의 최상위로
+#   ② 이슈 제목 「사실 요약에 머물지 않는다」(공유 상수라 insight 버전도 함께 올랐다)
+#   ③ overview 출력 지시에 실패 실례(9월 3주차 549자·문단당 3문장)를 반례로 박음
+#   ④ 4-1 「하한은 근거 기사가 정한다」 — 계약명·금액·수치를 빼지 않는다
+PROMPT_VERSION_WEEKLY = "weekly-2026-09-18a"
+PROMPT_VERSION_MONTHLY = "monthly-2026-09-18a"
 
 
 # docs/planning.md 「주간 보고서(Report) 표준 구조」 2~7번. 1번(제목 고정 서식)은
@@ -1685,6 +1780,26 @@ _CRITERIA_REPORT_AUDIENCE = """\
 
 이슈 블록에 글자 수 상한을 두지 않는다 — 상한은 잘라내려고 사실을 빼는 압력이 되기 때문이다. 대신 **한 이슈 블록이 1,000자를 넘으면 분량 위반이 아니라 이슈 구성 점검 신호**로 본다 — 그 블록이 실은 두 이슈인가, 축 없이 사례를 나열하고 있는가를 확인한다. 점검해서 문제가 없으면 1,000자를 넘긴 채로 둔다.
 
+**🔴 4-1. 하한은 근거 기사가 정한다 — 요약으로 줄이지 않는다** (2026-09-18 사용자 확정)
+
+상한이 없다는 말이 짧게 써도 된다는 뜻은 아니다. **근거로 받은 기사에 있는 계약명·금액·건수·기한·시각은 본문에 남긴다.** 그것이 그 이슈를 「무슨 일이 있었는지 아는 글」로 만드는 것이고, 지우면 남는 것은 어느 주에나 붙는 일반론이다.
+
+```
+△ 다올투자증권이 MCP 표준을 적용한 대화형 AI 거래 서비스를 선보였다. 고객이 생성형
+  AI와 대화하면서 별도 화면 전환 없이 주식 주문을 실행할 수 있는 방식이다.
+  → 사실은 맞다. 그런데 기사에 있던 수치가 본문에 하나도 안 남았다.
+
+✅ (같은 성격의 기존 보고서 문장) 웹케시는 IBK기업은행의 아이비케이시스템과 약
+  87억2000만원 규모의 'IBK 디지털뱅킹 리빌딩 1단계' 공급계약을 체결하고, LG CNS·
+  핑거와 공동으로 경쟁입찰에 참여해 … 회사는 2030년 관련 매출 500억원 목표를 제시했다.
+  → 계약명·금액·컨소시엄 구성·목표 연도가 전부 남아 있다.
+```
+
+> **판별법: 그 이슈 블록의 사실 문단에서 고유명사와 숫자를 지웠을 때, 남는 문장이 다른 주 보고서에도 그대로 쓸 수 있는가.** 쓸 수 있으면 아직 요약이다.
+
+- ⚠️ **근거에 없는 수치를 채우라는 말이 아니다.** 기사에 숫자가 없으면 없는 대로 쓴다. 이 조항이 요구하는 것은 **있는 것을 빼지 말라**는 것뿐이다.
+- ⚠️ 근거 기사가 여럿이면 **각 기사가 기여한 사실이 본문에 하나씩은 있어야 한다.** 한 기사만 풀어 쓰고 나머지를 `참고:` 줄에만 남기면, 그 기사는 근거가 아니라 장식이 된다.
+
 **6. 문장 — 한 문장에 한 요지. 예의는 어미가 아니라 문장 구조에서 나온다**
 
 적용 범위 — 보고서의 산문 전체(개요·흐름 분석·시사점). 제목 층에는 걸리지 않는다.
@@ -1769,6 +1884,9 @@ _CRITERIA_REPORT_JUDGMENT = """\
 **5. 이슈 블록 배치 순서 — 중요도가 큰 순으로 배치한다**
 
 > **(i) 파급 범위** — 그 건의 영향이 **한 회사 안에서 끝나는가, 여러 회사·업계 관행에 걸치는가.** 넓은 쪽이 앞이다.
+> **🔴 (i-0) 금융당국이 당사자인 이슈는 이 축의 최상위다.** 금융위원회·금융감독원이 **그 이슈의 당사자**인 건(규제 변경·제도 도입·감독 방침)은 다른 이슈보다 앞에 놓는다. 개별 금융사의 도입은 그 회사에서 끝나지만, **당국의 결정은 업권 전체의 실행 조건을 바꾼다** — 파급 범위의 성질 자체가 다르다.
+> - ⚠️ **등급을 올리는 규칙이 아니다.** 1급이 아닌 이슈를 이 조항 때문에 1급으로 만들지 않는다. 순서만 앞으로 온다.
+> - ⚠️ **당국이 배경으로만 언급된 이슈는 해당하지 않는다.** "금융위가 망분리를 완화하는 가운데 A사가 …"처럼 당국이 배경 설명으로 나오는 건은 A사의 이슈다. 판별선은 **그 이슈를 그 이슈이게 만든 당사자가 당국인가**다(이슈 제목 규칙 (c)와 같은 판별선).
 > **(ii) 실행 단계** — **계획·발표에 머무는가, 이미 가동·집행된 사실인가.** 가동·집행된 쪽이 앞이다.
 
 두 물음이 어긋나면 **(i) 파급 범위가 우선한다.** 동률이면 **등급**(1급 → 2급 → 3급)으로 가르고, 그래도 동률이면 **서사 흐름**으로 놓는다. **"실측 수치가 있는 이슈를 위로" 같은 규칙은 두지 않는다** — 수치는 판정 기준이 아니라 실행 단계의 부산물이다. **순서의 근거를 본문에 쓰지 않는다** — "가장 중요한 이슈는" 같은 표기를 붙이지 않고 위치로만 드러낸다.
@@ -1887,6 +2005,26 @@ def _build_report_system_prompt(period_label: str, criteria_text: str) -> str:
 
 아래 스키마로 응답하세요.
 - overview: 「주요 동향」. 위 "주요 동향 작성 규칙"을 그대로 따르세요.
+  🔴 그 규칙 중 **둘은 세어 보면 지켰는지 바로 알 수 있습니다. 쓰고 나서 직접 세어 보세요.**
+  ① **문단마다 문장이 정확히 하나인가** — 마침표를 세면 됩니다.
+  ② **세 문단을 합쳐 500자 미만인가.**
+
+  실제로 어긴 예입니다(2026-09-18, 9월 3주차 — 549자, 문단마다 세 문장).
+```
+❌ 금융권의 AI 적용이 내부 업무 효율화에서 고객 거래 실행 단계로 넓어지면서, 동시에
+   조직 구조와 인사 체계까지 재편되고 있다. 증권사는 생성형 AI를 투자 조언과 주문
+   실행에 연결하고, 보험사는 인수심사와 보험금 지급 판정을 자동화했으며, 은행과
+   카드사는 대화형 AI를 거래 창구의 기본 인터페이스로 삼고 있다. 이 변화 속에서
+   기술 도입의 성패를 재는 기준도 처리량에서 신뢰와 책임 소재로 옮겨가고 있다.
+   → 🔴 한 문단에 세 문장. 둘째 문장은 개별사 내역이라 이슈 블록의 몫이고,
+      셋째 문장은 별도 문단의 몫이다.
+
+✅ 금융권의 AI 적용이 내부 업무 효율화에서 고객 거래 실행 단계로 넓어지면서 조직
+   구조와 인사 체계까지 함께 재편되고 있다.
+   → 한 문장으로 그 기간의 축을 말한다. 개별사 내역은 아래 이슈 블록이 답한다.
+```
+  ⚠️ **줄이는 것은 문장 수이지 문장의 내용이 아닙니다**(위 규칙 (1)). 한 문장을 억지로
+  압축하지 말고, **개별사 내역처럼 이슈 블록이 답할 것을 개요에서 빼세요.**
 - content: 「주요 이슈」. 이슈 블록을 상한 5건, 하한 없이 담으세요. 각 블록은 `### 이슈 제목` + 흐름 분석 + 시사점 + `참고: <uid>, ...` 규약 줄로 구성합니다. 이슈 제목은 위 "이슈 제목 규칙"을 그대로 따르세요. 참고 줄의 uid는 반드시 <입력_이슈>에 주어진 그 이슈의 근거 기사 uid만 쓰세요.
 - content_keep: 방금 쓴 content 전체를 줄 단위로(제목 줄, 문장, `참고:` 줄) 순서대로 셀 때(1부터), 축약본(부연 설명을 뺀 핵심만 남긴 버전)에 남길 번호를 배열로 적으세요. 시사점 문단(각 이슈 블록의 마지막 문단)의 번호는 넣지 마세요 — 축약본에는 흐름 분석의 핵심 사실만 남깁니다. `### 이슈 제목` 줄과 `참고:` 줄은 번호를 안 넣어도 코드가 자동으로 포함하니 신경 쓰지 마세요.
 
@@ -1933,6 +2071,7 @@ def _build_report_user_message(insights) -> str:
 def _parse_report_response(response) -> dict:
     """구조화 출력을 파싱한다. classify_news용 _parse_response()와 같은 방식으로
     json.loads()만 쓴다(문자열 매칭 금지, SDK 권고)."""
+    _guard_truncated(response, "보고서")
     text_block = next((b for b in response.content if b.type == "text"), None)
     if text_block is None:
         raise LLMJudgmentError(
@@ -1958,7 +2097,14 @@ def _generate_report(insights, period_label: str, criteria_text: str) -> dict:
     try:
         response = client.messages.create(
             model=settings.BEDROCK_MODEL_SMART,
-            max_tokens=8192,
+            # 🔴 2026-09-18 — 8192에서 올렸다. 이 함수는 주간·월간 공용이라
+            # 한 곳이 둘을 덮는다.
+            # 🔴 여기만 근거가 「실측 없음」이다 — weekly/monthly RunJob 중
+            # output_tokens가 남은 것이 0건이다(한 번도 성공한 적이 없다).
+            # 보고서는 「주요 동향 세 문단 + 이슈별 본문」이라 이슈 초안보다 길
+            # 가능성이 높은데, 같은 8,192 상한을 쓰고 있었다. 이슈 쪽과 같은 값으로
+            # 맞춰 두고, 첫 성공 실행의 output_tokens가 나오면 그 실측으로 다시 본다.
+            max_tokens=16384,
             system=_build_report_system_prompt(period_label, criteria_text),
             messages=[{"role": "user", "content": _build_report_user_message(insights)}],
             output_config={"format": {"type": "json_schema", "schema": OUTPUT_SCHEMA_REPORT}},
@@ -2085,6 +2231,7 @@ def _build_newsroom_filter_user_message(articles) -> str:
 def _parse_newsroom_filter_response(response) -> dict:
     """구조화 출력을 파싱한다. _parse_insight_response()와 같은 방식(json.loads()만,
     문자열 매칭 금지)이다."""
+    _guard_truncated(response, "뉴스룸 필터")
     text_block = next((b for b in response.content if b.type == "text"), None)
     if text_block is None:
         raise LLMJudgmentError(
@@ -2213,6 +2360,7 @@ def _build_newsroom_compose_user_message(articles) -> str:
 def _parse_newsroom_compose_response(response) -> dict:
     """구조화 출력을 파싱한다. _parse_newsroom_filter_response()와 같은 방식이다
     (json.loads()만, 문자열 매칭 금지)."""
+    _guard_truncated(response, "뉴스룸 발송문")
     text_block = next((b for b in response.content if b.type == "text"), None)
     if text_block is None:
         raise LLMJudgmentError(

@@ -1126,8 +1126,24 @@
        recountDisposal() {
          const form = document.getElementById('review-form');
          if (!form) return;
-         this.delCount = form.querySelectorAll('input[name="delete_ids"]:checked').length;
-         this.hideCount = form.querySelectorAll('input[name="hide_ids"]:checked').length;
+         {% comment %}
+           🔴 2026-09-18 버그 수정 — 선택자에 큰따옴표를 쓰지 않는다.
+              이 블록 전체가 x-data="{ ... }" 라는 **큰따옴표로 묶인 HTML 속성**
+              안에 있다. 여기에 "delete_ids" 처럼 큰따옴표를 쓰면 HTML 파서가
+              그 자리에서 속성값을 끝내 버려서 x-data 가 닫히지 않은 조각이
+              되고, Alpine 이 객체를 파싱하지 못해 **이 컴포넌트가 통째로 죽는다.**
+              실제 증상은 확정 버튼 라벨이 빈칸이 되는 것이었다(x-text 가 평가할
+              labelText 자체가 없어진다). 같은 파일 957행이 이미 이 함정을
+              경고해 두었는데 그 아래에서 어겼다.
+           🔴 에러가 나지 않는다. manage.py check 도 코드 재독도 못 잡는다 —
+              브라우저가 조용히 삼키고 화면에서만 드러난다. 템플릿의 {# #}
+              함정과 같은 종류이므로 같은 강도로 다룬다.
+           ⚠️ CSS 속성 선택자는 값이 식별자 문법(영문·숫자·밑줄·하이픈)이면
+              따옴표가 필요 없다. delete_ids·hide_ids 가 그 조건을 만족한다.
+              name 에 그 밖의 글자가 생기면 따옴표 대신 &quot; 를 쓴다.
+         {% endcomment %}
+         this.delCount = form.querySelectorAll('input[name=delete_ids]:checked').length;
+         this.hideCount = form.querySelectorAll('input[name=hide_ids]:checked').length;
        }
      }">
 

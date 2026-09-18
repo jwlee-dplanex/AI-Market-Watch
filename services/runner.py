@@ -979,6 +979,155 @@ def _run_dedup(run_job_id: int) -> None:
     )
 
 
+# 🔴 보고서 이슈 개수 상한(2026-09-18 코드 강제). services/llm.py 보고서 프롬프트
+# 9번이 "상한 5건, 하한 없음"을 두 번 말하는데 실측(RunJob 271)에서 9건이 실렸다.
+# 말로만 시켜서는 안 지켜지므로 코드가 자른다 — 사용자 확정("상한은 코드").
+REPORT_ISSUE_CAP = 5
+
+
+def _enforce_report_rules(result: dict) -> dict:
+    """🔴 보고서 응답에서 **프롬프트가 시키는데 LLM이 지키지 않는 두 가지**를 코드로
+    강제한다(2026-09-18 신설, 사용자 확정).
+
+    ┌ ① 이슈 개수 상한 5건 ─────────────────────────────────────────────
+    │ 프롬프트 9번: "상한 5건. 하한은 없앤다." + "상한 5를 넘을 때 자르는 기준은
+    │ 5번(중요도 순 배치)의 순서에서 아래부터 자른다."
+    │ 🔴 실측(RunJob 271, 9월 3주차): **9건이 실렸다.** 두 번 말해도 안 지켜졌다.
+    │ 프롬프트가 이미 "아래부터 자른다"고 정해 뒀으므로, 코드도 **뒤에서부터** 버린다
+    │ — LLM이 매긴 순서(파급 범위 → 실행 단계 → 등급)를 그대로 존중하는 것이다.
+    └────────────────────────────────────────────────────────────────
+
+    ┌ ② 짧은 버전에서 시사점 문단 빼기 ──────────────────────────────────
+    │ 프롬프트 content_keep 설명: "시사점 문단(각 이슈 블록의 마지막 문단)의 번호는
+    │ 넣지 마세요 — 축약본에는 흐름 분석의 핵심 사실만 남깁니다."
+    │ 🔴 실측(9월 3주차): 짧은 버전에 시사점 문단이 그대로 들어갔다(사용자 지적).
+    │ ⚠️ **본문(긴 버전)에서는 지우지 않는다.** 시사점은 보고서의 핵심이고, 빼는 것은
+    │ 축약본뿐이다. 그래서 content는 손대지 않고 content_keep에서만 그 번호를 뺀다.
+    └────────────────────────────────────────────────────────────────
+
+    🔴 이 함수가 성립하는 근거는 services/llm.py split_into_sentences()의 불변식
+    하나다 — `"".join(split_into_sentences(text)) == text`. 문장 조각을 골라 이어
+    붙이면 원문이 글자 그대로 재조립되므로, 이슈를 버리고 남은 것으로 content를
+    다시 만들어도 없던 글자가 섞일 길이 없다(build_short_field()가 기대는 같은 불변식).
+
+    🔴 이슈를 버리면 문장 번호가 전부 밀리므로 content_keep을 **새 번호로 재매핑**한다.
+    이걸 빼먹으면 축약본이 엉뚱한 문장을 고른다 — 오류가 나지 않고 조용히 틀린다.
+    """
+    from services.llm import split_into_sentences
+
+    content = result.get("content") or ""
+    if not content:
+        return result
+
+    sentences = split_into_sentences(content)
+
+    # 문장마다 "몇 번째 이슈 블록에 속하는가". `### `로 시작하는 줄이 블록의 머리다
+    # (split_into_sentences가 마크다운 제목 줄을 자르지 않고 한 조각으로 묶어 준다).
+    owner = []
+    issue_no = 0
+    for chunk in sentences:
+        if chunk.lstrip().startswith("### "):
+            issue_no += 1
+        owner.append(issue_no)
+    total_issues = issue_no
+
+    keep_mask = [n <= REPORT_ISSUE_CAP for n in owner]
+
+    # 시사점 문단 찾기 — 「참고:」 줄에서 거꾸로 올라가, 빈 줄을 건너뛴 뒤 만나는
+    # 문단 하나가 그 이슈의 시사점이다(프롬프트가 "각 이슈 블록의 마지막 문단"으로
+    # 정의한 그 자리). 🔴 문단이 여러 문장일 수 있으므로 빈 줄까지 거슬러 모은다.
+    implication_positions = set()
+    for i, chunk in enumerate(sentences):
+        if not chunk.lstrip().startswith("참고:"):
+            continue
+        j = i - 1
+        while j >= 0 and not sentences[j].strip():
+            j -= 1
+        while j >= 0 and sentences[j].strip():
+            implication_positions.add(j)
+            j -= 1
+
+    # 살아남은 문장으로 content를 다시 만들고, 옛 번호 → 새 번호 지도를 만든다
+    new_content = "".join(chunk for chunk, keep in zip(sentences, keep_mask) if keep)
+    remap = {}
+    seq = 0
+    for i, keep in enumerate(keep_mask):
+        if keep:
+            seq += 1
+            remap[i] = seq
+
+    old_keep = {
+        i for i in (result.get("content_keep") or [])
+        if isinstance(i, int) and not isinstance(i, bool) and 1 <= i <= len(sentences)
+    }
+    new_keep = sorted(
+        remap[i - 1] for i in old_keep
+        if keep_mask[i - 1] and (i - 1) not in implication_positions
+    )
+
+    dropped_issues = max(0, total_issues - REPORT_ISSUE_CAP)
+    dropped_keep = len(old_keep) - len(new_keep)
+    if dropped_issues or dropped_keep:
+        logger.info(
+            "보고서 규칙 강제: 이슈 %d건 중 %d건을 뒤에서 버렸고, 축약본 문장 %d개를 "
+            "뺐어요(시사점 문단 또는 버린 이슈의 문장).",
+            total_issues, dropped_issues, dropped_keep,
+        )
+
+    result = dict(result)
+    result["content"] = new_content
+    result["content_keep"] = new_keep
+    return result
+
+
+def _discard_failed_run_drafts(job_key: str, current_run_job_id: int) -> int:
+    """🔴 같은 단계의 **실패·중단** 배치가 남긴 대기 초안을 취소로 닫는다
+    (2026-09-18 신설). 3~5단계 실행 들머리에서 부른다.
+
+    🔴 계기(RunJob 269, 2026-09-18) — 3단계가 ①이슈 묶기·②관계 추출을 마치고
+    ③헤드라인에서 400으로 죽었다. 그런데 ①이 만든 RunDraft 8건은 그대로 남았고,
+    _pending_review_run_jobs()는 RUNNING만 걸러내고 FAILED는 그대로 끌어온다
+    (apps/setting/views.py 571행). 그 상태로 다시 실행하면 새 배치가 같은 이슈로
+    8건을 또 만들어 **검토 화면에 같은 것이 두 벌씩 뜬다.**
+
+    🔴 왜 지워도 되는가 — 3~5단계는 이어하기가 없는 단계다
+    (apps/setting/views.py RESUME_FROM_SCRATCH_JOB_KEYS). 다시 누르면 언제나
+    대상 전체를 처음부터 다시 읽으므로, 실패한 배치가 남긴 초안은 이어서 쓸 데가
+    없고 화면을 두 겹으로 만들 뿐이다. 게다가 269처럼 중간에 죽은 배치의 초안은
+    관계·헤드라인이 안 붙은 **불완전한 산출물**이다.
+
+    🔴 건드리는 범위를 FAILED·STOPPED로 좁힌다. **성공했는데 아직 확정만 안 한
+    배치는 지우지 않는다** — 그건 사람이 지금 검토하고 있을 수 있고, 버릴지는
+    검토 화면의 「모두 취소」로 사람이 정한다.
+
+    ⚠️ 상태는 「거절」이 아니라 「취소」다. 사람이 틀렸다고 판단한 게 아니라 전제가
+    사라진 것이라, 거절 분포(프롬프트 정확도 지표, docs/planning.md "검토 결과를
+    고도화 재료로 쓴다")를 오염시키면 안 된다. 확정 뷰가 "삭제로 대상이 사라진
+    태그 교정"에 쓰는 구분과 같다.
+    """
+    from apps.setting.models import RunDraft, RunJob, RunProposal
+
+    stale_pks = list(
+        RunDraft.objects
+        .filter(
+            run_job__job_key=job_key,
+            run_job__status__in=(RunJob.STATUS_FAILED, RunJob.STATUS_STOPPED),
+            status=RunProposal.STATUS_PENDING,
+        )
+        .exclude(run_job_id=current_run_job_id)
+        .values_list("pk", flat=True)
+    )
+    # 🔴 한 번에 쓸어 담는 .update()를 쓰지 않는다 — pk로 특정한 단건 갱신을 돈다.
+    for pk in stale_pks:
+        RunDraft.objects.filter(pk=pk).update(status=RunProposal.STATUS_CANCELED)
+    if stale_pks:
+        logger.info(
+            "%s 단계: 실패·중단 배치가 남긴 대기 초안 %d건을 취소로 닫았어요(%s).",
+            job_key, len(stale_pks), stale_pks,
+        )
+    return len(stale_pks)
+
+
 def _run_insight(run_job_id: int) -> None:
     """SET-010 조사 축 3단계(주요 이슈) — docs/planning.md "3~5단계를 LLM으로 옮기는
     설계"가 정본. 2단계와 정반대로 배치 전체를 한 번에 호출한다(같은 문서 7-(a)).
@@ -1025,6 +1174,9 @@ def _run_insight(run_job_id: int) -> None:
     run_job.target_count = len(targets)
     run_job.prompt_version = PROMPT_VERSION_INSIGHT
     run_job.save(update_fields=["target_count", "prompt_version"])
+    # 🔴 2026-09-18 — 실패·중단한 지난 배치가 남긴 대기 초안을 먼저 치운다.
+    # 안 치우면 검토 화면에 같은 이슈가 두 벌씩 뜬다(헬퍼 독스트링, RunJob 269).
+    _discard_failed_run_drafts("insight", run_job_id)
     # 🔴 이 배치가 "고려한 후보 전체"를 얼려 둔다 — RunDraft.news는 실제로 이슈로
     # 묶인 것만 담아 "고려했지만 어디에도 안 묶인 것"을 알 방법이 없다. 확정
     # 시점(apps/setting/views.py _confirm_insight_drafts())에 이 집합에서 채택된
@@ -1482,6 +1634,9 @@ def _run_report(run_job_id: int, period_type: str) -> None:
     RunJob.objects.filter(pk=run_job_id).update(
         target_count=len(targets), prompt_version=prompt_version,
     )
+    # 🔴 2026-09-18 — 3단계와 같은 이유로 실패·중단 배치의 대기 초안을 먼저 치운다.
+    # period_type("weekly"/"monthly")이 곧 job_key다.
+    _discard_failed_run_drafts(period_type, run_job_id)
     if not targets:
         # 대상 0건 — 화면 잠금(views.py _weekly_job_context()/_monthly_job_context())이
         # 이 상태를 막는 정상 경로이지만, 관리 명령 등으로 직접 불렸을 때를 대비해
@@ -1489,6 +1644,11 @@ def _run_report(run_job_id: int, period_type: str) -> None:
         return
 
     result = generate(targets)
+    # 🔴 2026-09-18 — 프롬프트가 시키는데 LLM이 지키지 않는 둘을 코드로 강제한다
+    # (이슈 상한 5건, 축약본에서 시사점 문단 제외). 헬퍼 독스트링에 실측 근거가 있다.
+    # ⚠️ report_issues()로 근거 뉴스를 모으기 **전에** 부른다 — 버린 이슈의 기사가
+    # draft.news에 딸려 들어가면 보고서에 없는 기사가 근거 목록에 남는다.
+    result = _enforce_report_rules(result)
 
     from apps.reports.templatetags.report_extras import report_issues
 
