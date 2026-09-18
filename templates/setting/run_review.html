@@ -2746,6 +2746,46 @@
               <p class="text-[11px] text-gray-400 mt-1.5">제목과 기간은 정해진 서식으로 만들어져요. 여기서는 고치지 않아요.</p>
 
               {% comment %}
+                🔴 2026-09-18 신설 — 근거 대조(services/fact_check.py가 만든 값).
+                사용자 지시: *"무조건 팩트 기반이어야한다는게 가장 중요해 주간
+                보고서는 항상 다 작성하면 팩트 기반인 지 더블체크해야하고"*.
+
+                계기 — 9월 3주차 개요에 「신용심사와 보험 인수심사 자동화율이 90%대에
+                도달했으며」가 실렸고, 근거 기사 8건에 「신용심사」가 없었다. 🔴 그것을
+                찾아낸 것은 화면이 아니라 사람이 손으로 한 대조였다.
+
+                ▣ 무엇을 보여 주는가 — 보고서에 적힌 **비율·큰 수·금액·시간과 영문
+                  제품명**을 근거 기사 원문에서 찾아, 못 찾은 것만 줄로 세운다.
+                  ⚠️ 한글 낱말은 대조하지 않는다(모듈 독스트링: 오탐 131개로 실패했다).
+                  **그래서 이 상자가 비어 있다고 팩트라는 뜻이 아니다** — 아래 「근거
+                  기사」 접기가 사람이 보는 자리이고, 그것이 여전히 본 검사다.
+
+                ▣ 🔴 확정을 막지 않는다(사용자 확정: "화면에 표시만"). 표현만 다를 때
+                  (「7만 장」과 「7만장」)도 걸리므로 기계가 최종 판단을 하면 안 된다.
+
+                ▣ 못 찾은 것이 없으면 확인 한 줄로 바꾼다 — 상자를 아예 없애면 검사가
+                  돌았는지 알 수 없고, 매번 주황 상자를 띄우면 신호가 죽는다.
+              {% endcomment %}
+              <div class="mt-3">
+                {% if item.fact_check.missing_count %}
+                <div class="bg-orange-50 rounded-[10px] px-3 py-2.5">
+                  <p class="text-[11px] font-semibold text-orange-700">근거 기사에서 못 찾은 값 {{ item.fact_check.missing_count }}개</p>
+                  <dl class="mt-1">
+                    {% for row in item.fact_check.rows %}
+                    <div class="flex gap-2 text-[11px] mt-1">
+                      <dt class="w-20 flex-shrink-0 font-semibold text-orange-700">{{ row.token }}</dt>
+                      <dd class="min-w-0 truncate text-orange-600" title="{{ row.where }}">{{ row.where }}</dd>
+                    </div>
+                    {% endfor %}
+                  </dl>
+                  <p class="text-[10px] text-orange-600 mt-2 leading-relaxed">기사에 없는 값일 수 있어요. 표현만 다른 경우도 있으니 아래 근거 기사에서 확인해 주세요.</p>
+                </div>
+                {% elif item.fact_check.checked %}
+                <p class="text-[11px] text-gray-400">수치와 제품명 {{ item.fact_check.checked }}개를 근거 기사에서 모두 찾았어요.</p>
+                {% endif %}
+              </div>
+
+              {% comment %}
                 주요 동향. 🔴 접지 않는다. 낱말은 REPORT-002를, 보라 콜아웃은 NEWS-002의
                 "이슈 시사점" 블록을 그대로 따른다. 새 시각 장치를 만들지 않았다.
               {% endcomment %}
@@ -2753,7 +2793,12 @@
                 <div class="flex items-center justify-between gap-2 mb-1.5">
                   <p class="text-[10px] font-semibold text-gray-400 tracking-wide">주요 동향</p>
                   {% if item.overview %}
-                  <span class="text-[10px] whitespace-nowrap {% if item.overview|length >= 500 %}text-orange-600{% else %}text-gray-400{% endif %}">{{ item.overview|length }}자</span>
+                  {% comment %}
+                    🔴 2026-09-18 — 상한이 500에서 750으로 바뀌었다(사용자 확정, 9월
+                    1주차 542자와 2주차 736자를 실측해 정한 값). services/llm.py의
+                    「주요 동향」 작성 규칙 표와 같은 수여야 한다.
+                  {% endcomment %}
+                  <span class="text-[10px] whitespace-nowrap {% if item.overview|length >= 750 %}text-orange-600{% else %}text-gray-400{% endif %}">{{ item.overview|length }}자</span>
                   {% endif %}
                 </div>
                 {% if item.overview %}

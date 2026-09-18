@@ -18,6 +18,7 @@ from apps.news.models import DeletedNewsRecord, Insight, News, TagCorrectionReco
 from apps.news.services import correct_news_tag, delete_news_with_record
 from apps.reports.models import Report
 from services.cleanup_prefilter import AI_KEYWORDS, should_prefilter_delete
+from services.fact_check import check_report
 from services.llm import build_short_field, split_into_sentences
 from services.pricing import PRICE_PER_MILLION_TOKENS_USD, USD_KRW, compute_cost_krw
 from .models import (
@@ -2208,7 +2209,13 @@ def _report_items_context(run_jobs, job_key):
         content_sentences, content_short_length = _sentences_context(
             draft.content, draft.content_keep, always_keep_prefix="참고:",
         )
+        # 🔴 2026-09-18 신설 — 근거 대조(services/fact_check.py). 사용자 지시:
+        # *"주간 보고서는 항상 다 작성하면 팩트 기반인 지 더블체크해야하고"*.
+        # ⚠️ RunDraft에 저장하지 않고 화면을 그릴 때마다 센다 — 값이 초안에서 바로
+        # 나오므로 저장하면 초안과 어긋날 자리가 생기고, 마이그레이션도 필요해진다.
+        # 비용은 정규식 대조뿐이고 기사 본문은 위 prefetch로 이미 와 있다.
         items.append({
+            "fact_check": check_report(draft.content, draft.overview, news_list),
             "id": draft.pk,
             "title": draft.title,
             "overview": draft.overview,
