@@ -3501,6 +3501,19 @@ def setting_run_review_cancel(request, job):
     return response
 
 
+def _tag_candidate_aliases(request, proposal) -> list:
+    """🔴 그 후보 줄의 별칭만 읽는다(2026-09-18 버그 수정).
+
+    ⚠️ 입력 이름이 `cand_aliases_<pk>`인 이유는 **HTMX가 hx-post 버튼에서 closest
+    form의 값을 전부 보내기 때문**이다 — run_review.html의 같은 자리 주석이 정본이다.
+    종전에는 이름이 줄마다 `cand_aliases`로 같아서 request.POST.get()이 마지막 줄의
+    값을 읽었고, 🔴 **남의 줄에 적은 별칭이 이 회사에 조용히 저장됐다.** 유형 쪽은
+    「유형을 선택해 주세요」로 막혀 사용자 눈에 보였지만 이쪽은 보이지 않는다.
+    """
+    raw = request.POST.get(f"cand_aliases_{proposal.pk}", "")
+    return [a.strip() for a in raw.split(",") if a.strip()]
+
+
 def _render_tag_candidate_controls(proposal, message: str, retry: bool = False) -> str:
     """23차 개정(design.md 「SET-010 · 실행」 23차 ③) — 검토 화면의 미등록 태그
     등록 컨트롤 조각을 문자열로 만든다. 🔴 templates/ 아래 새 파일을 만들지 않는다
@@ -3529,18 +3542,20 @@ def _render_tag_candidate_controls(proposal, message: str, retry: bool = False) 
         options = format_html_join(
             "", "<option value=\"{}\">{}</option>", Organization.ORG_TYPE_CHOICES,
         )
+        # 🔴 2026-09-18 — 입력 이름에 pk를 붙인다. 원본 마크업(run_review.html의
+        # 같은 자리 주석)과 **반드시 같은 규칙**이어야 재시도가 된다.
         select_html = format_html(
-            '<select name="cand_org_type" class="w-28 text-xs border border-[#E5E5E5] '
+            '<select name="cand_org_type_{}" class="w-28 text-xs border border-[#E5E5E5] '
             'rounded-[10px] px-2 py-1.5 focus:outline-none focus:border-primary">'
             '<option value="">유형 선택</option>{}</select>',
-            options,
+            proposal.pk, options,
         )
     return format_html(
         '<div id="{root_id}" class="flex-shrink-0 flex flex-col items-end gap-1">'
         '<p class="text-[11px] text-orange-600">{message}</p>'
         '<div class="flex items-center gap-2">'
         "{select}"
-        '<input type="text" name="cand_aliases" placeholder="별칭 (쉼표로 구분)" '
+        '<input type="text" name="cand_aliases_{pk}" placeholder="별칭 (쉼표로 구분)" '
         'class="w-32 text-xs border border-[#E5E5E5] rounded-[10px] px-2 py-1.5 '
         'focus:outline-none focus:border-primary">'
         '<button type="button" hx-post="{register_url}" hx-target="#{root_id}" '
@@ -3551,6 +3566,7 @@ def _render_tag_candidate_controls(proposal, message: str, retry: bool = False) 
         'rounded-[10px] hover:bg-primary-hover transition-colors">등록</button>'
         "</div></div>",
         root_id=root_id, message=message, select=select_html, register_url=register_url,
+        pk=proposal.pk,
     )
 
 
@@ -3589,17 +3605,17 @@ def setting_run_tag_candidate_register(request, pk):
         if resolve_entity_by_name(name, list(Organization.objects.all())):
             html = _render_tag_candidate_controls(proposal, "이미 등록돼 있어요")
             return HttpResponse(html)
-        org_type = request.POST.get("cand_org_type", "").strip()
+        org_type = request.POST.get(f"cand_org_type_{proposal.pk}", "").strip()
         if org_type not in dict(Organization.ORG_TYPE_CHOICES):
             html = _render_tag_candidate_controls(proposal, "유형을 선택해 주세요", retry=True)
             return HttpResponse(html)
-        aliases = [a.strip() for a in request.POST.get("cand_aliases", "").split(",") if a.strip()]
+        aliases = _tag_candidate_aliases(request, proposal)
         Organization.objects.create(name=name, org_type=org_type, aliases=aliases)
     elif proposal.axis == TagCorrectionRecord.AXIS_TECH_TOPIC:
         if resolve_entity_by_name(name, list(TechTopic.objects.all())):
             html = _render_tag_candidate_controls(proposal, "이미 등록돼 있어요")
             return HttpResponse(html)
-        aliases = [a.strip() for a in request.POST.get("cand_aliases", "").split(",") if a.strip()]
+        aliases = _tag_candidate_aliases(request, proposal)
         TechTopic.objects.create(name=name, aliases=aliases)
     else:
         # axis가 빈 문자열 등 알 수 없는 값 — 어느 표에 등록해야 할지 모르는 채로

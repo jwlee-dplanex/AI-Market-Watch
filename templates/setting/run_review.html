@@ -397,8 +397,12 @@
                      🔴 register_url  2026-09-16 23차 신설. 이 후보 하나를 등록하는
                                  POST URL 문자열. 비면 그 줄의 등록 자리만 사라지고
                                  화면은 23차 이전과 같아진다.
-                                 🔴 받는 값 — cand_org_type(기업 축만, 필수) /
-                                    cand_aliases(선택, 쉼표 구분).
+                                 🔴 받는 값 — cand_org_type_<proposal_id>(기업 축만, 필수) /
+                                    cand_aliases_<proposal_id>(선택, 쉼표 구분).
+                                    ⚠️ **이름 끝에 proposal_id가 붙는다**(2026-09-18
+                                    버그 수정). HTMX가 closest form 값을 전부 보내므로
+                                    이름이 줄마다 같으면 남의 줄 값을 읽는다 — 아래
+                                    select·input 자리의 주석이 실제 증상까지 적어 뒀다.
                                     **이름은 받지 않는다.** 뷰가 proposal에서 꺼낸다.
                                  🔴 **remap을 부르지 않는다.** 새 기업을 등록해도 이미
                                     수집한 기사에 소급 태깅하지 않는다 —
@@ -3071,7 +3075,19 @@
           {% if cand.register_url and cand.axis_label %}
           <div id="tagcand-{{ cand.proposal_id }}" class="flex-shrink-0 flex items-center gap-2">
             {% if cand.axis == 'organization' %}
-            <select name="cand_org_type"
+            {% comment %}
+              🔴 2026-09-18 버그 수정 — 입력 이름에 proposal_id를 붙인다.
+              종전에는 줄마다 `name="cand_org_type"`이 같았다. ⚠️ **HTMX는 hx-post를
+              단 버튼에서 closest form의 값을 전부 보낸다** — 이 묶음은 1722행에서
+              열리는 #review-form 안에 있고, hx-include는 그 위에 더하는 것일 뿐
+              범위를 좁히지 못한다. 그래서 후보가 N줄이면 POST에 같은 이름이 N개
+              실리고 request.POST.get()은 **마지막** 값을 읽었다.
+              🔴 실제 증상 — 롯데이노베이트 줄에서 유형을 골라 등록을 눌렀는데
+              「유형을 선택해 주세요」가 떴다(마지막 줄의 빈 select를 읽은 것이다).
+              ⚠️ cand_aliases는 거부가 아니라 **남의 줄 별칭이 조용히 저장**되므로
+              더 위험하다. 둘 다 이름을 유일하게 만든다.
+            {% endcomment %}
+            <select name="cand_org_type_{{ cand.proposal_id }}"
                     class="w-28 text-xs border border-[#E5E5E5] rounded-[10px] px-2 py-1.5 focus:outline-none focus:border-primary">
               <option value="">유형 선택</option>
               {% for value, label in review.org_types %}
@@ -3079,7 +3095,7 @@
               {% endfor %}
             </select>
             {% endif %}
-            <input type="text" name="cand_aliases"
+            <input type="text" name="cand_aliases_{{ cand.proposal_id }}"
                    placeholder="별칭 (쉼표로 구분)"
                    class="w-32 text-xs border border-[#E5E5E5] rounded-[10px] px-2 py-1.5 focus:outline-none focus:border-primary">
             <button type="button"
