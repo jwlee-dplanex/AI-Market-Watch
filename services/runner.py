@@ -988,9 +988,14 @@ REPORT_ISSUE_CAP = 5
 #: 이슈가 이보다 적으면 「주간 보고서」라고 부를 수 없다.
 REPORT_ISSUE_MIN = 2
 
+#: 개요(「주요 동향」)의 문단 수. services/llm.py의 작성 규칙 표와 같은 값이어야 한다
+#: — 그 표가 「세 문단」을 요구하고 _split_overview_paragraphs()가 그 수를 센다.
+OVERVIEW_PARAGRAPHS = 3
+
 
 def _split_overview_paragraphs(overview: str) -> str:
-    """🔴 개요를 문장마다 한 문단으로 나눈다(2026-09-18 신설, 사용자 확정).
+    """🔴 개요가 문장 셋을 한 문단에 붙여 왔을 때만 세 문단으로 나눈다
+    (2026-09-18 신설, 같은 날 범위 축소).
 
     왜 코드가 하는가 — 프롬프트로 세 번 시켰고 세 번 어긋났다.
       - RunJob 271: 세 문장을 한 문단에 붙였다(549자).
@@ -1000,6 +1005,13 @@ def _split_overview_paragraphs(overview: str) -> str:
         규칙이 출력 예산과 주의를 독차지한 것이다.
     그래서 프롬프트에서 문단 요구를 걷어내고 그 일을 여기로 옮겼다 — 이슈 상한 5건을
     코드로 옮긴 것과 같은 판단이다(_enforce_report_rules() ①).
+
+    🔴 **문장이 정확히 셋일 때만 나눈다**(같은 날 사용자 확정으로 좁혔다). 규칙이
+    「문단당 한 문장」에서 **「문단마다 한 문장에서 세 문장까지」**로 바뀌었기 때문이다.
+    ⚠️ 종전처럼 문장마다 나누면 문장 여섯 개인 개요가 **여섯 문단**이 된다 — 어느
+    문장들이 한 문단인지는 뜻이 정하는 것이라 코드가 알 수 없다. 그래서 문장 수가
+    셋과 다르면 손대지 않고 모델이 넣은 빈 줄을 그대로 둔다. **틀리게 나누는 것보다
+    나누지 않는 것이 낫다** — 나누지 못한 개요는 검토 화면에서 사람이 본다.
 
     ⚠️ 글자는 바꾸지 않는다. 문장 사이 구분자만 빈 줄로 바꿔 넣는다. 이미 빈 줄이
     있으면(모델이 스스로 나눴으면) 손대지 않는다.
@@ -1011,7 +1023,12 @@ def _split_overview_paragraphs(overview: str) -> str:
 
     parts = [chunk.strip() for chunk in split_into_sentences(overview)]
     parts = [p for p in parts if p]
-    if len(parts) < 2:
+    if len(parts) != OVERVIEW_PARAGRAPHS:
+        if len(parts) > OVERVIEW_PARAGRAPHS:
+            logger.info(
+                "개요가 한 문단에 문장 %d개로 왔어요(셋이 아니라 코드가 나누지 "
+                "않았어요). 검토 화면에서 문단 나눔을 봐 주세요.", len(parts),
+            )
         return overview
     return "\n\n".join(parts)
 
