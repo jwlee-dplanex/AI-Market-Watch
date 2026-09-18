@@ -1,4 +1,5 @@
 import logging
+import re
 from collections import Counter, defaultdict
 from datetime import timedelta
 
@@ -288,6 +289,34 @@ ZERO_TARGET_SUMMARY_BY_JOB = {
 # 말하는 거짓 표시가 된다. 문자열이 길어도(예: "global.anthropic.claude-haiku-...")
 # 템플릿이 자르지 않기로 이미 정해져 있다(run_review.html 상단 계약).
 REVIEW_MODEL_KEY_BY_JOB = {"insight": "BEDROCK_MODEL_SMART", "weekly": "BEDROCK_MODEL_SMART", "monthly": "BEDROCK_MODEL_SMART"}
+
+# 🔴 리전 접두와 버전 접미를 떼는 정규식(2026-09-18 신설). 검토 화면의 「사용 모델」
+# 칸에만 쓴다 — API 호출에 쓰이는 설정 값 자체는 손대지 않는다.
+_MODEL_VERSION_SUFFIX_RE = re.compile(r"-v\d+(?::\d+)?$")
+
+
+def _short_model_name(value: str) -> str:
+    """모델 식별자에서 화면에 보일 부분만 남긴다.
+
+    🔴 두 가지만 뗀다.
+      - 점으로 구분된 접두(`global.anthropic.`) — 리전·벤더 표기라 단계마다 같다
+      - 버전 접미(`-v1:0`) — Bedrock 의 모델 버전 표기
+
+    실측(2026-09-18):
+      `global.anthropic.claude-haiku-4-5-20251001-v1:0` → `claude-haiku-4-5-20251001`
+      `claude-haiku-4-5-20251001`                      → 그대로(변화 없음)
+
+    🔴 다른 이름으로 바꾸지 않는다. 같은 파일 위쪽 주석이 *"친숙한 이름
+    ANTHROPIC_MODEL_SMART를 대신 보여주면 지금 무엇이 돌고 있는지 알 수 없다"*고
+    적어 둔 판단을 지킨다 — **짧게 다듬는 것과 다른 이름으로 바꾸는 것은 다르다.**
+    모델이 바뀌면 이 함수의 결과도 함께 바뀐다.
+
+    ⚠️ 전체 값은 호출부가 `model_full`로 따로 내려 title 속성에 넣는다. 짧은 이름만
+    남기고 원본을 버리면 「어느 버전이 돌았나」를 화면에서 확인할 길이 사라진다.
+    """
+    if not value:
+        return ""
+    return _MODEL_VERSION_SUFFIX_RE.sub("", value.rsplit(".", 1)[-1])
 
 
 # SET-010 노드 배지 어휘(docs/planning.md "SET-010 노드 배지" 절, 2026-09-15 확정) —
@@ -1299,10 +1328,6 @@ def _weekly_job_context():
     date_from, date_to = target_week(today)
 
     can_run, block_reason = True, ""
-    # 🔴 세 갈래 중 「그 주 Report가 이미 있고 다듬는 중」에서만 채워진다. 빈 dict로
-    # 먼저 두는 것이 계약이다 — 아래 job.update(**job_redo)가 모든 갈래를 지나므로
-    # 초기화를 빼면 나머지 두 갈래에서 NameError가 난다.
-    job_redo = {}
     if not insights_in_period(date_from, date_to).exists():
         can_run, block_reason = False, "이번 주에 만들어진 이슈가 없어요"
         summary_override = "3단계 이슈를 확정하면 열려요"
@@ -1318,31 +1343,10 @@ def _weekly_job_context():
                 f"{next_to.month}월 {next_week_no}주차 보고서는 {next_to.month}/{next_to.day}부터 "
                 "작성할 수 있어요"
             )
-            # 🔴 2026-09-18 신설 — 「지우고 다시 만들기」 경로(사용자 확정).
-            #
-            # 계기 — 4단계가 만든 9월 3주차 보고서에 기간 밖 기사가 들어가고 이슈가
-            # 상한을 넘겨, 다시 만들어야 했다. 그런데 이 갈래(그 주 Report가 이미
-            # 있음)가 버튼을 잠그기만 하고 **푸는 방법을 말하지 않았다.** 지우는
-            # 경로도 화면에 없어서(admin에도 Report 미등록) 실행과 검토로 끝나야 할
-            # 일이 보고서 하나에 막혀 멈췄다.
-            #
-            # 🔴 자리를 여기로 고른 이유 — 처음에는 보고서 상세(REPORT-002)에 버튼을
-            # 달았는데 사용자가 정정했다: *"보고서 지우기는 설정에 있어야 하는거
-            # 아니야? 로그인이 필요하니까"*. /reports/는 공개 화면이고 /setting/만
-            # 로그인으로 잠긴다 — 삭제는 운영 동작이므로 설정 쪽에 있어야 그 구분이
-            # 흐려지지 않는다. 그리고 **잠긴 이유와 푸는 방법이 한 자리에** 모인다.
-            #
-            # 🔴 「다듬는 중」(generating)일 때만 내린다. 완료(done)로 바꾼 보고서는
-            # 이미 공유됐거나 Slack으로 나갔을 수 있어 지우면 받은 사람의 링크가
-            # 깨진다(apps/reports/views.py report_delete가 같은 조건을 다시 검사한다 —
-            # 화면에서 감추는 것만으로는 주소를 아는 호출을 막지 못한다).
-            if existing.status == "generating":
-                job_redo = {
-                    "redo_url": reverse("report_delete", args=[existing.uid]),
-                    "redo_label": f"{date_to.month}월 {week_no}주차 지우고 다시 만들기",
-                }
-            else:
-                job_redo = {}
+            # 🔴 2026-09-18 — 여기서 redo_url(「지우고 다시 만들기」)을 내려보냈다가
+            # 같은 날 걷어냈다. 진욱님 확정 *"검토하기에서 검토 완료되면 그냥 끝인거야"* —
+            # 확정이 최종이므로 확정 뒤에 지우는 입구를 화면에 두지 않는다.
+            # 상세는 templates/setting/_run_node.html의 같은 날짜 주석에 있다.
         else:
             week_no = _week_number_in_month(date_to)
             summary_override = f"{date_to.month}월 {week_no}주차 보고서를 지금 작성할 수 있어요"
@@ -1360,9 +1364,6 @@ def _weekly_job_context():
         "confirm_text": "",
         "run_url": reverse("setting_run_start", args=["weekly"]),
         "review_url": reverse("setting_run_review", args=["weekly"]),
-        # 🔴 2026-09-18 — 「지우고 다시 만들기」. 조건에 안 맞으면 빈 dict라 키가
-        # 아예 생기지 않고, 템플릿의 {% if job.redo_url %}가 그 자리를 접는다.
-        **job_redo,
     })
     return job
 
@@ -2397,7 +2398,21 @@ def _run_review_context(job_key):
         # "갈리면 모델 2가지" 판정은 이번 라운드에서 구현하지 않는다. 지금
         # 설정값을 그대로 보여준다(설정이 배치 사이에 바뀌지 않은 한 정확하다).
         model_setting_key = REVIEW_MODEL_KEY_BY_JOB.get(job_key, "ANTHROPIC_MODEL_FAST")
-        step["model"] = getattr(settings, model_setting_key)
+        # 🔴 2026-09-18 — 화면용 짧은 이름과 전체 값을 따로 내린다(사용자 확정).
+        # 계기: 4단계 검토 화면이 `global.anthropic.claude-haiku-4-5-20251001-v1:0`을
+        # 그대로 찍어 한 줄을 다 차지했고, 2단계는 `claude-haiku-4-5-20251001`로 짧게
+        # 나와 같은 자리가 단계마다 달라 보였다. 🔴 화면 문제가 아니라 **설정 값
+        # 자체의 형태가 다르다** — BEDROCK_MODEL_FAST는 짧고 SMART는 리전 접두와
+        # 버전 접미가 붙은 풀 ID다.
+        # 🔴 설정 값은 건드리지 않는다 — 그 문자열이 그대로 API 호출에 쓰이므로
+        # 잘못 바꾸면 호출 자체가 실패한다(사용자도 같은 이유로 이 선택지를 접었다).
+        # ⚠️ 전체 값은 model_full로 함께 내려 템플릿의 title 속성에 들어간다. 어느
+        # 모델이 실제로 돌았는지 확인할 길을 없애지 않는다(같은 파일 283~290행 주석의
+        # "친숙한 이름으로 바꿔 보여주지 않는다"는 판단을 지키는 방식이다 — 짧게
+        # 다듬는 것과 다른 이름으로 바꾸는 것은 다르다).
+        raw_model = getattr(settings, model_setting_key)
+        step["model"] = _short_model_name(raw_model)
+        step["model_full"] = raw_model
         if len(run_jobs) > 1:
             step["run_count"] = len(run_jobs)
         prompt_versions = {rj.prompt_version for rj in run_jobs if rj.prompt_version}
@@ -2988,9 +3003,23 @@ def _confirm_report_drafts(request, run_jobs, job_key) -> None:
     (run_review.html 상단 계약 "확정 POST가 받는 값") — 같은 RunDraft 테이블을
     가리키지만 섞이면 확정 뷰가 이슈로 만들 것과 보고서로 만들 것을 구분하지 못한다.
 
-    🔴 확정으로 만들어지는 Report는 status="generating"이다 — "아직 사람이 손봐야
-    한다"는 뜻이고, done으로 바꾸는 주체는 RA이며 그 동작은 화면 밖(ORM)에서
-    일어난다(설계 4번).
+    🔴 2026-09-18 사용자 확정 — **확정으로 만들어지는 Report는 status="done"이다.**
+    종전에는 "generating"(아직 사람이 손봐야 한다)으로 만들고 done으로 바꾸는 일을
+    RA가 화면 밖 ORM에서 했다. 그 구조를 걷어낸다.
+
+    계기: 진욱님 지시 *"검토하기에서 검토 완료되면 그냥 끝인거야"*.
+    🔴 종전 구조가 만들던 구멍이 셋이었다.
+      ① 화면이 *"검토를 마치면 완료로 바뀌어요"*라고 말하는데 **바꿀 버튼이 없었다.**
+         `status='done'`으로 바꾸는 코드가 저장소 전체에 0건이었다(2026-09-18 실측).
+      ② 화면이 *"내용을 손본 뒤에"*라고 하는데 **손볼 화면도 없었다.**
+      ③ 그래서 기존 완료 보고서 9건은 전부 **RA가 DB를 직접 고쳐** 만든 것이었다.
+    🔴 확정이 최종이면 이 셋이 한꺼번에 사라진다. **확정 전에 되돌리는 길은 검토
+    화면의 「모두 취소」 하나로 충분하고**(초안을 버리고 다시 실행한다), 확정 뒤에
+    지우는 길은 만들지 않는다 — 만들면 "나중에 지울 수 있으니 일단 확정"이 되어
+    검토가 헐거워진다.
+
+    ⚠️ generating 값 자체는 모델에 남겨 둔다(Report.STATUS_CHOICES). 옛 데이터에
+    남아 있을 수 있고, 목록·상세는 done만 보여주므로 사람 눈에 닿지 않는다.
 
     🔴 Report.unique_together(period_type, date_from) 충돌은 사람이 읽을 수 있는
     메시지로 바꾼다(설계 2-1-(c) "확정 뷰에서 한 번 더 막는다") — 그대로 터지면
@@ -3021,7 +3050,9 @@ def _confirm_report_drafts(request, run_jobs, job_key) -> None:
                     content_short=build_short_field(
                         draft.content, draft.content_keep, always_keep_prefix="참고:",
                     ),
-                    status="generating",
+                    # 🔴 2026-09-18 — "generating"에서 바꿨다(위 독스트링). 확정이
+                    # 최종이므로 그 자리에서 완료다.
+                    status="done",
                 )
                 report.news.set(draft.news.all())
                 draft.created_report = report

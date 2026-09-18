@@ -11,8 +11,24 @@ from .models import Report
 _PERIOD_TYPE_LABELS = {"weekly": "주간", "monthly": "월간"}
 
 
+# 🔴 2026-09-18 사용자 확정 — 보고서 목록·상세는 **완료된 것만** 보여준다.
+# 지시: *"보고서 상세에 있는 거는 그냥 완료된 것만 보고서에서 보여야 해"*.
+#
+# 🔴 확정이 곧 완료가 되면서(apps/setting/views.py _confirm_report_drafts) 새로
+# 만들어지는 보고서는 전부 done이다. 이 게이트가 막는 것은 **옛 데이터에 남은
+# generating과 만들다 실패한 failed**다 — 사내 오픈을 앞두고 미완성 보고서가
+# 사람 눈에 닿는 길을 없앤다.
+#
+# ⚠️ 실패한 보고서를 감추는 것이 "실패를 숨기는 것"은 아니다. 실패는 SET-010
+# 4·5단계 노드가 「실행 실패」 배지로 말하고, 그 자리가 운영자가 보는 곳이다.
+# 🔴 News의 verified() 게이트와 같은 성질이다 — 판정이 끝나지 않은 것을 화면에
+# 올리지 않는다. 빼먹어도 에러가 나지 않고 조용히 노출되므로 새 조회 코드를 짤
+# 때마다 확인해야 한다(CLAUDE.md "검증 게이트"와 같은 주의).
+REPORT_VISIBLE_STATUS = "done"
+
+
 def report_list(request):
-    all_reports = Report.objects.order_by("-date_from")
+    all_reports = Report.objects.filter(status=REPORT_VISIBLE_STATUS).order_by("-date_from")
 
     period_type = request.GET.get("period_type", "")
     if period_type not in _PERIOD_TYPE_LABELS:
@@ -34,7 +50,10 @@ def report_list(request):
 
 
 def report_detail(request, uid):
-    report = get_object_or_404(Report, uid=uid)
+    # 🔴 목록과 같은 게이트를 공유한다(REPORT_VISIBLE_STATUS 주석). 목록에서 감추면서
+    # 상세를 열어 두면 주소를 아는 사람에게는 그대로 보인다 — News의 verified()를
+    # 목록·상세 양쪽에 거는 것과 같은 이유다.
+    report = get_object_or_404(Report, uid=uid, status=REPORT_VISIBLE_STATUS)
     return render(request, "reports/detail.html", {"report": report})
 
 

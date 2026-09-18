@@ -367,47 +367,30 @@ header_actions는 base.html에서 flex-shrink-0 헤더 안이라 본문을 스�
      있어서 화면에서 고칠 수 없다. 라벨 교체는 PE 판단으로 남긴다.
 {% endcomment %}
 {% comment %}
-  🔴 2026-09-18 신설 — 이 박스 안에 「보고서 지우기」를 뒀다(사용자 확정: "다듬는 중인
-  것만"). 자리를 여기로 고른 이유는 셋이다.
-    ① 이 박스는 status=='generating'일 때만 뜬다 — 삭제 허용 조건과 정확히 같다.
-    ② 문맥이 맞는다 — "아직 다듬는 중"이라는 말 옆이 "버릴 수도 있다"의 자리다.
-    ③ 헤더의 PDF 버튼 옆에 두는 안은 접었다. 완료 보고서에서도 보이는 자리라
-       조건부로 감추면 헤더가 보고서마다 달라 보인다.
+  🔴 2026-09-18 — 이 블록은 **지금 구조에서는 도달할 수 없다.** 지우지 않고 남겨 둔다.
 
-  🔴 user.is_authenticated로 감싼다 — /reports/는 로그인 없이 보는 공개 화면이다
-  (apps/setting/middleware.py는 "/setting/" 접두사만 잠근다). 사내 오픈 뒤 누구나
-  지울 수 있으면 안 된다.
-  ⚠️ 감추는 것만으로는 부족해서 뷰에도 @login_required와 상태 재검사를 넣었다
-  (apps/reports/views.py report_delete) — 주소를 알면 직접 호출할 수 있기 때문이다.
+  경위: 아침에 이 자리에 「보고서 지우기」를 달았다가 같은 날 걷어냈다. 진욱님이
+  두 번에 걸쳐 설계를 정정했다.
+    ① *"보고서 지우기는 설정에 있어야 하는거 아니야? 로그인이 필요하니까"*
+       → /reports/는 공개 화면이고 운영 동작은 /setting/ 쪽이다. 4단계 노드로 옮겼다.
+    ② *"검토하기에서 검토 완료되면 그냥 끝인거야"* / *"보고서 상세에 있는 거는 그냥
+       완료된 것만 보고서에서 보여야 해"*
+       → 🔴 **확정이 최종이다.** 확정 뒤에 지우는 길을 아예 만들지 않고, 노드에 달았던
+         버튼도 걷어냈다. 확정 전에 되돌리는 길은 검토 화면의 「모두 취소」 하나다.
 
-  🔴 no-print가 필수다. 이 박스는 본문 안이라 인쇄에 딸려 나가는데, PDF에 「지우기」
-  버튼이 찍히면 받는 사람이 누를 수 있다고 오해한다(이 파일 89행이 header·aside와
-  함께 .no-print를 인쇄에서 숨긴다).
+  🔴 그 결과 이 블록이 뜰 수 없다 — 확정이 status="done"을 만들고
+  (apps/setting/views.py _confirm_report_drafts), 상세는 done만 연다
+  (apps/reports/views.py REPORT_VISIBLE_STATUS). generating 보고서의 상세는 404다.
 
-  🔴 csrf_token을 여기서 낸다 — 이 템플릿과 base.html 어디에도 없었다(2026-09-18
-  실측). hx-include가 [name=csrfmiddlewaretoken]로 집어 가므로 페이지 안에 하나만
-  있으면 되고, 삭제 버튼이 있을 때만 필요하니 이 블록 안에 둔다.
+  ⚠️ 그래도 남겨 두는 이유: 옛 데이터에 generating이 있고, 나중에 상세 게이트가
+  바뀌면 이 안내가 다시 필요해진다. **지웠다가 다시 만드는 것보다 도달 불가라는
+  사실을 적어 두는 쪽이 낫다.**
+  🔴 여기에 버튼을 다시 달지 말 것 — 위 ②가 걷어낸 그 자리다.
 {% endcomment %}
 {% if report.status == 'generating' %}
 <div class="bg-yellow-50 border border-yellow-200 rounded-[10px] p-4 mb-4 flex items-center gap-3">
   <i data-lucide="pencil" class="w-5 h-5 text-yellow-600"></i>
-  <p class="text-sm text-yellow-700 flex-1">아직 다듬는 중인 보고서예요. 검토를 마치면 완료로 바뀌어요.</p>
-  {% if user.is_authenticated %}
-  {% csrf_token %}
-  <button type="button"
-          hx-post="{% url 'report_delete' report.uid %}"
-          hx-include="[name=csrfmiddlewaretoken]"
-          hx-disabled-elt="this"
-          hx-confirm="지운 보고서는 되살릴 수 없어요. 4단계에서 다시 만들 수 있어요."
-          data-confirm-level="danger"
-          data-confirm-title="이 보고서를 지워요"
-          data-confirm-action="지우기"
-          class="no-print flex-shrink-0 flex items-center gap-1.5 text-xs font-medium
-                 text-red-600 border border-red-300 rounded-[10px] px-3 py-1.5
-                 hover:bg-red-50 transition-colors disabled:opacity-50">
-    보고서 지우기
-  </button>
-  {% endif %}
+  <p class="text-sm text-yellow-700">아직 다듬는 중인 보고서예요. 검토를 마치면 완료로 바뀌어요.</p>
 </div>
 {% elif report.status == 'failed' %}
 <div class="bg-red-50 border border-red-200 rounded-[10px] p-4 mb-4 flex items-center gap-3">
