@@ -242,9 +242,18 @@ STUCK_FAIL_THRESHOLD = 3
 # 🔴 2026-09-15 PE 신설 — "insight" 항목을 더했다(3단계 판정 데이터 층). summary 문구는
 # run_review.html 상단 계약이 든 예시 그대로다.
 # 🔴 같은 날 뒤이은 라운드 — "weekly"·"monthly"를 더한다(4, 5단계).
+# 🔴 2026-09-18 정정 — weekly·monthly가 "이번 주 이슈"·"지난달 이슈"였다. 그런데
+# 아래 review["input"]["count"]가 세는 것은 **초안에 연결된 근거 기사 수**다
+# (is_draft_based 분기: draft.news의 합집합). 이름과 값이 다른 것을 가리키고 있었다.
+# 🔴 실측으로 드러난 방식 — 사용자가 "4단계 42건 대 17건"을 물었고, 42는 재료 이슈
+# 수(RunJob.target_count)이고 17은 근거 기사 수였다. 이어서 RunJob 273에서는 근거
+# 기사가 0건이 되자 화면이 「이번 주 이슈 0건」이라고 말했다 — 이슈는 37건 있었다.
+# 값을 바꾸는 대신 이름을 값에 맞춘다. 근거 기사 수가 보고서의 무결성 지표이고
+# (모든 「참고:」 줄 uid의 합집합 = Report.news), 재료 이슈 수는 실행 화면 4단계
+# 노드가 이미 "주요 이슈 37건"으로 말한다.
 REVIEW_INPUT_LABEL_BY_JOB = {
     "cleanup": "미검증 뉴스", "insight": "검증된 뉴스",
-    "weekly": "이번 주 이슈", "monthly": "지난달 이슈",
+    "weekly": "근거 기사", "monthly": "근거 기사",
 }
 REVIEW_STEP_SUMMARY_BY_JOB = {
     "cleanup": "기사마다 관련성을 판정했어요",

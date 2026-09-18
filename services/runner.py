@@ -984,6 +984,62 @@ def _run_dedup(run_job_id: int) -> None:
 # 말로만 시켜서는 안 지켜지므로 코드가 자른다 — 사용자 확정("상한은 코드").
 REPORT_ISSUE_CAP = 5
 
+#: 🔴 2026-09-18 신설 — 쓸 수 있는 보고서의 최소 조건(_assert_report_usable()).
+#: 이슈가 이보다 적으면 「주간 보고서」라고 부를 수 없다.
+REPORT_ISSUE_MIN = 2
+
+
+def _split_overview_paragraphs(overview: str) -> str:
+    """🔴 개요를 문장마다 한 문단으로 나눈다(2026-09-18 신설, 사용자 확정).
+
+    왜 코드가 하는가 — 프롬프트로 세 번 시켰고 세 번 어긋났다.
+      - RunJob 271: 세 문장을 한 문단에 붙였다(549자).
+      - RunJob 272: 규칙을 「세어 보세요」로 다듬었으나 여전히 한 문단이었다.
+      - RunJob 273: 🔴 **빈 줄 두 개를 요구하고 실패 실례까지 넣자 개요는 세 문단이
+        됐지만 본문이 149자로 무너졌다**(출력 670토큰, 이슈 1건, 근거 0건). 개요
+        규칙이 출력 예산과 주의를 독차지한 것이다.
+    그래서 프롬프트에서 문단 요구를 걷어내고 그 일을 여기로 옮겼다 — 이슈 상한 5건을
+    코드로 옮긴 것과 같은 판단이다(_enforce_report_rules() ①).
+
+    ⚠️ 글자는 바꾸지 않는다. 문장 사이 구분자만 빈 줄로 바꿔 넣는다. 이미 빈 줄이
+    있으면(모델이 스스로 나눴으면) 손대지 않는다.
+    """
+    from services.llm import split_into_sentences
+
+    if not overview or "\n\n" in overview.strip():
+        return overview
+
+    parts = [chunk.strip() for chunk in split_into_sentences(overview)]
+    parts = [p for p in parts if p]
+    if len(parts) < 2:
+        return overview
+    return "\n\n".join(parts)
+
+
+def _assert_report_usable(issues: list, result: dict) -> None:
+    """🔴 쓸 수 없는 보고서 초안이 검토 화면까지 올라오는 것을 막는다(2026-09-18 신설).
+
+    계기 — RunJob 273이 **본문 149자, 이슈 1건, 참고 줄 0건, 근거 기사 0건**인 초안을
+    만들었는데, 화면은 그것을 「검토 필요」로 정상 표시했다. 확정 버튼 바로 앞까지
+    빈 보고서가 올라온 것이고, 🔴 **실패로 잡아 줄 자리가 어디에도 없었다.**
+
+    ⚠️ 여기서 예외를 던지면 run_job은 STATUS_FAILED가 되고(run_job() except 절) 화면
+    4단계 노드가 「실행 실패」로 말한다. 조용히 통과시키는 것보다 이것이 낫다 —
+    사용자가 화면만 보고 「실행」을 다시 누를 수 있는 상태로 되돌려 주는 것이다.
+    """
+    from services.llm import LLMJudgmentError
+
+    if len(issues) < REPORT_ISSUE_MIN:
+        raise LLMJudgmentError(
+            f"보고서 본문에 이슈가 {len(issues)}건뿐이에요"
+            f"(본문 {len(result.get('content') or ''):,}자). 다시 실행해 주세요."
+        )
+    if not any(issue["news_list"] for issue in issues):
+        raise LLMJudgmentError(
+            f"보고서 이슈 {len(issues)}건 어디에도 근거 기사가 없어요"
+            "(「참고:」 줄이 빠졌어요). 다시 실행해 주세요."
+        )
+
 
 def _enforce_report_rules(result: dict) -> dict:
     """🔴 보고서 응답에서 **프롬프트가 시키는데 LLM이 지키지 않는 두 가지**를 코드로
@@ -1014,6 +1070,11 @@ def _enforce_report_rules(result: dict) -> dict:
     이걸 빼먹으면 축약본이 엉뚱한 문장을 고른다 — 오류가 나지 않고 조용히 틀린다.
     """
     from services.llm import split_into_sentences
+
+    # ③ 개요 문단 나눔(2026-09-18 추가) — 헬퍼 독스트링에 세 번 어긋난 실측이 있다.
+    # content가 비어 아래에서 일찍 돌아가더라도 이것은 적용돼야 하므로 맨 앞에 둔다.
+    result = dict(result)
+    result["overview"] = _split_overview_paragraphs(result.get("overview") or "")
 
     content = result.get("content") or ""
     if not content:
@@ -1074,7 +1135,6 @@ def _enforce_report_rules(result: dict) -> dict:
             total_issues, dropped_issues, dropped_keep,
         )
 
-    result = dict(result)
     result["content"] = new_content
     result["content_keep"] = new_keep
     return result
@@ -1652,6 +1712,11 @@ def _run_report(run_job_id: int, period_type: str) -> None:
 
     from apps.reports.templatetags.report_extras import report_issues
 
+    # 🔴 2026-09-18 — 저장 **전에** 쓸 수 있는 초안인지 본다(헬퍼 독스트링에 계기가
+    # 있다). 파싱을 한 번만 하고 그 결과를 아래 draft.news 계산에 그대로 쓴다.
+    issues = report_issues(result["content"])["issues"]
+    _assert_report_usable(issues, result)
+
     with transaction.atomic():
         draft = RunDraft.objects.create(
             run_job_id=run_job_id,
@@ -1667,7 +1732,7 @@ def _run_report(run_job_id: int, period_type: str) -> None:
             content_keep=result.get("content_keep", []),
         )
         news_uids = set()
-        for issue in report_issues(result["content"])["issues"]:
+        for issue in issues:
             news_uids.update(n.uid for n in issue["news_list"])
         matched = News.objects.filter(uid__in=news_uids) if news_uids else News.objects.none()
         draft.news.set(matched)
