@@ -1157,6 +1157,54 @@ def _enforce_report_rules(result: dict) -> dict:
     return result
 
 
+def _cancel_if_requested(run_job_id: int) -> bool:
+    """🔴 취소 요청이 들어와 있으면 **이 배치가 만든 대기 산출물을 닫고** True를
+    돌려준다(2026-09-18 신설, 사용자 확정).
+
+    🔴 1호출 단계(3~5단계)의 「취소」가 이 함수로 성립한다. 사용자 정정이 이것이었다
+    — *"중단이 아니라 취소 기능이야 취소 버튼으로 진행해줘"*.
+
+    ⚠️ **중단과 취소는 다른 동작이다.**
+      - 중단(수집 둘, 2단계): 건별 루프가 한 건 끝난 자리에서 멈춘다. **한 것은 남고**
+        다시 누르면 이어서 한다.
+      - 🔴 취소(3~5단계): 배치가 LLM 1호출이라 멈출 자리가 없다. 그래서 **호출이
+        끝난 뒤 그 결과를 쓰지 않는 것**이 취소다. 이미 저장한 대기 산출물도 닫는다.
+
+    ⚠️ **토큰은 이미 쓰인 뒤다.** 호출은 나갔고 되돌릴 수 없다 — 취소가 아끼는 것은
+    돈이 아니라 **사람이 검토 화면에서 쓸모없는 제안을 지우는 일**이다. 화면 문구가
+    이 사실을 숨기지 않아야 한다(templates/setting/_run_button.html 취소 갈래).
+
+    🔴 닫는 범위는 **이 배치(run_job_id)의 대기분**뿐이다. 다른 배치가 남긴 것은
+    _discard_failed_run_drafts()의 몫이고, 성공했는데 확정만 안 한 배치는 둘 다
+    건드리지 않는다 — 그건 사람이 보고 있을 수 있다.
+
+    ⚠️ 상태는 「거절」이 아니라 「취소」다(_discard_failed_run_drafts()와 같은 이유 —
+    거절 분포가 프롬프트 정확도 지표라 오염시키면 안 된다).
+    """
+    from apps.setting.models import RunDraft, RunProposal
+
+    if not _stop_requested(run_job_id):
+        return False
+
+    closed = 0
+    for model in (RunDraft, RunProposal):
+        pks = list(
+            model.objects
+            .filter(run_job_id=run_job_id, status=RunProposal.STATUS_PENDING)
+            .values_list("pk", flat=True)
+        )
+        # 🔴 한 번에 쓸어 담는 .update()를 쓰지 않는다 — pk로 특정한 단건 갱신을 돈다.
+        for pk in pks:
+            model.objects.filter(pk=pk).update(status=RunProposal.STATUS_CANCELED)
+        closed += len(pks)
+
+    logger.info(
+        "RunJob %s: 취소 요청이 들어와 이 배치의 대기 산출물 %d건을 닫고 멈췄어요.",
+        run_job_id, closed,
+    )
+    return True
+
+
 def _discard_failed_run_drafts(job_key: str, current_run_job_id: int) -> int:
     """🔴 같은 단계의 **실패·중단** 배치가 남긴 대기 초안을 취소로 닫는다
     (2026-09-18 신설). 3~5단계 실행 들머리에서 부른다.
@@ -1266,6 +1314,11 @@ def _run_insight(run_job_id: int) -> None:
         return
 
     result = generate_insights(targets)
+    # 🔴 2026-09-18 — 취소 확인 ①. LLM 응답이 온 자리다(_cancel_if_requested()).
+    # 이 지점을 넘기면 이슈 초안이 저장되므로, 취소를 누른 사람이 검토 화면에서
+    # 그것을 다시 지워야 한다. 여기서 끊으면 아무것도 남지 않는다.
+    if _cancel_if_requested(run_job_id):
+        return
 
     news_by_id = {news.pk: news for news in targets}
     issues = result.get("issues", [])
@@ -1313,7 +1366,17 @@ def _run_insight(run_job_id: int) -> None:
     # 않아야 순서가 맞다. 실패가 격리된다(services/llm.py extract_relations()
     # docstring) — 관계 호출 실패는 여기서 잡아 로그만 남기고 이슈 초안·헤드라인
     # 순위는 그대로 진행한다.
+    # 🔴 2026-09-18 — 취소 확인 ②. 이슈 초안은 이미 저장돼 있으므로
+    # _cancel_if_requested()가 그것까지 닫는다. 남은 두 호출을 하지 않는 것이
+    # 여기서 얻는 것이다(관계와 헤드라인의 토큰을 아낀다).
+    if _cancel_if_requested(run_job_id):
+        return
     _run_relation_extraction(run_job_id, targets)
+
+    # 🔴 2026-09-18 — 취소 확인 ③. 관계 호출이 수십 초 걸리므로 그 사이에 누른
+    # 취소를 여기서 받는다.
+    if _cancel_if_requested(run_job_id):
+        return
 
     # 🔴 2026-09-17 신설 — 3단계 세 번째 호출(헤드라인 순위, docs/planning.md "RA 손
     # 작업을 전부 단계 안으로 넣는다" 2번). 이번 배치 이슈 초안이 만들어진 뒤라야
@@ -1721,6 +1784,10 @@ def _run_report(run_job_id: int, period_type: str) -> None:
         return
 
     result = generate(targets)
+    # 🔴 2026-09-18 — 취소 확인(_cancel_if_requested()). 4·5단계는 LLM 1호출이라
+    # 지점이 이 한 곳이다. 이 아래에서 초안이 만들어지므로 여기서 끊는다.
+    if _cancel_if_requested(run_job_id):
+        return
     # 🔴 2026-09-18 — 프롬프트가 시키는데 LLM이 지키지 않는 둘을 코드로 강제한다
     # (이슈 상한 5건, 축약본에서 시사점 문단 제외). 헬퍼 독스트링에 실측 근거가 있다.
     # ⚠️ report_issues()로 근거 뉴스를 모으기 **전에** 부른다 — 버린 이슈의 기사가

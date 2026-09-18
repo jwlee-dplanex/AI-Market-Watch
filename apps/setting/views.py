@@ -230,6 +230,23 @@ RESUME_FROM_SCRATCH_JOB_KEYS = ("insight", "weekly", "monthly", "newsroom_filter
 # "「멈출 자리 없음」은 「아직 안 만든 것」이 아니라 「만들 수 없는 것」이다").
 STOPPABLE_JOB_KEYS = ("collect", "newsroom_collect", "cleanup")
 
+# 🔴 2026-09-18 신설 — **취소** 버튼이 살아 있는 셋(사용자 확정).
+#
+# 사용자 정정이 계기다 — 3단계 실행 중에 *"왜 중단 버튼은 비활성화야? 그럼 사용자는
+# 중간에 중단을 못해?"*라고 물은 뒤, *"중단이 아니라 취소 기능이야 취소 버튼으로
+# 진행해줘"*로 정했다.
+#
+# 🔴 **중단과 취소는 다른 동작이다.** 위 STOPPABLE 셋은 건별 루프라 한 건이 끝난
+# 자리에서 멈추고 **한 것이 남는다**. 이 셋은 배치 전체가 LLM 1호출이라 멈출 자리가
+# 없고, 그래서 **응답이 온 뒤 그 결과를 쓰지 않는 것**이 취소다
+# (services/runner.py _cancel_if_requested()).
+#
+# ⚠️ 왜 1호출 다섯이 아니라 셋인가 — **버튼을 내리는 범위는 runner가 실제로 취소를
+# 지키는 범위와 같아야 한다.** 배선한 곳이 _run_insight()와 _run_report() 둘이고
+# 그것이 이 셋을 덮는다. 뉴스룸 둘(newsroom_filter, newsroom_compose)은 아직
+# 배선하지 않았으므로 버튼도 잠긴 채로 둔다 — 눌러도 아무 일이 없으면 거짓이다.
+CANCELABLE_JOB_KEYS = ("insight", "weekly", "monthly")
+
 # 🔴 반복 실패 자료 지목 문턱(docs/planning.md 「SET-010 검토 단위」 9번, design.md
 # 23차 개정 ②-1). 1회는 정상 범위(실측 실패율 2.9%), 2회는 같은 시간대 rate limit
 # 하나로 설명된다. 3회부터는 서로 다른 실행에 걸쳐 계속 실패한 것이라 원인이 그
@@ -771,6 +788,14 @@ def _run_job_display(job_key, has_work):
         if job_key in STOPPABLE_JOB_KEYS:
             display["stop_url"] = reverse("setting_run_stop", args=[job_key])
             display["stopping"] = bool(run_job.stop_requested_at)
+        # 🔴 2026-09-18 신설 — 취소 버튼(CANCELABLE_JOB_KEYS 주석이 정본). 같은 URL을
+        # 쓴다 — 적는 값이 stop_requested_at 하나로 같고, 그 뒤 동작만 runner에서
+        # 갈린다(건별은 루프를 멈추고, 1호출은 결과를 버린다).
+        # ⚠️ elif다. 한 노드에 중단과 취소가 함께 서는 일은 없다 — 두 집합은 서로
+        # 겹치지 않고(건별 셋 대 1호출 셋), 겹치면 버튼이 두 개 그려진다.
+        elif job_key in CANCELABLE_JOB_KEYS:
+            display["cancel_url"] = reverse("setting_run_stop", args=[job_key])
+            display["canceling"] = bool(run_job.stop_requested_at)
         return display
     if state == "stopped":
         # 🔴 세 갈래(PD 확정, 2026-09-15) — "다시 누르면 어디서부터인가"에 답한다.
@@ -1951,15 +1976,20 @@ def setting_run_stop(request, job):
     여기서 바꾸지 않는다. 상태를 바꾸는 것은 루프가 실제로 멈춘 뒤다
     (services/runner.py._execute()).
 
-    🔴 job이 STOPPABLE_JOB_KEYS 셋이 아니면 그 노드에 중단 버튼 자체가 없어
-    UI에서는 여기로 POST가 오지 않는다 — 직접 호출되면 404로 막는다(다섯 배치
-    1호출 job은 애초에 멈출 자리가 없다).
+    🔴 2026-09-18 — **취소도 이 뷰로 온다**(CANCELABLE_JOB_KEYS). 적는 값이
+    stop_requested_at 하나로 같고 그 뒤 동작만 runner에서 갈린다 — 건별 셋은 루프를
+    멈추고(한 것이 남는다), 1호출 셋은 응답을 받은 뒤 결과를 버린다
+    (services/runner.py _cancel_if_requested()).
+
+    🔴 job이 두 집합 어디에도 없으면 그 노드에 버튼 자체가 없어 UI에서는 여기로
+    POST가 오지 않는다 — 직접 호출되면 404로 막는다(뉴스룸 1호출 둘은 아직 취소를
+    배선하지 않았다).
     ⚠️ 지금 진행중인 RunJob이 이 job_key가 아니면(이미 끝났거나 다른 job이 도는
     중이면) 조용히 아무 일도 하지 않는다 — 옛 레코드를 건드리면 안 된다.
     ⚠️ stop_requested_at__isnull=True 조건을 걸어 두 번째 요청이 첫 번째 요청
     시각을 덮어쓰지 않게 한다(버튼이 한 번 누르면 즉시 잠기므로 정상 경로로는
     두 번째 요청이 오지 않지만, 방어적으로 멱등하게 둔다)."""
-    if job not in STOPPABLE_JOB_KEYS:
+    if job not in STOPPABLE_JOB_KEYS and job not in CANCELABLE_JOB_KEYS:
         raise Http404
     RunJob.objects.filter(
         job_key=job, status=RunJob.STATUS_RUNNING, stop_requested_at__isnull=True,
