@@ -2236,9 +2236,20 @@ def _report_items_context(run_jobs, job_key):
         news_list = list(draft.news.order_by("published_at"))
         # 🔴 2026-09-17 신설 — 축약본(design.md 31차 ⑨). `참고:` 규약 줄은 always_keep_prefix로
         # 강제 포함한다(3-1 ⚠️ "정본과 동일해야 하므로 선택 대상이 아니라 항상 따라간다").
-        content_sentences, content_short_length = _sentences_context(
-            draft.content, draft.content_keep, always_keep_prefix="참고:",
-        )
+        # 🔴 2026-09-18 — **월간은 축약본 UI를 내리지 않는다.**
+        # 월간 결산은 본문이 마크다운 표라 문장 단위로 고를 수 있는 글이 아니고,
+        # 7·8월 결산의 content_short도 0자다(축약본을 만든 전례가 없다).
+        # ⚠️ 그대로 두면 content_keep이 빈 목록이라 **표 전체가 취소선**으로 덮인다
+        # (실측: 렌더된 화면에 line-through가 44곳). 화면은 그 선을 「짧은 버전에서
+        # 빠지는 문장」이라고 설명하는데 월간에는 짧은 버전 자체가 없다.
+        # 🔴 빈 값으로 내리면 템플릿이 종전 갈래로 떨어져 본문을 통짜로 그린다
+        # (run_review.html "content_sentences가 없으면 종전처럼 전문 문자열을 그린다").
+        if draft.draft_type == RunDraft.TYPE_MONTHLY:
+            content_sentences, content_short_length = [], 0
+        else:
+            content_sentences, content_short_length = _sentences_context(
+                draft.content, draft.content_keep, always_keep_prefix="참고:",
+            )
         # 🔴 2026-09-18 신설 — 근거 대조(services/fact_check.py). 사용자 지시:
         # *"주간 보고서는 항상 다 작성하면 팩트 기반인 지 더블체크해야하고"*.
         # ⚠️ RunDraft에 저장하지 않고 화면을 그릴 때마다 센다 — 값이 초안에서 바로

@@ -992,6 +992,11 @@ REPORT_ISSUE_MIN = 2
 #: — 그 표가 「세 문단」을 요구하고 _split_overview_paragraphs()가 그 수를 센다.
 OVERVIEW_PARAGRAPHS = 3
 
+#: 월간 결산에서 「빈 보고서」를 가르는 표 행 수(_assert_monthly_usable()).
+#: 🔴 실측 근거 — 7월 결산 62행, 8월 결산 89행이다. 한 자릿수면 그 달 재료를 거의
+#: 다 흘린 것이라 결산이라고 부를 수 없다.
+MONTHLY_ROW_MIN = 10
+
 
 def _split_overview_paragraphs(overview: str) -> str:
     """🔴 개요가 문장 셋을 한 문단에 붙여 왔을 때만 세 문단으로 나눈다
@@ -1840,7 +1845,132 @@ def _run_weekly(run_job_id: int) -> None:
 
 
 def _run_monthly(run_job_id: int) -> None:
-    _run_report(run_job_id, "monthly")
+    """5단계 — 🔴 주간과 **다른 경로**를 쓴다(2026-09-18 분리).
+
+    종전에는 _run_report(run_job_id, "monthly")로 주간과 같은 함수를 불렀다. 그런데
+    7·8월 결산 보고서의 양식이 주간과 완전히 다르다 — 9개 고정 카테고리에 마크다운
+    표, 표 안 `[3](URL)` 출처 번호, 하단 `### 출처` 목록이고 「주요 동향」은 비어
+    있다(두 건 다 0자). 🔴 **monthly RunJob이 0건이라 그 어긋남이 한 번도 드러난 적이
+    없었다.** 그대로 돌렸다면 세 곳에서 어긋났다.
+      - _assert_report_usable()이 `참고:` 줄을 못 찾아 **무조건 실행 실패**
+      - _enforce_report_rules()가 9개 카테고리를 **5개로 잘라 버림**
+      - max_tokens 16,384로 **22,000자를 만들 수 없음**
+
+    🔴 그래서 호출을 둘로 나눈다(services/llm.py 「월간 결산 보고서」 절).
+      ① 섹션 배정 1회 — 이슈 제목만 넘긴다(입력이 작다).
+      ② 섹션별 표 작성 N회 — 재료가 있는 섹션만 부른다.
+    ⚠️ 섹션마다 하트비트를 찍는다. 9회를 이어 부르면 180초 무응답 판정(_execute()의
+    중단 판정)에 걸릴 수 있다 — 실제로 도는 중인데 멈춘 것으로 보이면 안 된다.
+    """
+    from apps.news.models import News
+    from apps.setting.models import RunDraft
+    from services.llm import (
+        MONTHLY_SECTIONS, PROMPT_VERSION_MONTHLY,
+        classify_monthly_sections, generate_monthly_section,
+    )
+    from services.monthly_report import build_monthly_content
+    from services.report_periods import insights_in_period, monthly_title, target_month
+
+    today = timezone.localtime(timezone.now()).date()
+    date_from, date_to = target_month(today)
+    targets = list(
+        insights_in_period(date_from, date_to).prefetch_related("news").order_by("pk")
+    )
+    RunJob.objects.filter(pk=run_job_id).update(
+        target_count=len(targets), prompt_version=PROMPT_VERSION_MONTHLY,
+    )
+    _discard_failed_run_drafts("monthly", run_job_id)
+    if not targets:
+        return
+
+    def add_usage(usage):
+        RunJob.objects.filter(pk=run_job_id).update(
+            heartbeat_at=timezone.now(),
+            input_tokens=F("input_tokens") + usage.get("input_tokens", 0),
+            output_tokens=F("output_tokens") + usage.get("output_tokens", 0),
+            cache_creation_input_tokens=(
+                F("cache_creation_input_tokens") + usage.get("cache_creation_input_tokens", 0)
+            ),
+            cache_read_input_tokens=(
+                F("cache_read_input_tokens") + usage.get("cache_read_input_tokens", 0)
+            ),
+        )
+
+    # ① 섹션 배정
+    classified = classify_monthly_sections(targets, "월간")
+    add_usage(classified.get("_usage", {}))
+    if _cancel_if_requested(run_job_id):
+        return
+
+    # ② 섹션별 표. 🔴 재료가 없는 섹션은 부르지 않는다 — 빈 호출에 토큰을 쓰지 않고,
+    # 빈 표도 만들지 않는다(build_monthly_content()가 빈 섹션을 빼는 것과 한 쌍).
+    by_section = classified["by_section"]
+    section_rows = []
+    for section in MONTHLY_SECTIONS:
+        members = by_section.get(section["no"]) or []
+        if not members:
+            continue
+        result = generate_monthly_section(section, members, "월간")
+        add_usage(result.get("_usage", {}))
+        section_rows.append((section, result.get("rows") or []))
+        if _cancel_if_requested(run_job_id):
+            return
+
+    # 🔴 표에 쓸 수 있는 기사만 uid로 찾을 수 있게 모은다. 대상 이슈의 근거 기사가
+    # 곧 인용 가능 범위다 — 그 밖의 uid를 LLM이 적으면 조립 단계에서 버려진다.
+    news_by_uid = {}
+    for insight in targets:
+        for news in insight.news.all():
+            news_by_uid[str(news.uid)] = news
+
+    content, used_news, kept_rows = build_monthly_content(section_rows, news_by_uid)
+    _assert_monthly_usable(kept_rows, content, used_news)
+
+    with transaction.atomic():
+        draft = RunDraft.objects.create(
+            run_job_id=run_job_id,
+            draft_type=RunDraft.TYPE_MONTHLY,
+            title=monthly_title(date_from, date_to),
+            content=content,
+            # 🔴 「주요 동향」을 만들지 않는다. 7·8월 결산이 둘 다 비어 있고, 월간은
+            # 표가 그 자리를 대신한다(개요를 넣으면 과거 두 건과 모양이 갈린다).
+            overview="",
+            date_from=date_from,
+            date_to=date_to,
+            # 🔴 축약본도 만들지 않는다 — 표는 문장 단위로 고를 수 있는 글이 아니다.
+            # 7·8월 결산의 content_short도 0자다.
+            content_keep=[],
+        )
+        draft.news.set(used_news)
+
+    RunJob.objects.filter(pk=run_job_id).update(
+        processed_count=len(targets), heartbeat_at=timezone.now(),
+    )
+
+
+def _assert_monthly_usable(kept_rows: int, content: str, used_news) -> None:
+    """🔴 쓸 수 없는 월간 초안이 검토 화면까지 올라오는 것을 막는다
+    (_assert_report_usable()의 월간판, 2026-09-18 신설).
+
+    ⚠️ 주간과 기준이 다르다 — 월간에는 `참고:` 줄도 이슈 블록도 없다. 월간에서 「빈
+    보고서」는 **표 행이 없는 것**이고, 근거는 **인용된 기사 목록**이 말한다.
+
+    ⚠️ kept_rows는 **표에 실제로 남은 행 수**다(build_monthly_content()가 돌려준다).
+    LLM이 낸 행 수를 세면 칸 수가 어긋나거나 근거를 못 찾아 버려진 행까지 세어,
+    표가 거의 비었는데도 검사를 통과한다.
+    """
+    from services.llm import LLMJudgmentError
+
+    if kept_rows < MONTHLY_ROW_MIN:
+        raise LLMJudgmentError(
+            f"월간 보고서 표에 행이 {kept_rows}개뿐이에요(본문 {len(content):,}자). "
+            "다시 실행해 주세요."
+        )
+    if not used_news:
+        raise LLMJudgmentError(
+            "월간 보고서 어디에도 근거 기사가 없어요(출처 uid가 하나도 맞지 않았어요). "
+            "다시 실행해 주세요."
+        )
 
 
 def _run_newsroom_collect(run_job_id: int, newsroom_id: int) -> None:

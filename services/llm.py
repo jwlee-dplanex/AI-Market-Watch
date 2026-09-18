@@ -2151,10 +2151,277 @@ def generate_weekly_report(insights) -> dict:
     return _generate_report(insights, "주간", CRITERIA_TEXT_WEEKLY_REPORT)
 
 
-def generate_monthly_report(insights) -> dict:
-    """대상 월의 Insight 배치를 한 번에 판정해 월간 결산 보고서 초안을 만든다.
-    반환값·예외는 generate_weekly_report()와 같다."""
-    return _generate_report(insights, "월간 결산", CRITERIA_TEXT_MONTHLY_REPORT)
+# ============================================================================
+# 월간 결산 보고서 — 🔴 주간과 **양식이 다르다**(2026-09-18 실측으로 확인).
+#
+# 종전에는 generate_monthly_report()가 _generate_report()를 그대로 불러 주간과 같은
+# 양식(`### 이슈 제목` + 산문 + `참고: uid`)을 만들었다. 🔴 **한 번도 돌린 적이 없어
+# (monthly RunJob 0건) 그 어긋남이 드러난 적이 없었다.** 기존 7·8월 결산은 RA가 손으로
+# 쓴 것이고, 두 건의 양식이 글자 하나 다르지 않다.
+#
+#   | | 주간 | 월간 |
+#   |---|---|---|
+#   | 구조 | `### 이슈 제목` + 산문 | `### 1. 업무 적용 (35건)` + 마크다운 표 |
+#   | 섹션 | 이슈 5건(내용이 정한다) | **9개 고정 카테고리** |
+#   | 출처 | `참고: uid` 줄 | 표 안 `[3](URL)` + 하단 `### 출처` 목록 |
+#   | 주요 동향 | overview 세 문단 | **비어 있다**(7·8월 둘 다 0자) |
+#   | 분량 | 3,271~5,804자 | **17,494~21,998자** |
+#
+# 🔴 분량 때문에 1호출로 만들 수 없다. 22,000자는 max_tokens 16,384를 훨씬 넘는다.
+# 그래서 **두 단계로 나눈다**.
+#   ① classify_monthly_sections()  Insight 제목만 넘겨 9개 섹션에 배정한다.
+#      제목만 쓰므로 입력이 작다(78건 ≈ 3,000토큰).
+#   ② generate_monthly_section()   섹션 하나의 재료만 넘겨 표 본문을 받는다.
+#      섹션마다 부르므로 출력이 각각 상한 안에 들어온다.
+# ⚠️ 섹션별로 전체 재료를 다시 넘기지 않는다 — 그러면 입력이 9배가 된다.
+#
+# 🔴 **URL을 LLM이 쓰지 않는다.** 표 출처 칸에는 uid만 쓰게 하고, 번호와 URL은 코드가
+# 매긴다(services/monthly_report.py). 주간의 `참고: uid` 규약과 같은 이유다 — URL을
+# 받아쓰게 하면 지어낸다(「무조건 팩트 기반」).
+# ============================================================================
+
+#: 월간 결산의 9개 고정 섹션. 🔴 이름·순서·표 컬럼은 2026년 7·8월 결산 보고서에서
+#: 그대로 옮겼다(두 건이 완전히 일치한다). **바꾸면 과거 보고서와 모양이 갈린다.**
+#: ⚠️ 「출처」 컬럼은 여기 없다 — 코드가 마지막 칸으로 붙인다(build_monthly_content()).
+MONTHLY_SECTIONS = (
+    {"no": 1, "name": "업무 적용", "columns": ("기업", "적용 대상", "내용")},
+    {"no": 2, "name": "조직과 운영체계", "columns": ("기업", "유형", "조직", "내용")},
+    {"no": 3, "name": "고객 서비스", "columns": ("기업", "서비스", "상태", "내용")},
+    {"no": 4, "name": "역량 강화", "columns": ("기업", "대상", "규모", "내용")},
+    {"no": 5, "name": "리스크와 보안", "columns": ("기업", "대상 위협", "방식", "내용")},
+    {"no": 6, "name": "외부 협업", "columns": ("기업", "상대", "형태", "내용", "단계")},
+    {"no": 7, "name": "투자와 인수", "columns": ("기업", "대상", "형태", "규모", "비고")},
+    {"no": 8, "name": "규제와 정책", "columns": ("주체", "내용", "비고")},
+    {"no": 9, "name": "전략과 계획", "columns": ("기업", "내용", "규모")},
+)
+
+MONTHLY_SECTION_NOS = tuple(s["no"] for s in MONTHLY_SECTIONS)
+
+_CRITERIA_MONTHLY_SECTIONS = "\n".join(
+    "| {no} | {name} | {cols} |".format(
+        no=s["no"], name=s["name"], cols=" · ".join(s["columns"]),
+    )
+    for s in MONTHLY_SECTIONS
+)
+
+OUTPUT_SCHEMA_MONTHLY_CLASSIFY = {
+    "type": "object",
+    "properties": {
+        "assignments": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "integer"},
+                    "section": {"type": "integer"},
+                },
+                "required": ["id", "section"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["assignments"],
+    "additionalProperties": False,
+}
+
+OUTPUT_SCHEMA_MONTHLY_SECTION = {
+    "type": "object",
+    "properties": {
+        "rows": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    # 🔴 cells는 그 섹션 columns와 **같은 개수·같은 순서**여야 한다.
+                    # 개수가 다른 행은 코드가 버린다(build_monthly_content()).
+                    "cells": {"type": "array", "items": {"type": "string"}},
+                    # 🔴 uid만 받는다. 번호와 URL은 코드가 매긴다.
+                    "news_uids": {"type": "array", "items": {"type": "string"}},
+                },
+                "required": ["cells", "news_uids"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["rows"],
+    "additionalProperties": False,
+}
+
+
+def _build_monthly_classify_prompt(period_label: str) -> str:
+    return f"""당신은 AI Market Watch 프로젝트에서, 확정된 이슈(Insight) 목록을 읽고 {period_label} 결산 보고서의 **섹션 배정**을 합니다.
+
+임무: 아래 <입력_이슈>의 이슈 하나하나를 9개 섹션 중 **정확히 하나**에 배정하세요.
+
+| 번호 | 섹션 | 그 섹션의 표 항목 |
+|---|---|---|
+{_CRITERIA_MONTHLY_SECTIONS}
+
+배정 규칙
+- **그 이슈를 그 이슈이게 만든 사실 하나**로 정합니다. 여러 섹션에 걸쳐 보여도 하나만 고릅니다.
+- 판별이 갈리는 자리의 기준입니다.
+  - 회사가 **자기 업무에 적용해 이미 돌고 있다** → 1 업무 적용
+  - 회사가 **고객이 쓰는 서비스로 내놓았다** → 3 고객 서비스
+  - 조직 신설·개편·인사 → 2 조직과 운영체계
+  - 교육·채용·자격 → 4 역량 강화
+  - 보안 위협·사기 탐지·내부통제 → 5 리스크와 보안
+  - 다른 회사와의 협약·공동개발 → 6 외부 협업
+  - 지분 투자·인수·펀드 → 7 투자와 인수
+  - **금융위원회·금융감독원 등 규율 주체가 당사자** → 8 규제와 정책
+  - 아직 계획·목표·선언에 머문다 → 9 전략과 계획
+- ⚠️ **모든 이슈를 빠짐없이 배정합니다.** 애매하면 가장 가까운 하나를 고르고, 버리지 않습니다.
+
+응답은 id와 section 번호 쌍의 배열입니다. id는 입력에 적힌 그 값을 그대로 씁니다."""
+
+
+def _build_monthly_section_prompt(period_label: str, section: dict) -> str:
+    columns = section["columns"]
+    header = " · ".join(columns)
+    return f"""당신은 AI Market Watch 프로젝트에서, {period_label} 결산 보고서의 **「{section['no']}. {section['name']}」 섹션 표**를 씁니다.
+
+임무: 아래 <입력_이슈>를 읽고 표의 행을 만드세요. 이 섹션의 표 항목은 다음과 같고 **이 순서 그대로** cells에 담습니다.
+
+  {header}
+
+작성 규칙
+- **한 행은 한 사례입니다.** 한 이슈가 여러 회사의 사례를 담고 있으면 회사마다 한 행으로 나눕니다.
+- 각 칸은 **짧은 명사구**로 씁니다. 문장으로 늘어놓지 않습니다. 「내용」 칸만 두세 문장까지 허용합니다.
+- **수치와 고유명사는 근거 기사에 적힌 그대로 옮깁니다.** 어림하거나 여러 값을 하나로 뭉개지 않습니다.
+- 근거 기사가 말하지 않은 것을 쓰지 않습니다. 빈 칸이 필요하면 `-`를 씁니다.
+- news_uids에는 **그 행의 근거가 된 기사 uid**를 적습니다. <입력_이슈>에 주어진 uid만 쓰고, 여러 건이면 여러 개를 적습니다.
+- ⚠️ **URL을 쓰지 마세요.** 출처 번호와 주소는 코드가 붙입니다.
+
+🔴 제목과 섹션 이름은 여기서 만들지 않습니다. 표의 행만 응답하세요."""
+
+
+def _build_monthly_classify_message(insights) -> str:
+    lines = [
+        f"[id={i.pk}] {i.title}"
+        for i in insights
+    ]
+    return "<입력_이슈>\n" + "\n".join(lines) + "\n</입력_이슈>"
+
+
+def classify_monthly_sections(insights, period_label: str = "월간") -> dict:
+    """① 각 Insight를 9개 섹션 중 하나에 배정한다.
+
+    Returns:
+        {"by_section": {1: [insight, ...], ...}, "_usage": {...}}
+        🔴 배정이 없거나 섹션 번호가 범위 밖인 이슈는 **9(전략과 계획)**로 떨어뜨린다 —
+        버리면 재료가 소리 없이 사라진다.
+    """
+    client = _get_client()
+    try:
+        response = client.messages.create(
+            model=settings.BEDROCK_MODEL_SMART,
+            # 이슈 하나에 한 쌍씩이라 출력이 작다. 78건이면 1,000토큰 안쪽이다.
+            max_tokens=8192,
+            system=_build_monthly_classify_prompt(period_label),
+            messages=[{"role": "user", "content": _build_monthly_classify_message(insights)}],
+            output_config={"format": {"type": "json_schema", "schema": OUTPUT_SCHEMA_MONTHLY_CLASSIFY}},
+        )
+    except (anthropic.AuthenticationError, anthropic.PermissionDeniedError, anthropic.NotFoundError) as exc:
+        logger.error("월간 섹션 배정 중 구조적 오류(인증/권한/리소스): %s", exc)
+        raise LLMStructuralError(str(exc)) from exc
+    except anthropic.RateLimitError as exc:
+        raise LLMJudgmentError(str(exc)) from exc
+    except anthropic.APIConnectionError as exc:
+        raise LLMJudgmentError(str(exc)) from exc
+    except anthropic.APIStatusError as exc:
+        raise LLMJudgmentError(str(exc)) from exc
+
+    _guard_truncated(response, "월간 섹션 배정")
+    text_block = next((b for b in response.content if b.type == "text"), None)
+    if text_block is None:
+        raise LLMJudgmentError(
+            f"월간 섹션 배정 응답에 text 블록이 없어요(stop_reason={response.stop_reason})."
+        )
+    try:
+        data = json.loads(text_block.text)
+    except json.JSONDecodeError as exc:
+        raise LLMJudgmentError(f"월간 섹션 배정 JSON 파싱에 실패했어요: {exc}") from exc
+
+    by_id = {i.pk: i for i in insights}
+    section_by_id = {}
+    for item in data.get("assignments", []):
+        pk, no = item.get("id"), item.get("section")
+        if pk in by_id and no in MONTHLY_SECTION_NOS:
+            section_by_id[pk] = no
+
+    by_section = {s["no"]: [] for s in MONTHLY_SECTIONS}
+    unassigned = 0
+    for insight in insights:
+        no = section_by_id.get(insight.pk)
+        if no is None:
+            no = MONTHLY_SECTIONS[-1]["no"]
+            unassigned += 1
+        by_section[no].append(insight)
+    if unassigned:
+        logger.warning(
+            "월간 섹션 배정: %d건이 배정되지 않아 마지막 섹션으로 보냈어요.", unassigned,
+        )
+
+    usage = response.usage
+    return {
+        "by_section": by_section,
+        "_usage": {
+            "input_tokens": usage.input_tokens,
+            "output_tokens": usage.output_tokens,
+            "cache_creation_input_tokens": getattr(usage, "cache_creation_input_tokens", 0) or 0,
+            "cache_read_input_tokens": getattr(usage, "cache_read_input_tokens", 0) or 0,
+        },
+    }
+
+
+def generate_monthly_section(section: dict, insights, period_label: str = "월간") -> dict:
+    """② 섹션 하나의 표 행을 만든다.
+
+    Returns:
+        {"rows": [{"cells": [...], "news_uids": [...]}, ...], "_usage": {...}}
+    """
+    client = _get_client()
+    try:
+        response = client.messages.create(
+            model=settings.BEDROCK_MODEL_SMART,
+            # 한 섹션 분량이라 주간 보고서 한 편과 비슷하다. 가장 큰 「업무 적용」이
+            # 8월에 35행이었고 그 섹션만도 표로 6,000자쯤 된다.
+            max_tokens=16384,
+            system=_build_monthly_section_prompt(period_label, section),
+            messages=[{"role": "user", "content": _build_report_user_message(insights)}],
+            output_config={"format": {"type": "json_schema", "schema": OUTPUT_SCHEMA_MONTHLY_SECTION}},
+        )
+    except (anthropic.AuthenticationError, anthropic.PermissionDeniedError, anthropic.NotFoundError) as exc:
+        logger.error("월간 섹션 %s 작성 중 구조적 오류: %s", section["name"], exc)
+        raise LLMStructuralError(str(exc)) from exc
+    except anthropic.RateLimitError as exc:
+        raise LLMJudgmentError(str(exc)) from exc
+    except anthropic.APIConnectionError as exc:
+        raise LLMJudgmentError(str(exc)) from exc
+    except anthropic.APIStatusError as exc:
+        raise LLMJudgmentError(str(exc)) from exc
+
+    _guard_truncated(response, f"월간 섹션 「{section['name']}」")
+    text_block = next((b for b in response.content if b.type == "text"), None)
+    if text_block is None:
+        raise LLMJudgmentError(
+            f"월간 섹션 「{section['name']}」 응답에 text 블록이 없어요"
+            f"(stop_reason={response.stop_reason})."
+        )
+    try:
+        data = json.loads(text_block.text)
+    except json.JSONDecodeError as exc:
+        raise LLMJudgmentError(
+            f"월간 섹션 「{section['name']}」 JSON 파싱에 실패했어요: {exc}"
+        ) from exc
+
+    usage = response.usage
+    data["_usage"] = {
+        "input_tokens": usage.input_tokens,
+        "output_tokens": usage.output_tokens,
+        "cache_creation_input_tokens": getattr(usage, "cache_creation_input_tokens", 0) or 0,
+        "cache_read_input_tokens": getattr(usage, "cache_read_input_tokens", 0) or 0,
+    }
+    return data
 
 
 # ============================================================================
