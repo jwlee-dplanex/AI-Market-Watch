@@ -2485,8 +2485,24 @@ def _run_review_context(job_key):
     dup_by_rep = {}
     keep_count = 0
     delete_news_ids = set()
+    orphan_count = 0
 
     for p in proposals:
+        # 🔴 2026-09-18 신설 — 기사가 사라진 제안은 건너뛴다.
+        #
+        # RunProposal.news는 News 삭제 시 SET_NULL이다. 아래 네 분기가 전부
+        # p.news.title/published_at/source_domain/url을 읽으므로, news가 없는 제안이
+        # 대기로 하나라도 남으면 🔴 **검토 화면 전체가 500이 되고 우회로가 없다.**
+        # ⚠️ 실측으로 확인한 위험이다 — 기사가 없는 태그 후보 제안이 지금 DB에 3건
+        # 있고(전부 취소 상태라 이 목록에 오지 않는다), 롤백 트랜잭션으로 그것을
+        # 대기로 되돌리자 이 자리에서 AttributeError가 났다.
+        #
+        # 판정할 기사가 없는 제안은 사람이 할 수 있는 일도 없으므로 보여 주지
+        # 않는다. 다만 조용히 지나가지 않도록 건수를 로그에 남긴다 — 대기로 남아
+        # 단계를 잠그는 사고(3단계 영구 잠금과 같은 유형)의 단서가 이 줄이다.
+        if p.news_id is None:
+            orphan_count += 1
+            continue
         if p.proposal_type == RunProposal.TYPE_DELETE:
             delete_news_ids.add(p.news_id)
             # 🔴 2026-09-16 — 판정 주체가 둘이 됐다(docs/design.md "SET-010 · 실행"
@@ -2607,6 +2623,16 @@ def _run_review_context(job_key):
         group["has_delete_proposal"] = news_id in delete_news_ids
 
     retag_groups = list(retag_by_news.values())
+
+    # 🔴 2026-09-18 — 위 루프가 건너뛴 제안이 있으면 그 사실을 남긴다(루프 들머리
+    # 주석 참고). 화면에는 올리지 않는다 — 판정할 기사가 없어 사람이 할 일이 없다.
+    if orphan_count:
+        logger.warning(
+            "%s 검토 화면에서 기사가 사라진 대기 제안 %d건을 건너뛰었어요. "
+            "기사를 지우면 RunProposal.news가 비는데(SET_NULL) 제안이 대기로 남은 "
+            "경우예요 — 그 단계가 잠겨 보이면 이 줄이 단서예요.",
+            job_key, orphan_count,
+        )
 
     # 🔴 2026-09-17 28차 정정 — dup_by_rep(대표 pk별로 모은 dict)를 화면 계약
     # (docs/design.md 28차 개정 ⑩-1)이 요구하는 review.dup_groups 형태로 바꾼다.
