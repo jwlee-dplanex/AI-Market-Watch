@@ -2620,8 +2620,35 @@ OUTPUT_SCHEMA_NEWSROOM_COMPOSE = {
     "type": "object",
     "properties": {
         "body": {"type": "string"},
+        # 🔴 2026-09-22 신설 — 같은 사건으로 합친 기사 목록.
+        #
+        # 계기 — 9월 17일 브리핑에 SBI 스테이블코인 기사가 네 건 나란히 실렸다.
+        # 2단계가 배치 안에서 duplicate_of로 묶기는 하지만 **배치를 넘는 중복은
+        # 아무도 보지 않는다**(3단계 프롬프트에 중복 이야기가 한 줄도 없었다).
+        # 어제 통과한 기사와 오늘 통과한 기사가 같은 사건이면 그대로 두 줄이 된다.
+        #
+        # 🔴 그래서 브리핑을 쓰는 이 자리에서 한 번 더 본다 — 회차에 실릴 묶음
+        # 전체를 한꺼번에 보므로 배치 경계가 없다.
+        #
+        # ⚠️ 합친 사실을 받아 두지 않으면 지침 1(전수 나열) 검증이 깨진다. 항목
+        # 수가 대상 수보다 적어지는데 그것이 "합쳐서 줄어든 것"인지 "조용히
+        # 빠뜨린 것"인지 코드가 가릴 수 없다. services/runner.py
+        # _validate_newsroom_message()가 이 값으로 **항목 수 + 합쳐진 수 = 대상
+        # 수**를 검사한다.
+        "merged": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "kept": {"type": "integer"},
+                    "dropped": {"type": "array", "items": {"type": "integer"}},
+                },
+                "required": ["kept", "dropped"],
+                "additionalProperties": False,
+            },
+        },
     },
-    "required": ["body"],
+    "required": ["body", "merged"],
     "additionalProperties": False,
 }
 
@@ -2632,7 +2659,7 @@ def _build_newsroom_compose_user_message(articles) -> str:
     blocks = []
     for article in articles:
         blocks.append(
-            f"[순위 {article.impact_rank}] {article.title}\n"
+            f"[id={article.pk}] [순위 {article.impact_rank}] {article.title}\n"
             f"요약: {article.summary}\n"
             f"링크: {article.url}"
         )

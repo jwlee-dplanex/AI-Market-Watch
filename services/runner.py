@@ -2123,7 +2123,7 @@ def _run_newsroom_filter(run_job_id: int, newsroom_id: int) -> None:
 NEWSROOM_COMPOSE_EMPTY_BODY = "오늘은 새로운 소식이 없습니다."
 
 
-def _validate_newsroom_message(body: str, target_count: int) -> list:
+def _validate_newsroom_message(body: str, target_count: int, merged_count: int = 0) -> list:
     """뉴스룸 3단계 코드 검증(docs/planning.md 뉴스룸 정책 12-3 (e)) — 초안을
     NewsroomMessage로 저장하기 "전"에 돈다. 발송 시점이 아니라 저장 전인 이유는
     사람이 화면(SET-009)에서 보는 문구가 검증되지 않은 것이면 안 되기 때문이다
@@ -2146,13 +2146,27 @@ def _validate_newsroom_message(body: str, target_count: int) -> list:
     Returns:
         빈 리스트면 통과. 비어 있지 않으면 각 원소가 실패 사유 한 줄이다 — 전부
         NewsroomMessage.error에 이어 붙는다(호출부)."""
+    # 2026-09-22 - merged_count(같은 사건으로 합쳐 뺀 기사 수)를 빼고 센다.
+    # 종전에는 항목 수가 대상 수와 정확히 같아야 했는데, 중복을 합치면 항목이
+    # 줄어 정상 동작이 실패로 찍힌다. 합쳐진 수를 알면 "항목 수 + 합쳐진 수 =
+    # 대상 수"로 여전히 전수를 셀 수 있고, 조용히 빠뜨린 경우도 그대로 잡힌다.
+    expected = target_count - merged_count
     errors = []
     item_count = len(re.findall(r"^\*\d+\.\s", body, re.MULTILINE))
-    if item_count != target_count:
-        errors.append(f"기사 {target_count}건인데 메시지 항목이 {item_count}개예요")
+    if item_count != expected:
+        if merged_count:
+            errors.append(
+                f"기사 {target_count}건에서 {merged_count}건을 합쳐 {expected}개여야 "
+                f"하는데 메시지 항목이 {item_count}개예요"
+            )
+        else:
+            errors.append(f"기사 {target_count}건인데 메시지 항목이 {item_count}개예요")
     link_count = body.count("|보러가기>")
-    if link_count != target_count:
-        errors.append(f"기사 {target_count}건인데 링크가 {link_count}개예요")
+    if link_count != expected:
+        if merged_count:
+            errors.append(f"항목 {expected}개여야 하는데 링크가 {link_count}개예요")
+        else:
+            errors.append(f"기사 {target_count}건인데 링크가 {link_count}개예요")
     return errors
 
 
@@ -2210,7 +2224,20 @@ def _run_newsroom_compose(run_job_id: int, newsroom_id: int) -> None:
 
     result = compose_newsroom_message(targets, room.compose_prompt)
     body = result.get("body", "")
-    errors = _validate_newsroom_message(body, len(targets))
+    # 2026-09-22 - 같은 사건으로 합쳐 뺀 기사 수를 센다. 응답이 지목한 id 중
+    # 이번 대상에 실제로 있는 것만 인정한다(없는 id를 내는 경우 방어).
+    target_ids = {a.pk for a in targets}
+    merged_ids = set()
+    for group in result.get("merged") or []:
+        for pk in group.get("dropped") or []:
+            if pk in target_ids:
+                merged_ids.add(pk)
+    errors = _validate_newsroom_message(body, len(targets), len(merged_ids))
+    if merged_ids:
+        logger.info(
+            "뉴스룸 발송문: 같은 사건으로 %d건을 합쳤어요(%s).",
+            len(merged_ids), sorted(merged_ids),
+        )
 
     with transaction.atomic():
         message = NewsroomMessage.objects.create(
