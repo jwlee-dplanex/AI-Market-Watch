@@ -1755,10 +1755,15 @@ def _run_report(run_job_id: int, period_type: str) -> None:
     어긋날 수 있다."""
     from apps.news.models import News
     from apps.setting.models import RunDraft
-    from services.llm import (
-        PROMPT_VERSION_MONTHLY, PROMPT_VERSION_WEEKLY,
-        generate_monthly_report, generate_weekly_report,
-    )
+    # 2026-09-29 - generate_monthly_report를 import에서 뺀다. 2026-09-18에 월간을
+    # _run_monthly()로 분리하면서 그 함수를 없앴는데 여기 import가 남아 있었고,
+    # 그 탓에 4단계가 ImportError로 0.08초에 죽었다(RunJob 298, target_count도
+    # 못 채운 채 실패). manage.py check는 함수 안의 지역 import를 실행하지 않아
+    # 잡히지 않았고, 그날 4단계를 돌리지 않아 열하루 동안 드러나지 않았다.
+    #
+    # 이 함수는 이제 주간 전용이다 - period_type 분기가 남아 있지만 "monthly"로
+    # 불리는 경로가 없다(_run_monthly()가 _run_monthly_report 쪽을 쓴다).
+    from services.llm import PROMPT_VERSION_MONTHLY, PROMPT_VERSION_WEEKLY, generate_weekly_report
     from services.report_periods import (
         insights_in_period, monthly_title, target_month, target_week, weekly_title,
     )
@@ -1770,7 +1775,10 @@ def _run_report(run_job_id: int, period_type: str) -> None:
         draft_type = RunDraft.TYPE_WEEKLY
     else:
         date_from, date_to = target_month(today)
-        generate, title_fn, prompt_version = generate_monthly_report, monthly_title, PROMPT_VERSION_MONTHLY
+        # 2026-09-29 - 이 분기는 도달 불가다. 5단계는 _run_monthly()가 월간 전용
+        # 경로로 처리하며 이 함수를 "monthly"로 부르지 않는다. 분기를 지우지 않고
+        # 남기되, 없는 함수를 가리키지 않도록 generate를 None으로 둔다.
+        generate, title_fn, prompt_version = None, monthly_title, PROMPT_VERSION_MONTHLY
         draft_type = RunDraft.TYPE_MONTHLY
 
     targets = list(

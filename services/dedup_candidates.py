@@ -185,7 +185,7 @@ def _tokenize_intro(intro_text):
     return tokens
 
 
-def extract_event_fingerprints(body):
+def extract_event_fingerprints(body, title=""):
     """본문 도입부(첫 문단)에서 사건 지문 후보 집합을 뽑는다.
 
     - 영문 약어/로마자 조어(2자 이상)는 단독으로도 지문이 된다(ADAS, MAU 등 —
@@ -195,9 +195,25 @@ def extract_event_fingerprints(body):
       없다 — 2-3 실측이 강한 신호로 지목한 것도 항상 복합("PoC/실증", "이미지
       판독")이었다.
     """
-    if not body:
+    # 2026-09-22 - 제목도 지문 대상에 넣는다.
+    #
+    # 계기 - 삼성화재 피난훈련 기사 10건이 세 갈래로 흩어졌다. 6건은 삭제, 1건은
+    # 감춤, 3건은 유지로 남아 같은 사건이 뉴스 목록에 세 번 올랐다. 후보 탐색이
+    # 본문 도입부만 보는데, 묶인 두 건은 보도자료 부제를 글자까지 그대로 옮겼고
+    # 나머지는 기자가 다시 쓴 도입부라 겹치는 복합명사가 없었다.
+    #
+    # 즉 종전 구조는 "보도자료를 베낀 기사끼리"만 묶고 "같은 사건을 다르게 쓴
+    # 기사"는 놓쳤다. 제목은 매체마다 달라도 핵심 명사를 공유한다 - 그 넷 모두
+    # 제목에 삼성화재와 피난훈련과 정량평가를 갖고 있었다.
+    #
+    # 실측(2026-09-22, 최근 7일 창 38건): 후보 묶음 4개 -> 5개, 묶인 기사 14건 ->
+    # 16건. 늘어난 것은 삼성화재 2건과 신한카드 2건이고 둘 다 실제 중복이다.
+    # 오탐은 0건이고 LLM 호출은 1회 늘어난다.
+    if not body and not title:
         return set()
-    paragraphs = clean_lines(body)[:_INTRO_PARAGRAPHS]
+    paragraphs = clean_lines(body or "")[:_INTRO_PARAGRAPHS]
+    if title:
+        paragraphs = [title] + paragraphs
     if not paragraphs:
         return set()
     intro = normalize_for_comparison("\n".join(paragraphs))
@@ -276,7 +292,7 @@ class _UnionFind:
 def find_duplicate_candidates(news_items):
     """창 안 기사들 → 후보 묶음 목록.
 
-    news_items: .pk, .title(쓰지 않음), .body 속성을 갖는 객체 목록. 반환값은
+    news_items: .pk, .title, .body 속성을 갖는 객체 목록(2026-09-22부터 title도 지문 대상이다). 반환값은
     CandidateGroup 목록(단독 기사·신호 없는 기사는 포함하지 않는다 — 후보는
     "묶음"만 의미가 있다). 후보 0개(=반환 목록이 빈 리스트)면 호출부가 LLM을
     부르지 않는다는 뜻이고, 그 판단은 이 함수의 반환값만으로 내릴 수 있다
@@ -295,7 +311,7 @@ def find_duplicate_candidates(news_items):
 
     for item in items:
         normalized_body = normalize_for_comparison(item.body)
-        fingerprints = extract_event_fingerprints(item.body)
+        fingerprints = extract_event_fingerprints(item.body, getattr(item, "title", "") or "")
         numbers = extract_number_tokens(normalized_body)
         news_signals[item.pk] = (fingerprints, numbers)
         for fp in fingerprints:
