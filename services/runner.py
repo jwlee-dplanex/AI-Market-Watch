@@ -2084,6 +2084,8 @@ def _run_newsroom_filter(run_job_id: int, newsroom_id: int) -> None:
     result = filter_newsroom_articles(llm_targets, room.filter_prompt)
 
     articles_by_id = {article.pk: article for article in llm_targets}
+    # 2026-09-30 - 통과인데 순위도 없고 묶인 대상도 없는 기사(모순 조합)를 모은다.
+    orphan_ranks = []
     with transaction.atomic():
         for item in result.get("articles", []):
             # 응답에 없는 id나 이번 배치 밖의 id는 건너뛴다 — 응답은 신뢰하되
@@ -2101,9 +2103,33 @@ def _run_newsroom_filter(run_job_id: int, newsroom_id: int) -> None:
             article.impact_rank = rank if passed and rank > 0 else None
             dup_id = item.get("duplicate_of_id") or 0
             article.duplicate_of = articles_by_id.get(dup_id) if passed and dup_id else None
+            # 2026-09-30 - 모순 조합을 기록한다.
+            #
+            # 프롬프트는 "순위는 대표 기사에만 매긴다"고 정했으므로 통과인데 순위가
+            # 0이면 "다른 기사에 묶였다"는 뜻이다. 그런데 duplicate_of_id도 0이면
+            # 묶을 대상이 없다 - 어느 쪽도 성립하지 않는 답이다.
+            #
+            # 실측(2026-09-30, RunJob 310): SBI저축은행 사명 변경 기사 7건 중 1건만
+            # 순위를 받고 6건이 이 조합으로 왔다. LLM은 중복임을 알고 있었는데
+            # (그래서 순위를 비웠는데) 묶을 대상을 지정하지 않았고, 코드가 그것을
+            # 그대로 저장해 교보 소식 화면에 같은 소식이 7건 떴다.
+            #
+            # 여기서 고쳐 쓰지는 않는다 - 어느 기사를 대표로 삼을지는 판정이고,
+            # 코드가 임의로 정하면 다른 사건을 묶을 수 있다. 대신 사실을 남겨
+            # 다음에 같은 일이 생겼을 때 프롬프트 탓인지 확인할 수 있게 한다.
+            if passed and rank <= 0 and not dup_id:
+                orphan_ranks.append(article.pk)
             article.save(update_fields=[
                 "filter_status", "judged_by", "summary", "impact_rank", "duplicate_of",
             ])
+
+    if orphan_ranks:
+        logger.warning(
+            "뉴스룸 필터: 통과인데 순위도 없고 묶인 대상도 없는 기사가 %d건이에요(%s). "
+            "같은 사건을 여러 건 인지했지만 대표를 지정하지 않은 응답이라, 교보 소식 "
+            "화면에 같은 소식이 여러 줄로 뜰 수 있어요.",
+            len(orphan_ranks), orphan_ranks,
+        )
 
     usage = result.get("_usage", {})
     RunJob.objects.filter(pk=run_job_id).update(
