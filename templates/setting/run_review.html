@@ -2783,6 +2783,57 @@
                 {% elif item.fact_check.checked %}
                 <p class="text-[11px] text-gray-400">수치와 제품명 {{ item.fact_check.checked }}개를 근거 기사에서 모두 찾았어요.</p>
                 {% endif %}
+
+                {% comment %}
+                  🔴 2026-10-01 신설 — 월간만 뜨는 직전 결산 대조. 사용자 지시:
+                  *"8월과 겹치는 내용이 없는 지 확인해줘 이건 월간 보고서 만들때
+                  항상 확인해야겠는데?"*. 「항상」이라 사람 기억에 맡기지 않는다.
+
+                  ▣ 주간에는 아예 내려오지 않는다 — 뷰가 draft_type이 월간일 때만
+                    previous_overlap을 채운다(apps/setting/views.py). 그래서 이
+                    블록은 월간 카드에서만 그려진다.
+
+                  ▣ 🔴 확정을 막지 않는다. 같은 회사가 달을 걸쳐 후속 소식을 내는
+                    것은 정상이라 「겹친다」까지만 말하고 판단은 사람이 한다 —
+                    위 근거 대조와 같은 판단이다.
+
+                  ⚠️ 비교 대상이 없으면(첫 월간 결산) 그 사실을 말한다. 아무 줄도
+                    안 띄우면 "검사가 돌았는지" 알 수 없다.
+                {% endcomment %}
+                {% if item.previous_overlap %}
+                {% if item.previous_overlap.news or item.previous_overlap.rows %}
+                <div class="bg-orange-50 rounded-[10px] px-3 py-2.5 mt-2">
+                  <p class="text-[11px] font-semibold text-orange-700">직전 결산과 겹치는 것이 있어요</p>
+                  {% if item.previous_overlap.news %}
+                  <p class="text-[11px] text-orange-600 mt-1">근거 기사 {{ item.previous_overlap.news|length }}건</p>
+                  <dl class="mt-1">
+                    {% for n in item.previous_overlap.news %}
+                    <div class="flex gap-2 text-[11px] mt-1">
+                      <dt class="w-20 flex-shrink-0 text-orange-600">{{ n.published_at|date:"m.d" }}</dt>
+                      <dd class="min-w-0 truncate text-orange-700" title="{{ n.title }}">{{ n.title }}</dd>
+                    </div>
+                    {% endfor %}
+                  </dl>
+                  {% endif %}
+                  {% if item.previous_overlap.rows %}
+                  <p class="text-[11px] text-orange-600 mt-2">표 항목 {{ item.previous_overlap.rows|length }}개 (전체 {{ item.previous_overlap.row_total }}개 중)</p>
+                  <dl class="mt-1">
+                    {% for row in item.previous_overlap.rows %}
+                    <div class="flex gap-2 text-[11px] mt-1">
+                      <dt class="w-20 flex-shrink-0 font-semibold text-orange-700">{{ row.0 }}</dt>
+                      <dd class="min-w-0 truncate text-orange-600" title="{{ row.1 }}">{{ row.1 }}</dd>
+                    </div>
+                    {% endfor %}
+                  </dl>
+                  {% endif %}
+                  <p class="text-[10px] text-orange-600 mt-2 leading-relaxed">「{{ item.previous_overlap.previous_title }}」에 이미 실린 내용일 수 있어요. 달을 걸친 후속 소식이면 그대로 두셔도 돼요.</p>
+                </div>
+                {% elif item.previous_overlap.has_previous %}
+                <p class="text-[11px] text-gray-400 mt-1">직전 결산과 겹치는 기사와 표 항목이 없어요.</p>
+                {% else %}
+                <p class="text-[11px] text-gray-400 mt-1">비교할 직전 결산이 없어요.</p>
+                {% endif %}
+                {% endif %}
               </div>
 
               {% comment %}

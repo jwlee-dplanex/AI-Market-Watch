@@ -21,7 +21,10 @@
 문장은 잡히지 않는다. **이 대조를 통과한 것이 팩트라는 뜻이 아니다.**
 """
 
+import logging
 import re
+
+logger = logging.getLogger(__name__)
 
 #: 수치 표현 — 🔴 **비율과 큰 값, 시간, 금액만** 본다(2026-09-18 실측으로 좁혔다).
 #:
@@ -149,3 +152,82 @@ def check_report(content: str, overview: str, news_list) -> dict:
         )
 
     return {"checked": checked, "missing_count": len(rows), "rows": rows}
+
+
+# ---------------------------------------------------------------------------
+# 전 달 결산과의 겹침 — 월간 전용
+#
+# 🔴 2026-10-01 신설. 사용자 지시: *"8월과 겹치는 내용이 없는 지 확인해줘 이건
+# 월간 보고서 만들때 항상 확인해야겠는데?"*.
+#
+# 「항상」이어서 코드로 옮긴다. 9월 결산을 만들 때 제가 손으로 대조해 겹침 0을
+# 확인했는데, 그런 확인은 기억에 맡기면 반드시 빠진다 — 주간에서 본문 수치만 보고
+# 개요를 빼먹었던 것과 같은 실패다.
+#
+# ⚠️ 겹침이 있다고 틀린 것은 아니다. 같은 회사가 달을 걸쳐 후속 소식을 내는 것은
+# 정상이므로, 확정을 막지 않고 「겹친다」까지만 말한다(근거 대조와 같은 판단).
+# ---------------------------------------------------------------------------
+
+
+def _table_rows(markdown: str) -> set:
+    """표 행을 (첫 칸, 둘째 칸) 쌍 집합으로 뽑는다.
+
+    월간 본문은 섹션마다 컬럼이 다르지만 첫 두 칸이 늘 「누가 · 무엇을」이라
+    (기업+적용 대상, 주체+내용) 그 둘로 같은 항목인지 가린다. ⚠️ 헤더 줄은
+    첫 칸이 「기업」이나 「주체」라 그것으로 걸러낸다.
+    """
+    rows = set()
+    for line in (markdown or "").split("\n"):
+        if not line.startswith("|") or "---" in line:
+            continue
+        cells = [c.strip() for c in line.strip("|").split("|")]
+        if len(cells) < 3 or cells[0] in ("기업", "주체"):
+            continue
+        rows.add((cells[0], cells[1][:24]))
+    return rows
+
+
+def check_previous_month(content: str, news_list, previous_report) -> dict:
+    """월간 초안이 전 달 결산과 겹치는지 본다.
+
+    Args:
+        content: 이번 초안 본문(마크다운)
+        news_list: 이번 초안의 근거 News 목록
+        previous_report: 직전 월간 Report (없으면 None)
+
+    Returns:
+        {
+          "has_previous": bool,          # 비교 대상이 있었는가
+          "previous_title": str,
+          "news": [News, ...],           # 겹치는 근거 기사
+          "rows": [(기업, 항목), ...],    # 겹치는 표 항목
+          "row_total": int,              # 이번 초안의 표 행 수(모수)
+        }
+        🔴 news와 rows가 모두 비면 겹침이 없다는 뜻이다.
+    """
+    if previous_report is None:
+        return {
+            "has_previous": False, "previous_title": "",
+            "news": [], "rows": [], "row_total": len(_table_rows(content)),
+        }
+
+    prev_ids = set(previous_report.news.values_list("pk", flat=True))
+    overlap_news = [n for n in news_list if n.pk in prev_ids]
+
+    this_rows = _table_rows(content)
+    prev_rows = _table_rows(previous_report.content)
+    overlap_rows = sorted(this_rows & prev_rows)
+
+    if overlap_news or overlap_rows:
+        logger.warning(
+            "월간 초안이 직전 결산(%s)과 겹쳐요 — 근거 기사 %d건, 표 항목 %d개.",
+            previous_report.title, len(overlap_news), len(overlap_rows),
+        )
+
+    return {
+        "has_previous": True,
+        "previous_title": previous_report.title,
+        "news": overlap_news,
+        "rows": overlap_rows,
+        "row_total": len(this_rows),
+    }

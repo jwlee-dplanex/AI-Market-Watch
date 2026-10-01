@@ -18,7 +18,7 @@ from apps.news.models import DeletedNewsRecord, Insight, News, TagCorrectionReco
 from apps.news.services import correct_news_tag, delete_news_with_record
 from apps.reports.models import Report
 from services.cleanup_prefilter import AI_KEYWORDS, should_prefilter_delete
-from services.fact_check import check_report
+from services.fact_check import check_previous_month, check_report
 from services.llm import build_short_field, split_into_sentences
 from services.pricing import PRICE_PER_MILLION_TOKENS_USD, USD_KRW, compute_cost_krw
 from .models import (
@@ -2255,7 +2255,26 @@ def _report_items_context(run_jobs, job_key):
         # ⚠️ RunDraft에 저장하지 않고 화면을 그릴 때마다 센다 — 값이 초안에서 바로
         # 나오므로 저장하면 초안과 어긋날 자리가 생기고, 마이그레이션도 필요해진다.
         # 비용은 정규식 대조뿐이고 기사 본문은 위 prefetch로 이미 와 있다.
+        # 2026-10-01 신설 - 월간은 직전 결산과 겹치는지도 본다. 사용자 지시:
+        # "8월과 겹치는 내용이 없는 지 확인해줘 이건 월간 보고서 만들때 항상
+        # 확인해야겠는데?". 「항상」이라 사람 기억에 맡기지 않고 화면이 말한다.
+        #
+        # 직전 결산을 고르는 조건이 핵심이다. 이 초안의 대상 월보다 **앞선**
+        # 월간만 본다 - date_from__lt로 자르지 않으면 확정 직후 자기 자신이
+        # 잡혀 100% 겹친다고 나온다(실측으로 그렇게 됐다).
+        # 완료된 것만 비교한다(generating/failed는 아직 결산이 아니다).
+        previous_overlap = None
+        if draft.draft_type == RunDraft.TYPE_MONTHLY and draft.date_from:
+            previous = (
+                Report.objects
+                .filter(period_type="monthly", status="done",
+                        date_from__lt=draft.date_from)
+                .order_by("-date_from").first()
+            )
+            previous_overlap = check_previous_month(draft.content, news_list, previous)
+
         items.append({
+            "previous_overlap": previous_overlap,
             "fact_check": check_report(draft.content, draft.overview, news_list),
             "id": draft.pk,
             "title": draft.title,
