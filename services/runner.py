@@ -2011,6 +2011,12 @@ def _title_matches_newsroom_keywords(title: str, keywords) -> bool:
     return any(_normalize(k) in norm_title for k in keywords if k)
 
 
+#: 교보 축 중복 비교 창(일). 🔴 조사 축 DEDUP_WINDOW_DAYS와 같은 7일로 맞춘다
+#: (2026-10-02) — 두 축이 다른 창을 쓰면 "왜 저쪽은 잡고 이쪽은 놓쳤나"를 설명할
+#: 수 없다. 교보 소식은 수집량이 하루 20건 안쪽이라 창을 넓혀도 토큰이 적다.
+NEWSROOM_DEDUP_WINDOW_DAYS = 7
+
+
 def _run_newsroom_filter(run_job_id: int, newsroom_id: int) -> None:
     """SET-010 교보 소식 축 2단계(필터) — docs/planning.md "뉴스룸" 절 12-2가 정본.
     _run_insight()와 같은 구조(배치 전체 1호출, 이어하기 없음)이지만 두 가지가
@@ -2081,9 +2087,45 @@ def _run_newsroom_filter(run_job_id: int, newsroom_id: int) -> None:
         )
         return
 
-    result = filter_newsroom_articles(llm_targets, room.filter_prompt)
+    # 🔴 2026-10-02 — 창 안의 통과 대표분을 비교 전용으로 함께 넘긴다.
+    #
+    # 종전에는 이번 배치(pending)만 입력이어서 duplicate_of가 **이번 배치 안의
+    # 기사만** 가리킬 수 있었다(articles_by_id가 llm_targets만 담았다). 그래서
+    # 어제 대표와 오늘 대표를 견줄 기회가 구조적으로 없었고, 교보 소식 화면에
+    # SBI저축은행 사명 변경이 09/29·09/30·10/01 세 건으로 떴다. ⚠️ 배치 안끼리는
+    # 정확히 묶여 있었다(09/30 배치는 7건을 1건으로) — 놓친 것은 배치 사이다.
+    #
+    # 🔴 duplicate_of__isnull=True로 대표만 넣는다. 묶인 기사까지 넣으면 새 기사가
+    # 중복 기사를 가리켜 체인(a -> b -> c)이 생기고, 화면과 발송문이 기대는
+    # "대표는 duplicate_of가 없다" 불변식이 깨진다(조사 축 2026-09-17 대표 flip
+    # 방어와 같은 이유, 이 파일 747행 근처).
+    #
+    # ⚠️ 판정 결과는 이 기사들에 쓰지 않는다 — 이미 passed이고 순위도 받았다.
+    # 저장 루프가 articles_by_id(신규만)로 대상을 찾으므로, 응답에 이 id가 섞여
+    # 와도 조용히 건너뛴다.
+    window_start = timezone.now() - timedelta(days=NEWSROOM_DEDUP_WINDOW_DAYS)
+    window_articles = list(
+        room.articles.filter(
+            filter_status=NewsroomArticle.STATUS_PASSED,
+            duplicate_of__isnull=True,
+            published_at__gte=window_start,
+        )
+        .exclude(pk__in=[article.pk for article in targets])
+        .order_by("published_at")
+    )
+    if window_articles:
+        logger.info(
+            "뉴스룸 필터: 신규 %d건에 창 %d일 기존 대표 %d건을 비교용으로 함께 넣어요.",
+            len(llm_targets), NEWSROOM_DEDUP_WINDOW_DAYS, len(window_articles),
+        )
 
+    result = filter_newsroom_articles(llm_targets, room.filter_prompt, window_articles)
+
+    # 🔴 두 사전을 가른다 — 판정 저장은 신규(llm_targets)에만, duplicate_of가
+    # 가리킬 수 있는 대상은 신규와 창 기존분 둘 다다.
     articles_by_id = {article.pk: article for article in llm_targets}
+    dup_targets_by_id = dict(articles_by_id)
+    dup_targets_by_id.update({article.pk: article for article in window_articles})
     # 2026-09-30 - 통과인데 순위도 없고 묶인 대상도 없는 기사(모순 조합)를 모은다.
     orphan_ranks = []
     with transaction.atomic():
@@ -2102,7 +2144,7 @@ def _run_newsroom_filter(run_job_id: int, newsroom_id: int) -> None:
             rank = item.get("impact_rank") or 0
             article.impact_rank = rank if passed and rank > 0 else None
             dup_id = item.get("duplicate_of_id") or 0
-            article.duplicate_of = articles_by_id.get(dup_id) if passed and dup_id else None
+            article.duplicate_of = dup_targets_by_id.get(dup_id) if passed and dup_id else None
             # 2026-09-30 - 모순 조합을 기록한다.
             #
             # 프롬프트는 "순위는 대표 기사에만 매긴다"고 정했으므로 통과인데 순위가

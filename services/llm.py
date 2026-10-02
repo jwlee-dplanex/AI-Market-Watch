@@ -2468,6 +2468,14 @@ def _build_newsroom_filter_system_prompt(filter_prompt: str) -> str:
 - summary: status가 "passed"면 1~2문장 요약. "rejected"면 빈 문자열로 두세요.
 - impact_rank: status가 "passed"인 기사끼리 비즈니스 파급력 순으로 매긴 순위(1이 가장 크다). 같은 순위를 쓰지 마세요. "rejected"거나, "passed"이지만 아래 duplicate_of_id로 다른 기사에 묶이는 기사는 0으로 두세요(순위는 대표 기사에만 매깁니다).
 - duplicate_of_id: 이 기사가 다른 기사와 같은 사건을 다루고 있으면, 그 사건의 대표로 삼을 기사의 id를 적으세요. 이 기사 자신이 대표(또는 중복이 없음)면 0으로 두세요. 묶인 기사도 status는 "passed"입니다 — 중복은 제외가 아닙니다.
+
+<이미_나간_소식>
+<입력_기사> 목록에는 [기존] 표시가 붙은 기사가 섞여 있을 수 있습니다. 이미 지난 브리핑에 실린 기사입니다. **이 기사들은 판정 대상이 아니므로 응답에 넣지 마세요.** 오직 같은 사건인지 견주기 위한 참고 자료입니다.
+
+[신규] 기사가 [기존] 기사와 같은 사건을 다루고 있으면 duplicate_of_id에 **그 [기존] 기사의 id**를 적으세요. 발행일이 며칠 차이나거나 후속 보도여도, 사건의 핵심이 같으면 같은 사건입니다. 예를 들어 지난주에 "A사, 사명 변경 추진"이 나갔고 오늘 "A사, 11월부터 새 사명 적용"이 왔다면 같은 사건입니다.
+
+⚠️ 핵심 사건이 다르면 같은 회사 소식이어도 묶지 마세요. 새로 밝혀진 사실이 기사의 중심이면 별개 사건입니다. 판단이 갈리면 묶지 않는 쪽을 고르세요.
+</이미_나간_소식>
 """
 
 
@@ -2495,17 +2503,40 @@ OUTPUT_SCHEMA_NEWSROOM_FILTER = {
 }
 
 
-def _build_newsroom_filter_user_message(articles) -> str:
+#: [기존] 기사의 본문을 얼마나 넣는가. 🔴 같은 사건인지 가리는 데는 도입부가
+#: 있으면 충분하고, 창 안 대표는 많아도 열 건 안쪽이라 토큰 부담이 작다(조사 축
+#: DEDUP_BODY_TRUNCATE_CHARS와 같은 판단).
+NEWSROOM_WINDOW_BODY_CHARS = 600
+
+
+def _build_newsroom_filter_user_message(articles, window_articles=()) -> str:
     """배치 전체를 하나의 사용자 메시지로 조립한다(12-2 (a), 건별 호출이 아니다).
     id는 NewsroomArticle.pk를 그대로 쓴다 — _build_insight_user_message()와 같은
-    방식(응답의 id/duplicate_of_id를 별도 해석 없이 그 pk로 바로 찾는다)."""
+    방식(응답의 id/duplicate_of_id를 별도 해석 없이 그 pk로 바로 찾는다).
+
+    🔴 2026-10-02 — window_articles를 [기존]으로 함께 넣는다. 조사 축
+    _build_dedup_user_message()의 [신규]/[기존] 표시와 같은 모양이다.
+
+    계기: 교보 소식 화면에 SBI저축은행 사명 변경이 3건(09/29·09/30·10/01),
+    교보라이프플래닛 흡수가 2건(09/16·09/29), 교보악사자산운용 100% 자회사화가
+    3건 떴다. ⚠️ **배치 안끼리는 정확히 묶였다** — 09/30 배치는 7건을 1건으로
+    묶었다. 문제는 어제 대표와 오늘 대표를 견줄 기회가 입력에 아예 없었던 것이다.
+    조사 축은 window_news로 창 7일을 함께 넣는데 교보 축에는 그 장치가 없었다."""
     blocks = []
     for article in articles:
         blocks.append(
-            f"[id={article.pk}] {article.title}\n"
+            f"[신규] [id={article.pk}] {article.title}\n"
             f"발행일: {timezone.localtime(article.published_at):%Y-%m-%d}\n"
             f"매체: {article.source_domain}\n\n"
             f"{article.body}"
+        )
+    for article in window_articles:
+        body = (article.body or "")[:NEWSROOM_WINDOW_BODY_CHARS]
+        blocks.append(
+            f"[기존] [id={article.pk}] {article.title}\n"
+            f"발행일: {timezone.localtime(article.published_at):%Y-%m-%d}\n"
+            f"매체: {article.source_domain}\n\n"
+            f"{body}"
         )
     return "<입력_기사>\n" + "\n\n---\n\n".join(blocks) + "\n</입력_기사>"
 
@@ -2534,7 +2565,7 @@ def _parse_newsroom_filter_response(response) -> dict:
     return data
 
 
-def filter_newsroom_articles(articles, filter_prompt: str) -> dict:
+def filter_newsroom_articles(articles, filter_prompt: str, window_articles=()) -> dict:
     """뉴스룸 기사 배치를 한 번에 판정한다. 이 함수는 LLM을 부르고 결과를 반환할
     뿐 DB에 아무것도 쓰지 않는다(generate_insights()와 같은 계약) — 저장은
     호출부(services/runner.py _run_newsroom_filter())가 한다.
@@ -2545,6 +2576,9 @@ def filter_newsroom_articles(articles, filter_prompt: str) -> dict:
     Args:
         articles: 판정할 NewsroomArticle 목록(filter_status=pending 전량).
         filter_prompt: 그 뉴스룸의 Newsroom.filter_prompt 원문.
+        window_articles: 🔴 비교 전용 NewsroomArticle 목록(창 안 통과 대표분).
+            판정 대상이 아니다 — 입력에 [기존]으로 들어가고 응답에는 담기지
+            않는다. 호출부가 응답에서 이 id를 만나면 무시한다.
 
     Returns:
         {"articles": [...], "_usage": {...}} — articles의 각 원소는
@@ -2561,7 +2595,10 @@ def filter_newsroom_articles(articles, filter_prompt: str) -> dict:
             model=settings.BEDROCK_MODEL_SMART,
             max_tokens=8192,
             system=_build_newsroom_filter_system_prompt(filter_prompt),
-            messages=[{"role": "user", "content": _build_newsroom_filter_user_message(articles)}],
+            messages=[{
+                "role": "user",
+                "content": _build_newsroom_filter_user_message(articles, window_articles),
+            }],
             output_config={"format": {"type": "json_schema", "schema": OUTPUT_SCHEMA_NEWSROOM_FILTER}},
         )
     except (anthropic.AuthenticationError, anthropic.PermissionDeniedError, anthropic.NotFoundError) as exc:
