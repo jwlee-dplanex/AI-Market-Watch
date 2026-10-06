@@ -742,22 +742,34 @@ def split_into_sentences(text: str) -> list[str]:
     return chunks
 
 
-def build_short_field(text: str, keep_indices, *, always_keep_prefix: str = "") -> str:
-    """정본 text를 문장으로 쪼개 keep_indices(1부터 시작하는 번호, LLM 응답)가 가리키는
-    문장만 그대로 이어 붙인다. 범위를 벗어나거나 정수가 아닌 인덱스는 조용히 버린다 —
-    LLM이 정확히 우리 분할과 같은 번호를 맞힌다는 보장이 없어서다(모델이 스스로 쓰고
-    있는 content/implication을 실시간으로 세어 매기는 값이라 근사치다).
+def resolve_keep_indices(
+    text: str, keep_indices, *, always_keep_prefix: str = "", block_prefix: str = "",
+) -> list[int]:
+    """축약본에 남길 문장 번호(1부터)를 확정한다.
+
+    🔴 build_short_field()와 검토 화면(apps/setting/views.py _sentences_context())이
+    **같은 집합**을 쓰도록 이 한 곳에만 둔다. 종전에는 두 곳이 같은 로직을 각자
+    구현해 두어, 한쪽만 고치면 화면의 취소선과 실제 축약본이 조용히 갈렸다.
 
     always_keep_prefix: 이 문자열로 시작하는 줄은 keep_indices에 없어도 항상 포함한다.
     Report의 `참고:` 규약 줄 전용이다 — "축약본은 정본과 동일해야 한다"는 요건이라
     LLM의 선택 대상이 아니라 항상 따라간다(docs/planning.md "RA 손 작업을 전부 단계
     안으로 넣는다" 3-1 ⚠️).
 
-    🔴 안전망(같은 절 3-1 "확정 시 코드가 검사한다"): 결과는 sentences[i-1]들을
-    인덱스로 그대로 이어 붙여 만들므로 원문 문장이 아닌 글자가 섞일 길이 구조적으로
-    없다. 그래도 방어적으로 각 조각이 실제로 text 안에 있는지 다시 확인한다 — 하나라도
-    어긋나면 빈 문자열을 반환해 display_content/display_implication이 정본으로
-    조용히 폴백하게 한다(500 금지, 어긋난 축약본을 저장하는 것보다 없는 쪽이 낫다)."""
+    block_prefix: 🔴 2026-10-02 신설. 이 문자열로 시작하는 줄(보고서 이슈 머리 `###`)은
+    항상 남기고, **그 블록 안에 본문 문장이 하나도 안 남았으면 그 블록의 첫 본문
+    문장을 넣는다.**
+
+    계기 — Report 27의 짧은 버전에서 이슈 두 건이 통째로 사라졌다. `참고:` 줄은
+    always_keep_prefix로 강제 포함되는데 `###` 머리에는 그 보호가 없어서, LLM이 그
+    블록 문장을 하나도 고르지 않자 **머리와 본문은 빠지고 참고 줄만 세 개 연달아
+    남았다**(긴 버전 ### 5개 대 짧은 버전 3개). 화면에는 세 번째 이슈 밑에 「참고:」가
+    세 줄 찍히고 네 번째·다섯 번째 이슈가 사라져 보였다. ⚠️ **사용자가 화면에서 먼저
+    발견했다** — 코드는 오류를 내지 않았고 7월부터 아홉 번은 우연히 멀쩡했다.
+
+    ⚠️ 첫 본문 문장을 코드가 고르는 것이 맞지만, 제목만 떠 있는 이슈나 참고 줄만
+    남은 이슈보다 낫다. 원문 문장을 그대로 쓰므로 "빼는 것만 허용"은 그대로 지켜진다.
+    """
     sentences = split_into_sentences(text)
     valid = {
         i for i in (keep_indices or [])
@@ -767,7 +779,62 @@ def build_short_field(text: str, keep_indices, *, always_keep_prefix: str = "") 
         valid |= {
             i for i, s in enumerate(sentences, start=1) if s.lstrip().startswith(always_keep_prefix)
         }
-    valid = sorted(valid)
+        # 🔴 2026-10-02 — `참고:` 줄 **바로 앞의 빈 줄 조각**을 함께 넣어 그 줄이
+        # 줄머리에 오도록 보장한다.
+        #
+        # 앞 문장을 골랐는데 그 조각이 줄 끝까지 가지 않으면(한 줄에 문장이 여러 개
+        # 있는 단락의 첫 문장이면) 이어 붙인 결과가 `...출시했다. 참고: 4e702bd8`처럼
+        # **한 줄**이 된다. 그러면 report_issues()가 그 줄을 통째로 본문으로 읽어
+        # 🔴 근거 기사를 하나도 못 찾고(실측: 근거 pk가 빈 배열) 화면에 「참고:」가
+        # 그대로 찍힌다. 빈 줄 조각은 원문에 실재하는 "\\n"이라 "빼는 것만 허용"을
+        # 어기지 않는다.
+        for i in sorted(valid):
+            if not sentences[i - 1].lstrip().startswith(always_keep_prefix):
+                continue
+            j = i - 1
+            while j >= 1 and not sentences[j - 1].strip():
+                valid.add(j)
+                j -= 1
+    if block_prefix:
+        heads = [
+            i for i, s in enumerate(sentences, start=1)
+            if s.lstrip().startswith(block_prefix)
+        ]
+        valid |= set(heads)
+        for pos, head in enumerate(heads):
+            # 다음 머리 직전까지가 이 블록이다(마지막 블록은 끝까지).
+            end = heads[pos + 1] if pos + 1 < len(heads) else len(sentences) + 1
+            body = [
+                i for i in range(head + 1, end)
+                if sentences[i - 1].strip()
+                and not (
+                    always_keep_prefix
+                    and sentences[i - 1].lstrip().startswith(always_keep_prefix)
+                )
+            ]
+            if body and not set(body) & valid:
+                valid.add(body[0])
+    return sorted(valid)
+
+
+def build_short_field(
+    text: str, keep_indices, *, always_keep_prefix: str = "", block_prefix: str = "",
+) -> str:
+    """정본 text를 문장으로 쪼개 resolve_keep_indices()가 고른 문장만 그대로 이어
+    붙인다. 범위를 벗어나거나 정수가 아닌 인덱스는 그 함수가 조용히 버린다 — LLM이
+    정확히 우리 분할과 같은 번호를 맞힌다는 보장이 없어서다(모델이 스스로 쓰고 있는
+    content/implication을 실시간으로 세어 매기는 값이라 근사치다).
+
+    🔴 안전망(docs/planning.md 3-1 "확정 시 코드가 검사한다"): 결과는 sentences[i-1]들을
+    인덱스로 그대로 이어 붙여 만들므로 원문 문장이 아닌 글자가 섞일 길이 구조적으로
+    없다. 그래도 방어적으로 각 조각이 실제로 text 안에 있는지 다시 확인한다 — 하나라도
+    어긋나면 빈 문자열을 반환해 display_content/display_implication이 정본으로
+    조용히 폴백하게 한다(500 금지, 어긋난 축약본을 저장하는 것보다 없는 쪽이 낫다)."""
+    sentences = split_into_sentences(text)
+    valid = resolve_keep_indices(
+        text, keep_indices,
+        always_keep_prefix=always_keep_prefix, block_prefix=block_prefix,
+    )
     if not valid:
         return ""
     picked = [sentences[i - 1] for i in valid]

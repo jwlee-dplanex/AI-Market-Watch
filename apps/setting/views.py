@@ -19,7 +19,7 @@ from apps.news.services import correct_news_tag, delete_news_with_record
 from apps.reports.models import Report
 from services.cleanup_prefilter import AI_KEYWORDS, should_prefilter_delete
 from services.fact_check import check_previous_month, check_report
-from services.llm import build_short_field, split_into_sentences
+from services.llm import build_short_field, resolve_keep_indices, split_into_sentences
 from services.pricing import PRICE_PER_MILLION_TOKENS_USD, USD_KRW, compute_cost_krw
 from .models import (
     DataSource, Keyword, CollectionLog, SlackConfig,
@@ -2029,20 +2029,26 @@ def _format_duration(seconds: int) -> str:
     return f"{seconds // 60}분 {seconds % 60}초" if seconds >= 60 else f"{seconds}초"
 
 
-def _sentences_context(text, keep_indices, *, always_keep_prefix=""):
+def _sentences_context(text, keep_indices, *, always_keep_prefix="", block_prefix=""):
     """축약본 검토용 {text, keep} 목록과 축약본 글자 수를 함께 만든다(design.md 31차
     ⑨ "전문 위에 표시" — 남은 문장이 아니라 빠진 문장을 검산할 수 있어야 한다).
-    services.llm.split_into_sentences()/build_short_field()와 같은 분할을 한 번 더
-    돌려 재구성한다 — RunDraft에는 인덱스만 저장돼 있고(모델 docstring), 화면이
-    필요할 때 그 인덱스로 문장 목록을 다시 만든다."""
+    services.llm.split_into_sentences()와 같은 분할을 한 번 더 돌려 재구성한다 —
+    RunDraft에는 인덱스만 저장돼 있고(모델 docstring), 화면이 필요할 때 그 인덱스로
+    문장 목록을 다시 만든다.
+
+    🔴 2026-10-02 — 남길 번호를 직접 계산하지 않고 services.llm.resolve_keep_indices()에
+    맡긴다. 종전에는 이 함수가 같은 규칙을 손으로 다시 구현해서, build_short_field()에
+    block_prefix가 붙는 순간 **화면의 취소선과 실제 축약본이 갈렸을** 자리다."""
     sentences = split_into_sentences(text)
-    keep_set = {i for i in (keep_indices or []) if isinstance(i, int) and not isinstance(i, bool)}
-    if always_keep_prefix:
-        keep_set |= {
-            i for i, s in enumerate(sentences, start=1) if s.lstrip().startswith(always_keep_prefix)
-        }
+    keep_set = set(resolve_keep_indices(
+        text, keep_indices,
+        always_keep_prefix=always_keep_prefix, block_prefix=block_prefix,
+    ))
     items = [{"text": s, "keep": (i in keep_set)} for i, s in enumerate(sentences, start=1)]
-    short = build_short_field(text, keep_indices, always_keep_prefix=always_keep_prefix)
+    short = build_short_field(
+        text, keep_indices,
+        always_keep_prefix=always_keep_prefix, block_prefix=block_prefix,
+    )
     return items, len(short)
 
 
@@ -2248,7 +2254,8 @@ def _report_items_context(run_jobs, job_key):
             content_sentences, content_short_length = [], 0
         else:
             content_sentences, content_short_length = _sentences_context(
-                draft.content, draft.content_keep, always_keep_prefix="참고:",
+                draft.content, draft.content_keep,
+                always_keep_prefix="참고:", block_prefix="###",
             )
         # 🔴 2026-09-18 신설 — 근거 대조(services/fact_check.py). 사용자 지시:
         # *"주간 보고서는 항상 다 작성하면 팩트 기반인 지 더블체크해야하고"*.
@@ -3149,8 +3156,12 @@ def _confirm_report_drafts(request, run_jobs, job_key) -> None:
                     title=draft.title, overview=draft.overview, content=draft.content,
                     # 🔴 2026-09-17 신설 — 축약본(4번, 3번과 같은 방식). `참고:` 줄은
                     # 항상 포함한다(3-1 ⚠️, _sentences_context와 같은 이유).
+                    # 🔴 block_prefix="###" (2026-10-02) — 이슈 머리를 항상 남긴다.
+                    # 빼먹으면 LLM이 어느 이슈 문장도 고르지 않았을 때 그 이슈가
+                    # 짧은 버전에서 통째로 사라지고 `참고:` 줄만 남는다(Report 27).
                     content_short=build_short_field(
-                        draft.content, draft.content_keep, always_keep_prefix="참고:",
+                        draft.content, draft.content_keep,
+                        always_keep_prefix="참고:", block_prefix="###",
                     ),
                     # 🔴 2026-09-18 — "generating"에서 바꿨다(위 독스트링). 확정이
                     # 최종이므로 그 자리에서 완료다.
