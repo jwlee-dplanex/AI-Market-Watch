@@ -742,6 +742,19 @@ def split_into_sentences(text: str) -> list[str]:
     return chunks
 
 
+#: LLM이 번호를 하나도 내지 않은 블록에 코드가 넣어 주는 문장 수.
+#:
+#: 🔴 2026-10-06 사용자 확정. 종전에는 첫 문장 하나만 넣었는데, 10월 1주차 보고서의
+#: 4번(다올투자증권)과 5번(카카오뱅크) 이슈가 **한 문장 76자·166자**로 남아 긴 버전
+#: 대비 13%·20%밖에 되지 않았다. LLM이 고른 번호가 43번에서 끊겼고 그 두 이슈는
+#: 46번과 60번부터 시작해서, 블록 안에 고른 번호가 아예 없었기 때문이다.
+#:
+#: ⚠️ 세 문장인 근거는 같은 보고서의 1번 이슈다 — LLM이 직접 고른 블록 가운데 가장
+#: 짧은 것이 3문장(229자, 긴 버전의 52%)이었다. 그것을 하한으로 삼는다. 2번은
+#: 6문장, 3번은 7문장이었다.
+BLOCK_FALLBACK_SENTENCES = 3
+
+
 def resolve_keep_indices(
     text: str, keep_indices, *, always_keep_prefix: str = "", block_prefix: str = "",
 ) -> list[int]:
@@ -757,8 +770,9 @@ def resolve_keep_indices(
     안으로 넣는다" 3-1 ⚠️).
 
     block_prefix: 🔴 2026-10-02 신설. 이 문자열로 시작하는 줄(보고서 이슈 머리 `###`)은
-    항상 남기고, **그 블록 안에 본문 문장이 하나도 안 남았으면 그 블록의 첫 본문
-    문장을 넣는다.**
+    항상 남기고, **그 블록 안에 본문 문장이 하나도 안 남았으면 그 블록의 앞
+    BLOCK_FALLBACK_SENTENCES개 문장을 넣는다**(2026-10-06에 한 개에서 세 개로 늘렸다 —
+    그 상수의 주석에 실측 근거가 있다).
 
     계기 — Report 27의 짧은 버전에서 이슈 두 건이 통째로 사라졌다. `참고:` 줄은
     always_keep_prefix로 강제 포함되는데 `###` 머리에는 그 보호가 없어서, LLM이 그
@@ -813,7 +827,7 @@ def resolve_keep_indices(
                 )
             ]
             if body and not set(body) & valid:
-                valid.add(body[0])
+                valid.update(body[:BLOCK_FALLBACK_SENTENCES])
     return sorted(valid)
 
 

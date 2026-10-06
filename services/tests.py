@@ -6,6 +6,7 @@ from apps.news.models import News
 from apps.setting.models import DataSource, Keyword
 from services import collector
 from services.dedup_candidates import extract_event_fingerprints
+from services.llm import build_short_field, resolve_keep_indices, split_into_sentences
 
 PUB_DATE = "Thu, 06 Aug 2026 09:00:00 +0900"
 
@@ -140,3 +141,101 @@ class EventFingerprintTests(SimpleTestCase):
         """재료가 없으면 빈 집합이다(호출부가 신호 없는 기사를 걸러낼 수 있어야 한다)."""
         self.assertEqual(extract_event_fingerprints("", ""), set())
         self.assertEqual(extract_event_fingerprints(None, None), set())
+
+
+# 2026-10-02 신설, 2026-10-06 보강 — 축약본 조립 회귀 방어.
+#
+# 🔴 이 조립도 틀려도 오류를 내지 않는다. 증상은 화면에서만 보인다 — 이슈가 통째로
+# 사라지거나(10-02), 뒤쪽 이슈가 한 문장으로 쪼그라든다(10-06). 둘 다 사용자가 화면에서
+# 먼저 발견했다.
+SAMPLE_REPORT = """### 첫째 이슈 제목
+
+첫째 문장이다. 둘째 문장이다. 셋째 문장이다. 넷째 문장이다.
+
+참고: uid-aaa
+
+### 둘째 이슈 제목
+
+다섯째 문장이다. 여섯째 문장이다. 일곱째 문장이다. 여덟째 문장이다.
+
+참고: uid-bbb
+"""
+
+
+class BuildShortFieldTests(SimpleTestCase):
+    """services/llm.py resolve_keep_indices()/build_short_field()의 불변식."""
+
+    def _first_block_indices(self):
+        """첫째 이슈 본문 문장들의 번호. LLM이 그쪽만 골랐다고 흉내 내는 데 쓴다."""
+        sentences = split_into_sentences(SAMPLE_REPORT)
+        return [
+            i for i, s in enumerate(sentences, start=1)
+            if "첫째 문장" in s or "둘째 문장" in s
+        ]
+
+    def test_issue_heading_survives_even_if_llm_picked_nothing(self):
+        """🔴 LLM이 그 블록 문장을 하나도 고르지 않아도 이슈 머리는 남아야 한다.
+
+        종전 실패(Report 27): 머리와 본문이 빠지고 `참고:` 줄만 세 개 연달아 남아,
+        화면에서 뒤쪽 두 이슈가 사라져 보였다."""
+        short = build_short_field(
+            SAMPLE_REPORT, self._first_block_indices(),
+            always_keep_prefix="참고:", block_prefix="###",
+        )
+        self.assertEqual(short.count("###"), 2)
+        self.assertIn("### 둘째 이슈 제목", short)
+
+    def test_block_without_picks_gets_three_sentences(self):
+        """🔴 번호가 없는 블록에는 앞 세 문장이 들어가야 한다.
+
+        종전에는 첫 문장 하나만 넣어서, 10월 1주차 보고서의 4번과 5번 이슈가 76자와
+        166자(긴 버전의 13%·20%)로 남았다. 세 문장인 근거는 같은 보고서에서 LLM이
+        직접 고른 블록 가운데 가장 짧은 것이 3문장이었다는 실측이다."""
+        short = build_short_field(
+            SAMPLE_REPORT, self._first_block_indices(),
+            always_keep_prefix="참고:", block_prefix="###",
+        )
+        self.assertIn("다섯째 문장", short)
+        self.assertIn("여섯째 문장", short)
+        self.assertIn("일곱째 문장", short)
+        # 네 번째는 넣지 않는다 — 축약이기 때문이다.
+        self.assertNotIn("여덟째 문장", short)
+
+    def test_reference_line_starts_its_own_line(self):
+        """🔴 `참고:` 줄은 줄머리에 와야 한다.
+
+        본문 문장과 한 줄에 붙으면 report_issues()가 그 줄을 본문으로 읽어 근거
+        기사를 하나도 못 찾는다(실측: 근거가 빈 배열로 나오고 화면에 「참고:」가
+        그대로 찍혔다)."""
+        short = build_short_field(
+            SAMPLE_REPORT, self._first_block_indices(),
+            always_keep_prefix="참고:", block_prefix="###",
+        )
+        self.assertEqual(short.count("참고:"), 2)
+        for line in short.split("\n"):
+            if "참고:" in line:
+                self.assertTrue(
+                    line.lstrip().startswith("참고:"),
+                    f"`참고:` 가 줄머리에 없어요: {line!r}",
+                )
+
+    def test_short_field_uses_only_original_sentences(self):
+        """🔴 축약본은 원문 문장만 이어 붙인다(빼는 것만 허용)."""
+        short = build_short_field(
+            SAMPLE_REPORT, self._first_block_indices(),
+            always_keep_prefix="참고:", block_prefix="###",
+        )
+        sentences = split_into_sentences(SAMPLE_REPORT)
+        indices = resolve_keep_indices(
+            SAMPLE_REPORT, self._first_block_indices(),
+            always_keep_prefix="참고:", block_prefix="###",
+        )
+        self.assertEqual("".join(sentences[i - 1] for i in indices), short)
+        for i in indices:
+            self.assertIn(sentences[i - 1], SAMPLE_REPORT)
+
+    def test_split_into_sentences_round_trips(self):
+        """🔴 `"".join(split_into_sentences(t)) == t` — 축약본 설계 전체가 이 불변식
+        하나에 기대고 있다."""
+        for text in (SAMPLE_REPORT, "", "한 문장이다.", "줄바꿈\n있는 글이다."):
+            self.assertEqual("".join(split_into_sentences(text)), text)
