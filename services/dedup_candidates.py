@@ -152,7 +152,18 @@ def _strip_trailing_josa(token):
     return token
 
 
-_TOKEN_SPLIT_RE = re.compile(r"[\s/·,]+")
+# 🔴 2026-10-02 — 따옴표와 줄임표도 분리 문자에 넣는다.
+#
+# 종전에는 공백·슬래시·가운뎃점·쉼표만 분리해서, 제목에 흔한 「정량평가’…CCTV로」가
+# **한 토큰**으로 남았다. 삼성화재 피난훈련 기사가 바로 그 모양이었고, 다른 기사의
+# 「정량평가」와 겹칠 수 없었다. _STRIP_PUNCT_RE는 토큰 **양끝**만 벗기므로 가운데
+# 끼인 구두점은 닿지 못한다.
+#
+# ⚠️ 괄호는 **넣지 않는다**(2026-10-02 실측). 넣어 보니 「인공지능(AI)」이
+# 「인공지능」과 「AI」로 쪼개져 바이그램 **「인공지능 AI」**가 생겼고, 그 표기가
+# 거의 모든 기사에 있어 무관한 기사 여섯 건이 한 묶음으로 이어졌다. 창이 39건이라
+# 6/39=15%로 흔한 값 임계(50%)를 넘지 못해 걸러지지도 않았다.
+_TOKEN_SPLIT_RE = re.compile(r"[\s/·,…‥\"'“”‘’]+")
 _STRIP_PUNCT_RE = re.compile(r"^[\"'“”‘’「」『』《》〈〉()\[\]{}.,·]+|[\"'“”‘’「」『』《》〈〉()\[\]{}.,·]+$")
 
 # 🔴 실측으로 드러난 함정 셋 — services/text_cleaning.py의 바이라인 패턴 두 종("...기자 |
@@ -183,6 +194,37 @@ def _tokenize_intro(intro_text):
         if t:
             tokens.append(t)
     return tokens
+
+
+#: 🔴 한쪽에 이 낱말이 오면 바이그램을 만들지 않는다(2026-10-02 실측).
+#:
+#: _ACRONYM_RE가 최소 3자인 이유("2자짜리 약어는 변별력이 없다")를 **바이그램에도**
+#: 적용하는 자리다. 종전에는 「AI」가 단독 지문에서만 빠지고 바이그램에는 그대로
+#: 들어가서, 실측(최근 7일 창 39건)에서 무관한 기사를 잇는 신호가 전부 이 꼴이었다.
+#:
+#:   fingerprint:AI 에이전트   무관한 9건
+#:   fingerprint:금융 AI       무관한 3건
+#:   fingerprint:AI 데이터센터  무관한 3건
+#:   fingerprint:생성형 AI      같은 묶음
+#:   fingerprint:인공지능 AI    무관한 6건
+#:
+#: ⚠️ 실측에서 잡음으로 드러난 다섯 신호는 **전부 한쪽이 「AI」**였다. 그래서 목록을
+#: 그 둘(과 소문자 표기)로만 둔다 — 「디지털」·「금융」·「서비스」처럼 흔해 보이는
+#: 낱말을 근거 없이 넣지 않는다. 그것들이 실제로 잡음을 만들면 그때 실측과 함께
+#: 넣는다.
+#:
+#: 🔴 한쪽만 걸려도 막는다(or). 「AI 에이전트」는 「에이전트」가 흔한 낱말이 아니라서
+#: 양쪽 조건(and)으로는 걸리지 않는데, 실측에서 무관한 9건을 이은 신호가 바로
+#: 그것이었다. 이 서비스의 주제 자체가 「금융권 AI 도입 동향」이라 AI가 붙은 복합어는
+#: 어느 창에서도 흔하다 — 창 안 빈도(_find_common_values)로는 가려낼 수 없는 종류다.
+#:
+#: ⚠️ 막아도 같은 사건이면 다른 복합명사가 겹친다. 삼성화재 피난훈련은 「AI 기반」과
+#: 「AI로 피난훈련」을 잃지만 「피난훈련 정량평가」로 그대로 묶인다(실측 확인).
+_WEAK_BIGRAM_WORDS = {"AI", "ai", "인공지능"}
+
+
+def _is_weak_bigram(a, b):
+    return a in _WEAK_BIGRAM_WORDS or b in _WEAK_BIGRAM_WORDS
 
 
 def extract_event_fingerprints(body, title=""):
@@ -220,17 +262,31 @@ def extract_event_fingerprints(body, title=""):
     tokens = _tokenize_intro(intro)
 
     fingerprints = set()
-    stems = []
+    # 🔴 2026-10-02 — 어절마다 "조사를 벗긴 형태"와 "원형"을 **둘 다** 들고 간다.
+    #
+    # _strip_trailing_josa()는 형태소 분석기 없이 글자만 보므로 멀쩡한 낱말을 깎는다.
+    # 실측: 「정량평가」가 **「정량평」**이 됐다(「가」를 조사로 봤다). 「평가」·「증가」·
+    # 「국가」·「물가」가 모두 같은 손상을 입는다. 삼성화재 피난훈련 기사 셋이 서로
+    # 지문을 하나도 공유하지 않은 원인의 절반이 이것이었다.
+    #
+    # ⚠️ 어느 쪽이 맞는지 코드가 알 수 없으므로 고르지 않는다. 둘 다 넣으면 상대
+    # 기사가 어느 형태로 썼든 맞는다. 바이그램은 (앞 변형 × 뒤 변형)으로 만든다 —
+    # 어절당 최대 2개라 조합은 최대 4개이고, 늘어난 지문은 흔한 값 판정
+    # (_find_common_values)이 2차로 걸러낸다.
+    variants = []
     for tok in tokens:
         if _ACRONYM_RE.match(tok):
             fingerprints.add(tok)
-            stems.append(tok)
-        else:
-            stems.append(_strip_trailing_josa(tok))
+            variants.append([tok])
+            continue
+        stem = _strip_trailing_josa(tok)
+        variants.append([stem] if stem == tok else [stem, tok])
 
-    for a, b in zip(stems, stems[1:]):
-        if len(a) >= 2 and len(b) >= 2:
-            fingerprints.add(f"{a} {b}")
+    for left, right in zip(variants, variants[1:]):
+        for a in left:
+            for b in right:
+                if len(a) >= 2 and len(b) >= 2 and not _is_weak_bigram(a, b):
+                    fingerprints.add(f"{a} {b}")
 
     return fingerprints
 
